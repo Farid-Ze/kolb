@@ -1,0 +1,4 @@
+# Ruff configuration (minimal)
+line-length = 100
+select = ["E", "F", "I", "B"]
+ignore = ["B008"]

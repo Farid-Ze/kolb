@@ -1,0 +1,24 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: klsi
+      POSTGRES_PASSWORD: klsi
+      POSTGRES_DB: klsi
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg2://klsi:klsi@db:5432/klsi
+      JWT_SECRET_KEY: change-me
+      ENV: prod
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+volumes:
+  pgdata: {}

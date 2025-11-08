@@ -1,0 +1,1 @@
+always validate The Kolb Learning Style Inventory 4.0 - Guide to Theory, Psychometrics, Research & Applications.md from before answering  & you must be live and thinking at 2025 Nov.
