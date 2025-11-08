@@ -1,11 +1,7 @@
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
-
-from app.db.database import Base, SessionLocal
-from app.db.database import engine as app_engine
-from app.main import app
+from app.db.database import SessionLocal
 from app.models.klsi import (
     AssessmentSession,
     LearningFlexibilityIndex,
@@ -15,34 +11,6 @@ from app.models.klsi import (
     User,
     UserLearningStyle,
 )
-from app.services.seeds import seed_learning_styles, seed_placeholder_items
-
-# NOTE: We re-use the existing engine (likely SQLite in tests) and seed data once.
-# Create a mediator and normal user for auth flows.
-
-def _ensure_seed():
-    Base.metadata.create_all(bind=app_engine)
-    with SessionLocal() as db:
-        seed_learning_styles(db)
-        seed_placeholder_items(db)
-        # mediator user
-        if not db.query(User).filter(User.email == 'mediator@mahasiswa.unikom.ac.id').first():
-            db.add(
-                User(
-                    full_name='Mediator',
-                    email='mediator@mahasiswa.unikom.ac.id',
-                    role='MEDIATOR',
-                )
-            )
-        if not db.query(User).filter(User.email == 'user@mahasiswa.unikom.ac.id').first():
-            db.add(
-                User(
-                    full_name='User',
-                    email='user@mahasiswa.unikom.ac.id',
-                    role='MAHASISWA',
-                )
-            )
-        db.commit()
 
 
 def _issue_token(user_id: int):
@@ -51,9 +19,7 @@ def _issue_token(user_id: int):
     return create_access_token(subject=str(user_id))
 
 
-def test_team_crud_and_member_and_rollup():
-    _ensure_seed()
-    client = TestClient(app)
+def test_team_crud_and_member_and_rollup(client):
     with SessionLocal() as db:
         mediator = db.query(User).filter(User.email == 'mediator@mahasiswa.unikom.ac.id').first()
         if mediator is None:
@@ -186,9 +152,7 @@ def test_team_crud_and_member_and_rollup():
     assert r.status_code == 200
 
 
-def test_research_crud_and_children():
-    _ensure_seed()
-    client = TestClient(app)
+def test_research_crud_and_children(client):
     with SessionLocal() as db:
         mediator = db.query(User).filter(User.email == 'mediator@mahasiswa.unikom.ac.id').first()
         if mediator is None:

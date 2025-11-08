@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from sqlalchemy import text
 
@@ -12,44 +14,31 @@ from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
 from app.services.seeds import seed_learning_styles, seed_placeholder_items
 
-app = FastAPI(title=settings.app_name)
 
-# Register routers at import time so tests see routes without requiring startup
-app.include_router(auth_router)
-app.include_router(sessions_router)
-app.include_router(admin_router)
-app.include_router(reports_router)
-app.include_router(score_router)
-app.include_router(teams_router)
-app.include_router(research_router)
-
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     Base.metadata.create_all(bind=engine)
-    # seed minimal reference data
     with SessionLocal() as db:
         seed_learning_styles(db)
         seed_placeholder_items(db)
-        # ─────────────────────────────────────────────────────────────
-        # Create partial index for completed sessions (PostgreSQL only)
-        # and style grid view for reporting convenience.
-        # Safe to run each startup (IF NOT EXISTS semantics where possible).
-        # ─────────────────────────────────────────────────────────────
         try:
-            db.execute(text("""
+            db.execute(text(
+                """
             DO $$ BEGIN
                 IF NOT EXISTS (
                     SELECT 1 FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'ix_assessment_sessions_completed'
                 ) THEN
                     EXECUTE 'CREATE INDEX ix_assessment_sessions_completed ON assessment_sessions (user_id, end_time) WHERE status = ''Completed''';
                 END IF;
-            END $$;"""))
+            END $$;"""
+            ))
         except Exception:
-            pass  # Non-Postgres atau sudah ada
-            # Create or replace view v_style_grid — only on non-prod to avoid silent override
+            # Non-Postgres atau sudah ada
             if settings.environment != 'prod':
                 try:
-                    db.execute(text("""
+                    db.execute(text(
+                        """
                     CREATE OR REPLACE VIEW v_style_grid AS
                     SELECT s.id AS session_id,
                              s.user_id,
@@ -70,10 +59,26 @@ def startup():
                         JOIN combination_scores cs ON cs.session_id = s.id
                         LEFT JOIN user_learning_styles uls ON uls.session_id = s.id
                         LEFT JOIN learning_style_types lst ON lst.id = uls.primary_style_type_id;
-                    """))
+                    """
+                    ))
                 except Exception:
                     pass
         db.commit()
+    yield
+    # Shutdown: nothing
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+# Register routers at import time so tests see routes without requiring startup
+app.include_router(auth_router)
+app.include_router(sessions_router)
+app.include_router(admin_router)
+app.include_router(reports_router)
+app.include_router(score_router)
+app.include_router(teams_router)
+app.include_router(research_router)
+
+ 
 
 @app.get("/health")
 def health():
