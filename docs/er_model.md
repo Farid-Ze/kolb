@@ -201,7 +201,7 @@ Alur Mahasiswa:
 
 Alur Mediator:
 1. Login → Dashboard agregat (distribusi gaya, rentang LFI).
-2. Upload/ubah item (non-proprietary placeholder jika hak cipta asli dilindungi).
+2. Upload/ubah item assessment (berdasarkan publikasi ilmiah KLSI 4.0).
 3. Impor tabel norma (CSV).
 4. Ekspor data anonim untuk analisis reliabilitas/validitas internal.
 

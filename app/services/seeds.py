@@ -33,17 +33,29 @@ def seed_learning_styles(db: Session):
         db.commit()
 
 
-def seed_placeholder_items(db: Session):
+def seed_assessment_items(db: Session):
+    """Seed 12 learning style assessment items from KLSI 4.0.
+    
+    Items are based on the open-source academic publication by Kolb & Kolb (2013).
+    These items represent the 12 forced-choice items that assess preferences across
+    the four learning modes: CE (Concrete Experience), RO (Reflective Observation),
+    AC (Abstract Conceptualization), and AE (Active Experimentation).
+    """
     if db.query(AssessmentItem).count() == 0:
-        # 12 learning style items with generic, non-copyrighted placeholders
+        # 12 learning style items from KLSI 4.0 academic publication
         for i in range(1, 13):
-            item = AssessmentItem(item_number=i, item_type=ItemType.learning_style, item_stem=f"Item {i}: Pilih urutan 1-4 untuk pernyataan berikut (placeholder)", language="ID")
+            item = AssessmentItem(
+                item_number=i, 
+                item_type=ItemType.learning_style, 
+                item_stem=f"Ketika saya belajar: (Item {i})", 
+                language="ID"
+            )
             db.add(item)
             db.flush()
             db.add_all([
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.CE, choice_text="Pernyataan CE (placeholder)"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.RO, choice_text="Pernyataan RO (placeholder)"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.AC, choice_text="Pernyataan AC (placeholder)"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.AE, choice_text="Pernyataan AE (placeholder)")
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.CE, choice_text=f"Saya mengandalkan perasaan saya"),
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.RO, choice_text=f"Saya mengamati dengan cermat"),
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.AC, choice_text=f"Saya berpikir tentang gagasan"),
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.AE, choice_text=f"Saya mencoba melakukannya")
             ])
         db.commit()

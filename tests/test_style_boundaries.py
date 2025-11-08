@@ -26,7 +26,7 @@ def test_boundaries_acce_14_15():
 
 def test_boundaries_aero_0_1_11_12():
     # AERO<=0 low band
-    assert STYLE_CUTS["Imagining"](0, 0) or True  # not used; placeholder to ensure path
+    assert STYLE_CUTS["Imagining"](0, 0)  # Boundary case: low ACCE, low AERO
     assert STYLE_CUTS["Reflecting"](6, 0)
     assert STYLE_CUTS["Analyzing"](15, 0)
     # AERO=1..11 mid band

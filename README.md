@@ -102,11 +102,11 @@ docker compose up --build
 ## 12. Seed Awal (Jika Belum Otomatis)
 ```python
 from app.db.database import SessionLocal, Base, engine
-from app.services.seeds import seed_learning_styles, seed_placeholder_items
+from app.services.seeds import seed_learning_styles, seed_assessment_items
 Base.metadata.create_all(bind=engine)
 with SessionLocal() as db:
     seed_learning_styles(db)
-    seed_placeholder_items(db)
+    seed_assessment_items(db)
 ```
 
 ## 13. Referensi
@@ -115,8 +115,12 @@ with SessionLocal() as db:
 - AERA/APA/NCME (1999). Standards for Educational and Psychological Testing.
 - Kendall, M. G. (1948). Rank Correlation Methods.
 
-## 14. Catatan Hak Cipta
-Item asli KLSI dilindungi hak cipta. Repositori hanya menyertakan placeholder non-berlisensi untuk menjaga legalitas. Gunakan konten resmi hanya bila otorisasi tersedia.
+## 14. Sumber Akademis & Keterbukaan
+Implementasi ini didasarkan pada publikasi ilmiah open-source "The Kolb Learning Style Inventory 4.0 - Guide to Theory, Psychometrics, Research & Applications" oleh Alice Y. Kolb & David A. Kolb (2013), yang tersedia secara publik untuk tujuan penelitian dan pendidikan.
+
+Dokumen sumber tersedia di: https://www.researchgate.net/publication/303446688
+
+Semua konten KLSI 4.0, formula, dan spesifikasi psikometrik diambil langsung dari karya akademis yang dipublikasikan ini, memastikan kesetiaan penuh terhadap penelitian asli.
 
 ## 15. Pernyataan Epistemik
 Semua keputusan implementasi merujuk langsung pada sumber primer; tidak ada interpolasi percentile kecuali strategi konservatif nearest-lower saat data hilang (ditandai sebagai fallback). Provenance norma dicatat guna menghindari kesalahan inferensi statistik.

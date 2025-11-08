@@ -47,6 +47,65 @@ CONTEXT_NAMES = [
 ]
 
 
+def validate_lfi_context_ranks(context_scores: list[dict]) -> None:
+    """Validate that LFI context rankings satisfy forced-choice constraints.
+    
+    Each context must:
+    1. Contain exactly 4 keys: CE, RO, AC, AE
+    2. Have integer rank values between 1 and 4
+    3. Form a permutation of [1, 2, 3, 4] (no duplicates, forced-choice)
+    
+    Args:
+        context_scores: List of dicts with CE/RO/AC/AE rank mappings
+    
+    Raises:
+        ValueError: If any validation constraint is violated
+    
+    Example:
+        >>> validate_lfi_context_ranks([
+        ...     {'CE': 1, 'RO': 2, 'AC': 3, 'AE': 4},  # Valid
+        ...     {'CE': 2, 'RO': 1, 'AC': 4, 'AE': 3},  # Valid
+        ... ])
+        None  # No error
+        
+        >>> validate_lfi_context_ranks([
+        ...     {'CE': 1, 'RO': 2, 'AC': 2, 'AE': 4},  # Duplicate rank!
+        ... ])
+        ValueError: Context 1 must be a permutation of [1,2,3,4] (forced-choice). Got: [1, 2, 2, 4]
+    """
+    modes = ['CE', 'RO', 'AC', 'AE']
+    
+    for idx, ctx in enumerate(context_scores, start=1):
+        # Check all modes present
+        if set(ctx.keys()) != set(modes):
+            raise ValueError(
+                f"Context {idx} must contain ranks for exactly {modes}. "
+                f"Got keys: {list(ctx.keys())}"
+            )
+        
+        ranks = [ctx[mode] for mode in modes]
+        
+        # Check integer types
+        if not all(isinstance(r, int) for r in ranks):
+            raise ValueError(
+                f"Context {idx} has non-integer rank(s): {ranks}"
+            )
+        
+        # Check range 1-4
+        if not all(1 <= r <= 4 for r in ranks):
+            raise ValueError(
+                f"Context {idx} ranks must be within 1..4. Got: {ranks}"
+            )
+        
+        # Check forced-choice (must be permutation of [1,2,3,4])
+        if sorted(ranks) != [1, 2, 3, 4]:
+            raise ValueError(
+                f"Context {idx} must be a permutation of [1,2,3,4] (forced-choice). "
+                f"Got: {ranks}"
+            )
+
+
+
 def _age_to_band(user: User) -> str | None:
     """Derive coarse age band compatible with Appendix 2.
 
@@ -229,34 +288,139 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> UserLearningS
     return ustyle
 
 def compute_kendalls_w(context_scores: list[dict]) -> float:
-    # context_scores: list of dict {CE,RO,AC,AE} ranks for each of 8 contexts
-    m = len(context_scores)  # 8
+    """Compute Kendall's Coefficient of Concordance (W) for Learning Flexibility Index.
+    
+    Measures the degree of agreement in ranking the four learning modes (CE, RO, AC, AE)
+    across eight different learning contexts. W ranges from 0 (complete disagreement/high
+    flexibility) to 1 (perfect agreement/low flexibility).
+    
+    Formula (KLSI 4.0 Guide, page 1460):
+        S = Σ(R_i - R̄)²  where R_i = sum of ranks for mode i, R̄ = m(n+1)/2
+        W = 12S / [m² × (n³ - n)]  where m=8 contexts, n=4 modes
+    
+    Note: The denominator m²(n³-n) is algebraically equivalent to m²×n×(n²-1):
+        n(n²-1) = n×n² - n×1 = n³ - n ✓
+    
+    Args:
+        context_scores: List of 8 dicts, each with keys {CE, RO, AC, AE} and rank values 1-4.
+                       Each context must be a forced-choice permutation of [1,2,3,4].
+    
+    Returns:
+        W coefficient bounded to [0.0, 1.0]
+    
+    Examples:
+        >>> # Perfect agreement (W=1.0): all contexts rank CE=1, RO=2, AC=3, AE=4
+        >>> perfect = [{'CE':1,'RO':2,'AC':3,'AE':4}] * 8
+        >>> compute_kendalls_w(perfect)
+        1.0
+        
+        >>> # High flexibility (W≈0.0): varied rankings across contexts
+        >>> varied = [
+        ...     {'CE': 4, 'RO': 2, 'AC': 1, 'AE': 3},
+        ...     {'CE': 3, 'RO': 1, 'AC': 2, 'AE': 4},
+        ...     {'CE': 4, 'RO': 3, 'AC': 1, 'AE': 2},
+        ...     {'CE': 4, 'RO': 2, 'AC': 1, 'AE': 3},
+        ...     {'CE': 1, 'RO': 4, 'AC': 3, 'AE': 2},
+        ...     {'CE': 1, 'RO': 3, 'AC': 4, 'AE': 2},
+        ...     {'CE': 2, 'RO': 1, 'AC': 4, 'AE': 3},
+        ...     {'CE': 1, 'RO': 2, 'AC': 4, 'AE': 3},
+        ... ]
+        >>> compute_kendalls_w(varied)
+        0.025
+    
+    Reference:
+        Kolb, A. Y., & Kolb, D. A. (2013). KLSI 4.0 Guide, page 1460.
+        Legendre, P. (2005). Kendall's Coefficient of Concordance.
+    """
+    m = len(context_scores)  # number of contexts (judges), should be 8
     modes = ['CE','RO','AC','AE']
-    # Sum of ranks per mode
-    sums = {mode:0 for mode in modes}
+    n = len(modes)  # number of learning modes (objects), always 4
+    
+    # Step 1: Calculate row sums (R_i) for each mode across all contexts
+    sums = {mode: 0 for mode in modes}
     for ctx in context_scores:
         for mode in modes:
             sums[mode] += ctx[mode]
-    # R_bar
-    n = len(modes)
-    R_bar = m*(n+1)/2  # m*(n+1)/2
-    numerator = 0.0
-    for mode in modes:
-        numerator += (sums[mode]-R_bar)**2
-    # Kendall's W formula: 12 * Σ(Rj - R̄)^2 / (m^2 * (n^3 - n))
-    W = 12 * numerator / (m*m * (pow(n,3)-n))
+    
+    # Step 2: Calculate grand mean rank per mode
+    R_bar = m * (n + 1) / 2  # For m contexts of n ranks, mean = m×(n+1)/2
+    
+    # Step 3: Calculate S = sum of squared deviations from grand mean
+    S = sum((sums[mode] - R_bar) ** 2 for mode in modes)
+    
+    # Step 4: Apply Kendall's W formula
+    # W = 12S / [m² × (n³ - n)]
+    # Algebraic note: m²(n³-n) = m²×n×(n²-1) are equivalent forms
+    numerator = 12 * S
+    denominator = m * m * (pow(n, 3) - n)
+    W = numerator / denominator
+    
+    # Bound to [0, 1] to handle floating-point edge cases
     return max(0.0, min(1.0, W))
 
 def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
-    rows = db.query(LFIContextScore).filter(LFIContextScore.session_id==session_id).all()
+    """Compute Learning Flexibility Index (LFI) from 8 context rankings.
+    
+    LFI measures how consistently a person ranks learning modes across different contexts.
+    It is derived from Kendall's W coefficient of concordance:
+        LFI = 1 - W
+    
+    Where:
+        - W = 0: Complete disagreement across contexts → LFI = 1 (high flexibility)
+        - W = 1: Perfect agreement across contexts → LFI = 0 (low flexibility/rigid)
+    
+    The function:
+    1. Retrieves 8 LFI context rankings from database
+    2. Validates forced-choice constraints (each context = permutation of [1,2,3,4])
+    3. Computes Kendall's W
+    4. Transforms to LFI = 1 - W
+    5. Converts to percentile using norm group precedence or Appendix 7 fallback
+    6. Assigns flexibility level (Low <33.34, Moderate 33.34-66.67, High >66.67)
+    
+    Args:
+        db: SQLAlchemy database session
+        session_id: Assessment session identifier
+    
+    Returns:
+        LearningFlexibilityIndex entity with W, LFI score, percentile, and level
+    
+    Raises:
+        ValueError: If context rankings violate forced-choice constraints
+    
+    Example flow:
+        User ranks CE/RO/AC/AE in 8 contexts → W=0.025 → LFI=0.975 → 97th percentile → High
+    
+    Reference:
+        KLSI 4.0 Guide, Chapter 6, pages 1443-1466
+    """
+    # Retrieve LFI context scores from database
+    rows = db.query(LFIContextScore).filter(LFIContextScore.session_id == session_id).all()
+    
+    # Convert to format expected by compute_kendalls_w
     context_scores = []
     for r in rows:
-        context_scores.append({"CE": r.CE_rank, "RO": r.RO_rank, "AC": r.AC_rank, "AE": r.AE_rank})
+        context_scores.append({
+            "CE": r.CE_rank,
+            "RO": r.RO_rank,
+            "AC": r.AC_rank,
+            "AE": r.AE_rank
+        })
+    
+    # Validate forced-choice constraints before computation
+    validate_lfi_context_ranks(context_scores)
+    
+    # Compute Kendall's W
     W = compute_kendalls_w(context_scores)
+    
+    # Transform to LFI
     lfi_value = 1 - W
+    
+    # Convert to percentile using norm group precedence
     # Try DB normative first using subgroup precedence.
-    # raw_score stored as int(LFI * 100) if present.
+    # raw_score stored as int(LFI * 100) if present in database.
     lfi_pct = None
+    norm_group_used = None
+    
     for ng in _resolve_norm_groups(db, session_id):
         row = db.execute(
             text(
@@ -267,13 +431,26 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
         ).fetchone()
         if row:
             lfi_pct = float(row[0])
+            norm_group_used = ng
             break
+    
+    # Fallback to Appendix 7 mapping if no DB norm found
     if lfi_pct is None:
-        # Fallback to Appendix 7 mapping (nearest value)
-        lfi_pct = lookup_lfi(round(lfi_value, 2))  # round to 2 decimals for dictionary keys
+        # Round to 2 decimals for dictionary key matching
+        lfi_pct = lookup_lfi(round(lfi_value, 2))
+        norm_group_used = "AppendixFallback"
+    
+    # Assign flexibility level based on tertile cutoffs
     level = None
     if lfi_pct is not None:
-        level = 'Low' if lfi_pct < 33.34 else ('Moderate' if lfi_pct <= 66.67 else 'High')
+        if lfi_pct < 33.34:
+            level = 'Low'
+        elif lfi_pct <= 66.67:
+            level = 'Moderate'
+        else:
+            level = 'High'
+    
+    # Create and persist LFI entity
     lfi = LearningFlexibilityIndex(
         session_id=session_id,
         W_coefficient=W,
@@ -282,6 +459,7 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
         flexibility_level=level,
     )
     db.add(lfi)
+    
     return lfi
 
 def apply_percentiles(

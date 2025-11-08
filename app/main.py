@@ -12,7 +12,7 @@ from app.routers.research import router as research_router
 from app.routers.score import router as score_router
 from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
-from app.services.seeds import seed_learning_styles, seed_placeholder_items
+from app.services.seeds import seed_learning_styles, seed_assessment_items
 
 
 @asynccontextmanager
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_learning_styles(db)
-        seed_placeholder_items(db)
+        seed_assessment_items(db)
         try:
             db.execute(text(
                 """
