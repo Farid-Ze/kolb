@@ -31,7 +31,7 @@ INDEX_SPECS = [
 def upgrade() -> None:
     conn = op.get_bind()
     dialect = conn.dialect.name
-    for name, table, cols, condition in INDEX_SPECS:
+    for name, table, cols, _condition in INDEX_SPECS:
         col_list = ",".join(cols)
         if dialect == 'postgresql':
             op.execute(sa.text(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({col_list})"))
@@ -44,9 +44,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    conn = op.get_bind()
-    dialect = conn.dialect.name
-    for name, table, cols, condition in INDEX_SPECS:
+    for name, table, _cols, _condition in INDEX_SPECS:
         try:
             op.drop_index(name, table_name=table)
         except Exception:

@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.data.norms import (
     AC_PERCENTILES,
@@ -31,28 +31,24 @@ class ContextRanks(BaseModel):
     AC: int = Field(ge=1, le=4)
     AE: int = Field(ge=1, le=4)
 
-    @validator('*')
-    def ensure_int(cls, v):
-        return int(v)
-
-    @validator('AE')
-    def unique_ranks(cls, v, values):
-        # Triggered after all fields are set; enforce set {1,2,3,4}
-        if len(values) == 3:
-            ranks = {values['CE'], values['RO'], values['AC'], v}
-            if ranks != {1, 2, 3, 4}:
-                raise ValueError('Ranks per context must be unique 1..4')
-        return v
+    @model_validator(mode="after")
+    def unique_ranks(self) -> "ContextRanks":
+        # After all fields set; enforce set {1,2,3,4}
+        ranks = {self.CE, self.RO, self.AC, self.AE}
+        if ranks != {1, 2, 3, 4}:
+            raise ValueError("Ranks per context must be unique 1..4")
+        return self
 
 
 class ScoreRequest(BaseModel):
     raw: RawTotals
     contexts: List[ContextRanks]
 
-    @validator('contexts')
-    def require_eight_contexts(cls, v):
+    @field_validator("contexts")
+    @classmethod
+    def require_eight_contexts(cls, v: List[ContextRanks]) -> List[ContextRanks]:
         if len(v) != 8:
-            raise ValueError('Exactly 8 contexts required')
+            raise ValueError("Exactly 8 contexts required")
         return v
 
 

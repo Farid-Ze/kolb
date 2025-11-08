@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, UTC
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -86,7 +86,8 @@ def test_team_crud_and_member_and_rollup():
     with SessionLocal() as db:
         st = db.query(LearningStyleType).first()
         assert st is not None
-        s = AssessmentSession(user_id=user.id, status=SessionStatus.completed, start_time=datetime.utcnow(), end_time=datetime.utcnow())
+        now = datetime.now(UTC)
+        s = AssessmentSession(user_id=user.id, status=SessionStatus.completed, start_time=now, end_time=now)
         db.add(s); db.commit(); db.refresh(s)
         db.add(LearningFlexibilityIndex(session_id=s.id, W_coefficient=0.4, LFI_score=0.6, LFI_percentile=None, flexibility_level='Moderate'))
         db.add(UserLearningStyle(session_id=s.id, primary_style_type_id=st.id, ACCE_raw=10, AERO_raw=6, kite_coordinates=None, style_intensity_score=16))
