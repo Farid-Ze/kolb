@@ -32,6 +32,12 @@ NormativeConversionTable (normative_conversion_table)
   -> PercentileScore (percentile_scores) 1:1 per session
 NormativeStatistics (normative_statistics)
 AuditLog (audit_log)
+Team (teams)
+  1:N TeamMember (team_members)
+  1:N TeamAssessmentRollup (team_assessment_rollup)
+ResearchStudy (research_studies)
+  1:N ReliabilityResult (reliability_results)
+  1:N ValidityEvidence (validity_evidence)
 Views: v_style_grid (window + style), mv_class_style_stats (agregasi kelas)
 ```
 
@@ -54,6 +60,12 @@ Views: v_style_grid (window + style), mv_class_style_stats (agregasi kelas)
 | percentile_scores | Persentil sesi | id | session_id | norm_group_used log precedence |
 | normative_statistics | Statistik per group | id | – | Mean/stdev dokumenter |
 | audit_log | Jejak operasi | id | – | Hash payload untuk verifikasi |
+| teams | Entitas tim/kelas | id | – | UNIQUE(name) |
+| team_members | Anggota tim | id | team_id, user_id | UNIQUE(team_id,user_id) |
+| team_assessment_rollup | Agregasi tim harian | id | team_id | Unique(team_id,date), style_counts JSON |
+| research_studies | Metadata studi | id | – | Judul/periode/notes |
+| reliability_results | Hasil reliabilitas | id | study_id | metric_name, value |
+| validity_evidence | Bukti validitas | id | study_id | type, metric/value |
 
 ## 4. Normalisasi & Ketergantungan
 - 1NF: semua kolom atomic (JSON hanya untuk struktur koordinat/gaya cadangan – bukan fakta terhubung antar entitas). 
