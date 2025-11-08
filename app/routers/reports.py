@@ -57,5 +57,5 @@ def get_report(
     try:
         data = build_report(db, session_id, viewer_role=viewer_role)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from None
     return data

@@ -29,14 +29,14 @@ def _get_current_user(authorization: str | None, db: Session) -> User:
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except JWTError:
-        raise HTTPException(status_code=401, detail="Token tidak valid")
+        raise HTTPException(status_code=401, detail="Token tidak valid") from None
     uid_raw = payload.get('sub')
     if uid_raw is None:
         raise HTTPException(status_code=401, detail="Token tidak memuat sub")
     try:
         uid = int(uid_raw)
     except ValueError:
-        raise HTTPException(status_code=401, detail="sub token tidak valid")
+        raise HTTPException(status_code=401, detail="sub token tidak valid") from None
     user = db.query(User).filter(User.id==uid).first()
     if not user:
         raise HTTPException(status_code=401, detail="Pengguna tidak ditemukan")

@@ -30,20 +30,26 @@ def seed_styles(db):
 
 
 def test_backup_consistency_near_boundary():
-    """Near ACCE=5/AERO=0 boundary ensure primary remains Imagining and backup stable on repeated calls."""
+    """Boundary near ACCE=5 & AERO=0:
+    Ensure primary stays Imagining and backup choice deterministic across calls."""
     db = _in_memory_db()
     seed_styles(db)
     # Create session and minimal scale/combination scaffolding
     sess = AssessmentSession(user_id=1)
     db.add(sess)
     db.flush()
-    scale = ScaleScore(session_id=sess.id, CE_raw=20, RO_raw=22, AC_raw=25, AE_raw=22)  # AC-CE=5; AE-RO=0
+    # Raw scores produce ACCE=5 and AERO=0
+    scale = ScaleScore(session_id=sess.id, CE_raw=20, RO_raw=22, AC_raw=25, AE_raw=22)
     db.add(scale)
-    combo = CombinationScore(session_id=sess.id, ACCE_raw=scale.AC_raw-scale.CE_raw, AERO_raw=scale.AE_raw-scale.RO_raw,
-                             assimilation_accommodation=(scale.AC_raw+scale.RO_raw)-(scale.AE_raw+scale.CE_raw),
-                             converging_diverging=(scale.AC_raw+scale.AE_raw)-(scale.CE_raw+scale.RO_raw),
-                             balance_acce=abs(scale.AC_raw - (scale.CE_raw + 9)),
-                             balance_aero=abs(scale.AE_raw - (scale.RO_raw + 6)))
+    combo = CombinationScore(
+        session_id=sess.id,
+        ACCE_raw=scale.AC_raw - scale.CE_raw,
+        AERO_raw=scale.AE_raw - scale.RO_raw,
+        assimilation_accommodation=(scale.AC_raw + scale.RO_raw) - (scale.AE_raw + scale.CE_raw),
+        converging_diverging=(scale.AC_raw + scale.AE_raw) - (scale.CE_raw + scale.RO_raw),
+        balance_acce=abs(scale.AC_raw - (scale.CE_raw + 9)),
+        balance_aero=abs(scale.AE_raw - (scale.RO_raw + 6)),
+    )
     db.add(combo)
     db.commit()
     # First assignment
@@ -54,7 +60,17 @@ def test_backup_consistency_near_boundary():
     # Instead assert stability via window distance logic implicitly tested by single call.
     backups = db.query(BackupLearningStyle).filter(BackupLearningStyle.session_id==sess.id).all()
     assert len(backups) == 1
-    primary_name = db.query(LearningStyleType).filter(LearningStyleType.id==ls1.primary_style_type_id).first().style_name
+    primary_name = (
+        db.query(LearningStyleType)
+        .filter(LearningStyleType.id == ls1.primary_style_type_id)
+        .first()
+        .style_name
+    )
     assert primary_name == "Imagining"
-    backup_name = db.query(LearningStyleType).filter(LearningStyleType.id==backup1.style_type_id).first().style_name
+    backup_name = (
+        db.query(LearningStyleType)
+        .filter(LearningStyleType.id == backup1.style_type_id)
+        .first()
+        .style_name
+    )
     assert backup_name != primary_name

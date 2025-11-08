@@ -90,7 +90,11 @@ def _resolve_norm_groups(db: Session, session_id: int) -> list[str]:
       - GENDER:Male
       - Total
     """
-    sess: AssessmentSession | None = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    sess: AssessmentSession | None = (
+        db.query(AssessmentSession)
+        .filter(AssessmentSession.id == session_id)
+        .first()
+    )
     user: User | None = sess.user if sess else None
     candidates: list[str] = []
 
@@ -189,7 +193,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> UserLearningS
     dists.sort(key=lambda x: x[1])
     primary = dists[0][0] if primary_name is None else primary_name
     backup = None
-    for name, d in dists:
+    for name, _d in dists:
         if name != primary:
             backup = name
             break
@@ -211,9 +215,17 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> UserLearningS
     from app.models.klsi import BackupLearningStyle
     from app.models.klsi import LearningStyleType as LST
     if backup:
-        btype = db.query(LST).filter(LST.style_name==backup).first()
+        btype = db.query(LST).filter(LST.style_name == backup).first()
         if btype:
-            db.add(BackupLearningStyle(session_id=combo.session_id, style_type_id=btype.id, frequency_count=1, percentage=None, contexts_used=None))
+            db.add(
+                BackupLearningStyle(
+                    session_id=combo.session_id,
+                    style_type_id=btype.id,
+                    frequency_count=1,
+                    percentage=None,
+                    contexts_used=None,
+                )
+            )
     return ustyle
 
 def compute_kendalls_w(context_scores: list[dict]) -> float:
@@ -242,12 +254,16 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
         context_scores.append({"CE": r.CE_rank, "RO": r.RO_rank, "AC": r.AC_rank, "AE": r.AE_rank})
     W = compute_kendalls_w(context_scores)
     lfi_value = 1 - W
-    # Try DB normative first using subgroup precedence; raw_score stored as int( LFI * 100 ) if present
+    # Try DB normative first using subgroup precedence.
+    # raw_score stored as int(LFI * 100) if present.
     lfi_pct = None
     for ng in _resolve_norm_groups(db, session_id):
         row = db.execute(
-            text("SELECT percentile FROM normative_conversion_table WHERE norm_group=:g AND scale_name='LFI' AND raw_score=:r LIMIT 1"),
-            {"g": ng, "r": int(round(lfi_value * 100))}
+            text(
+                "SELECT percentile FROM normative_conversion_table "
+                "WHERE norm_group=:g AND scale_name='LFI' AND raw_score=:r LIMIT 1"
+            ),
+            {"g": ng, "r": int(round(lfi_value * 100))},
         ).fetchone()
         if row:
             lfi_pct = float(row[0])
@@ -258,11 +274,19 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
     level = None
     if lfi_pct is not None:
         level = 'Low' if lfi_pct < 33.34 else ('Moderate' if lfi_pct <= 66.67 else 'High')
-    lfi = LearningFlexibilityIndex(session_id=session_id, W_coefficient=W, LFI_score=lfi_value, LFI_percentile=lfi_pct, flexibility_level=level)
+    lfi = LearningFlexibilityIndex(
+        session_id=session_id,
+        W_coefficient=W,
+        LFI_score=lfi_value,
+        LFI_percentile=lfi_pct,
+        flexibility_level=level,
+    )
     db.add(lfi)
     return lfi
 
-def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore) -> PercentileScore | None:
+def apply_percentiles(
+    db: Session, scale: ScaleScore, combo: CombinationScore
+) -> PercentileScore | None:
     """Populate percentile scores using DB normative tables if present else Appendix fallback.
 
     Precedence: DB row (normative_conversion_table) > local dict fallback.
@@ -275,8 +299,11 @@ def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore) -
         # Try subgroup precedence list first
         for ng in candidates:
             row = db.execute(
-                text("SELECT percentile FROM normative_conversion_table WHERE norm_group=:g AND scale_name=:s AND raw_score=:r LIMIT 1"),
-                {"g": ng, "s": scale_name, "r": raw}
+                text(
+                    "SELECT percentile FROM normative_conversion_table "
+                    "WHERE norm_group=:g AND scale_name=:s AND raw_score=:r LIMIT 1"
+                ),
+                {"g": ng, "s": scale_name, "r": raw},
             ).fetchone()
             if row:
                 nonlocal used_db_any, used_group
@@ -319,8 +346,17 @@ def finalize_session(db: Session, session_id: int):
     from hashlib import sha256
 
     from app.models.klsi import AuditLog
-    payload = f"{scale.CE_raw},{scale.RO_raw},{scale.AC_raw},{scale.AE_raw};{combo.ACCE_raw},{combo.AERO_raw};{lfi.LFI_score}"
-    db.add(AuditLog(actor='system', action='FINALIZE_SESSION', payload_hash=sha256(payload.encode('utf-8')).hexdigest()))
+    payload = (
+        f"{scale.CE_raw},{scale.RO_raw},{scale.AC_raw},{scale.AE_raw};"
+        f"{combo.ACCE_raw},{combo.AERO_raw};{lfi.LFI_score}"
+    )
+    db.add(
+        AuditLog(
+            actor='system',
+            action='FINALIZE_SESSION',
+            payload_hash=sha256(payload.encode('utf-8')).hexdigest(),
+        )
+    )
     return {
         "scale": scale,
         "combination": combo,

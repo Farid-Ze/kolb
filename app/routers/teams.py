@@ -30,14 +30,14 @@ def _get_current_user(authorization: str | None, db: Session) -> User:
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except JWTError:
-        raise HTTPException(status_code=401, detail="Token tidak valid")
+        raise HTTPException(status_code=401, detail="Token tidak valid") from None
     uid_raw = payload.get('sub')
     if uid_raw is None:
         raise HTTPException(status_code=401, detail="Token tidak memuat sub")
     try:
         uid = int(uid_raw)
     except ValueError:
-        raise HTTPException(status_code=401, detail="sub token tidak valid")
+        raise HTTPException(status_code=401, detail="sub token tidak valid") from None
     user = db.query(User).filter(User.id == uid).first()
     if not user:
         raise HTTPException(status_code=401, detail="Pengguna tidak ditemukan")
@@ -50,7 +50,11 @@ def _require_mediator(user: User):
 
 
 @router.post("/", response_model=TeamOut)
-def create_team(payload: TeamCreate, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def create_team(
+    payload: TeamCreate,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
     user = _get_current_user(authorization, db)
     _require_mediator(user)
     # Unique name
@@ -59,7 +63,8 @@ def create_team(payload: TeamCreate, db: Session = Depends(get_db), authorizatio
         raise HTTPException(status_code=409, detail="Nama tim sudah digunakan")
     team = Team(name=payload.name, kelas=payload.kelas, description=payload.description)
     db.add(team)
-    db.commit(); db.refresh(team)
+    db.commit()
+    db.refresh(team)
     return team
 
 
@@ -88,7 +93,12 @@ def get_team(team_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{team_id}", response_model=TeamOut)
-def update_team(team_id: int, payload: TeamUpdate, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def update_team(
+    team_id: int,
+    payload: TeamUpdate,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
     user = _get_current_user(authorization, db)
     _require_mediator(user)
     team = db.query(Team).filter(Team.id == team_id).first()
@@ -103,12 +113,17 @@ def update_team(team_id: int, payload: TeamUpdate, db: Session = Depends(get_db)
         team.kelas = payload.kelas
     if payload.description is not None:
         team.description = payload.description
-    db.commit(); db.refresh(team)
+    db.commit()
+    db.refresh(team)
     return team
 
 
 @router.delete("/{team_id}", response_model=dict)
-def delete_team(team_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def delete_team(
+    team_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
     user = _get_current_user(authorization, db)
     _require_mediator(user)
     team = db.query(Team).filter(Team.id == team_id).first()
@@ -131,7 +146,12 @@ def list_members(team_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{team_id}/members", response_model=TeamMemberOut)
-def add_member(team_id: int, payload: TeamMemberAdd, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def add_member(
+    team_id: int,
+    payload: TeamMemberAdd,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
     user = _get_current_user(authorization, db)
     _require_mediator(user)
     # Unique per (team,user)
@@ -139,18 +159,26 @@ def add_member(team_id: int, payload: TeamMemberAdd, db: Session = Depends(get_d
     if exists:
         raise HTTPException(status_code=409, detail="Pengguna sudah menjadi anggota tim")
     tm = TeamMember(team_id=team_id, user_id=payload.user_id, role_in_team=payload.role_in_team)
-    db.add(tm); db.commit(); db.refresh(tm)
+    db.add(tm)
+    db.commit()
+    db.refresh(tm)
     return tm
 
 
 @router.delete("/{team_id}/members/{member_id}", response_model=dict)
-def remove_member(team_id: int, member_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def remove_member(
+    team_id: int,
+    member_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
     user = _get_current_user(authorization, db)
     _require_mediator(user)
     tm = db.query(TeamMember).filter(TeamMember.id == member_id, TeamMember.team_id == team_id).first()
     if not tm:
         raise HTTPException(status_code=404, detail="Anggota tidak ditemukan")
-    db.delete(tm); db.commit()
+    db.delete(tm)
+    db.commit()
     return {"ok": True}
 
 
@@ -179,6 +207,6 @@ def run_rollup(
         try:
             d = date.fromisoformat(for_date)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Format tanggal harus YYYY-MM-DD")
+            raise HTTPException(status_code=400, detail="Format tanggal harus YYYY-MM-DD") from None
     roll = compute_team_rollup(db, team_id=team_id, for_date=d)
     return roll
