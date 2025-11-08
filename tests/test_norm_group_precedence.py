@@ -16,7 +16,7 @@ def test_norm_group_precedence_includes_country():
     db = _db()
     # Create user with edu, country, dob, gender
     from datetime import date
-    u = User(full_name="T", email="t@example.com", password_hash=None,
+    u = User(full_name="T", email="t@mahasiswa.unikom.ac.id", password_hash=None,
              date_of_birth=date(1995, 1, 1),
              gender=Gender.male,
              education_level=EducationLevel.university,

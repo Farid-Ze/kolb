@@ -24,15 +24,25 @@ Base.metadata.create_all(bind=engine)
 
 def _seed_minimal(session):
     # Ensure unique email per test run to avoid UNIQUE constraint collisions
-    unique_email = f"t+{uuid4().hex}@example.com"
+    unique_email = f"t+{uuid4().hex}@mahasiswa.unikom.ac.id"
     u = User(full_name="Test User", email=unique_email)
-    session.add(u); session.commit(); session.refresh(u)
+    session.add(u)
+    session.commit()
+    session.refresh(u)
     s = AssessmentSession(user_id=u.id, status=SessionStatus.started)
-    session.add(s); session.commit(); session.refresh(s)
+    session.add(s)
+    session.commit()
+    session.refresh(s)
     # two items each with four choices
-    for num in (1,2):
-        ai = AssessmentItem(item_number=num, item_type=ItemType.learning_style, item_stem=f"Item {num}")
-        session.add(ai); session.commit(); session.refresh(ai)
+    for num in (1, 2):
+        ai = AssessmentItem(
+            item_number=num,
+            item_type=ItemType.learning_style,
+            item_stem=f"Item {num}",
+        )
+        session.add(ai)
+        session.commit()
+        session.refresh(ai)
         modes = [LearningMode.CE, LearningMode.RO, LearningMode.AC, LearningMode.AE]
         for m in modes:
             ch = ItemChoice(item_id=ai.id, learning_mode=m, choice_text=f"{m.value} choice")
@@ -49,7 +59,14 @@ def test_validation_happy_path():
         choices = session.query(ItemChoice).filter(ItemChoice.item_id==item.id).all()
         # assign deterministic ranks 1..4
         for rank, ch in enumerate(choices, start=1):
-            session.add(UserResponse(session_id=s.id, item_id=item.id, choice_id=ch.id, rank_value=rank))
+            session.add(
+                UserResponse(
+                    session_id=s.id,
+                    item_id=item.id,
+                    choice_id=ch.id,
+                    rank_value=rank,
+                )
+            )
     session.commit()
     result = check_session_complete(session, s.id)
     assert result['session_exists'] is True
@@ -68,7 +85,14 @@ def test_validation_item_missing():
     assert first_item is not None
     choices = session.query(ItemChoice).filter(ItemChoice.item_id==first_item.id).all()
     for rank, ch in enumerate(choices, start=1):
-        session.add(UserResponse(session_id=s.id, item_id=first_item.id, choice_id=ch.id, rank_value=rank))
+        session.add(
+            UserResponse(
+                session_id=s.id,
+                item_id=first_item.id,
+                choice_id=ch.id,
+                rank_value=rank,
+            )
+        )
     session.commit()
     result = check_session_complete(session, s.id)
     # Should list all other items as missing (here we seeded 2 items total)
@@ -85,14 +109,30 @@ def test_validation_rank_conflict():
     first_item = session.query(AssessmentItem).filter(AssessmentItem.item_number==1).first()
     assert first_item is not None
     choices = session.query(ItemChoice).filter(ItemChoice.item_id==first_item.id).all()
-    # Insert three ranks (1,2,3) and leave rank 4 missing; DB constraint prevents true duplicate ranks
-    for rv, ch in zip([1,2,3], choices):
-        session.add(UserResponse(session_id=s.id, item_id=first_item.id, choice_id=ch.id, rank_value=rv))
+    # Insert three ranks (1,2,3) and leave rank 4 missing;
+    # DB constraint prevents true duplicate ranks
+    for rv, ch in zip([1, 2, 3], choices):
+        session.add(
+            UserResponse(
+                session_id=s.id,
+                item_id=first_item.id,
+                choice_id=ch.id,
+                rank_value=rv,
+            )
+        )
     session.commit()
-    # Attempting to insert a duplicate rank should raise IntegrityError (DB-level ipsative enforcement)
+    # Attempting to insert a duplicate rank should raise IntegrityError
+    # (DB-level ipsative enforcement)
     from sqlalchemy.exc import IntegrityError
     try:
-        session.add(UserResponse(session_id=s.id, item_id=first_item.id, choice_id=choices[3].id, rank_value=1))
+        session.add(
+            UserResponse(
+                session_id=s.id,
+                item_id=first_item.id,
+                choice_id=choices[3].id,
+                rank_value=1,
+            )
+        )
         session.commit()
         duplicate_blocked = False
     except IntegrityError:
@@ -101,6 +141,9 @@ def test_validation_rank_conflict():
     assert duplicate_blocked is True
     # Validation should at least report missing ranks
     result = check_session_complete(session, s.id)
-    assert any(d['item_id'] == first_item.id and d['missing'] for d in result['items_with_missing_ranks'])
+    assert any(
+        d['item_id'] == first_item.id and d['missing']
+        for d in result['items_with_missing_ranks']
+    )
     assert result['ready_to_complete'] is False
     session.close()
