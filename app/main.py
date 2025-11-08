@@ -13,16 +13,18 @@ from sqlalchemy import text
 
 app = FastAPI(title=settings.app_name)
 
+# Register routers at import time so tests see routes without requiring startup
+app.include_router(auth_router)
+app.include_router(sessions_router)
+app.include_router(admin_router)
+app.include_router(reports_router)
+app.include_router(score_router)
+app.include_router(teams_router)
+app.include_router(research_router)
+
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
-    app.include_router(auth_router)
-    app.include_router(sessions_router)
-    app.include_router(admin_router)
-    app.include_router(reports_router)
-    app.include_router(score_router)
-    app.include_router(teams_router)
-    app.include_router(research_router)
     # seed minimal reference data
     with SessionLocal() as db:
         seed_learning_styles(db)

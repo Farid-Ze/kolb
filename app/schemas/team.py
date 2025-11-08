@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional, Dict
+from datetime import date
 from pydantic import BaseModel, Field
 
 
@@ -39,7 +40,7 @@ class TeamMemberOut(BaseModel):
 class TeamRollupOut(BaseModel):
     id: int
     team_id: int
-    date: str
+    date: date
     total_sessions: int
     avg_lfi: Optional[float]
     style_counts: Optional[Dict[str, int]]
