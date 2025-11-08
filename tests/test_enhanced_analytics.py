@@ -1,10 +1,10 @@
 """Tests for enhanced LFI analytics (contextual profiles, heatmaps, integrative development)."""
 import pytest
+
 from app.services.regression import (
-    predict_integrative_development,
     analyze_lfi_contexts,
     generate_lfi_heatmap,
-    MEAN_ID, SD_ID
+    predict_integrative_development,
 )
 
 

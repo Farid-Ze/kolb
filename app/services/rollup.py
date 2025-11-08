@@ -1,19 +1,20 @@
 from __future__ import annotations
-from datetime import date
-from collections import Counter, defaultdict
-from typing import Optional, Dict, Any
 
-from sqlalchemy import func, and_, select
+from collections import Counter
+from datetime import date
+from typing import Dict, Optional
+
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.models.klsi import (
+    AssessmentSession,
+    LearningFlexibilityIndex,
+    LearningStyleType,
+    SessionStatus,
     TeamAssessmentRollup,
     TeamMember,
-    AssessmentSession,
-    SessionStatus,
-    LearningFlexibilityIndex,
     UserLearningStyle,
-    LearningStyleType,
 )
 
 

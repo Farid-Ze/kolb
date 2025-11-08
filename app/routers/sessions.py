@@ -1,13 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
 from datetime import datetime, timezone
+from hashlib import sha256
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+
+from app.core.config import settings
 from app.db.database import get_db
-from app.models.klsi import AssessmentSession, SessionStatus, AssessmentItem, UserResponse, ItemChoice, LFIContextScore, AuditLog, User
+from app.models.klsi import (
+    AssessmentItem,
+    AssessmentSession,
+    AuditLog,
+    ItemChoice,
+    LFIContextScore,
+    SessionStatus,
+    User,
+    UserResponse,
+)
 from app.services.scoring import finalize_session
 from app.services.validation import check_session_complete
-from jose import jwt, JWTError
-from app.core.config import settings
-from hashlib import sha256
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 

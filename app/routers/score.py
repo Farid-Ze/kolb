@@ -1,14 +1,19 @@
+from typing import List
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional
 
-from app.services.scoring import STYLE_CUTS, compute_kendalls_w
 from app.data.norms import (
-    CE_PERCENTILES, RO_PERCENTILES, AC_PERCENTILES, AE_PERCENTILES,
-    ACCE_PERCENTILES, AERO_PERCENTILES, lookup_percentile
+    AC_PERCENTILES,
+    ACCE_PERCENTILES,
+    AE_PERCENTILES,
+    AERO_PERCENTILES,
+    CE_PERCENTILES,
+    RO_PERCENTILES,
+    lookup_percentile,
 )
 from app.services.regression import predicted_curve
-
+from app.services.scoring import STYLE_CUTS, compute_kendalls_w
 
 router = APIRouter(prefix="/score", tags=["score"])
 

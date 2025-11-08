@@ -1,15 +1,16 @@
 from fastapi import FastAPI
-from app.core.config import settings
-from app.db.database import Base, engine, SessionLocal
-from app.routers.sessions import router as sessions_router
-from app.routers.auth import router as auth_router
-from app.routers.admin import router as admin_router
-from app.routers.reports import router as reports_router
-from app.routers.score import router as score_router
-from app.routers.teams import router as teams_router
-from app.routers.research import router as research_router
-from app.services.seeds import seed_learning_styles, seed_placeholder_items
 from sqlalchemy import text
+
+from app.core.config import settings
+from app.db.database import Base, SessionLocal, engine
+from app.routers.admin import router as admin_router
+from app.routers.auth import router as auth_router
+from app.routers.reports import router as reports_router
+from app.routers.research import router as research_router
+from app.routers.score import router as score_router
+from app.routers.sessions import router as sessions_router
+from app.routers.teams import router as teams_router
+from app.services.seeds import seed_learning_styles, seed_placeholder_items
 
 app = FastAPI(title=settings.app_name)
 

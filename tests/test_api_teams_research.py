@@ -1,18 +1,21 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
+from app.db.database import Base, SessionLocal
+from app.db.database import engine as app_engine
 from app.main import app
-from app.db.database import Base, SessionLocal, engine as app_engine
 from app.models.klsi import (
-    User, TeamAssessmentRollup, AssessmentSession, SessionStatus,
-    LearningFlexibilityIndex, UserLearningStyle, LearningStyleType
+    AssessmentSession,
+    LearningFlexibilityIndex,
+    LearningStyleType,
+    SessionStatus,
+    TeamAssessmentRollup,
+    User,
+    UserLearningStyle,
 )
 from app.services.seeds import seed_learning_styles, seed_placeholder_items
-
 
 # NOTE: We re-use the existing engine (likely SQLite in tests) and seed data once.
 # Create a mediator and normal user for auth flows.

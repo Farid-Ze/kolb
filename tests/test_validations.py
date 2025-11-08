@@ -1,5 +1,6 @@
 import re
 
+
 def test_kelas_format():
     assert re.fullmatch(r"IF-\d+", "IF-1")
     assert re.fullmatch(r"IF-\d+", "IF-10")

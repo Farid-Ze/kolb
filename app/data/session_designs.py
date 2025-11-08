@@ -3,7 +3,7 @@ Experiential session designs (Appendix-10 inspired, paraphrased) with style acti
 Each design activates certain KLSI 4.0 styles to "teach around the cycle".
 Copyright note: Titles and summaries are original paraphrases; no verbatim content.
 """
-from typing import List, TypedDict, Optional
+from typing import List, TypedDict
 
 # Canonical style names as used in STYLE_LABELS_ID/STYLE_DETAIL_ID keys
 STYLES = [

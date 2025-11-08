@@ -2,7 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.models.klsi import AssessmentSession, ScaleScore, CombinationScore, UserLearningStyle, LearningStyleType, BackupLearningStyle
+from app.models.klsi import (
+    AssessmentSession,
+    BackupLearningStyle,
+    CombinationScore,
+    LearningStyleType,
+    ScaleScore,
+)
 from app.services.scoring import assign_learning_style
 
 

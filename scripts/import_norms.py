@@ -1,8 +1,9 @@
-import sys
 import csv
+import sys
 from hashlib import sha256
-from app.db.database import SessionLocal, engine, Base
-from app.models.klsi import NormativeConversionTable, AuditLog
+
+from app.db.database import Base, SessionLocal, engine
+from app.models.klsi import AuditLog, NormativeConversionTable
 
 """
 CLI usage (optional):

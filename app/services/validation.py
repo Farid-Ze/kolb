@@ -1,7 +1,10 @@
 from collections import defaultdict
+from typing import Any, Dict
+
 from sqlalchemy.orm import Session
-from typing import Dict, Any
-from app.models.klsi import AssessmentSession, AssessmentItem, UserResponse, ItemChoice, ItemType
+
+from app.models.klsi import AssessmentItem, AssessmentSession, ItemType, UserResponse
+
 
 def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
     """Validate completeness & consistency of a session's ipsative rankings.
@@ -37,7 +40,7 @@ def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
     responses = db.query(UserResponse).filter(UserResponse.session_id == session_id).all()
 
     ranks_per_item = defaultdict(list)
-    choice_count = defaultdict(int)
+    choice_count: dict[int, int] = defaultdict(int)
     for r in responses:
         ranks_per_item[r.item_id].append(r.rank_value)
         choice_count[r.choice_id] += 1

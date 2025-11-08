@@ -1,18 +1,31 @@
-from sqlalchemy.orm import Session
 from math import pow
 
-from app.models.klsi import (
-    UserResponse, ScaleScore, CombinationScore, UserLearningStyle,
-    LearningStyleType, LFIContextScore, LearningFlexibilityIndex, PercentileScore,
-    ItemType, AssessmentSession, User
-)
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 # Fallback normative dictionaries (Appendix 1 & 7) if DB normative tables absent
 from app.data.norms import (
-    CE_PERCENTILES, RO_PERCENTILES, AC_PERCENTILES, AE_PERCENTILES,
-    ACCE_PERCENTILES, AERO_PERCENTILES, LFI_PERCENTILES,
-    lookup_percentile, lookup_lfi
+    AC_PERCENTILES,
+    ACCE_PERCENTILES,
+    AE_PERCENTILES,
+    AERO_PERCENTILES,
+    CE_PERCENTILES,
+    RO_PERCENTILES,
+    lookup_lfi,
+    lookup_percentile,
+)
+from app.models.klsi import (
+    AssessmentSession,
+    CombinationScore,
+    ItemType,
+    LearningFlexibilityIndex,
+    LearningStyleType,
+    LFIContextScore,
+    PercentileScore,
+    ScaleScore,
+    User,
+    UserLearningStyle,
+    UserResponse,
 )
 
 # Cutpoints per KLSI 4.0: ACCE bands (<6, 6–14, >14) and AERO bands (<1, 1–11, >11)
@@ -195,7 +208,8 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> UserLearningS
                                style_intensity_score=abs(acc)+abs(aer))
     db.add(ustyle)
     # Save backup into BackupLearningStyle for traceability
-    from app.models.klsi import BackupLearningStyle, LearningStyleType as LST
+    from app.models.klsi import BackupLearningStyle
+    from app.models.klsi import LearningStyleType as LST
     if backup:
         btype = db.query(LST).filter(LST.style_name==backup).first()
         if btype:
@@ -303,6 +317,7 @@ def finalize_session(db: Session, session_id: int):
     percentiles = apply_percentiles(db, scale, combo)
     # Audit log entry
     from hashlib import sha256
+
     from app.models.klsi import AuditLog
     payload = f"{scale.CE_raw},{scale.RO_raw},{scale.AC_raw},{scale.AE_raw};{combo.ACCE_raw},{combo.AERO_raw};{lfi.LFI_score}"
     db.add(AuditLog(actor='system', action='FINALIZE_SESSION', payload_hash=sha256(payload.encode('utf-8')).hexdigest()))

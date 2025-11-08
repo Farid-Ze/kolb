@@ -1,10 +1,24 @@
 from __future__ import annotations
+
+import enum
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import String, Integer, Date, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, JSON, Enum, Float
+
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.database import Base
-import enum
 
 
 class Gender(enum.Enum):

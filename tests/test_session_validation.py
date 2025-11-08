@@ -1,9 +1,18 @@
-from sqlalchemy import create_engine
 from uuid import uuid4
+
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.db.database import Base
 from app.models.klsi import (
-    User, AssessmentSession, SessionStatus, AssessmentItem, ItemChoice, UserResponse, ItemType, LearningMode
+    AssessmentItem,
+    AssessmentSession,
+    ItemChoice,
+    ItemType,
+    LearningMode,
+    SessionStatus,
+    User,
+    UserResponse,
 )
 from app.services.validation import check_session_complete
 

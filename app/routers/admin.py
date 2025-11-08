@@ -1,19 +1,22 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Header
-from sqlalchemy.orm import Session
-from hashlib import sha256
 import csv
-from app.db.database import get_db
-from app.models.klsi import NormativeConversionTable, AuditLog
-from typing import List
+from hashlib import sha256
 from io import StringIO
-from jose import jwt, JWTError
+
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+
 from app.core.config import settings
-from app.models.klsi import User
+from app.db.database import get_db
+from app.models.klsi import AuditLog, NormativeConversionTable, User
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 def _get_current_user(authorization: str | None, db: Session) -> User:
-    if not authorization or not authorization.lower().startswith('bearer '):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Token diperlukan")
+    auth_lower = authorization.lower()
+    if not auth_lower.startswith('bearer '):
         raise HTTPException(status_code=401, detail="Token diperlukan")
     token = authorization.split()[1]
     try:
@@ -37,7 +40,8 @@ def import_norms(norm_group: str, file: UploadFile = File(...), db: Session = De
     user = _get_current_user(authorization, db)
     if user.role != 'MEDIATOR':
         raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh impor norma")
-    if not file.filename.lower().endswith('.csv'):
+    fname = file.filename or ""
+    if not fname.lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail="File harus CSV")
     content = file.file.read().decode('utf-8')
     reader = csv.DictReader(StringIO(content))

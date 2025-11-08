@@ -1,20 +1,24 @@
 from __future__ import annotations
+
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
-from app.models.klsi import Team, TeamMember, TeamAssessmentRollup, User
+from app.models.klsi import Team, TeamAssessmentRollup, TeamMember, User
 from app.schemas.team import (
-    TeamCreate, TeamUpdate, TeamMemberAdd,
-    TeamOut, TeamMemberOut, TeamRollupOut,
+    TeamCreate,
+    TeamMemberAdd,
+    TeamMemberOut,
+    TeamOut,
+    TeamRollupOut,
+    TeamUpdate,
 )
 from app.services.rollup import compute_team_rollup
-from jose import jwt, JWTError
-
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 

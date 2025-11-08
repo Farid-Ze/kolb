@@ -1,5 +1,4 @@
-import math
-from app.services.scoring import compute_kendalls_w, STYLE_CUTS
+from app.services.scoring import STYLE_CUTS, compute_kendalls_w
 
 
 def test_kendalls_w_extremes():

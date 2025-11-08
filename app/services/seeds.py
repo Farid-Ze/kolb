@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.klsi import LearningStyleType, AssessmentItem, ItemChoice, ItemType, LearningMode
+
+from app.models.klsi import AssessmentItem, ItemChoice, ItemType, LearningMode, LearningStyleType
 
 # ACCE bands: <=5, 6..14, >=15; AERO bands: <=0, 1..11, >=12
 STYLE_WINDOWS = {

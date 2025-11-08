@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr
 from enum import Enum
+
+from pydantic import BaseModel, EmailStr
+
 
 class Role(str, Enum):
     MAHASISWA = "MAHASISWA"

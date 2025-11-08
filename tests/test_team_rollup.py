@@ -1,12 +1,18 @@
-from datetime import datetime, date
+from datetime import date, datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
 from app.models.klsi import (
-    User, Team, TeamMember, AssessmentSession, SessionStatus,
-    LearningFlexibilityIndex, UserLearningStyle, LearningStyleType,
+    AssessmentSession,
+    LearningFlexibilityIndex,
+    LearningStyleType,
+    SessionStatus,
+    Team,
+    TeamMember,
+    User,
+    UserLearningStyle,
 )
 from app.services.rollup import compute_team_rollup
 

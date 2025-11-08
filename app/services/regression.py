@@ -19,6 +19,7 @@ Notes:
 """
 
 from __future__ import annotations
+
 from typing import Iterable, Optional
 
 # Reported descriptive statistics (Table, online sample unless noted)
@@ -257,9 +258,9 @@ def analyze_lfi_contexts(contexts: list[dict]) -> dict:
     if len(contexts) != 8:
         raise ValueError(f"Expected 8 contexts, got {len(contexts)}")
 
-    context_styles = []
-    style_freq = {}
-    mode_counts = {"CE": 0, "RO": 0, "AC": 0, "AE": 0}
+    context_styles: list[dict] = []
+    style_freq: dict[str, int] = {}
+    mode_counts: dict[str, int] = {"CE": 0, "RO": 0, "AC": 0, "AE": 0}
     
     for idx, ctx in enumerate(contexts):
         # Compute combination scores for this context

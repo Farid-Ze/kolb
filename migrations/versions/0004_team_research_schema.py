@@ -5,8 +5,9 @@ Revises: 0003_add_recommended_indexes
 Create Date: 2025-11-08
 """
 from __future__ import annotations
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision = '0004_team_research_schema'
 down_revision = '0003_add_recommended_indexes'

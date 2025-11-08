@@ -1,8 +1,10 @@
 from __future__ import annotations
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
+
 import os
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -18,7 +20,6 @@ if not config.get_main_option("sqlalchemy.url"):
     config.set_main_option("sqlalchemy.url", db_url)
 
 from app.db.database import Base  # noqa: E402
-from app.models import klsi  # ensure models imported
 
 target_metadata = Base.metadata
 

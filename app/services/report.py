@@ -1,17 +1,32 @@
+from typing import Any, Optional
+
 from sqlalchemy.orm import Session
-from typing import Optional
-from app.models.klsi import (
-    AssessmentSession, ScaleScore, CombinationScore, UserLearningStyle,
-    PercentileScore, LearningFlexibilityIndex, LearningStyleType, BackupLearningStyle,
-    LFIContextScore, User
-)
-from app.i18n.id_styles import (
-    STYLE_LABELS_ID, STYLE_BRIEF_ID, EDUCATOR_RECO_ID, LFI_LABEL_ID, STYLE_DETAIL_ID
-)
+
 from app.data.session_designs import recommend_for_primary
+from app.i18n.id_styles import (
+    EDUCATOR_RECO_ID,
+    LFI_LABEL_ID,
+    STYLE_BRIEF_ID,
+    STYLE_DETAIL_ID,
+    STYLE_LABELS_ID,
+)
+from app.models.klsi import (
+    AssessmentSession,
+    BackupLearningStyle,
+    CombinationScore,
+    LearningFlexibilityIndex,
+    LearningStyleType,
+    LFIContextScore,
+    PercentileScore,
+    ScaleScore,
+    User,
+    UserLearningStyle,
+)
 from app.services.regression import (
-    predicted_curve, predict_integrative_development,
-    analyze_lfi_contexts, generate_lfi_heatmap
+    analyze_lfi_contexts,
+    generate_lfi_heatmap,
+    predict_integrative_development,
+    predicted_curve,
 )
 
 
@@ -352,6 +367,55 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
                 )
             }
 
+    # Build percentiles block with explicit typing to satisfy mypy (heterogeneous value types)
+    percentiles: dict[str, Any] | None
+    if not p:
+        percentiles = None
+    else:
+        acc_raw = combo.ACCE_raw if combo else None
+        aer_raw = combo.AERO_raw if combo else None
+        bands = None
+        if acc_raw is not None and aer_raw is not None:
+            bands = {
+                "ACCE": ("Low" if acc_raw <= 5 else ("Mid" if acc_raw <= 14 else "High")),
+                "AERO": ("Low" if aer_raw <= 0 else ("Mid" if aer_raw <= 11 else "High")),
+            }
+
+        balance_block: dict[str, Any] | None = None
+        if combo is not None:
+            balance_acce = getattr(combo, "balance_acce", None)
+            balance_aero = getattr(combo, "balance_aero", None)
+            balance_levels = {
+                "ACCE": (
+                    "High"
+                    if (balance_acce is not None and balance_acce <= 3)
+                    else ("Moderate" if (balance_acce is not None and balance_acce <= 8) else "Low")
+                ),
+                "AERO": (
+                    "High"
+                    if (balance_aero is not None and balance_aero <= 2)
+                    else ("Moderate" if (balance_aero is not None and balance_aero <= 8) else "Low")
+                ),
+            }
+            balance_block = {
+                "ACCE": max(0.0, min(100.0, round((1 - ((balance_acce or 0) / 45.0)) * 100, 1))),
+                "AERO": max(0.0, min(100.0, round((1 - ((balance_aero or 0) / 42.0)) * 100, 1))),
+                "levels": balance_levels,
+                "note": "BALANCE percentiles bersifat turunan teoritis dari jarak ke pusat normatif (ACCE≈9, AERO≈6); ini bukan persentil normatif populasi.",
+            }
+
+        percentiles = {
+            "CE": p.CE_percentile,
+            "RO": p.RO_percentile,
+            "AC": p.AC_percentile,
+            "AE": p.AE_percentile,
+            "ACCE": p.ACCE_percentile,
+            "AERO": p.AERO_percentile,
+            "bands": bands,
+            "BALANCE": balance_block,
+            "source_provenance": p.norm_group_used,
+        }
+
     return {
         "session_id": session_id,
         "raw": {
@@ -368,35 +432,7 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
                 "AERO": None if not combo else getattr(combo, "balance_aero", None)
             }
         },
-        "percentiles": None if not p else (lambda _combo=combo, _acc=getattr(combo, 'ACCE_raw', None) if combo else None, _aer=getattr(combo, 'AERO_raw', None) if combo else None: {
-            "CE": p.CE_percentile,
-            "RO": p.RO_percentile,
-            "AC": p.AC_percentile,
-            "AE": p.AE_percentile,
-            "ACCE": p.ACCE_percentile,
-            "AERO": p.AERO_percentile,
-            "bands": None if _acc is None or _aer is None else {
-                "ACCE": ("Low" if _acc <= 5 else ("Mid" if _acc <= 14 else "High")),
-                "AERO": ("Low" if _aer <= 0 else ("Mid" if _aer <= 11 else "High"))
-            },
-            # Derived balance percentiles (theoretical scaling; higher = lebih seimbang)
-            "BALANCE": None if not _combo else {
-                "ACCE": max(0.0, min(100.0, round((1 - (getattr(_combo, 'balance_acce', 0) / 45.0)) * 100, 1))),
-                "AERO": max(0.0, min(100.0, round((1 - (getattr(_combo, 'balance_aero', 0) / 42.0)) * 100, 1))),
-                "levels": {
-                    "ACCE": (
-                        "High" if getattr(_combo, 'balance_acce', None) is not None and getattr(_combo, 'balance_acce') <= 3 else
-                        ("Moderate" if getattr(_combo, 'balance_acce', None) is not None and getattr(_combo, 'balance_acce') <= 8 else "Low")
-                    ),
-                    "AERO": (
-                        "High" if getattr(_combo, 'balance_aero', None) is not None and getattr(_combo, 'balance_aero') <= 2 else
-                        ("Moderate" if getattr(_combo, 'balance_aero', None) is not None and getattr(_combo, 'balance_aero') <= 8 else "Low")
-                    )
-                },
-                "note": "BALANCE percentiles bersifat turunan teoritis dari jarak ke pusat normatif (ACCE≈9, AERO≈6); ini bukan persentil normatif populasi."
-            },
-            "source_provenance": p.norm_group_used
-        })(),
+        "percentiles": percentiles,
         "style": None if not primary else {
             "primary_code": primary.style_code,
             "primary_name": STYLE_LABELS_ID.get(primary.style_name, primary.style_name),

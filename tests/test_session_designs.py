@@ -1,4 +1,4 @@
-from app.data.session_designs import STYLES, designs, filter_by_styles, recommend_for_primary
+from app.data.session_designs import designs, filter_by_styles, recommend_for_primary
 
 
 def test_designs_structure():

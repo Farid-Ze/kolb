@@ -1,5 +1,4 @@
-import pytest
-from app.data.norms import lookup_percentile, CE_PERCENTILES, AERO_PERCENTILES
+from app.data.norms import AERO_PERCENTILES, CE_PERCENTILES, lookup_percentile
 
 
 def test_ce_out_of_range_uses_nearest_bounds():

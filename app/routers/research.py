@@ -1,16 +1,20 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-from typing import Optional, List
-from jose import jwt, JWTError
 
 from app.core.config import settings
 from app.db.database import get_db
-from app.models.klsi import (
-    ResearchStudy, ReliabilityResult, ValidityEvidence, User
-)
+from app.models.klsi import ReliabilityResult, ResearchStudy, User, ValidityEvidence
 from app.schemas.research import (
-    ResearchStudyCreate, ResearchStudyUpdate, ReliabilityCreate, ValidityCreate, ResearchStudyOut
+    ReliabilityCreate,
+    ResearchStudyCreate,
+    ResearchStudyOut,
+    ResearchStudyUpdate,
+    ValidityCreate,
 )
 
 router = APIRouter(prefix="/research", tags=["research"])
