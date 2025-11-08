@@ -25,9 +25,7 @@ class TeamOut(BaseModel):
     name: str
     kelas: Optional[str]
     description: Optional[str]
-
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class TeamMemberOut(BaseModel):
@@ -35,9 +33,7 @@ class TeamMemberOut(BaseModel):
     team_id: int
     user_id: int
     role_in_team: Optional[str]
-
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class TeamRollupOut(BaseModel):
@@ -47,6 +43,4 @@ class TeamRollupOut(BaseModel):
     total_sessions: int
     avg_lfi: Optional[float]
     style_counts: Optional[Dict[str, int]]
-
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}

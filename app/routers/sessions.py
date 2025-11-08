@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.klsi import AssessmentSession, SessionStatus, AssessmentItem, UserResponse, ItemChoice, LFIContextScore, AuditLog, User
@@ -90,6 +91,7 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
         raise HTTPException(status_code=409, detail="Sesi sudah selesai")
     result = finalize_session(db, session_id)
     sess.status = SessionStatus.completed
+    sess.end_time = datetime.now(timezone.utc)
     # user-level audit log
     payload = f"user:{user.email};session:{session_id};ACCE:{result['combination'].ACCE_raw};AERO:{result['combination'].AERO_raw};LFI:{result['lfi'].LFI_score}".encode('utf-8')
     db.add(AuditLog(actor=user.email, action='FINALIZE_SESSION_USER', payload_hash=sha256(payload).hexdigest()))

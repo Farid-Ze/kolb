@@ -27,9 +27,7 @@ class ResearchStudyOut(BaseModel):
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
     notes: Optional[str]
-
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class ReliabilityCreate(BaseModel):
