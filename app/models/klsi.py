@@ -204,6 +204,8 @@ class LearningFlexibilityIndex(Base):
     LFI_score: Mapped[float] = mapped_column(Float)
     LFI_percentile: Mapped[Optional[float]] = mapped_column(Float)
     flexibility_level: Mapped[Optional[str]] = mapped_column(String(20))
+    # Provenance norm group used for percentile conversion (DB subgroup or AppendixFallback)
+    norm_group_used: Mapped[Optional[str]] = mapped_column(String(50))
 
     session: Mapped[AssessmentSession] = relationship(back_populates="lfi_index")
 

@@ -1,0 +1,12 @@
+norm_group,scale_name,raw_score,percentile
+Total,CE,12,5.2
+Total,CE,13,7.9
+Total,RO,20,30.0
+Total,AC,22,54.3
+Total,AE,25,40.0
+Total,ACCE,10,60.0
+Total,AERO,5,55.0
+EDU:University Degree,CE,12,6.1
+EDU:University Degree,LFI,60,48.0
+AGE:19-24,CE,12,6.0
+GENDER:Male,AC,22,55.0

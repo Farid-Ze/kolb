@@ -62,12 +62,26 @@ Pipeline akan mencoba EDU → AGE → GENDER → Total sebelum fallback Appendix
 - RBAC: Import norma dibatasi MEDIATOR; sesi hanya owner.
 - Audit hash (SHA-256) finalisasi & import untuk integritas sumber.
 
+### 7.1 Rotasi SECRET_KEY (Disarankan)
+- Gunakan key acak minimal 32 byte.
+- Rencanakan rotasi berkala (mis. triwulan) dengan grace period: jalankan dua key bersamaan (current + previous) lalu cabut previous.
+- Dokumentasikan waktu rotasi dan dampaknya pada sesi aktif (token lama bisa kadaluwarsa lebih cepat selama jendela rotasi).
+
 ## 8. Validasi & Tes
 Tes unit (pytest) mencakup:
 - Kendall’s W ekstrem (identik vs terdispersi) → LFI batas.
 - Boundary ACCE (5/6, 14/15) & AERO (0/1, 11/12) → transisi gaya.
 - Fallback percentile (raw di bawah/atas range & key hilang) → nearest-lower konservatif.
 Rencana lanjutan: uji deterministik backup style jarak L1 & reliabilitas test–retest.
+
+### 8.2 Contoh CSV Import Norma
+Lihat `docs/examples/norm_import.sample.csv` untuk format:
+```
+norm_group,scale_name,raw_score,percentile
+Total,CE,12,5.2
+EDU:University Degree,LFI,60,48.0
+```
+Catatan: Percentile harus non-decreasing terhadap `raw_score` per `(norm_group, scale_name)`.
 
 ## 8.1 Dokumentasi Tambahan
 - `docs/03-klsi-overview.md` — Ringkasan tujuan, sejarah versi (LSI 1→KLSI 4.0), penambahan kunci 4.0 (9 gaya, fleksibilitas, laporan interpretatif, psikometrik), dan etika penggunaan.
@@ -127,3 +141,9 @@ Semua keputusan implementasi merujuk langsung pada sumber primer; tidak ada inte
 
 ---
 Status pengembangan lanjutan fokus pada penambahan subgroup norms dan analisis reliabilitas lanjutan. Silakan lihat dokumen spesifikasi di folder `docs/` untuk penelusuran penuh.
+
+## 16. Limitations (Penting untuk Interpretasi)
+- Skor bersifat ipsatif (forced-choice); perbandingan lintas individu harus hati-hati karena skala tidak aditif.
+- Koefisien reliabilitas tradisional (mis. Cronbach’s α) pada difference scores memiliki keterbatasan; gunakan metrik yang sesuai konteks.
+- Percentile fallback dari Appendix menggunakan nearest-lower; bila rentang raw tidak tercakup, interpretasi harus menyebutkan keterbatasan sumber norma.
+- Alat ini bersifat non-diagnostik; gunakan sebagai dukungan refleksi dan perancangan pengalaman belajar, bukan pengkategorian deterministik.

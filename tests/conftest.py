@@ -8,6 +8,8 @@ from app.services.seeds import seed_learning_styles, seed_assessment_items
 
 @pytest.fixture(scope="session")
 def db_setup():
+    # Recreate schema fresh to pick up new columns added in models (e.g., provenance fields)
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_learning_styles(db)
