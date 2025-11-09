@@ -53,9 +53,9 @@ def seed_assessment_items(db: Session):
             db.add(item)
             db.flush()
             db.add_all([
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.CE, choice_text=f"Saya mengandalkan perasaan saya"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.RO, choice_text=f"Saya mengamati dengan cermat"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.AC, choice_text=f"Saya berpikir tentang gagasan"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.AE, choice_text=f"Saya mencoba melakukannya")
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.CE, choice_text="Saya mengandalkan perasaan saya"),
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.RO, choice_text="Saya mengamati dengan cermat"),
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.AC, choice_text="Saya berpikir tentang gagasan"),
+                ItemChoice(item_id=item.id, learning_mode=LearningMode.AE, choice_text="Saya mencoba melakukannya")
             ])
         db.commit()

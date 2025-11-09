@@ -12,7 +12,7 @@ from app.routers.research import router as research_router
 from app.routers.score import router as score_router
 from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
-from app.services.seeds import seed_learning_styles, seed_assessment_items
+from app.services.seeds import seed_assessment_items, seed_learning_styles
 
 
 @asynccontextmanager

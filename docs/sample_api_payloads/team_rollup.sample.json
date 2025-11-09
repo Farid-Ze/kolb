@@ -1,0 +1,40 @@
+{
+  "team_id": 7,
+  "team_name": "Kelompok Riset A",
+  "date": "2025-11-08",
+  "total_sessions": 18,
+  "completed_sessions": 16,
+  "avg_lfi": 0.72,
+  "avg_lfi_percentile": 64.6,
+  "flexibility_level_mode": "Moderate",
+  "style_counts": {
+    "Imagining": 1,
+    "Experiencing": 2,
+    "Initiating": 3,
+    "Reflecting": 2,
+    "Balancing": 4,
+    "Acting": 1,
+    "Analyzing": 2,
+    "Thinking": 2,
+    "Deciding": 1
+  },
+  "style_distribution_entropy": 2.03,
+  "acce_aero_centroid": {
+    "ACCE_mean": 9.8,
+    "AERO_mean": 6.1
+  },
+  "norm_provenance_summary": {
+    "EDU:University Degree": 9,
+    "COUNTRY:Indonesia": 4,
+    "AGE:19-24": 2,
+    "GENDER:Male": 1,
+    "Total": 0,
+    "AppendixFallback": 0
+  },
+  "recent_sessions": [
+    {"session_id": 211, "primary_style": "Balancing", "LFI": 0.81, "LFI_percentile": 63.8},
+    {"session_id": 212, "primary_style": "Initiating", "LFI": 0.69, "LFI_percentile": 36.7},
+    {"session_id": 213, "primary_style": "Analyzing", "LFI": 0.74, "LFI_percentile": 49.4}
+  ],
+  "updated_at": "2025-11-08T10:45:00Z"
+}

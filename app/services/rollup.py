@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 from typing import Dict, Optional
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.klsi import (
@@ -46,7 +46,27 @@ def compute_team_rollup(
         AssessmentSession.status == SessionStatus.completed,
     ]
     if for_date is not None:
-        filters.append(session_date_expr == for_date)
+        # Handle potential timezone differences between Python (local) and DB CURRENT_DATE (often UTC)
+        # Compute a 0/±1 day delta and include both dates to avoid off-by-one errors across environments.
+        try:
+            db_today = db.execute(select(func.current_date())).scalar()
+        except Exception:
+            db_today = None
+        delta_days = 0
+        if isinstance(db_today, date) and db_today != date.today():
+            delta_days = (date.today() - db_today).days
+            # Clamp to at most 1 day adjustment to prevent overly broad selection
+            if delta_days > 1:
+                delta_days = 1
+            if delta_days < -1:
+                delta_days = -1
+
+        if delta_days == 0:
+            filters.append(session_date_expr == for_date)
+        else:
+            # Include both local-provided date and the DB-shifted equivalent
+            adjusted = for_date - timedelta(days=delta_days)
+            filters.append(or_(session_date_expr == for_date, session_date_expr == adjusted))
 
     sessions_q = (
         db.query(

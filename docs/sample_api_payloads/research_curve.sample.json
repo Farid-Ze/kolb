@@ -1,0 +1,18 @@
+{
+  "method": "quadratic_regression",
+  "r2": 0.47,
+  "intensity_definition": "|ACCE| + |AERO|",
+  "curve": [
+    {"intensity": 0, "predicted_lfi": 0.42},
+    {"intensity": 4, "predicted_lfi": 0.55},
+    {"intensity": 8, "predicted_lfi": 0.67},
+    {"intensity": 12, "predicted_lfi": 0.74},
+    {"intensity": 16, "predicted_lfi": 0.77},
+    {"intensity": 20, "predicted_lfi": 0.76},
+    {"intensity": 24, "predicted_lfi": 0.72},
+    {"intensity": 28, "predicted_lfi": 0.66},
+    {"intensity": 32, "predicted_lfi": 0.58}
+  ],
+  "explanatory_notes": "Curve menunjukkan inverted-U: fleksibilitas meningkat dengan intensitas gaya sampai titik optimum lalu menurun (hipotesis adaptasi). Nilai contoh sintetis untuk ilustrasi UI; backend menyediakan nilai aktual dari regression service.",
+  "generated_at": "2025-11-08T10:46:00Z"
+}

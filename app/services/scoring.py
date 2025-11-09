@@ -419,7 +419,6 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
     # Try DB normative first using subgroup precedence.
     # raw_score stored as int(LFI * 100) if present in database.
     lfi_pct = None
-    norm_group_used = None
     
     for ng in _resolve_norm_groups(db, session_id):
         row = db.execute(
@@ -431,14 +430,12 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
         ).fetchone()
         if row:
             lfi_pct = float(row[0])
-            norm_group_used = ng
             break
     
     # Fallback to Appendix 7 mapping if no DB norm found
     if lfi_pct is None:
         # Round to 2 decimals for dictionary key matching
         lfi_pct = lookup_lfi(round(lfi_value, 2))
-        norm_group_used = "AppendixFallback"
     
     # Assign flexibility level based on tertile cutoffs
     level = None

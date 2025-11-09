@@ -1,0 +1,37 @@
+{
+  "session_id": 123,
+  "user_id": 45,
+  "style": {
+    "primary_style": "Thinking",
+    "backup_style": "Acting",
+    "ACCE_raw": 16,
+    "AERO_raw": 9,
+    "kite_coordinates": {"CE": 22, "RO": 24, "AC": 38, "AE": 33}
+  },
+  "percentiles": {
+    "CE": 35.2,
+    "RO": 41.0,
+    "AC": 78.4,
+    "AE": 69.1,
+    "ACCE": 82.0,
+    "AERO": 57.3,
+    "norm_group_used": "EDU:University Degree"
+  },
+  "lfi": {
+    "W": 0.12,
+    "LFI": 0.88,
+    "percentile": 93.0,
+    "level": "High"
+  },
+  "provenance": {
+    "finalization_hash": "d2a9710d…",
+    "finalized_at": "2025-11-08T09:15:17Z"
+  },
+  "analytics_mediator_only": {
+    "context_heatmap": [
+      {"context": "Starting_Something_New", "CE": 2, "RO": 3, "AC": 1, "AE": 4},
+      {"context": "Influencing_Someone", "CE": 3, "RO": 1, "AC": 4, "AE": 2}
+    ],
+    "style_distribution": {"Imagining": 2, "Thinking": 5, "Acting": 3}
+  }
+}
