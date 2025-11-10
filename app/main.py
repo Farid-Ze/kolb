@@ -14,6 +14,10 @@ from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 
+# Ensure instrument plugins register themselves at import time
+from app.instruments.klsi4 import plugin as _  # noqa: F401
+from app.routers.engine import router as engine_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -89,6 +93,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 # Register routers at import time so tests see routes without requiring startup
 app.include_router(auth_router)
 app.include_router(sessions_router)
+app.include_router(engine_router)
 app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(score_router)
