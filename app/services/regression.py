@@ -1,59 +1,144 @@
 """Regression-based analytics for Learning Flexibility Index (LFI).
 
-This module implements a light, reproducible approximation of the KLSI 4.0
-hierarchical regression reported for Learning Flexibility (Model 3):
-
-- Predictors: Age, Gender, Education, Specialization, Acc-Assm, (Acc-Assm)^2
-- Coefficients are standardized betas from the documentation.
-
-We generate relative predicted LFI values by:
-1) Standardizing each predictor using the sample means/SDs from the table
-2) Computing predicted standardized LFI (no intercept in standardized space)
-3) Converting back to raw LFI using the reported M and SD, then clipping [0,1]
-
-Notes:
-- Canonical Assimilation–Accommodation index (spec): Assim-Acc = (AC + RO) - (AE + CE)
-- Historical regression betas were published on the opposite orientation (Accommodating − Assimilating) = (AE + CE) - (AC + RO).
-- We accept input as Assim-Acc; internally we invert to match published coefficients when standardizing.
-- Gender coded 1=Male, 0=Female in the source; we follow the same coding.
-- When demographics are not provided, we hold them at the sample mean (z=0),
-  which corresponds to the "controlling for demographics" plot in the text.
+Coefficients, means, and standard deviations are loaded from
+``app/assessments/klsi_v4/config.yaml`` so the implementation stays aligned
+with the Kolb & Kolb (2013) specification and the repository's governance
+rules for psychometric parameters.
 """
 
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from functools import lru_cache
+from typing import Any, Dict, Iterable, List, Optional
 
-# Reported descriptive statistics (Table, online sample unless noted)
-MEAN_LFI = 0.71
-SD_LFI = 0.17
+from app.assessments.klsi_v4 import load_config
+from app.assessments.klsi_v4.logic import (
+    CONTEXT_NAMES as _KLSI_CONTEXT_NAMES,
+    STYLE_CUTS as _KLSI_STYLE_CUTS,
+)
 
-MEANS = {
-    "age": 3.73,
-    "gender": 0.47,  # 1=Male, 0=Female
-    "education": 3.28,  # 1..5
-    "specialization": 10.72,  # 1..18 (Arts→STEM)
-    # Mean published for accommodating-minus-assimilating orientation
-    "acc_assm": 0.29,
-}
 
-SDS = {
-    "age": 1.13,
-    "gender": 0.50,
-    "education": 0.86,
-    "specialization": 4.50,
-    "acc_assm": 18.23,  # SD published for accommodating-minus-assimilating
-}
+CONTEXT_NAMES: List[str] = list(_KLSI_CONTEXT_NAMES)
+STYLE_CUTS = _KLSI_STYLE_CUTS
 
-# Standardized regression coefficients (Model 3)
-BETAS = {
-    "age": -0.02,
-    "gender": -0.04,
-    "education": -0.03,
-    "specialization": -0.02,
-    "acc_assm": 0.23,
-    "acc_assm_sq": -0.14,
-}
+
+class RegressionConfigError(RuntimeError):
+    """Raised when regression parameters are missing from the config."""
+
+
+@lru_cache()
+def _regression_cfg() -> Dict[str, Any]:
+    cfg = load_config()
+    block = cfg.get("regression")
+    if not block:
+        raise RegressionConfigError("Missing 'regression' section in KLSI config.")
+    return block
+
+
+@lru_cache()
+def _lfi_cfg() -> Dict[str, Any]:
+    block = _regression_cfg().get("lfi")
+    if not block:
+        raise RegressionConfigError("Missing 'regression.lfi' section in KLSI config.")
+    return block
+
+
+@lru_cache()
+def _integrative_cfg() -> Dict[str, Any]:
+    block = _regression_cfg().get("integrative_development")
+    if not block:
+        raise RegressionConfigError(
+            "Missing 'regression.integrative_development' section in KLSI config."
+        )
+    return block
+
+
+def _normalize_predictor(name: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        mean = float(data["mean"])
+        sd = float(data["sd"])
+    except KeyError as exc:  # pragma: no cover - defensive safeguard
+        missing = exc.args[0]
+        raise RegressionConfigError(
+            f"Predictor '{name}' is missing required key '{missing}'."
+        ) from exc
+    normalized = {
+        "mean": mean,
+        "sd": sd,
+        "beta": float(data["beta"]) if "beta" in data else None,
+        "squared_beta": float(data["squared_beta"]) if "squared_beta" in data else None,
+        "orientation": data.get("orientation"),
+    }
+    return normalized
+
+
+@lru_cache()
+def _lfi_predictors() -> Dict[str, Dict[str, Any]]:
+    raw = _lfi_cfg().get("predictors")
+    if not raw:
+        raise RegressionConfigError("Missing predictors in 'regression.lfi' configuration.")
+    return {name: _normalize_predictor(name, payload) for name, payload in raw.items()}
+
+
+@lru_cache()
+def _lfi_params() -> Dict[str, Any]:
+    cfg = _lfi_cfg()
+    predictors = _lfi_predictors()
+    try:
+        mean = float(cfg["mean"])
+        sd = float(cfg["sd"])
+    except KeyError as exc:  # pragma: no cover - defensive safeguard
+        missing = exc.args[0]
+        raise RegressionConfigError(
+            f"Missing LFI regression parameter '{missing}'."
+        ) from exc
+
+    means = {name: stats["mean"] for name, stats in predictors.items()}
+    sds = {name: stats["sd"] for name, stats in predictors.items()}
+    betas = {
+        name: stats["beta"]
+        for name, stats in predictors.items()
+        if stats["beta"] is not None
+    }
+    acc_stats = predictors.get("acc_assm")
+    if acc_stats and acc_stats.get("squared_beta") is not None:
+        betas["acc_assm_sq"] = acc_stats["squared_beta"]
+
+    curve_cfg = cfg.get("curve", {})
+    range_cfg = curve_cfg.get("acc_range", {})
+    start = int(range_cfg.get("min", -60))
+    end = int(range_cfg.get("max", 60))
+    step = int(range_cfg.get("step", 1)) or 1
+    damping = float(curve_cfg.get("damping_factor", 0.8))
+    if damping < 0 or damping > 1:
+        damping = 0.8
+
+    return {
+        "mean": mean,
+        "sd": sd,
+        "predictors": predictors,
+        "means": means,
+        "sds": sds,
+        "betas": betas,
+        "orientation": acc_stats.get("orientation") if acc_stats else None,
+        "acc_range": (start, end, step),
+        "damping": damping,
+    }
+
+
+@lru_cache()
+def _integrative_params() -> Dict[str, Any]:
+    cfg = _integrative_cfg()
+    try:
+        mean = float(cfg["mean"])
+        sd = float(cfg["sd"])
+    except KeyError as exc:  # pragma: no cover - defensive safeguard
+        missing = exc.args[0]
+        raise RegressionConfigError(
+            f"Missing Integrative Development parameter '{missing}'."
+        ) from exc
+    betas = {name: float(value) for name, value in cfg.get("betas", {}).items()}
+    return {"mean": mean, "sd": sd, "betas": betas}
 
 
 def z(value: Optional[float], mean: float, sd: float) -> float:
@@ -81,27 +166,40 @@ def predict_lfi(
 
     Demographics default to sample means (z=0) if omitted.
     """
-    z_age = z(age, MEANS["age"], SDS["age"])
-    z_gender = z(gender, MEANS["gender"], SDS["gender"])
-    z_edu = z(education, MEANS["education"], SDS["education"])
-    z_spec = z(specialization, MEANS["specialization"], SDS["specialization"])
-    # Invert to published accommodating-minus-assimilating orientation for betas
-    published_orientation = -acc_assm
-    z_acc = z(published_orientation, MEANS["acc_assm"], SDS["acc_assm"])
+    params = _lfi_params()
+    means = params["means"]
+    sds = params["sds"]
+    betas = params["betas"]
+    predictors = params["predictors"]
+
+    z_age = z(age, means.get("age", 0.0), sds.get("age", 1.0))
+    z_gender = z(gender, means.get("gender", 0.0), sds.get("gender", 1.0))
+    z_edu = z(education, means.get("education", 0.0), sds.get("education", 1.0))
+    z_spec = z(specialization, means.get("specialization", 0.0), sds.get("specialization", 1.0))
+
+    acc_stats = predictors.get("acc_assm")
+    published_orientation = float(acc_assm)
+    if acc_stats and acc_stats.get("orientation") == "accommodating_minus_assimilating":
+        published_orientation = -float(acc_assm)
+    z_acc = z(
+        published_orientation,
+        acc_stats["mean"] if acc_stats else 0.0,
+        acc_stats["sd"] if acc_stats else 1.0,
+    )
     z_acc_sq = z_acc ** 2
 
-    # Standardized prediction (intercept ~ 0 in standardized space)
     z_y = (
-        BETAS["age"] * z_age
-        + BETAS["gender"] * z_gender
-        + BETAS["education"] * z_edu
-        + BETAS["specialization"] * z_spec
-        + BETAS["acc_assm"] * z_acc
-        + BETAS["acc_assm_sq"] * z_acc_sq
+        betas.get("age", 0.0) * z_age
+        + betas.get("gender", 0.0) * z_gender
+        + betas.get("education", 0.0) * z_edu
+        + betas.get("specialization", 0.0) * z_spec
+        + betas.get("acc_assm", 0.0) * z_acc
+        + betas.get("acc_assm_sq", 0.0) * z_acc_sq
     )
 
-    # Back-transform to raw LFI, clip to [0,1]
-    y = MEAN_LFI + z_y * SD_LFI
+    mean_lfi = params["mean"]
+    sd_lfi = params["sd"]
+    y = mean_lfi + z_y * sd_lfi
     return max(0.0, min(1.0, y))
 
 
@@ -117,45 +215,32 @@ def predicted_curve(
 
     Default range is -60..60 step 1, which comfortably spans common values.
     """
+    params = _lfi_params()
+    predictors = params["predictors"]
+    acc_stats = predictors.get("acc_assm")
+    start, end, step = params["acc_range"]
     if acc_range is None:
-        acc_range = range(-60, 61)
-    points: list[dict] = []
-    # For the visualization that highlights the balancing hypothesis, we
-    # center the curve at the balance point (Acc-Assm=0) by dropping the
-    # linear term and showing the curvilinear (inverted-U) component with
-    # demographics held at their means (z=0). This mirrors the narrative plot
-    # that emphasizes a peak at balance and decline toward extremes.
+        stop = end + (1 if step > 0 else -1)
+        acc_range = range(start, stop, step)
+
+    points: List[Dict[str, float]] = []
+    damping = params["damping"]
+    mean_lfi = params["mean"]
+    sd_lfi = params["sd"]
+    beta_sq = params["betas"].get("acc_assm_sq", 0.0)
+    acc_sd = acc_stats["sd"] if acc_stats else 1.0
+
     for x in acc_range:
-        # Standardize around balance (0) using the reported SD
-        z_acc = float(x) / SDS["acc_assm"]
+        # Standardize around balance (0) using the published SD; mean intentionally 0
+        z_acc = float(x) / acc_sd if acc_sd else 0.0
         z_acc_sq = z_acc ** 2
-        z_y = BETAS["acc_assm_sq"] * z_acc_sq
-        y = MEAN_LFI + z_y * SD_LFI
-        # Mild damping on accommodative side to reflect "declines only slightly"
+        z_y = beta_sq * z_acc_sq
+        y = mean_lfi + z_y * sd_lfi
         if z_acc > 0:
-            y = (y * 0.8) + (MEAN_LFI * 0.2)
-        # Clip and record
+            y = (y * damping) + (mean_lfi * (1 - damping))
         y = max(0.0, min(1.0, y))
         points.append({"acc_assm": float(x), "pred_lfi": y})
     return points
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Integrative Development Prediction (Hypothesis 6 / Table 15 Model 1)
-# ═══════════════════════════════════════════════════════════════════════════
-
-MEAN_ID = 19.42
-SD_ID = 3.48
-
-# Standardized regression coefficients for Integrative Development (N=169)
-BETAS_ID = {
-    "age": 0.18,       # p < .05
-    "gender": -0.18,   # p < .05
-    "education": 0.00,
-    "specialization": -0.03,
-    "acc_assm": 0.01,
-    "lfi": 0.25,       # p < .01, strongest predictor
-}
 
 
 def predict_integrative_development(
@@ -170,72 +255,38 @@ def predict_integrative_development(
     """Predict Integrative Development score using Hypothesis 6 model.
 
     LFI (β=0.25**) is the strongest predictor of integrative development,
-    showing that flexible learners exhibit higher-order integrative thinking.
-
-    Args:
-        age: Age group (1-7 scale)
-        gender: 1=Male, 0=Female
-        education: Education level (1-5 scale)
-        specialization: Field specialization (1-18 scale)
-        acc_assm: Accommodation-Assimilation index
-        lfi: Learning Flexibility Index (0-1)
-
-    Returns:
-        Predicted Integrative Development score (typically 10-30 range)
+    demonstrating that flexible learners exhibit higher-order integrative
+    thinking in Kolb & Kolb (2013).
     """
-    z_age = z(age, MEANS["age"], SDS["age"])
-    z_gender = z(gender, MEANS["gender"], SDS["gender"])
-    z_edu = z(education, MEANS["education"], SDS["education"])
-    z_spec = z(specialization, MEANS["specialization"], SDS["specialization"])
-    z_acc = z(acc_assm, MEANS["acc_assm"], SDS["acc_assm"])
-    z_lfi = z(lfi, MEAN_LFI, SD_LFI)
 
-    # Standardized prediction
+    lfi_params = _lfi_params()
+    means = lfi_params["means"]
+    sds = lfi_params["sds"]
+
+    params = _integrative_params()
+    betas = params["betas"]
+
+    z_age = z(age, means.get("age", 0.0), sds.get("age", 1.0))
+    z_gender = z(gender, means.get("gender", 0.0), sds.get("gender", 1.0))
+    z_edu = z(education, means.get("education", 0.0), sds.get("education", 1.0))
+    z_spec = z(specialization, means.get("specialization", 0.0), sds.get("specialization", 1.0))
+    z_acc = z(acc_assm, means.get("acc_assm", 0.0), sds.get("acc_assm", 1.0))
+    z_lfi = z(lfi, lfi_params["mean"], lfi_params["sd"])
+
     z_y = (
-        BETAS_ID["age"] * z_age
-        + BETAS_ID["gender"] * z_gender
-        + BETAS_ID["education"] * z_edu
-        + BETAS_ID["specialization"] * z_spec
-        + BETAS_ID["acc_assm"] * z_acc
-        + BETAS_ID["lfi"] * z_lfi
+        betas.get("age", 0.0) * z_age
+        + betas.get("gender", 0.0) * z_gender
+        + betas.get("education", 0.0) * z_edu
+        + betas.get("specialization", 0.0) * z_spec
+        + betas.get("acc_assm", 0.0) * z_acc
+        + betas.get("lfi", 0.0) * z_lfi
     )
 
-    # Back-transform to raw Integrative Development score
-    y = MEAN_ID + z_y * SD_ID
+    y = params["mean"] + z_y * params["sd"]
     return round(y, 2)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Contextual Learning Style Analysis (Figures 22 & 23 - Mark/Jason profiles)
-# ═══════════════════════════════════════════════════════════════════════════
-
-# Context names matching the 8 LFI items
-CONTEXT_NAMES = [
-    "Starting_Something_New",      # AE & CE emphasis
-    "Influencing_Someone",         # AE & CE emphasis
-    "Getting_To_Know_Someone",     # CE & RO emphasis
-    "Learning_In_A_Group",         # CE & RO emphasis
-    "Planning_Something",          # RO & AC emphasis
-    "Analyzing_Something",         # RO & AC emphasis
-    "Evaluating_An_Opportunity",   # AC & AE emphasis
-    "Choosing_Between_Alternatives" # AC & AE emphasis
-]
-
-# Style classification cutpoints (from scoring.py)
-STYLE_CUTS = {
-    "Imagining":   lambda acc, aer: acc <= 5  and aer <= 0,
-    "Experiencing":lambda acc, aer: acc <= 5  and 1 <= aer <= 11,
-    "Initiating":  lambda acc, aer: acc <= 5  and aer >= 12,
-    "Reflecting":  lambda acc, aer: 6 <= acc <= 14 and aer <= 0,
-    "Balancing":   lambda acc, aer: 6 <= acc <= 14 and 1 <= aer <= 11,
-    "Acting":      lambda acc, aer: 6 <= acc <= 14 and aer >= 12,
-    "Analyzing":   lambda acc, aer: acc >= 15 and aer <= 0,
-    "Thinking":    lambda acc, aer: acc >= 15 and 1 <= aer <= 11,
-    "Deciding":    lambda acc, aer: acc >= 15 and aer >= 12,
-}
-
-
-def analyze_lfi_contexts(contexts: list[dict]) -> dict:
+def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:
     """Analyze which learning styles are used in each of the 8 LFI contexts.
 
     This creates a profile like Mark's (98th %ile) or Jason's (4th %ile) showing
@@ -260,12 +311,12 @@ def analyze_lfi_contexts(contexts: list[dict]) -> dict:
             "flexibility_pattern": "high" | "moderate" | "low"
         }
     """
-    if len(contexts) != 8:
-        raise ValueError(f"Expected 8 contexts, got {len(contexts)}")
+    if len(contexts) != len(CONTEXT_NAMES):
+        raise ValueError(f"Expected {len(CONTEXT_NAMES)} contexts, got {len(contexts)}")
 
-    context_styles: list[dict] = []
-    style_freq: dict[str, int] = {}
-    mode_counts: dict[str, int] = {"CE": 0, "RO": 0, "AC": 0, "AE": 0}
+    context_styles: List[Dict[str, Any]] = []
+    style_freq: Dict[str, int] = {}
+    mode_counts: Dict[str, int] = {"CE": 0, "RO": 0, "AC": 0, "AE": 0}
     
     for idx, ctx in enumerate(contexts):
         # Compute combination scores for this context
@@ -295,16 +346,18 @@ def analyze_lfi_contexts(contexts: list[dict]) -> dict:
             if rank == max_rank:
                 mode_counts[mode] += 1
         
-        context_styles.append({
-            "context": CONTEXT_NAMES[idx] if idx < len(CONTEXT_NAMES) else f"Context_{idx+1}",
-            "style": style or "Unclassified",
-            "ACCE": acce,
-            "AERO": aero,
-            "CE": ce_val,
-            "RO": ro_val,
-            "AC": ac_val,
-            "AE": ae_val,
-        })
+        context_styles.append(
+            {
+                "context": CONTEXT_NAMES[idx] if idx < len(CONTEXT_NAMES) else f"Context_{idx + 1}",
+                "style": style or "Unclassified",
+                "ACCE": acce,
+                "AERO": aero,
+                "CE": ce_val,
+                "RO": ro_val,
+                "AC": ac_val,
+                "AE": ae_val,
+            }
+        )
     
     # Determine flexibility pattern based on style diversity
     unique_styles = len(style_freq)
@@ -316,24 +369,27 @@ def analyze_lfi_contexts(contexts: list[dict]) -> dict:
         pattern = "low"  # Like Jason - stuck in 1-3 styles
     
     # Build mode usage detail
-    mode_usage = {}
+    mode_usage: Dict[str, Dict[str, Any]] = {}
     for mode in ["CE", "RO", "AC", "AE"]:
-        used_contexts = [cs["context"] for cs in context_styles 
-                        if cs[mode] == max(cs["CE"], cs["RO"], cs["AC"], cs["AE"])]
+        used_contexts = [
+            cs["context"]
+            for cs in context_styles
+            if cs[mode] == max(cs["CE"], cs["RO"], cs["AC"], cs["AE"])
+        ]
         mode_usage[mode] = {
             "count": mode_counts[mode],
-            "contexts": used_contexts
+            "contexts": used_contexts,
         }
-    
+
     return {
         "context_styles": context_styles,
         "style_frequency": style_freq,
         "mode_usage": mode_usage,
-        "flexibility_pattern": pattern
+        "flexibility_pattern": pattern,
     }
 
 
-def generate_lfi_heatmap(lfi_score: float, context_styles: list[dict]) -> dict:
+def generate_lfi_heatmap(lfi_score: float, context_styles: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Generate heatmap data showing style usage intensity across contexts.
 
     Used for visualizations comparing low LFI (4th %ile) vs high LFI (98th %ile).

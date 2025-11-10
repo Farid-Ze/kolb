@@ -49,3 +49,46 @@ context_names:
   - Analyzing_Something
   - Evaluating_An_Opportunity
   - Choosing_Between_Alternatives
+regression:
+  lfi:
+    mean: 0.71
+    sd: 0.17
+    predictors:
+      age:
+        mean: 3.73
+        sd: 1.13
+        beta: -0.02
+      gender:
+        mean: 0.47
+        sd: 0.50
+        beta: -0.04
+      education:
+        mean: 3.28
+        sd: 0.86
+        beta: -0.03
+      specialization:
+        mean: 10.72
+        sd: 4.50
+        beta: -0.02
+      acc_assm:
+        mean: 0.29
+        sd: 18.23
+        beta: 0.23
+        squared_beta: -0.14
+        orientation: accommodating_minus_assimilating
+    curve:
+      acc_range:
+        min: -60
+        max: 60
+        step: 1
+      damping_factor: 0.8
+  integrative_development:
+    mean: 19.42
+    sd: 3.48
+    betas:
+      age: 0.18
+      gender: -0.18
+      education: 0.0
+      specialization: -0.03
+      acc_assm: 0.01
+      lfi: 0.25

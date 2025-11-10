@@ -145,6 +145,8 @@ def _insert_scores(db, session_id: int) -> None:
 
 
 def test_backfill_scale_provenance(session):
+    session.query(ScaleProvenance).delete()
+    session.commit()
     sess = _create_session(session)
     _insert_scores(session, sess.id)
     session.commit()
