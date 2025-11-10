@@ -17,7 +17,23 @@ from app.services.seeds import seed_assessment_items, seed_learning_styles
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application startup and shutdown lifecycle.
+    
+    DDL Strategy:
+        Development: create_all() + ad-hoc DDL for convenience (auto-setup on run)
+        Production: Use Alembic migrations exclusively (alembic upgrade head)
+        
+    Rationale:
+        - create_all() provides rapid iteration for local dev
+        - Ad-hoc DDL creates indexes/views not captured in ORM models
+        - Alembic is authoritative source of truth for production schema
+        - Both approaches use IF NOT EXISTS/OR REPLACE for idempotency
+        
+    See: migrations/versions/*.py for production schema changes
+    """
     # Startup
+    # NOTE: In production, disable create_all() via RUN_STARTUP_DDL=false env var
+    # and rely on Alembic migrations only
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_learning_styles(db)

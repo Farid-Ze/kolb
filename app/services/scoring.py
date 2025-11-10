@@ -395,6 +395,9 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
     """
     # Retrieve LFI context scores from database
     rows = db.query(LFIContextScore).filter(LFIContextScore.session_id == session_id).all()
+    # Enforce exactly 8 contexts for LFI computation
+    if len(rows) != 8:
+        raise ValueError(f"Expected exactly 8 LFI contexts, found {len(rows)}")
     
     # Convert to format expected by compute_kendalls_w
     context_scores = []
@@ -474,6 +477,8 @@ def apply_percentiles(
     used_group: str | None = None
     candidates = _resolve_norm_groups(db, scale.session_id)
 
+    per_scale_source: dict[str, str] = {}
+
     def pct(scale_name: str, raw: int) -> float | None:
         # Try subgroup precedence list first
         for ng in candidates:
@@ -488,19 +493,26 @@ def apply_percentiles(
                 nonlocal used_db_any, used_group
                 used_db_any = True
                 used_group = ng if used_group is None else used_group
+                per_scale_source[scale_name] = f"DB:{ng}"
                 return float(row[0])
         # Fallback dictionary
         if scale_name == 'CE':
+            per_scale_source.setdefault('CE', 'AppendixFallback')
             return lookup_percentile(raw, CE_PERCENTILES)
         if scale_name == 'RO':
+            per_scale_source.setdefault('RO', 'AppendixFallback')
             return lookup_percentile(raw, RO_PERCENTILES)
         if scale_name == 'AC':
+            per_scale_source.setdefault('AC', 'AppendixFallback')
             return lookup_percentile(raw, AC_PERCENTILES)
         if scale_name == 'AE':
+            per_scale_source.setdefault('AE', 'AppendixFallback')
             return lookup_percentile(raw, AE_PERCENTILES)
         if scale_name == 'ACCE':
+            per_scale_source.setdefault('ACCE', 'AppendixFallback')
             return lookup_percentile(raw, ACCE_PERCENTILES)
         if scale_name == 'AERO':
+            per_scale_source.setdefault('AERO', 'AppendixFallback')
             return lookup_percentile(raw, AERO_PERCENTILES)
         return None
     ps = PercentileScore(session_id=scale.session_id,
@@ -510,7 +522,14 @@ def apply_percentiles(
                          AC_percentile=pct('AC', scale.AC_raw),
                          AE_percentile=pct('AE', scale.AE_raw),
                          ACCE_percentile=pct('ACCE', combo.ACCE_raw),
-                         AERO_percentile=pct('AERO', combo.AERO_raw))
+                         AERO_percentile=pct('AERO', combo.AERO_raw),
+                         CE_source=per_scale_source.get('CE', 'AppendixFallback'),
+                         RO_source=per_scale_source.get('RO', 'AppendixFallback'),
+                         AC_source=per_scale_source.get('AC', 'AppendixFallback'),
+                         AE_source=per_scale_source.get('AE', 'AppendixFallback'),
+                         ACCE_source=per_scale_source.get('ACCE', 'AppendixFallback'),
+                         AERO_source=per_scale_source.get('AERO', 'AppendixFallback'),
+                         used_fallback_any=1 if any(v == 'AppendixFallback' for v in per_scale_source.values()) else 0)
     db.add(ps)
     return ps
 

@@ -71,8 +71,8 @@ class User(Base):
     date_of_birth: Mapped[Optional[Date]] = mapped_column(Date, nullable=True)
     gender: Mapped[Optional[Gender]] = mapped_column(Enum(Gender), nullable=True)
     education_level: Mapped[Optional[EducationLevel]] = mapped_column(Enum(EducationLevel), nullable=True)
-    country: Mapped[Optional[str]] = mapped_column(String(100))
-    occupation: Mapped[Optional[str]] = mapped_column(String(255))
+    country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    occupation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     role: Mapped[Optional[str]] = mapped_column(String(20), default="MAHASISWA")  # 'MEDIATOR','MAHASISWA'
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -195,6 +195,9 @@ class LFIContextScore(Base):
     RO_rank: Mapped[int] = mapped_column(Integer)
     AC_rank: Mapped[int] = mapped_column(Integer)
     AE_rank: Mapped[int] = mapped_column(Integer)
+    __table_args__ = (
+        UniqueConstraint("session_id", "context_name", name="uq_lfi_context_per_session"),
+    )
 
 class LearningFlexibilityIndex(Base):
     __tablename__ = "learning_flexibility_index"
@@ -221,7 +224,7 @@ class BackupLearningStyle(Base):
 class NormativeConversionTable(Base):
     __tablename__ = "normative_conversion_table"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    norm_group: Mapped[str] = mapped_column(String(30))
+    norm_group: Mapped[str] = mapped_column(String(150))  # Expanded to accommodate long country names
     scale_name: Mapped[str] = mapped_column(String(5))
     raw_score: Mapped[int] = mapped_column(Integer)
     percentile: Mapped[float] = mapped_column(Float)
@@ -236,7 +239,7 @@ class AuditLog(Base):
     actor: Mapped[str] = mapped_column(String(100))  # user email or 'system'
     action: Mapped[str] = mapped_column(String(100))
     payload_hash: Mapped[str] = mapped_column(String(128))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class PercentileScore(Base):
     __tablename__ = "percentile_scores"
@@ -249,11 +252,19 @@ class PercentileScore(Base):
     AE_percentile: Mapped[float] = mapped_column(Float)
     ACCE_percentile: Mapped[float] = mapped_column(Float)
     AERO_percentile: Mapped[float] = mapped_column(Float)
+    # Per-scale provenance: 'DB:<group>' or 'AppendixFallback'
+    CE_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
+    RO_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
+    AC_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
+    AE_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
+    ACCE_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
+    AERO_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
+    used_fallback_any: Mapped[Optional[bool]] = mapped_column(Integer, default=1)
 
 class NormativeStatistics(Base):
     __tablename__ = "normative_statistics"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    norm_group: Mapped[str] = mapped_column(String(30))
+    norm_group: Mapped[str] = mapped_column(String(150))  # Expanded to match normative_conversion_table
     sample_size: Mapped[int] = mapped_column(Integer)
     CE_mean: Mapped[float] = mapped_column(Float)
     CE_stdev: Mapped[float] = mapped_column(Float)

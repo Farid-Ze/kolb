@@ -57,7 +57,12 @@ def score_raw(payload: ScoreRequest):
     CE, RO, AC, AE = payload.raw.CE, payload.raw.RO, payload.raw.AC, payload.raw.AE
     ACCE = AC - CE
     AERO = AE - RO
-    ACC_ASSM = (AE + CE) - (AC + RO)
+    # Align with core KLSI spec used in services.scoring:
+    # Assimilation - Accommodation = (AC + RO) - (AE + CE)
+    ACC_ASSM = (AC + RO) - (AE + CE)
+    # Provide the opposite orientation as well for consumers that follow the
+    # regression module convention (Accommodating - Assimilating)
+    ACCOM_MINUS_ASSIM = -ACC_ASSM
     CONV_DIV = (AC + AE) - (CE + RO)
 
     # Style classification
@@ -84,7 +89,7 @@ def score_raw(payload: ScoreRequest):
     }
 
     return {
-        "raw": {"CE": CE, "RO": RO, "AC": AC, "AE": AE, "ACCE": ACCE, "AERO": AERO, "ACC_ASSM": ACC_ASSM, "CONV_DIV": CONV_DIV},
+        "raw": {"CE": CE, "RO": RO, "AC": AC, "AE": AE, "ACCE": ACCE, "AERO": AERO, "ACC_ASSM": ACC_ASSM, "ACCOM_MINUS_ASSIM": ACCOM_MINUS_ASSIM, "CONV_DIV": CONV_DIV},
         "style": {"primary_name": primary},
         "lfi": {"value": LFI},
         "percentiles": percentiles,

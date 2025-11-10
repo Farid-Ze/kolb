@@ -283,7 +283,15 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             LFIContextScore.session_id == session_id
         ).order_by(LFIContextScore.context_name).all()
         
-        if len(context_scores) == 8 and scale and combo and lfi:
+        # Validate exactly 8 LFI contexts before including enhanced analytics
+        if len(context_scores) != 8:
+            # Include validation error in report for transparency
+            enhanced_analytics = {
+                "validation_error": f"Expected exactly 8 LFI contexts, found {len(context_scores)}",
+                "context_count": len(context_scores),
+                "message": "Enhanced LFI analytics unavailable. User must complete all 8 context rankings.",
+            }
+        elif scale and combo and lfi:
             # Build contexts list for analysis
             contexts = []
             for ctx in context_scores:

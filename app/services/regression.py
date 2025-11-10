@@ -12,7 +12,9 @@ We generate relative predicted LFI values by:
 3) Converting back to raw LFI using the reported M and SD, then clipping [0,1]
 
 Notes:
-- Acc-Assm = (AE + CE) - (AC + RO)
+- Canonical Assimilation–Accommodation index (spec): Assim-Acc = (AC + RO) - (AE + CE)
+- Historical regression betas were published on the opposite orientation (Accommodating − Assimilating) = (AE + CE) - (AC + RO).
+- We accept input as Assim-Acc; internally we invert to match published coefficients when standardizing.
 - Gender coded 1=Male, 0=Female in the source; we follow the same coding.
 - When demographics are not provided, we hold them at the sample mean (z=0),
   which corresponds to the "controlling for demographics" plot in the text.
@@ -31,7 +33,8 @@ MEANS = {
     "gender": 0.47,  # 1=Male, 0=Female
     "education": 3.28,  # 1..5
     "specialization": 10.72,  # 1..18 (Arts→STEM)
-    "acc_assm": 0.29,  # (AE+CE) - (AC+RO)
+    # Mean published for accommodating-minus-assimilating orientation
+    "acc_assm": 0.29,
 }
 
 SDS = {
@@ -39,7 +42,7 @@ SDS = {
     "gender": 0.50,
     "education": 0.86,
     "specialization": 4.50,
-    "acc_assm": 18.23,
+    "acc_assm": 18.23,  # SD published for accommodating-minus-assimilating
 }
 
 # Standardized regression coefficients (Model 3)
@@ -62,8 +65,8 @@ def z(value: Optional[float], mean: float, sd: float) -> float:
 
 
 def acc_assm_from_raw(ce: int, ro: int, ac: int, ae: int) -> int:
-    """Compute Acc-Assm index = (AE+CE) - (AC+RO)."""
-    return int((ae + ce) - (ac + ro))
+    """Compute Assim-Acc (spec orientation) = (AC+RO) - (AE+CE)."""
+    return int((ac + ro) - (ae + ce))
 
 
 def predict_lfi(
@@ -82,7 +85,9 @@ def predict_lfi(
     z_gender = z(gender, MEANS["gender"], SDS["gender"])
     z_edu = z(education, MEANS["education"], SDS["education"])
     z_spec = z(specialization, MEANS["specialization"], SDS["specialization"])
-    z_acc = z(acc_assm, MEANS["acc_assm"], SDS["acc_assm"])
+    # Invert to published accommodating-minus-assimilating orientation for betas
+    published_orientation = -acc_assm
+    z_acc = z(published_orientation, MEANS["acc_assm"], SDS["acc_assm"])
     z_acc_sq = z_acc ** 2
 
     # Standardized prediction (intercept ~ 0 in standardized space)

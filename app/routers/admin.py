@@ -3,41 +3,17 @@ from hashlib import sha256
 from io import StringIO
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.database import get_db
-from app.models.klsi import AuditLog, NormativeConversionTable, User
+from app.models.klsi import AuditLog, NormativeConversionTable
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-def _get_current_user(authorization: str | None, db: Session) -> User:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Token diperlukan")
-    auth_lower = authorization.lower()
-    if not auth_lower.startswith('bearer '):
-        raise HTTPException(status_code=401, detail="Token diperlukan")
-    token = authorization.split()[1]
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token tidak valid") from None
-    uid_raw = payload.get('sub')
-    if uid_raw is None:
-        raise HTTPException(status_code=401, detail="Token tidak memuat sub")
-    try:
-        uid = int(uid_raw)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="sub token tidak valid") from None
-    user = db.query(User).filter(User.id==uid).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Pengguna tidak ditemukan")
-    return user
-
 @router.post("/norms/import")
 def import_norms(norm_group: str, file: UploadFile = File(...), db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     if user.role != 'MEDIATOR':
         raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh impor norma")
     fname = file.filename or ""

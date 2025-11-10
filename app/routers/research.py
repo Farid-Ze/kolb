@@ -3,10 +3,8 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.database import get_db
 from app.models.klsi import ReliabilityResult, ResearchStudy, User, ValidityEvidence
 from app.schemas.research import (
@@ -16,33 +14,13 @@ from app.schemas.research import (
     ResearchStudyUpdate,
     ValidityCreate,
 )
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/research", tags=["research"])
 
 
-def _get_current_user(authorization: str | None, db: Session) -> User:
-    if not authorization or not authorization.lower().startswith('bearer '):
-        raise HTTPException(status_code=401, detail="Token diperlukan")
-    token = authorization.split()[1]
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token tidak valid") from None
-    uid_raw = payload.get('sub')
-    if uid_raw is None:
-        raise HTTPException(status_code=401, detail="Token tidak memuat sub")
-    try:
-        uid = int(uid_raw)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="sub token tidak valid") from None
-    user = db.query(User).filter(User.id == uid).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Pengguna tidak ditemukan")
-    return user
-
-
-def _require_mediator(user: User):
-    if user.role != 'MEDIATOR':
+def _require_mediator(user: User) -> None:
+    if user.role != "MEDIATOR":
         raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang diperbolehkan")
 
 
@@ -52,7 +30,7 @@ def create_study(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     study = ResearchStudy(**payload.model_dump())
     db.add(study)
@@ -91,14 +69,14 @@ def update_study(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
     if not study:
         raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
     data = payload.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(study, k, v)
+    for key, value in data.items():
+        setattr(study, key, value)
     db.commit()
     db.refresh(study)
     return study
@@ -110,12 +88,11 @@ def delete_study(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
     if not study:
         raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
-    # Guard: require no reliability/validity child rows
     rel_count = db.query(ReliabilityResult).filter(ReliabilityResult.study_id == study_id).count()
     val_count = db.query(ValidityEvidence).filter(ValidityEvidence.study_id == study_id).count()
     if rel_count > 0 or val_count > 0:
@@ -135,7 +112,7 @@ def add_reliability(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
     if not study:
@@ -154,7 +131,7 @@ def add_validity(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
     if not study:
@@ -179,6 +156,12 @@ def list_reliability(study_id: int, db: Session = Depends(get_db)):
 def list_validity(study_id: int, db: Session = Depends(get_db)):
     rows = db.query(ValidityEvidence).filter(ValidityEvidence.study_id == study_id).all()
     return [
-        {"id": r.id, "evidence_type": r.evidence_type, "metric_name": r.metric_name, "value": r.value, "description": r.description}
+        {
+            "id": r.id,
+            "evidence_type": r.evidence_type,
+            "metric_name": r.metric_name,
+            "value": r.value,
+            "description": r.description,
+        }
         for r in rows
     ]

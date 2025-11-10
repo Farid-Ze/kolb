@@ -1,33 +1,24 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.database import get_db
 from app.models.klsi import AssessmentSession, User
 from app.services.report import build_report
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-def _get_current_user(authorization: str | None, db: Session) -> User | None:
-    """Extract current user from JWT token if present."""
-    if not authorization or not authorization.lower().startswith('bearer '):
-        return None
-    token = authorization.split()[1]
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-    except JWTError:
-        return None
-    uid_raw = payload.get('sub')
-    if uid_raw is None:
+def _try_get_current_user(authorization: str | None, db: Session) -> User | None:
+    """Attempt to resolve current user; return None on auth errors."""
+    if not authorization:
         return None
     try:
-        uid = int(uid_raw)
-    except ValueError:
-        return None
-    user = db.query(User).filter(User.id == uid).first()
-    return user
+        return get_current_user(authorization, db)
+    except HTTPException as exc:
+        if exc.status_code == 401:
+            return None
+        raise
 
 
 @router.get("/{session_id}")
@@ -37,7 +28,7 @@ def get_report(
     authorization: str | None = Header(default=None)
 ):
     # Get current viewer
-    viewer = _get_current_user(authorization, db)
+    viewer = _try_get_current_user(authorization, db)
     
     # Check if session exists
     session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()

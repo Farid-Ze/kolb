@@ -4,10 +4,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-
-from app.core.config import settings
 from app.db.database import get_db
 from app.models.klsi import Team, TeamAssessmentRollup, TeamMember, User
 from app.schemas.team import (
@@ -19,30 +16,9 @@ from app.schemas.team import (
     TeamUpdate,
 )
 from app.services.rollup import compute_team_rollup
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/teams", tags=["teams"])
-
-
-def _get_current_user(authorization: str | None, db: Session) -> User:
-    if not authorization or not authorization.lower().startswith('bearer '):
-        raise HTTPException(status_code=401, detail="Token diperlukan")
-    token = authorization.split()[1]
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token tidak valid") from None
-    uid_raw = payload.get('sub')
-    if uid_raw is None:
-        raise HTTPException(status_code=401, detail="Token tidak memuat sub")
-    try:
-        uid = int(uid_raw)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="sub token tidak valid") from None
-    user = db.query(User).filter(User.id == uid).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Pengguna tidak ditemukan")
-    return user
-
 
 def _require_mediator(user: User):
     if user.role != 'MEDIATOR':
@@ -55,7 +31,7 @@ def create_team(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     # Unique name
     exists = db.query(Team).filter(Team.name == payload.name).first()
@@ -99,7 +75,7 @@ def update_team(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
@@ -124,7 +100,7 @@ def delete_team(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
@@ -152,7 +128,7 @@ def add_member(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     # Unique per (team,user)
     exists = db.query(TeamMember).filter(TeamMember.team_id == team_id, TeamMember.user_id == payload.user_id).first()
@@ -172,7 +148,7 @@ def remove_member(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     tm = db.query(TeamMember).filter(TeamMember.id == member_id, TeamMember.team_id == team_id).first()
     if not tm:
@@ -200,7 +176,7 @@ def run_rollup(
     authorization: str | None = Header(default=None),
     for_date: Optional[str] = Query(default=None, description="YYYY-MM-DD optional date filter"),
 ):
-    user = _get_current_user(authorization, db)
+    user = get_current_user(authorization, db)
     _require_mediator(user)
     d: Optional[date] = None
     if for_date:
