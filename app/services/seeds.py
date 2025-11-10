@@ -1,19 +1,22 @@
 from sqlalchemy.orm import Session
 
+from app.assessments.klsi_v4 import load_config
 from app.models.klsi import AssessmentItem, ItemChoice, ItemType, LearningMode, LearningStyleType
 
-# ACCE bands: <=5, 6..14, >=15; AERO bands: <=0, 1..11, >=12
-STYLE_WINDOWS = {
-    "Imagining":  dict(ACCE_min=-999, ACCE_max=5,   AERO_min=-999, AERO_max=0),
-    "Experiencing":dict(ACCE_min=-999, ACCE_max=5,   AERO_min=1,    AERO_max=11),
-    "Initiating": dict(ACCE_min=-999, ACCE_max=5,   AERO_min=12,   AERO_max=999),
-    "Reflecting": dict(ACCE_min=6,    ACCE_max=14,  AERO_min=-999, AERO_max=0),
-    "Balancing":  dict(ACCE_min=6,    ACCE_max=14,  AERO_min=1,    AERO_max=11),
-    "Acting":     dict(ACCE_min=6,    ACCE_max=14,  AERO_min=12,   AERO_max=999),
-    "Analyzing":  dict(ACCE_min=15,   ACCE_max=999, AERO_min=-999, AERO_max=0),
-    "Thinking":   dict(ACCE_min=15,   ACCE_max=999, AERO_min=1,    AERO_max=11),
-    "Deciding":   dict(ACCE_min=15,   ACCE_max=999, AERO_min=12,   AERO_max=999),
-}
+def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
+    cfg = load_config()
+    windows: dict[str, dict[str, int | None]] = {}
+    for style_name, bounds in cfg["style_windows"].items():
+        windows[style_name] = {
+            "ACCE_min": bounds["ACCE"][0],
+            "ACCE_max": bounds["ACCE"][1],
+            "AERO_min": bounds["AERO"][0],
+            "AERO_max": bounds["AERO"][1],
+        }
+    return windows
+
+
+STYLE_WINDOWS = _style_windows_from_config()
 
 STYLE_DEFS = [
     ("Initiating","INIT"),("Experiencing","EXPR"),("Imagining","IMAG"),
@@ -26,10 +29,17 @@ def seed_learning_styles(db: Session):
     if db.query(LearningStyleType).count() == 0:
         for name, code in STYLE_DEFS:
             w = STYLE_WINDOWS[name]
-            db.add(LearningStyleType(style_name=name, style_code=code,
-                                     ACCE_min=w['ACCE_min'], ACCE_max=w['ACCE_max'],
-                                     AERO_min=w['AERO_min'], AERO_max=w['AERO_max'],
-                                     description=None))
+            db.add(
+                LearningStyleType(
+                    style_name=name,
+                    style_code=code,
+                    ACCE_min=w['ACCE_min'],
+                    ACCE_max=w['ACCE_max'],
+                    AERO_min=w['AERO_min'],
+                    AERO_max=w['AERO_max'],
+                    description=None,
+                )
+            )
         db.commit()
 
 

@@ -310,6 +310,8 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
     allowed = set(context_names())
     if any(row.context_name not in allowed for row in rows):
         raise ValueError("Context name tidak dikenal dalam konfigurasi")
+    if len({row.context_name for row in rows}) != len(rows):
+        raise ValueError("Duplicate context names detected for session")
     payload = []
     for row in rows:
         payload.append(
@@ -405,9 +407,24 @@ def apply_percentiles(
         truncations[name] = truncated
         raw_scores[name] = raw
 
+    db_provenances = {scale: prov for scale, prov in provenance.items() if prov.startswith("DB:")}
+
+    def _session_norm_group() -> str:
+        for group in group_chain:
+            tag = f"DB:{group}"
+            if tag in db_provenances.values():
+                return tag
+        if db_provenances:
+            # fall back to deterministic ordering of scales for reproducibility
+            for scale_name in ("CE", "RO", "AC", "AE", "ACCE", "AERO"):
+                prov = db_provenances.get(scale_name)
+                if prov:
+                    return prov
+        return "Appendix:Fallback"
+
     entity = PercentileScore(
         session_id=session_id,
-        norm_group_used=next((prov for prov in provenance.values() if prov.startswith("DB:")), "Appendix:Fallback"),
+        norm_group_used=_session_norm_group(),
         CE_percentile=percentiles["CE"],
         RO_percentile=percentiles["RO"],
         AC_percentile=percentiles["AC"],
@@ -422,7 +439,7 @@ def apply_percentiles(
         AERO_source=provenance["AERO"],
         used_fallback_any=any(not src.startswith("DB:") for src in provenance.values()),
         norm_provenance=provenance,
-        raw_outside_norm_range=any(truncations.values()),
+    raw_outside_norm_range=any(truncations.values()),
         truncated_scales={
             name: {
                 "raw": raw_scores[name],

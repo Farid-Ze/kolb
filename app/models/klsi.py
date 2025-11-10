@@ -169,10 +169,10 @@ class LearningStyleType(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     style_name: Mapped[str] = mapped_column(String(50), unique=True)
     style_code: Mapped[str] = mapped_column(String(20), unique=True)
-    ACCE_min: Mapped[int] = mapped_column(Integer)
-    ACCE_max: Mapped[int] = mapped_column(Integer)
-    AERO_min: Mapped[int] = mapped_column(Integer)
-    AERO_max: Mapped[int] = mapped_column(Integer)
+    ACCE_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    ACCE_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    AERO_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    AERO_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     quadrant: Mapped[Optional[str]] = mapped_column(String(10))
     description: Mapped[Optional[str]] = mapped_column(String(500))
 
@@ -201,6 +201,18 @@ class LFIContextScore(Base):
     __table_args__ = (
         UniqueConstraint("session_id", "context_name", name="uq_lfi_context_per_session"),
         CheckConstraint("context_name <> ''", name="ck_context_name_not_blank"),
+        CheckConstraint(
+            "context_name IN ("
+            "'Starting_Something_New',"
+            "'Influencing_Someone',"
+            "'Getting_To_Know_Someone',"
+            "'Learning_In_A_Group',"
+            "'Planning_Something',"
+            "'Analyzing_Something',"
+            "'Evaluating_An_Opportunity',"
+            "'Choosing_Between_Alternatives')",
+            name="ck_context_name_allowed",
+        ),
     )
 
 class LearningFlexibilityIndex(Base):
