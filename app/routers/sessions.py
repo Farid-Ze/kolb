@@ -9,6 +9,7 @@ from app.models.klsi import (
     AssessmentItem,
     AssessmentSession,
     AuditLog,
+    Instrument,
     ItemChoice,
     LFIContextScore,
     SessionStatus,
@@ -24,7 +25,18 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 @router.post("/start", response_model=dict)
 def start_session(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
     user = get_current_user(authorization, db)
-    s = AssessmentSession(user_id=user.id, status=SessionStatus.started)
+    instrument = (
+        db.query(Instrument)
+        .filter(Instrument.code == "KLSI", Instrument.version == "4.0")
+        .first()
+    )
+    s = AssessmentSession(
+        user_id=user.id,
+        status=SessionStatus.started,
+        assessment_id=instrument.code if instrument else "KLSI",
+        assessment_version=instrument.version if instrument else "4.0",
+        instrument_id=instrument.id if instrument else None,
+    )
     db.add(s)
     db.commit()
     db.refresh(s)

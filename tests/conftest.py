@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
-from app.services.seeds import seed_learning_styles, seed_assessment_items
+from app.services.seeds import seed_learning_styles, seed_assessment_items, seed_instruments
 
 
 @pytest.fixture(scope="session")
@@ -12,6 +12,7 @@ def db_setup():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
+        seed_instruments(db)
         seed_learning_styles(db)
         seed_assessment_items(db)
         db.commit()

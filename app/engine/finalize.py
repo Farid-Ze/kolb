@@ -5,8 +5,11 @@ from hashlib import sha256
 
 from sqlalchemy.orm import Session
 
+import app.engine.strategies  # noqa: F401  # ensure strategy registrations execute
+
 from app.engine.interfaces import ScoringContext
-from app.engine.registry import get
+from app.engine.registry import get as get_definition
+from app.engine.strategy_registry import get_strategy
 from app.models.klsi import AssessmentSession, AuditLog
 from app.services.validation import check_session_complete
 
@@ -22,7 +25,7 @@ def finalize_assessment(
     if not session:
         raise ValueError(f"Session {session_id} tidak ditemukan")
 
-    assessment = get(assessment_id, assessment_version)
+    assessment = get_definition(assessment_id, assessment_version)
 
     # Run validation rules declared by the assessment definition.
     issues = []
@@ -51,18 +54,127 @@ def finalize_assessment(
     ctx = ScoringContext()
     artifact_snapshots: dict[str, dict] = {}
 
-    for step in assessment.steps:
-        for dep in getattr(step, "depends_on", []):
-            if dep not in artifact_snapshots and dep not in ctx:
-                raise RuntimeError(f"Dependency '{dep}' belum tersedia untuk step '{step.name}'")
-        step.run(db, session_id, ctx)
-        db.flush()
-        if step.name in ctx and isinstance(ctx[step.name], dict):
-            artifact_snapshots[step.name] = {
-                key: value
-                for key, value in ctx[step.name].items()
-                if key != "entity"
+    strategy = None
+    strategy_candidates: list[str] = []
+    if session.strategy_code:
+        strategy_candidates.append(session.strategy_code)
+    if session.instrument and session.instrument.default_strategy_code:
+        if session.instrument.default_strategy_code not in strategy_candidates:
+            strategy_candidates.append(session.instrument.default_strategy_code)
+    fallback_key = f"{assessment_id}{assessment_version}".upper() if assessment_id and assessment_version else None
+    if fallback_key and fallback_key not in strategy_candidates:
+        strategy_candidates.append(fallback_key)
+
+    for candidate in strategy_candidates:
+        if not candidate:
+            continue
+        try:
+            strategy = get_strategy(candidate)
+            session.strategy_code = candidate
+            break
+        except KeyError:
+            continue
+
+    if strategy:
+        payload = strategy.finalize(db, session_id)
+        scale = payload["scale"]
+        combo = payload["combo"]
+        style = payload["style"]
+        intensities = payload.get("intensity", {})
+        lfi = payload["lfi"]
+        percentiles = payload["percentiles"]
+        delta = payload.get("delta")
+
+        ctx["raw_modes"] = {
+            "CE": scale.CE_raw,
+            "RO": scale.RO_raw,
+            "AC": scale.AC_raw,
+            "AE": scale.AE_raw,
+            "entity": scale,
+        }
+        artifact_snapshots["raw_modes"] = {
+            key: value for key, value in ctx["raw_modes"].items() if key != "entity"
+        }
+
+        ctx["combination"] = {
+            "ACCE": combo.ACCE_raw,
+            "AERO": combo.AERO_raw,
+            "assimilation_accommodation": combo.assimilation_accommodation,
+            "converging_diverging": combo.converging_diverging,
+            "balance_acce": combo.balance_acce,
+            "balance_aero": combo.balance_aero,
+            "entity": combo,
+        }
+        artifact_snapshots["combination"] = {
+            key: value for key, value in ctx["combination"].items() if key != "entity"
+        }
+
+        ctx["style"] = {
+            "primary_style_type_id": style.primary_style_type_id,
+            "ACCE": style.ACCE_raw,
+            "AERO": style.AERO_raw,
+            "intensity": intensities,
+            "entity": style,
+        }
+        artifact_snapshots["style"] = {
+            key: value for key, value in ctx["style"].items() if key != "entity"
+        }
+
+        ctx["lfi"] = {
+            "W": lfi.W_coefficient,
+            "score": lfi.LFI_score,
+            "percentile": lfi.LFI_percentile,
+            "level": lfi.flexibility_level,
+            "provenance": lfi.norm_group_used,
+            "entity": lfi,
+        }
+        artifact_snapshots["lfi"] = {
+            key: value for key, value in ctx["lfi"].items() if key != "entity"
+        }
+
+        ctx["percentiles"] = {
+            "CE": percentiles.CE_percentile,
+            "RO": percentiles.RO_percentile,
+            "AC": percentiles.AC_percentile,
+            "AE": percentiles.AE_percentile,
+            "ACCE": percentiles.ACCE_percentile,
+            "AERO": percentiles.AERO_percentile,
+            "sources": percentiles.norm_provenance,
+            "truncated": percentiles.truncated_scales,
+            "raw_outside_norm_range": percentiles.raw_outside_norm_range,
+            "used_fallback_any": percentiles.used_fallback_any,
+            "norm_group_used": percentiles.norm_group_used,
+            "entity": percentiles,
+        }
+        artifact_snapshots["percentiles"] = {
+            key: value for key, value in ctx["percentiles"].items() if key != "entity"
+        }
+
+        if delta:
+            ctx["delta"] = {
+                "previous_session_id": delta.previous_session_id,
+                "delta_acce": delta.delta_acce,
+                "delta_aero": delta.delta_aero,
+                "delta_lfi": delta.delta_lfi,
+                "delta_intensity": delta.delta_intensity,
             }
+            artifact_snapshots["delta"] = ctx["delta"]
+        db.flush()
+    else:
+        for step in assessment.steps:
+            for dep in getattr(step, "depends_on", []):
+                if dep not in artifact_snapshots and dep not in ctx:
+                    raise RuntimeError(f"Dependency '{dep}' belum tersedia untuk step '{step.name}'")
+            step.run(db, session_id, ctx)
+            db.flush()
+            if step.name in ctx and isinstance(ctx[step.name], dict):
+                artifact_snapshots[step.name] = {
+                    key: value
+                    for key, value in ctx[step.name].items()
+                    if key != "entity"
+                }
+        session.strategy_code = None
+        db.flush()
 
     # Canonical audit hash (sorted keys + salt for tamper resistance)
     audit_payload = {

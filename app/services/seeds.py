@@ -1,7 +1,17 @@
 from sqlalchemy.orm import Session
 
+from datetime import datetime, timezone
+
 from app.assessments.klsi_v4 import load_config
-from app.models.klsi import AssessmentItem, ItemChoice, ItemType, LearningMode, LearningStyleType
+from app.models.klsi import (
+    AssessmentItem,
+    Instrument,
+    InstrumentScale,
+    ItemChoice,
+    ItemType,
+    LearningMode,
+    LearningStyleType,
+)
 
 def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
     cfg = load_config()
@@ -19,10 +29,54 @@ def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
 STYLE_WINDOWS = _style_windows_from_config()
 
 STYLE_DEFS = [
-    ("Initiating","INIT"),("Experiencing","EXPR"),("Imagining","IMAG"),
-    ("Reflecting","REFL"),("Analyzing","ANAL"),("Thinking","THNK"),
-    ("Deciding","DECI"),("Acting","ACTN"),("Balancing","BALN")
+    ("Initiating", "INIT"),
+    ("Experiencing", "EXPR"),
+    ("Imagining", "IMAG"),
+    ("Reflecting", "REFL"),
+    ("Analyzing", "ANAL"),
+    ("Thinking", "THNK"),
+    ("Deciding", "DECI"),
+    ("Acting", "ACTN"),
+    ("Balancing", "BALN"),
 ]
+
+
+def seed_instruments(db: Session) -> None:
+    if db.query(Instrument).filter(Instrument.code == "KLSI", Instrument.version == "4.0").first():
+        return
+
+    now = datetime.now(timezone.utc)
+    instrument = Instrument(
+        code="KLSI",
+        name="Kolb Learning Style Inventory",
+        version="4.0",
+        default_strategy_code="KLSI4.0",
+        description="Kolb Learning Style Inventory 4.0",
+        is_active=True,
+        created_at=now,
+    )
+    db.add(instrument)
+    db.flush()
+
+    scale_defs = [
+        ("CE", "Concrete Experience", 1),
+        ("RO", "Reflective Observation", 2),
+        ("AC", "Abstract Conceptualization", 3),
+        ("AE", "Active Experimentation", 4),
+        ("ACCE", "AC - CE Dialectic", 5),
+        ("AERO", "AE - RO Dialectic", 6),
+        ("LFI", "Learning Flexibility Index", 7),
+    ]
+    for code, name, order in scale_defs:
+        db.add(
+            InstrumentScale(
+                instrument_id=instrument.id,
+                scale_code=code,
+                display_name=name,
+                rendering_order=order,
+            )
+        )
+    db.commit()
 
 
 def seed_learning_styles(db: Session):

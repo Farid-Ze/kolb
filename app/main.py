@@ -12,7 +12,7 @@ from app.routers.research import router as research_router
 from app.routers.score import router as score_router
 from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
-from app.services.seeds import seed_assessment_items, seed_learning_styles
+from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI):
     # and rely on Alembic migrations only
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
+        seed_instruments(db)
         seed_learning_styles(db)
         seed_assessment_items(db)
         try:

@@ -5,6 +5,7 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import definition  # noqa: F401 - ensure registration side effects
+import app.engine.strategies  # noqa: F401 - register scoring strategies
 from app.assessments.klsi_v4.logic import (
     CONTEXT_NAMES,
     STYLE_CUTS,

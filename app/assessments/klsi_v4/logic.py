@@ -144,11 +144,7 @@ def _age_to_band(user: User, reference_date: Optional[date]) -> Optional[str]:
 
 
 def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
-    sess = (
-        db.query(AssessmentSession)
-        .filter(AssessmentSession.id == session_id)
-        .first()
-    )
+    sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
     user: Optional[User] = sess.user if sess else None
     reference_date: Optional[date] = None
     if sess:

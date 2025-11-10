@@ -80,6 +80,37 @@ class User(Base):
 
     sessions: Mapped[list[AssessmentSession]] = relationship(back_populates="user")
 
+class Instrument(Base):
+    __tablename__ = "instruments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    version: Mapped[str] = mapped_column(String(20))
+    default_strategy_code: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    sessions: Mapped[list["AssessmentSession"]] = relationship(back_populates="instrument")
+    scales: Mapped[list["InstrumentScale"]] = relationship(back_populates="instrument")
+
+
+class InstrumentScale(Base):
+    __tablename__ = "instrument_scales"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[int] = mapped_column(ForeignKey("instruments.id"))
+    scale_code: Mapped[str] = mapped_column(String(20))
+    display_name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[Optional[str]] = mapped_column(String(500))
+    rendering_order: Mapped[Optional[int]] = mapped_column(Integer)
+
+    instrument: Mapped[Instrument] = relationship(back_populates="scales")
+
+    __table_args__ = (
+        UniqueConstraint("instrument_id", "scale_code", name="uq_instrument_scale_code"),
+    )
+
+
 class AssessmentSession(Base):
     __tablename__ = "assessment_sessions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -89,10 +120,13 @@ class AssessmentSession(Base):
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.started)
     assessment_id: Mapped[str] = mapped_column(String(40), default="KLSI")
     assessment_version: Mapped[str] = mapped_column(String(10), default="4.0")
+    instrument_id: Mapped[Optional[int]] = mapped_column(ForeignKey("instruments.id"), nullable=True)
+    strategy_code: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     session_type: Mapped[str] = mapped_column(String(20), default="Initial")
     days_since_last_session: Mapped[Optional[int]] = mapped_column(Integer)
 
     user: Mapped[User] = relationship(back_populates="sessions")
+    instrument: Mapped[Optional[Instrument]] = relationship(back_populates="sessions")
     responses: Mapped[list[UserResponse]] = relationship(back_populates="session")
     scale_score: Mapped[Optional[ScaleScore]] = relationship(back_populates="session", uselist=False)
     combination_score: Mapped[Optional[CombinationScore]] = relationship(back_populates="session", uselist=False)

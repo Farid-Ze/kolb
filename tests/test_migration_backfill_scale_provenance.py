@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.models.klsi import (
     AssessmentSession,
     CombinationScore,
+    Instrument,
     PercentileScore,
     ScaleProvenance,
     ScaleScore,
@@ -19,11 +20,18 @@ def _create_session(db):
     db.add(user)
     db.flush()
 
+    instrument = (
+        db.query(Instrument)
+        .filter(Instrument.code == "KLSI", Instrument.version == "4.0")
+        .first()
+    )
+
     sess = AssessmentSession(
         user_id=user.id,
         status=SessionStatus.completed,
         start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
         end_time=datetime(2025, 1, 2, tzinfo=timezone.utc),
+        instrument_id=instrument.id if instrument else None,
     )
     db.add(sess)
     db.flush()
@@ -54,7 +62,7 @@ def _insert_scores(db, session_id: int) -> None:
         RO_percentile=55.0,
         AC_percentile=40.0,
         AE_percentile=35.0,
-    ACCE_percentile=25.0,
+        ACCE_percentile=25.0,
         AERO_percentile=20.0,
         CE_source="Appendix:CE",
         RO_source="DB:Total",
