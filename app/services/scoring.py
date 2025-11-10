@@ -68,7 +68,7 @@ def _resolve_norm_groups(db: Session, session_id: int):  # legacy alias for test
     return resolve_norm_groups(db, session_id)
 
 
-def finalize_session(db: Session, session_id: int) -> Dict[str, Any]:
+def finalize_session(db: Session, session_id: int, *, skip_checks: bool = False) -> Dict[str, Any]:
     session = (
         db.query(AssessmentSession)
         .filter(AssessmentSession.id == session_id)
@@ -78,7 +78,14 @@ def finalize_session(db: Session, session_id: int) -> Dict[str, Any]:
         raise ValueError("Sesi tidak ditemukan")
     assessment_id = session.assessment_id or "KLSI"
     assessment_version = session.assessment_version or "4.0"
-    outcome = finalize_assessment(db, session_id, assessment_id, assessment_version, settings.audit_salt)
+    outcome = finalize_assessment(
+        db,
+        session_id,
+        assessment_id,
+        assessment_version,
+        settings.audit_salt,
+        skip_checks=skip_checks,
+    )
     if not outcome.get("ok"):
         return outcome
     ctx: Dict[str, Any] = outcome["context"]

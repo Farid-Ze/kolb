@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.engine.interfaces import InstrumentId
 from app.engine.registry import engine_registry
 from app.models.klsi import AssessmentSession, Instrument, SessionStatus, User
+from app.services.validation import run_session_validations
 
 
 class EngineRuntime:
@@ -101,12 +102,27 @@ class EngineRuntime:
         plugin = self._registry.plugin(self._instrument_id(session))
         plugin.validate_submit(db, session_id, payload)
 
-    def finalize(self, db: Session, session_id: int) -> dict:
+    def finalize(
+        self,
+        db: Session,
+        session_id: int,
+        *,
+        skip_validation: bool = False,
+    ) -> dict:
         session = self._resolve_session(db, session_id)
         if session.status == SessionStatus.completed:
             raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+        validation = run_session_validations(db, session_id)
+        if not validation.get("ready", False) and not skip_validation:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "issues": validation.get("issues", []),
+                    "diagnostics": validation.get("diagnostics"),
+                },
+            )
         scorer = self._registry.scorer(self._instrument_id(session))
-        result = scorer.finalize(db, session_id)
+        result = scorer.finalize(db, session_id, skip_checks=skip_validation)
         if not result.get("ok"):
             raise HTTPException(
                 status_code=400,
@@ -118,6 +134,8 @@ class EngineRuntime:
         session.status = SessionStatus.completed
         session.end_time = datetime.now(timezone.utc)
         db.commit()
+        result["validation"] = validation
+        result["override"] = skip_validation and not validation.get("ready", False)
         return result
 
     def build_report(self, db: Session, session_id: int, viewer_role: str | None) -> dict:

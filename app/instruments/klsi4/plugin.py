@@ -86,11 +86,11 @@ class KLSI4Plugin(
         else:
             raise HTTPException(status_code=400, detail="Jenis payload tidak dikenal")
 
-    def finalize(self, db: Session, session_id: int) -> Dict[str, object]:
+    def finalize(self, db: Session, session_id: int, *, skip_checks: bool = False) -> Dict[str, object]:
         session = self._ensure_session(db, session_id)
         if session.status != SessionStatus.completed:
             try:
-                result = finalize_session(db, session_id)
+                result = finalize_session(db, session_id, skip_checks=skip_checks)
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from None
             return result

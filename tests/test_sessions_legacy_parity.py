@@ -79,6 +79,8 @@ def test_legacy_sessions_finalize_includes_provenance(client):
     assert r_finalize.status_code == 200, r_finalize.text
     finalize_result = r_finalize.json()["result"]
     assert finalize_result["percentile_sources"] is not None
+    assert finalize_result["override"] is False
+    assert finalize_result["validation"]["ready"] is True
 
     with SessionLocal() as db:
         session_row = (
@@ -95,3 +97,85 @@ def test_legacy_sessions_finalize_includes_provenance(client):
     assert r_report.status_code == 200, r_report.text
     report = r_report.json()
     assert report["percentiles"]["per_scale_provenance"] is not None
+
+
+def test_legacy_finalize_blocks_incomplete_session(client):
+    _, student_token = _create_user()
+    headers = {"Authorization": f"Bearer {student_token}"}
+
+    r_start = client.post("/sessions/start", headers=headers)
+    assert r_start.status_code == 200, r_start.text
+    session_id = r_start.json()["session_id"]
+
+    # Kirim hanya sebagian item (dua pertama) dan tidak mengirim konteks LFI
+    partial_payloads = _build_ranks()[:2]
+    for payload in partial_payloads:
+        r_submit = client.post(
+            f"/sessions/{session_id}/submit_item",
+            params={"item_id": payload["item_id"]},
+            json=payload["ranks"],
+            headers=headers,
+        )
+        assert r_submit.status_code == 200
+
+    r_finalize = client.post(f"/sessions/{session_id}/finalize", headers=headers)
+    assert r_finalize.status_code == 400
+    detail = r_finalize.json()["detail"]
+    codes = {issue["code"] for issue in detail["issues"]}
+    assert "ITEMS_INCOMPLETE" in codes
+    assert "LFI_CONTEXT_COUNT" in codes
+
+
+def test_legacy_force_finalize_by_mediator(client):
+    _, student_token = _create_user()
+    headers = {"Authorization": f"Bearer {student_token}"}
+
+    r_start = client.post("/sessions/start", headers=headers)
+    session_id = r_start.json()["session_id"]
+
+    # Only submit one item
+    payload = _build_ranks()[0]
+    client.post(
+        f"/sessions/{session_id}/submit_item",
+        params={"item_id": payload["item_id"]},
+        json=payload["ranks"],
+        headers=headers,
+    )
+
+    base_ranks = [1, 2, 3, 4]
+    for idx, context_name in enumerate(CONTEXT_NAMES):
+        rotated = base_ranks[idx % 4 :] + base_ranks[: idx % 4]
+        client.post(
+            f"/sessions/{session_id}/submit_context",
+            params={
+                "context_name": context_name,
+                "CE": rotated[0],
+                "RO": rotated[1],
+                "AC": rotated[2],
+                "AE": rotated[3],
+            },
+            headers=headers,
+        )
+
+    _, mediator_token = _create_user(role="MEDIATOR")
+    mediator_headers = {"Authorization": f"Bearer {mediator_token}"}
+    r_force = client.post(
+        f"/sessions/{session_id}/force_finalize",
+        json={"reason": "Urgent cohort report"},
+        headers=mediator_headers,
+    )
+    assert r_force.status_code == 200, r_force.text
+    result = r_force.json()["result"]
+    assert result["override"] is True
+    assert result["validation"]["ready"] is False
+    codes = {issue["code"] for issue in result["validation"]["issues"]}
+    assert "ITEMS_INCOMPLETE" in codes
+
+    with SessionLocal() as db:
+        sess = (
+            db.query(AssessmentSession)
+            .filter(AssessmentSession.id == session_id)
+            .first()
+        )
+        assert sess is not None
+        assert sess.status == SessionStatus.completed

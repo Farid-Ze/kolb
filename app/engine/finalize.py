@@ -20,6 +20,8 @@ def finalize_assessment(
     assessment_id: str,
     assessment_version: str,
     salt: str,
+    *,
+    skip_checks: bool = False,
 ) -> dict:
     session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
     if not session:
@@ -27,29 +29,30 @@ def finalize_assessment(
 
     assessment = get_definition(assessment_id, assessment_version)
 
-    # Run validation rules declared by the assessment definition.
-    issues = []
-    for rule in assessment.validation_rules():
-        issues.extend(rule.validate(db, session_id))
-    if issues:
-        fatal = [i for i in issues if i.fatal]
-        if fatal:
-            return {"ok": False, "issues": [i.as_dict() for i in issues]}
+    if not skip_checks:
+        # Run validation rules declared by the assessment definition.
+        issues = []
+        for rule in assessment.validation_rules():
+            issues.extend(rule.validate(db, session_id))
+        if issues:
+            fatal = [i for i in issues if i.fatal]
+            if fatal:
+                return {"ok": False, "issues": [i.as_dict() for i in issues]}
 
-    # Always ensure ipsative core validation runs (engine-agnostic guard).
-    completeness = check_session_complete(db, session_id)
-    if not completeness.get("ready_to_complete"):
-        return {
-            "ok": False,
-            "issues": [
-                {
-                    "code": "INCOMPLETE_ITEMS",
-                    "message": "12 item gaya belajar belum terpenuhi",
-                    "fatal": True,
-                }
-            ],
-            "diagnostics": completeness,
-        }
+        # Always ensure ipsative core validation runs (engine-agnostic guard).
+        completeness = check_session_complete(db, session_id)
+        if not completeness.get("ready_to_complete"):
+            return {
+                "ok": False,
+                "issues": [
+                    {
+                        "code": "INCOMPLETE_ITEMS",
+                        "message": "12 item gaya belajar belum terpenuhi",
+                        "fatal": True,
+                    }
+                ],
+                "diagnostics": completeness,
+            }
 
     ctx = ScoringContext()
     artifact_snapshots: dict[str, dict] = {}

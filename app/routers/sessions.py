@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -9,13 +10,16 @@ from app.engine.runtime import runtime
 from app.models.klsi import (
     AssessmentSession,
     AuditLog,
-    LFIContextScore,
     User,
 )
 from app.services.security import get_current_user
-from app.services.validation import check_session_complete
+from app.services.validation import run_session_validations
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
+
+
+class ForceFinalizeRequest(BaseModel):
+    reason: str | None = None
 
 @router.post("/start", response_model=dict)
 def start_session(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
@@ -79,6 +83,8 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
     combination = result.get("combination")
     lfi = result.get("lfi")
     style = result.get("style")
+    validation = result.get("validation")
+    override = result.get("override", False)
 
     percentiles = result.get("percentiles")
     per_scale_provenance = None
@@ -107,6 +113,8 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
         "LFI": lfi.LFI_score if lfi else None,
         "delta": result.get("delta"),
         "percentile_sources": per_scale_provenance,
+        "validation": validation,
+        "override": override,
     }}
 
 @router.get("/{session_id}/validation", response_model=dict)
@@ -124,10 +132,60 @@ def session_validation(session_id: int, db: Session = Depends(get_db), authoriza
         raise HTTPException(status_code=404, detail="Sesi tidak ditemukan")
     if viewer and viewer.role != 'MEDIATOR' and viewer.id != sess.user_id:
         raise HTTPException(status_code=403, detail="Akses ditolak")
-    validation_core = check_session_complete(db, session_id)
-    # Tambah info konteks LFI (target 8)
-    ctx_count = db.query(LFIContextScore).filter(LFIContextScore.session_id == session_id).count()
-    validation_core["lfi_contexts_recorded"] = ctx_count
-    validation_core["lfi_contexts_complete"] = (ctx_count == 8)
-    validation_core["all_ready"] = validation_core.get("ready_to_complete") and validation_core["lfi_contexts_complete"]
-    return validation_core
+    return run_session_validations(db, session_id)
+
+@router.post("/{session_id}/force_finalize", response_model=dict)
+def force_finalize(
+    session_id: int,
+    request: ForceFinalizeRequest,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    mediator = get_current_user(authorization, db)
+    if mediator.role != "MEDIATOR":
+        raise HTTPException(status_code=403, detail="Hanya mediator yang dapat melakukan override")
+    sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    if not sess:
+        raise HTTPException(status_code=404, detail="Sesi tidak ditemukan")
+
+    result = runtime.finalize(db, session_id, skip_validation=True)
+    combination = result.get("combination")
+    lfi = result.get("lfi")
+    style = result.get("style")
+    validation = result.get("validation")
+
+    issues = validation.get("issues", []) if isinstance(validation, dict) else []
+    issue_codes = ",".join(sorted({issue.get("code", "") for issue in issues if issue.get("code")}))
+    payload = (
+        f"mediator:{mediator.email};session:{session_id};override:true;"
+        f"reason:{request.reason or '-'};issues:{issue_codes or '-'}"
+    ).encode("utf-8")
+    db.add(
+        AuditLog(
+            actor=mediator.email,
+            action="FORCE_FINALIZE_SESSION",
+            payload_hash=sha256(payload).hexdigest(),
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+    percentiles = result.get("percentiles")
+    per_scale_provenance = None
+    if percentiles is not None:
+        per_scale_provenance = getattr(percentiles, "norm_provenance", None)
+
+    return {
+        "ok": True,
+        "result": {
+            "ACCE": combination.ACCE_raw if combination else None,
+            "AERO": combination.AERO_raw if combination else None,
+            "style_primary_id": style.primary_style_type_id if style else None,
+            "LFI": lfi.LFI_score if lfi else None,
+            "delta": result.get("delta"),
+            "percentile_sources": per_scale_provenance,
+            "validation": validation,
+            "override": True,
+            "override_reason": request.reason,
+        },
+    }

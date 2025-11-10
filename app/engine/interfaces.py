@@ -118,7 +118,13 @@ class InstrumentPlugin(Protocol):
 
 
 class EngineScorer(Protocol):
-    def finalize(self, db: Session, session_id: int) -> Dict[str, Any]:
+    def finalize(
+        self,
+        db: Session,
+        session_id: int,
+        *,
+        skip_checks: bool = False,
+    ) -> Dict[str, Any]:
         ...
 
 

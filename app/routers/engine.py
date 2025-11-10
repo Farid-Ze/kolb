@@ -32,6 +32,10 @@ class SubmissionPayload(BaseModel):
     AE: Optional[int] = None
 
 
+class ForceFinalizeRequest(BaseModel):
+    reason: Optional[str] = None
+
+
 def _get_session(db: Session, session_id: int) -> AssessmentSession:
     session = (
         db.query(AssessmentSession)
@@ -103,6 +107,8 @@ def finalize_session(
     combination = result.get("combination")
     lfi = result.get("lfi")
     style = result.get("style")
+    validation = result.get("validation")
+    override = result.get("override", False)
 
     if combination and lfi and style:
         payload = (
@@ -132,6 +138,8 @@ def finalize_session(
             "LFI": lfi.LFI_score if lfi else None,
             "delta": result.get("delta"),
             "percentile_sources": per_scale_provenance,
+            "validation": validation,
+            "override": override,
         },
     }
 
@@ -150,3 +158,57 @@ def engine_report(
         viewer_role = "MEDIATOR"
     data = runtime.build_report(db, session_id, viewer_role)
     return data
+
+
+@router.post("/sessions/{session_id}/force-finalize", response_model=dict)
+def force_finalize_session(
+    session_id: int,
+    request: ForceFinalizeRequest,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    mediator = get_current_user(authorization, db)
+    if mediator.role != "MEDIATOR":
+        raise HTTPException(status_code=403, detail="Hanya mediator yang dapat melakukan override")
+    session = _get_session(db, session_id)
+    result = runtime.finalize(db, session_id, skip_validation=True)
+    combination = result.get("combination")
+    lfi = result.get("lfi")
+    style = result.get("style")
+    validation = result.get("validation")
+
+    issues = validation.get("issues", []) if isinstance(validation, dict) else []
+    issue_codes = ",".join(sorted({issue.get("code", "") for issue in issues if issue.get("code")}))
+    payload = (
+        f"mediator:{mediator.email};session:{session_id};override:true;"
+        f"reason:{request.reason or '-'};issues:{issue_codes or '-'}"
+    ).encode("utf-8")
+    db.add(
+        AuditLog(
+            actor=mediator.email,
+            action="FORCE_FINALIZE_SESSION",
+            payload_hash=sha256(payload).hexdigest(),
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+    percentiles = result.get("percentiles")
+    per_scale_provenance = None
+    if percentiles is not None:
+        per_scale_provenance = getattr(percentiles, "norm_provenance", None)
+
+    return {
+        "ok": True,
+        "result": {
+            "ACCE": combination.ACCE_raw if combination else None,
+            "AERO": combination.AERO_raw if combination else None,
+            "style_primary_id": style.primary_style_type_id if style else None,
+            "LFI": lfi.LFI_score if lfi else None,
+            "delta": result.get("delta"),
+            "percentile_sources": per_scale_provenance,
+            "validation": validation,
+            "override": True,
+            "override_reason": request.reason,
+        },
+    }

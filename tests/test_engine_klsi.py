@@ -92,6 +92,8 @@ def test_engine_klsi_end_to_end(client):
     assert finalize_data["AERO"] is not None
     assert finalize_data["LFI"] is not None
     assert finalize_data["percentile_sources"] is not None
+    assert finalize_data["override"] is False
+    assert finalize_data["validation"]["ready"] is True
 
     # Confirm session marked completed in database
     with SessionLocal() as db:
@@ -156,3 +158,96 @@ def test_engine_klsi_mediator_report_enhanced(client):
     report = r_report.json()
     assert report["enhanced_analytics"] is not None
     assert report["percentiles"]["per_scale_provenance"] is not None
+
+
+def test_engine_force_finalize_by_mediator(client):
+    user, token = _create_user()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r_start = client.post(
+        "/engine/sessions/start",
+        json={"instrument_code": "KLSI"},
+        headers=headers,
+    )
+    session_id = r_start.json()["session_id"]
+
+    delivery = client.get(f"/engine/sessions/{session_id}/delivery", headers=headers).json()
+    first_item = delivery["items"][0]
+    ranks = {option["id"]: idx + 1 for idx, option in enumerate(first_item["options"])}
+    client.post(
+        f"/engine/sessions/{session_id}/interactions",
+        json={"kind": "item", "item_id": first_item["id"], "ranks": ranks},
+        headers=headers,
+    )
+
+    base_ranks = [1, 2, 3, 4]
+    for idx, context_name in enumerate(CONTEXT_NAMES):
+        rotated = base_ranks[idx % 4 :] + base_ranks[: idx % 4]
+        client.post(
+            f"/engine/sessions/{session_id}/interactions",
+            json={
+                "kind": "context",
+                "context_name": context_name,
+                "CE": rotated[0],
+                "RO": rotated[1],
+                "AC": rotated[2],
+                "AE": rotated[3],
+            },
+            headers=headers,
+        )
+
+    r_finalize = client.post(f"/engine/sessions/{session_id}/finalize", headers=headers)
+    assert r_finalize.status_code == 400
+
+    _, mediator_token = _ensure_mediator()
+    mediator_headers = {"Authorization": f"Bearer {mediator_token}"}
+    r_force = client.post(
+        f"/engine/sessions/{session_id}/force-finalize",
+        json={"reason": "Participant unavailable"},
+        headers=mediator_headers,
+    )
+    assert r_force.status_code == 200, r_force.text
+    force_result = r_force.json()["result"]
+    assert force_result["override"] is True
+    assert force_result["validation"]["ready"] is False
+    codes = {issue["code"] for issue in force_result["validation"]["issues"]}
+    assert "ITEMS_INCOMPLETE" in codes
+
+    with SessionLocal() as db:
+        sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+        assert sess is not None
+        assert sess.status == SessionStatus.completed
+
+
+def test_engine_finalize_requires_lfi_contexts(client):
+    user, token = _create_user()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r_start = client.post(
+        "/engine/sessions/start",
+        json={"instrument_code": "KLSI"},
+        headers=headers,
+    )
+    assert r_start.status_code == 200, r_start.text
+    session_id = r_start.json()["session_id"]
+
+    delivery = client.get(f"/engine/sessions/{session_id}/delivery", headers=headers).json()
+    for item in delivery["items"]:
+        ranks = {option["id"]: idx + 1 for idx, option in enumerate(item["options"])}
+        r_submit = client.post(
+            f"/engine/sessions/{session_id}/interactions",
+            json={
+                "kind": "item",
+                "item_id": item["id"],
+                "ranks": ranks,
+            },
+            headers=headers,
+        )
+        assert r_submit.status_code == 200, r_submit.text
+
+    r_finalize = client.post(f"/engine/sessions/{session_id}/finalize", headers=headers)
+    assert r_finalize.status_code == 400
+    payload = r_finalize.json()["detail"]
+    issue_codes = {issue["code"] for issue in payload["issues"]}
+    assert "LFI_CONTEXT_COUNT" in issue_codes
+    assert payload["diagnostics"]["items"]["ready_to_complete"] is True

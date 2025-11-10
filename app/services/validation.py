@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
-from app.models.klsi import AssessmentItem, AssessmentSession, ItemType, UserResponse
+from app.assessments.klsi_v4.logic import CONTEXT_NAMES, validate_lfi_context_ranks
+from app.models.klsi import (
+    AssessmentItem,
+    AssessmentSession,
+    ItemType,
+    LFIContextScore,
+    UserResponse,
+)
 
 
 def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
@@ -75,4 +84,117 @@ def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
         "items_with_missing_ranks": items_with_missing_ranks,
         "duplicate_choice_ids": duplicate_choice_ids,
         "ready_to_complete": ready_to_complete,
+    }
+
+
+def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
+    """Aggregate validation checks for session readiness prior to finalization."""
+
+    issues: List[Dict[str, Any]] = []
+    core = check_session_complete(db, session_id)
+    if not core.get("session_exists"):
+        return {
+            "ready": False,
+            "issues": [
+                {
+                    "code": "SESSION_NOT_FOUND",
+                    "message": "Sesi tidak ditemukan",
+                    "fatal": True,
+                }
+            ],
+            "diagnostics": core,
+        }
+
+    if core.get("missing_item_ids"):
+        issues.append(
+            {
+                "code": "ITEMS_INCOMPLETE",
+                "message": "Masih ada item gaya belajar yang belum memiliki peringkat lengkap 1..4.",
+                "item_ids": core["missing_item_ids"],
+                "fatal": True,
+            }
+        )
+    if core.get("items_with_missing_ranks"):
+        issues.append(
+            {
+                "code": "ITEM_RANK_GAPS",
+                "message": "Beberapa item memiliki peringkat yang tidak lengkap atau duplikat.",
+                "details": core["items_with_missing_ranks"],
+                "fatal": True,
+            }
+        )
+    if core.get("items_with_rank_conflict"):
+        issues.append(
+            {
+                "code": "ITEM_RANK_CONFLICT",
+                "message": "Terdapat ranking duplikat pada item forced-choice.",
+                "item_ids": core["items_with_rank_conflict"],
+                "fatal": True,
+            }
+        )
+
+    # LFI context validations
+    contexts = (
+        db.query(LFIContextScore)
+        .filter(LFIContextScore.session_id == session_id)
+        .all()
+    )
+    if len(contexts) != len(CONTEXT_NAMES):
+        issues.append(
+            {
+                "code": "LFI_CONTEXT_COUNT",
+                "message": f"Konteks LFI harus lengkap {len(CONTEXT_NAMES)} entri.",
+                "found": len(contexts),
+                "fatal": True,
+            }
+        )
+    else:
+        unique_names = {ctx.context_name for ctx in contexts}
+        allowed_names = set(CONTEXT_NAMES)
+        unknown = sorted(unique_names - allowed_names)
+        if unknown:
+            issues.append(
+                {
+                    "code": "LFI_CONTEXT_UNKNOWN",
+                    "message": "Ada nama konteks LFI yang tidak dikenal.",
+                    "contexts": unknown,
+                    "fatal": True,
+                }
+            )
+        if len(unique_names) != len(contexts):
+            issues.append(
+                {
+                    "code": "LFI_CONTEXT_DUPLICATE",
+                    "message": "Terdapat konteks LFI yang diisi lebih dari sekali.",
+                    "fatal": True,
+                }
+            )
+        try:
+            payload = [
+                {
+                    "CE": ctx.CE_rank,
+                    "RO": ctx.RO_rank,
+                    "AC": ctx.AC_rank,
+                    "AE": ctx.AE_rank,
+                }
+                for ctx in contexts
+            ]
+            validate_lfi_context_ranks(payload)
+        except ValueError as exc:  # pragma: no cover - validation ensures message
+            issues.append(
+                {
+                    "code": "LFI_CONTEXT_RANK_INVALID",
+                    "message": str(exc),
+                    "fatal": True,
+                }
+            )
+
+    ready = not issues
+    return {
+        "ready": ready,
+        "issues": issues,
+        "diagnostics": {
+            "items": core,
+            "context_count": len(contexts),
+        },
     }
