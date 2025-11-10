@@ -119,6 +119,10 @@ def finalize_session(
         )
         db.commit()
 
+    percentiles = result.get("percentiles")
+    per_scale_provenance = None
+    if percentiles is not None:
+        per_scale_provenance = getattr(percentiles, "norm_provenance", None)
     return {
         "ok": True,
         "result": {
@@ -127,6 +131,7 @@ def finalize_session(
             "style_primary_id": style.primary_style_type_id if style else None,
             "LFI": lfi.LFI_score if lfi else None,
             "delta": result.get("delta"),
+            "percentile_sources": per_scale_provenance,
         },
     }
 

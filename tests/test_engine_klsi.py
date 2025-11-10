@@ -17,6 +17,17 @@ def _create_user() -> tuple[User, str]:
     return user, token
 
 
+def _ensure_mediator() -> tuple[User, str]:
+    with SessionLocal() as db:
+        email = f"mediator_{uuid4().hex}@mahasiswa.unikom.ac.id"
+        mediator = User(full_name="Mediator", email=email, role="MEDIATOR")
+        db.add(mediator)
+        db.commit()
+        db.refresh(mediator)
+    token = create_access_token(subject=str(mediator.id))
+    return mediator, token
+
+
 def test_engine_klsi_end_to_end(client):
     user, token = _create_user()
     headers = {"Authorization": f"Bearer {token}"}
@@ -80,6 +91,7 @@ def test_engine_klsi_end_to_end(client):
     assert finalize_data["ACCE"] is not None
     assert finalize_data["AERO"] is not None
     assert finalize_data["LFI"] is not None
+    assert finalize_data["percentile_sources"] is not None
 
     # Confirm session marked completed in database
     with SessionLocal() as db:
@@ -94,5 +106,53 @@ def test_engine_klsi_end_to_end(client):
     assert report["session_id"] == session_id
     assert report["raw"]["ACCE"] is not None
     assert report["percentiles"] is not None
+    assert report["percentiles"]["per_scale_provenance"] is not None
     # Non-mediator viewer should not receive enhanced analytics
     assert report["enhanced_analytics"] is None
+
+
+def test_engine_klsi_mediator_report_enhanced(client):
+    user, token = _create_user()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r_start = client.post(
+        "/engine/sessions/start",
+        json={"instrument_code": "KLSI"},
+        headers=headers,
+    )
+    session_id = r_start.json()["session_id"]
+
+    delivery = client.get(f"/engine/sessions/{session_id}/delivery", headers=headers).json()
+    for item in delivery["items"]:
+        ranks = {option["id"]: idx + 1 for idx, option in enumerate(item["options"])}
+        client.post(
+            f"/engine/sessions/{session_id}/interactions",
+            json={"kind": "item", "item_id": item["id"], "ranks": ranks},
+            headers=headers,
+        )
+
+    base_ranks = [1, 2, 3, 4]
+    for idx, context_name in enumerate(CONTEXT_NAMES):
+        rotated = base_ranks[idx % 4 :] + base_ranks[: idx % 4]
+        client.post(
+            f"/engine/sessions/{session_id}/interactions",
+            json={
+                "kind": "context",
+                "context_name": context_name,
+                "CE": rotated[0],
+                "RO": rotated[1],
+                "AC": rotated[2],
+                "AE": rotated[3],
+            },
+            headers=headers,
+        )
+
+    client.post(f"/engine/sessions/{session_id}/finalize", headers=headers)
+
+    _, mediator_token = _ensure_mediator()
+    mediator_headers = {"Authorization": f"Bearer {mediator_token}"}
+    r_report = client.get(f"/engine/sessions/{session_id}/report", headers=mediator_headers)
+    assert r_report.status_code == 200, r_report.text
+    report = r_report.json()
+    assert report["enhanced_analytics"] is not None
+    assert report["percentiles"]["per_scale_provenance"] is not None

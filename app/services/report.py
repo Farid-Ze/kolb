@@ -422,6 +422,7 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "bands": bands,
             "BALANCE": balance_block,
             "source_provenance": p.norm_group_used,
+            "per_scale_provenance": p.norm_provenance,
         }
 
     return {
