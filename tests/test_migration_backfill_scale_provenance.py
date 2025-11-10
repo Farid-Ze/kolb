@@ -16,9 +16,11 @@ from app.services.provenance import backfill_scale_provenance
 
 
 def _create_session(db):
-    user = User(full_name="Seed User", email="seed@example.com")
-    db.add(user)
-    db.flush()
+    user = db.query(User).filter(User.email == "seed@example.com").first()
+    if not user:
+        user = User(full_name="Seed User", email="seed@example.com")
+        db.add(user)
+        db.flush()
 
     instrument = (
         db.query(Instrument)
@@ -72,12 +74,66 @@ def _insert_scores(db, session_id: int) -> None:
         AERO_source="DB:Total",
         used_fallback_any=True,
         norm_provenance={
-            "CE": "Appendix:CE",
-            "RO": "DB:Total",
-            "AC": "DB:Total",
-            "AE": "DB:Total",
-            "ACCE": "Appendix:ACCE",
-            "AERO": "DB:Total",
+            "CE": {
+                "percentile": 5.0,
+                "raw_score": 30,
+                "source": "Appendix:CE",
+                "source_kind": "appendix",
+                "norm_group": "CE",
+                "norm_version": None,
+                "used_fallback": True,
+                "truncated": True,
+            },
+            "RO": {
+                "percentile": 55.0,
+                "raw_score": scale.RO_raw,
+                "source": "DB:Total",
+                "source_kind": "database",
+                "norm_group": "Total",
+                "norm_version": "default",
+                "used_fallback": False,
+                "truncated": False,
+            },
+            "AC": {
+                "percentile": 40.0,
+                "raw_score": scale.AC_raw,
+                "source": "DB:Total",
+                "source_kind": "database",
+                "norm_group": "Total",
+                "norm_version": "default",
+                "used_fallback": False,
+                "truncated": False,
+            },
+            "AE": {
+                "percentile": 35.0,
+                "raw_score": scale.AE_raw,
+                "source": "DB:Total",
+                "source_kind": "database",
+                "norm_group": "Total",
+                "norm_version": "default",
+                "used_fallback": False,
+                "truncated": False,
+            },
+            "ACCE": {
+                "percentile": 25.0,
+                "raw_score": combo.ACCE_raw,
+                "source": "Appendix:ACCE",
+                "source_kind": "appendix",
+                "norm_group": "ACCE",
+                "norm_version": None,
+                "used_fallback": True,
+                "truncated": True,
+            },
+            "AERO": {
+                "percentile": 20.0,
+                "raw_score": combo.AERO_raw,
+                "source": "DB:Total",
+                "source_kind": "database",
+                "norm_group": "Total",
+                "norm_version": "default",
+                "used_fallback": False,
+                "truncated": False,
+            },
         },
         raw_outside_norm_range=True,
         truncated_scales={

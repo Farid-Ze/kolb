@@ -1,14 +1,23 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
+from app.models import klsi as _  # ensure models load before schema sync
 from app.services.seeds import seed_learning_styles, seed_assessment_items, seed_instruments
 
 
 @pytest.fixture(scope="session")
 def db_setup():
     # Recreate schema fresh to pick up new columns added in models (e.g., provenance fields)
+    db_url = str(engine.url)
+    if db_url.startswith("sqlite"):
+        path = db_url.split("///")[-1]
+        if os.path.exists(path):
+            engine.dispose()
+            os.remove(path)
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:

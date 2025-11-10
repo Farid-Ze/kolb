@@ -276,12 +276,13 @@ class NormativeConversionTable(Base):
     __tablename__ = "normative_conversion_table"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     norm_group: Mapped[str] = mapped_column(String(150))  # Expanded to accommodate long country names
+    norm_version: Mapped[str] = mapped_column(String(40), default="default", nullable=False)
     scale_name: Mapped[str] = mapped_column(String(5))
     raw_score: Mapped[int] = mapped_column(Integer)
     percentile: Mapped[float] = mapped_column(Float)
     # Ensure no overlapping normative rows for same (group, scale, raw)
     __table_args__ = (
-        UniqueConstraint("norm_group", "scale_name", "raw_score", name="uq_norm_group_scale_raw"),
+        UniqueConstraint("norm_group", "norm_version", "scale_name", "raw_score", name="uq_norm_group_version_scale_raw"),
     )
 
 class AuditLog(Base):

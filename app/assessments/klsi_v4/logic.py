@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from functools import lru_cache
 from math import sqrt
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -81,6 +81,31 @@ def _build_style_cuts() -> Dict[str, Any]:
 
 STYLE_CUTS = _build_style_cuts()
 CONTEXT_NAMES = context_names()
+_NORM_VERSION_DELIM = "|"
+DEFAULT_NORM_VERSION = "default"
+
+
+def _split_norm_group_token(token: str) -> Tuple[str, str]:
+    if _NORM_VERSION_DELIM in token:
+        base, version = token.split(_NORM_VERSION_DELIM, 1)
+        return base, version or DEFAULT_NORM_VERSION
+    return token, DEFAULT_NORM_VERSION
+
+
+def _pack_norm_group_token(group: str, version: str) -> str:
+    version = version or DEFAULT_NORM_VERSION
+    return f"{group}{_NORM_VERSION_DELIM}{version}"
+
+
+def _describe_provenance(tag: str) -> Tuple[str, Optional[str], Optional[str]]:
+    if tag.startswith("DB:"):
+        payload = tag[3:]
+        group, version = _split_norm_group_token(payload)
+        return "database", group, version
+    if tag.startswith("Appendix:"):
+        appendix_group = tag.split(":", 1)[1]
+        return "appendix", appendix_group, None
+    return "unknown", None, None
 
 
 def validate_lfi_context_ranks(context_scores: List[Dict[str, int]]) -> None:
@@ -287,17 +312,29 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     return user_style, {"manhattan": manhattan, "euclidean": euclidean}
 
 
-def _db_norm_lookup(db: Session, group: str, scale: str, raw: int | float) -> Optional[float]:
-    row = db.execute(
-        text(
-            "SELECT percentile FROM normative_conversion_table "
-            "WHERE norm_group=:g AND scale_name=:s AND raw_score=:r LIMIT 1"
-        ),
-        {"g": group, "s": scale, "r": int(raw)},
-    ).fetchone()
-    if row:
-        return float(row[0])
-    return None
+def _db_norm_lookup(
+    db: Session,
+    group_token: str,
+    scale: str,
+    raw: int | float,
+) -> Tuple[Optional[float], Optional[str]]:
+    base_group, requested_version = _split_norm_group_token(group_token)
+    candidates = [requested_version]
+    if requested_version != DEFAULT_NORM_VERSION:
+        candidates.append(DEFAULT_NORM_VERSION)
+    for version in candidates:
+        row = db.execute(
+            text(
+                "SELECT percentile, norm_version FROM normative_conversion_table "
+                "WHERE norm_group=:g AND norm_version=:v AND scale_name=:s AND raw_score=:r LIMIT 1"
+            ),
+            {"g": base_group, "v": version, "s": scale, "r": int(raw)},
+        ).fetchone()
+        if row:
+            percentile = float(row[0])
+            resolved_version = row[1] or version
+            return percentile, resolved_version
+    return None, None
 
 
 def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
@@ -395,6 +432,7 @@ def apply_percentiles(
     provenance: Dict[str, str] = {}
     truncations: Dict[str, bool] = {}
     raw_scores: Dict[str, int | float] = {}
+    detailed_provenance: Dict[str, Dict[str, Any]] = {}
 
     for name, raw in {
         "CE": scale.CE_raw,
@@ -409,24 +447,44 @@ def apply_percentiles(
         provenance[name] = prov
         truncations[name] = truncated_flag
         raw_scores[name] = raw
+        source_kind, norm_group_label, norm_version = _describe_provenance(prov)
+        detailed_provenance[name] = {
+            "percentile": pct,
+            "raw_score": raw,
+            "source": prov,
+            "source_kind": source_kind,
+            "norm_group": norm_group_label,
+            "norm_version": norm_version,
+            "used_fallback": source_kind != "database",
+            "truncated": truncated_flag,
+        }
 
     db_provenances = {
-        scale_name: prov
-        for scale_name, prov in provenance.items()
-        if prov.startswith("DB:")
+        scale_name: info
+        for scale_name, info in detailed_provenance.items()
+        if info["source_kind"] == "database"
     }
 
     def _session_norm_group() -> str:
         for group in group_chain:
-            tag = f"DB:{group}"
-            if tag in db_provenances.values():
-                return tag
+            base_group, version_hint = _split_norm_group_token(group)
+            for info in db_provenances.values():
+                if info.get("norm_group") != base_group:
+                    continue
+                info_version = info.get("norm_version") or DEFAULT_NORM_VERSION
+                if info_version == version_hint or version_hint == DEFAULT_NORM_VERSION:
+                    if info_version != DEFAULT_NORM_VERSION:
+                        return f"DB:{_pack_norm_group_token(base_group, info_version)}"
+                    return f"DB:{base_group}"
         if db_provenances:
-            # deterministic order for reproducibility
             for scale_name in ("CE", "RO", "AC", "AE", "ACCE", "AERO"):
-                prov = db_provenances.get(scale_name)
-                if prov:
-                    return prov
+                detail = db_provenances.get(scale_name)
+                if detail:
+                    info_version = detail.get("norm_version") or DEFAULT_NORM_VERSION
+                    base = detail.get("norm_group") or "Total"
+                    if info_version != DEFAULT_NORM_VERSION:
+                        return f"DB:{_pack_norm_group_token(base, info_version)}"
+                    return f"DB:{base}"
         return "Appendix:Fallback"
 
     entity = PercentileScore(
@@ -447,7 +505,7 @@ def apply_percentiles(
         used_fallback_any=any(
             not src.startswith("DB:") for src in provenance.values()
         ),
-        norm_provenance=provenance,
+    norm_provenance=detailed_provenance,
         raw_outside_norm_range=any(truncations.values()),
         truncated_scales={
             name: {

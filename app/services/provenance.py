@@ -15,9 +15,20 @@ from app.models.klsi import (
 ScaleDict = Dict[str, float | int | None]
 
 
+_VERSION_DELIM = "|"
+
+
+def _split_norm_payload(payload: str) -> str:
+    if _VERSION_DELIM in payload:
+        group, _version = payload.split(_VERSION_DELIM, 1)
+        return group
+    return payload
+
+
 def _normalize_provenance(tag: str) -> tuple[str, Optional[str]]:
     if tag.startswith("DB:"):
-        return "database", tag[3:]
+        group = _split_norm_payload(tag[3:])
+        return "database", group
     if tag.startswith("Appendix:"):
         return "appendix", tag.split(":", 1)[1]
     return "unknown", None

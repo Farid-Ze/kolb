@@ -12,13 +12,22 @@ from app.services.security import get_current_user
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.post("/norms/import")
-def import_norms(norm_group: str, file: UploadFile = File(...), db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def import_norms(
+    norm_group: str,
+    file: UploadFile = File(...),
+    norm_version: str = "default",
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
     user = get_current_user(authorization, db)
     if user.role != 'MEDIATOR':
         raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh impor norma")
     fname = file.filename or ""
     if not fname.lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail="File harus CSV")
+    norm_version = norm_version.strip() or "default"
+    if len(norm_version) > 40:
+        raise HTTPException(status_code=400, detail="norm_version maksimal 40 karakter")
     content = file.file.read().decode('utf-8')
     reader = csv.DictReader(StringIO(content))
     expected_cols = {"scale_name","raw_score","percentile"}
@@ -47,14 +56,27 @@ def import_norms(norm_group: str, file: UploadFile = File(...), db: Session = De
         # Idempotent upsert: check existing
         existing = db.query(NormativeConversionTable).filter(
             NormativeConversionTable.norm_group==norm_group,
+            NormativeConversionTable.norm_version==norm_version,
             NormativeConversionTable.scale_name==scale_name,
             NormativeConversionTable.raw_score==raw_score
         ).first()
         if existing:
             existing.percentile = percentile  # update if changed
         else:
-            db.add(NormativeConversionTable(norm_group=norm_group, scale_name=scale_name, raw_score=raw_score, percentile=percentile))
+            db.add(NormativeConversionTable(
+                norm_group=norm_group,
+                norm_version=norm_version,
+                scale_name=scale_name,
+                raw_score=raw_score,
+                percentile=percentile,
+            ))
             inserted += 1
-    db.add(AuditLog(actor=user.email, action=f'norm_import:{norm_group}', payload_hash=batch_hash))
+    db.add(AuditLog(actor=user.email, action=f'norm_import:{norm_group}:{norm_version}', payload_hash=batch_hash))
     db.commit()
-    return {"norm_group": norm_group, "rows_inserted": inserted, "rows_processed": len(rows), "hash": batch_hash}
+    return {
+        "norm_group": norm_group,
+        "norm_version": norm_version,
+        "rows_inserted": inserted,
+        "rows_processed": len(rows),
+        "hash": batch_hash,
+    }
