@@ -1,0 +1,44 @@
+instrument:
+  code: KLSI
+  version: "4.0"
+  name: "Kolb Learning Style Inventory 4.0"
+  description: "Kolb Learning Style Inventory engine manifest"
+  default_strategy: "KLSI4.0"
+delivery:
+  forced_choice: true
+  sections:
+    - learning_style
+    - learning_flexibility
+  randomize: false
+  expected_contexts: 8
+contexts:
+  - Starting_Something_New
+  - Influencing_Someone
+  - Getting_To_Know_Someone
+  - Learning_In_A_Group
+  - Planning_Something
+  - Analyzing_Something
+  - Evaluating_An_Opportunity
+  - Choosing_Between_Alternatives
+response_models:
+  learning_style_item:
+    type: forced_choice_rank
+    options:
+      ranks: [1, 2, 3, 4]
+  lfi_context:
+    type: forced_choice_rank
+    options:
+      ranks: [1, 2, 3, 4]
+registry:
+  definition: app.assessments.klsi_v4.definition.KLSIAssessmentDefinition
+  plugin: app.instruments.klsi4.plugin.KLSI4Plugin
+  scorer: app.engine.strategies.klsi4.KLSI4Strategy
+  norm_provider: app.instruments.klsi4.plugin.KLSI4Plugin
+  report_builder: app.instruments.klsi4.plugin.KLSI4Plugin
+  strategy: app.engine.strategies.klsi4.KLSI4Strategy
+branching: {}
+resources:
+  locales:
+    - code: "id"
+      label: "Bahasa Indonesia"
+      file: "resources/id.json"

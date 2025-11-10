@@ -14,8 +14,8 @@ from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 
-# Ensure instrument plugins register themselves at import time
-from app.instruments.klsi4 import plugin as _  # noqa: F401
+# Ensure instrument authoring manifest and plugins register on import
+import app.instruments.klsi4  # noqa: F401
 from app.routers.engine import router as engine_router
 
 

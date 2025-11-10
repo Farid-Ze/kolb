@@ -1,0 +1,141 @@
+{
+  "metadata": {
+    "locale": "id",
+    "label": "Bahasa Indonesia",
+    "source": "Kolb & Kolb (2013) Learning Style Inventory 4.0"
+  },
+  "items": {
+    "learning_style": [
+      {
+        "item_number": 1,
+        "stem": "Ketika saya belajar: (Item 1)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 2,
+        "stem": "Ketika saya belajar: (Item 2)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 3,
+        "stem": "Ketika saya belajar: (Item 3)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 4,
+        "stem": "Ketika saya belajar: (Item 4)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 5,
+        "stem": "Ketika saya belajar: (Item 5)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 6,
+        "stem": "Ketika saya belajar: (Item 6)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 7,
+        "stem": "Ketika saya belajar: (Item 7)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 8,
+        "stem": "Ketika saya belajar: (Item 8)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 9,
+        "stem": "Ketika saya belajar: (Item 9)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 10,
+        "stem": "Ketika saya belajar: (Item 10)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 11,
+        "stem": "Ketika saya belajar: (Item 11)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      },
+      {
+        "item_number": 12,
+        "stem": "Ketika saya belajar: (Item 12)",
+        "options": {
+          "CE": "Saya mengandalkan perasaan saya",
+          "RO": "Saya mengamati dengan cermat",
+          "AC": "Saya berpikir tentang gagasan",
+          "AE": "Saya mencoba melakukannya"
+        }
+      }
+    ]
+  },
+  "contexts": {
+    "Starting_Something_New": "Memulai Sesuatu yang Baru",
+    "Influencing_Someone": "Mempengaruhi Seseorang",
+    "Getting_To_Know_Someone": "Mengenal Seseorang",
+    "Learning_In_A_Group": "Belajar dalam Kelompok",
+    "Planning_Something": "Merencanakan Sesuatu",
+    "Analyzing_Something": "Menganalisis Sesuatu",
+    "Evaluating_An_Opportunity": "Mengevaluasi Sebuah Peluang",
+    "Choosing_Between_Alternatives": "Memilih Antara Alternatif"
+  }
+}

@@ -46,6 +46,24 @@ def test_engine_klsi_end_to_end(client):
     assert r_delivery.status_code == 200, r_delivery.text
     delivery = r_delivery.json()
     items = delivery["items"]
+    manifest = delivery.get("manifest")
+    assert manifest is not None
+    assert manifest["code"] == "KLSI"
+    assert manifest["delivery"]["expected_contexts"] == 8
+    locales = manifest["resources"]["locales"]
+    assert any(locale["code"] == "id" for locale in locales)
+
+    # Request localized delivery payload
+    r_delivery_id = client.get(f"/engine/sessions/{session_id}/delivery", params={"locale": "id"}, headers=headers)
+    assert r_delivery_id.status_code == 200, r_delivery_id.text
+    delivery_localized = r_delivery_id.json()
+    i18n = delivery_localized.get("i18n")
+    assert i18n["locale"] == "id"
+    assert i18n["contexts"]["Starting_Something_New"] == "Memulai Sesuatu yang Baru"
+    localized_items = delivery_localized["items"]
+    assert localized_items[0]["stem_localized"].startswith("Ketika")
+    option_localized = localized_items[0]["options"][0]["text_localized"]
+    assert option_localized.startswith("Saya")
     assert len(items) == 12
 
     # Submit forced-choice ranks for each learning style item

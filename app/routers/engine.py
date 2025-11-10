@@ -9,6 +9,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.engine.authoring import (
+    get_instrument_locale_resource,
+    get_instrument_spec,
+    list_instrument_specs,
+)
 from app.engine.runtime import runtime
 from app.models.klsi import AssessmentSession, AuditLog, User
 from app.services.security import get_current_user
@@ -52,6 +57,48 @@ def _assert_access(user: User, session: AssessmentSession) -> None:
         raise HTTPException(status_code=403, detail="Akses sesi ditolak")
 
 
+@router.get("/instruments", response_model=dict)
+def list_instruments(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    # Any authenticated user may fetch instrument catalog metadata.
+    get_current_user(authorization, db)
+    specs = list_instrument_specs()
+    return {"instruments": [spec.manifest() for spec in specs]}
+
+
+@router.get("/instruments/{instrument_code}/{instrument_version}", response_model=dict)
+def get_instrument_manifest(
+    instrument_code: str,
+    instrument_version: str,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    get_current_user(authorization, db)
+    try:
+        spec = get_instrument_spec(instrument_code, instrument_version)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Instrument manifest tidak ditemukan") from exc
+    return {"instrument": spec.manifest()}
+
+
+@router.get("/instruments/{instrument_code}/{instrument_version}/resources/{locale}", response_model=dict)
+def get_instrument_locale_resource_endpoint(
+    instrument_code: str,
+    instrument_version: str,
+    locale: str,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    get_current_user(authorization, db)
+    try:
+        payload = get_instrument_locale_resource(instrument_code, instrument_version, locale)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Resource locale tidak ditemukan") from exc
+    return {"locale": locale, "resources": payload}
+
+
 @router.post("/sessions/start", response_model=dict)
 def start_engine_session(
     payload: StartSessionRequest,
@@ -71,13 +118,14 @@ def start_engine_session(
 @router.get("/sessions/{session_id}/delivery", response_model=dict)
 def get_delivery(
     session_id: int,
+    locale: str | None = None,
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
     session = _get_session(db, session_id)
     _assert_access(user, session)
-    return runtime.delivery_package(db, session_id)
+    return runtime.delivery_package(db, session_id, locale=locale)
 
 
 @router.post("/sessions/{session_id}/interactions", response_model=dict)
