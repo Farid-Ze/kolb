@@ -6,6 +6,7 @@ Create Date: 2025-11-10
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = '0006_add_percentile_provenance'
@@ -14,24 +15,35 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-    with op.batch_alter_table('percentile_scores') as batch_op:
-        batch_op.add_column(sa.Column('CE_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
-        batch_op.add_column(sa.Column('RO_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
-        batch_op.add_column(sa.Column('AC_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
-        batch_op.add_column(sa.Column('AE_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
-        batch_op.add_column(sa.Column('ACCE_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
-        batch_op.add_column(sa.Column('AERO_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
-        batch_op.add_column(sa.Column('used_fallback_any', sa.Integer(), nullable=False, server_default='1'))
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    existing_columns = {col['name'] for col in inspector.get_columns('percentile_scores')}
 
-    # Drop server defaults after backfilling existing rows
-    with op.batch_alter_table('percentile_scores') as batch_op:
-        batch_op.alter_column('CE_source', server_default=None)
-        batch_op.alter_column('RO_source', server_default=None)
-        batch_op.alter_column('AC_source', server_default=None)
-        batch_op.alter_column('AE_source', server_default=None)
-        batch_op.alter_column('ACCE_source', server_default=None)
-        batch_op.alter_column('AERO_source', server_default=None)
-        batch_op.alter_column('used_fallback_any', server_default=None)
+    columns_to_add = []
+    if 'CE_source' not in existing_columns:
+        columns_to_add.append(sa.Column('CE_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
+    if 'RO_source' not in existing_columns:
+        columns_to_add.append(sa.Column('RO_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
+    if 'AC_source' not in existing_columns:
+        columns_to_add.append(sa.Column('AC_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
+    if 'AE_source' not in existing_columns:
+        columns_to_add.append(sa.Column('AE_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
+    if 'ACCE_source' not in existing_columns:
+        columns_to_add.append(sa.Column('ACCE_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
+    if 'AERO_source' not in existing_columns:
+        columns_to_add.append(sa.Column('AERO_source', sa.String(length=60), nullable=False, server_default='AppendixFallback'))
+    if 'used_fallback_any' not in existing_columns:
+        columns_to_add.append(sa.Column('used_fallback_any', sa.Integer(), nullable=False, server_default='1'))
+
+    if columns_to_add:
+        with op.batch_alter_table('percentile_scores') as batch_op:
+            for column in columns_to_add:
+                batch_op.add_column(column)
+
+        # Drop server defaults after backfilling existing rows
+        with op.batch_alter_table('percentile_scores') as batch_op:
+            for column in columns_to_add:
+                batch_op.alter_column(column.name, server_default=None)
 
 def downgrade() -> None:
     with op.batch_alter_table('percentile_scores') as batch_op:
