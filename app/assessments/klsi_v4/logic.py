@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from functools import lru_cache
 from math import sqrt
 from typing import Any, Dict, List, Optional
@@ -25,6 +26,7 @@ from app.models.klsi import (
     UserLearningStyle,
     UserResponse,
 )
+from app.services.provenance import upsert_scale_provenance
 
 from app.data.norms import (
     AC_PERCENTILES,
@@ -118,16 +120,14 @@ def compute_kendalls_w(context_scores: List[Dict[str, int]]) -> float:
     return max(0.0, min(1.0, W))
 
 
-def _age_to_band(user: User) -> Optional[str]:
+def _age_to_band(user: User, reference_date: Optional[date]) -> Optional[str]:
     if not user or not getattr(user, "date_of_birth", None):
         return None
-    from datetime import date, datetime
-
     dob = getattr(user, "date_of_birth")
     if isinstance(dob, datetime):
         dob = dob.date()
-    today = date.today()
-    years = today.year - dob.year - int((today.month, today.day) < (dob.month, dob.day))
+    snapshot = reference_date or date.today()
+    years = snapshot.year - dob.year - int((snapshot.month, snapshot.day) < (dob.month, dob.day))
     if years < 19:
         return "<19"
     if 19 <= years <= 24:
@@ -150,13 +150,18 @@ def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
         .first()
     )
     user: Optional[User] = sess.user if sess else None
+    reference_date: Optional[date] = None
+    if sess:
+        timestamp = sess.end_time or sess.start_time
+        if isinstance(timestamp, datetime):
+            reference_date = timestamp.date()
     candidates: List[str] = []
     if user and user.education_level:
         candidates.append(f"EDU:{user.education_level.value}")
     if user and getattr(user, "country", None):
         candidates.append(f"COUNTRY:{user.country}")
     if user:
-        age_band = _age_to_band(user)
+        age_band = _age_to_band(user, reference_date)
         if age_band:
             candidates.append(f"AGE:{age_band}")
     if user and user.gender:
@@ -459,6 +464,7 @@ def apply_percentiles(
         },
     )
     db.add(entity)
+    upsert_scale_provenance(db, session_id, raw_scores, percentiles, provenance, truncations)
     return entity
 
 

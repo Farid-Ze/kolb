@@ -99,6 +99,7 @@ class AssessmentSession(Base):
     learning_style: Mapped[Optional[UserLearningStyle]] = relationship(back_populates="session", uselist=False)
     lfi_index: Mapped[Optional[LearningFlexibilityIndex]] = relationship(back_populates="session", uselist=False)
     delta: Mapped[Optional["AssessmentSessionDelta"]] = relationship(back_populates="session", uselist=False)
+    scale_provenances: Mapped[list["ScaleProvenance"]] = relationship(back_populates="session")
 
 class AssessmentItem(Base):
     __tablename__ = "assessment_items"
@@ -279,6 +280,25 @@ class PercentileScore(Base):
     norm_provenance: Mapped[Optional[dict]] = mapped_column(JSON)
     raw_outside_norm_range: Mapped[bool] = mapped_column(Boolean, default=False)
     truncated_scales: Mapped[Optional[dict]] = mapped_column(JSON)
+
+
+class ScaleProvenance(Base):
+    __tablename__ = "scale_provenance"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"))
+    scale_code: Mapped[str] = mapped_column(String(10))
+    raw_score: Mapped[float] = mapped_column(Float)
+    percentile_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    provenance_tag: Mapped[str] = mapped_column(String(80))
+    source_kind: Mapped[str] = mapped_column(String(20))
+    norm_group: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    session: Mapped[AssessmentSession] = relationship(back_populates="scale_provenances")
+
+    __table_args__ = (
+        UniqueConstraint("session_id", "scale_code", name="uq_scale_provenance_session_scale"),
+    )
 
 
 class AssessmentSessionDelta(Base):

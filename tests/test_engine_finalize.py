@@ -9,6 +9,7 @@ from app.models.klsi import (
     AssessmentItem,
     AssessmentSession,
     LFIContextScore,
+    ScaleProvenance,
     SessionStatus,
     User,
     UserResponse,
@@ -91,5 +92,18 @@ def test_finalize_records_truncation_and_artifacts():
         assert "CE" in artifacts["truncated"]
         assert artifacts["truncated"]["CE"]["raw"] == 48
         assert artifacts["norm_group_used"] == "Appendix:Fallback"
+
+        scale_rows = (
+            db.query(ScaleProvenance)
+            .filter(ScaleProvenance.session_id == session.id)
+            .order_by(ScaleProvenance.scale_code.asc())
+            .all()
+        )
+        assert len(scale_rows) == 6
+        ce_row = next(row for row in scale_rows if row.scale_code == "CE")
+        assert ce_row.truncated is True
+        assert ce_row.provenance_tag == "Appendix:CE"
+        assert ce_row.source_kind == "appendix"
+        assert ce_row.norm_group == "CE"
     finally:
         db.close()
