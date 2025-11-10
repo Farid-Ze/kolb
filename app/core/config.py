@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     jwt_audience: str = os.getenv("JWT_AUDIENCE", "klsi-users")
     access_token_expire_minutes: int = 60
     allowed_student_domain: str = "mahasiswa.unikom.ac.id"
+    audit_salt: str = os.getenv("AUDIT_SALT", "klsi-default-salt")
 
     # Pydantic v2 config via ConfigDict
     model_config = {

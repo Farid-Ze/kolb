@@ -1,0 +1,51 @@
+id: KLSI
+version: "4.0"
+item_count: 12
+context_count: 8
+style_windows:
+  Imagining:
+    ACCE: [null, 5]
+    AERO: [null, 0]
+  Experiencing:
+    ACCE: [null, 5]
+    AERO: [1, 11]
+  Initiating:
+    ACCE: [null, 5]
+    AERO: [12, null]
+  Reflecting:
+    ACCE: [6, 14]
+    AERO: [null, 0]
+  Balancing:
+    ACCE: [6, 14]
+    AERO: [1, 11]
+  Acting:
+    ACCE: [6, 14]
+    AERO: [12, null]
+  Analyzing:
+    ACCE: [15, null]
+    AERO: [null, 0]
+  Thinking:
+    ACCE: [15, null]
+    AERO: [1, 11]
+  Deciding:
+    ACCE: [15, null]
+    AERO: [12, null]
+balance_medians:
+  ACCE: 9
+  AERO: 6
+intensity_metrics:
+  - manhattan
+  - euclidean
+lfi:
+  tertiles:
+    low: 33.34
+    moderate: 66.67
+context_names:
+  - Starting_Something_New
+  - Influencing_Someone
+  - Getting_To_Know_Someone
+  - Learning_In_A_Group
+  - Planning_Something
+  - Analyzing_Something
+  - Evaluating_An_Opportunity
+  - Choosing_Between_Alternatives

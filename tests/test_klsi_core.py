@@ -1,4 +1,5 @@
-from app.services.scoring import STYLE_CUTS, compute_kendalls_w
+from app.assessments.klsi_v4.logic import STYLE_CUTS
+from app.services.scoring import compute_kendalls_w
 
 
 def test_kendalls_w_extremes():

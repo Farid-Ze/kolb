@@ -1,4 +1,4 @@
-from app.services.scoring import STYLE_CUTS
+from app.assessments.klsi_v4.logic import STYLE_CUTS
 
 
 def test_boundaries_acce_5_6():

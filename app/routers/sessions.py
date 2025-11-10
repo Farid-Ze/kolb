@@ -90,6 +90,9 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
     if sess.status == SessionStatus.completed:
         raise HTTPException(status_code=409, detail="Sesi sudah selesai")
     result = finalize_session(db, session_id)
+    if not result.get("ok"):
+        db.rollback()
+        raise HTTPException(status_code=400, detail={"issues": result.get("issues"), "diagnostics": result.get("diagnostics")})
     sess.status = SessionStatus.completed
     sess.end_time = datetime.now(timezone.utc)
     # user-level audit log
@@ -100,7 +103,8 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
         "ACCE": result["combination"].ACCE_raw,
         "AERO": result["combination"].AERO_raw,
         "style_primary_id": result["style"].primary_style_type_id,
-        "LFI": result["lfi"].LFI_score
+        "LFI": result["lfi"].LFI_score,
+        "delta": result.get("delta"),
     }}
 
 @router.get("/{session_id}/validation", response_model=dict)

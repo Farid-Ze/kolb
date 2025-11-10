@@ -6,6 +6,7 @@ from typing import Optional
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -86,7 +87,8 @@ class AssessmentSession(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.started)
-    version: Mapped[str] = mapped_column(String(10), default="KLSI 4.0")
+    assessment_id: Mapped[str] = mapped_column(String(40), default="KLSI")
+    assessment_version: Mapped[str] = mapped_column(String(10), default="4.0")
     session_type: Mapped[str] = mapped_column(String(20), default="Initial")
     days_since_last_session: Mapped[Optional[int]] = mapped_column(Integer)
 
@@ -96,6 +98,7 @@ class AssessmentSession(Base):
     combination_score: Mapped[Optional[CombinationScore]] = relationship(back_populates="session", uselist=False)
     learning_style: Mapped[Optional[UserLearningStyle]] = relationship(back_populates="session", uselist=False)
     lfi_index: Mapped[Optional[LearningFlexibilityIndex]] = relationship(back_populates="session", uselist=False)
+    delta: Mapped[Optional["AssessmentSessionDelta"]] = relationship(back_populates="session", uselist=False)
 
 class AssessmentItem(Base):
     __tablename__ = "assessment_items"
@@ -197,6 +200,7 @@ class LFIContextScore(Base):
     AE_rank: Mapped[int] = mapped_column(Integer)
     __table_args__ = (
         UniqueConstraint("session_id", "context_name", name="uq_lfi_context_per_session"),
+        CheckConstraint("context_name <> ''", name="ck_context_name_not_blank"),
     )
 
 class LearningFlexibilityIndex(Base):
@@ -259,7 +263,24 @@ class PercentileScore(Base):
     AE_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
     ACCE_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
     AERO_source: Mapped[str] = mapped_column(String(60), default='AppendixFallback')
-    used_fallback_any: Mapped[Optional[bool]] = mapped_column(Integer, default=1)
+    used_fallback_any: Mapped[Optional[bool]] = mapped_column(Boolean, default=True)
+    norm_provenance: Mapped[Optional[dict]] = mapped_column(JSON)
+    raw_outside_norm_range: Mapped[bool] = mapped_column(Boolean, default=False)
+    truncated_scales: Mapped[Optional[dict]] = mapped_column(JSON)
+
+
+class AssessmentSessionDelta(Base):
+    __tablename__ = "assessment_session_deltas"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
+    previous_session_id: Mapped[Optional[int]] = mapped_column(Integer)
+    delta_acce: Mapped[Optional[int]] = mapped_column(Integer)
+    delta_aero: Mapped[Optional[int]] = mapped_column(Integer)
+    delta_lfi: Mapped[Optional[float]] = mapped_column(Float)
+    delta_intensity: Mapped[Optional[int]] = mapped_column(Integer)
+    computed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    session: Mapped[AssessmentSession] = relationship(back_populates="delta")
 
 class NormativeStatistics(Base):
     __tablename__ = "normative_statistics"
