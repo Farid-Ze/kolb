@@ -37,6 +37,10 @@ Saat finalisasi:
 2. Jalankan pipeline `finalize_session` (lihat `app/services/scoring.py`).
 3. Simpan snapshot hasil (ScaleScore, CombinationScore, PercentileScore, LearningFlexibilityIndex, UserLearningStyle).
 4. Audit entry ditulis: action="FINALIZE_SESSION" + hash payload aggregate JSON.
+5. UI menampilkan hasil `run_session_validations()` bila ada kegagalan (mis. `ITEMS_INCOMPLETE`, `LFI_CONTEXT_COUNT`) melalui panel peringatan yang menautkan langsung ke item/konteks bermasalah.
+6. Jika mediator melakukan override (force finalize), UI meminta alasan tertulis, menampilkan isu yang masih terbuka, dan memberi badge "Override" pada ringkasan hasil.
+
+Panel validasi menampilkan kode/penjelasan isu, status fatal, dan tautan tindakan (scroll ke item atau membuka matriks konteks). Pesan harus tetap dalam bahasa Indonesia yang konsisten dengan kode server.
 
 ## Representasi Data di UI
 | Data | Format Tampilan | Rasional |
@@ -70,6 +74,16 @@ Saat finalisasi:
 | Data norm belum diimpor | Badge "Norma fallback Appendix" + penjelasan dampak. |
 | Out-of-range raw (tidak terjadi) | Guard server: perhitungan dialektika menggunakan hanya data valid. |
 | Duplikasi submit | Audit log mendeteksi hash sama; sistem tidak menambah entri skor baru. |
+| Mediator force finalize | Form modal meminta alasan, menampilkan isu tersisa, dan memberi badge override di laporan; audit hash baru dengan `FORCE_FINALIZE_SESSION`. |
+
+## Mediator Override Workflow
+
+1. Mediator membuka sesi mahasiswa dari dashboard laporan.
+2. Klik tombol `Force finalize` (hanya terlihat jika validasi gagal dan pengguna memiliki peran MEDIATOR).
+3. Modal menampilkan daftar `validation.issues`, kolom fatal, serta input alasan (wajib diisi).
+4. Setelah konfirmasi, UI memanggil `POST /engine/sessions/{id}/force-finalize` atau `/sessions/{id}/force_finalize`.
+5. Layar hasil menampilkan badge override dan alasan yang dimasukkan; pengguna non-mediator melihat catatan "Laporan ini difinalisasi oleh mediator meski ada isu terbuka".
+6. Layar audit/riwayat menambahkan entri baru dengan hash payload sesuai respons backend.
 
 ## Privasi & Etika
 - Tidak menampilkan label evaluatif ("tinggi/rendah" kualitas) untuk gaya; fokus adaptasi.

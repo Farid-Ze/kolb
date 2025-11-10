@@ -154,6 +154,8 @@ Kinerja & optimisasi yang disarankan (tanpa mengubah API):
 Privasi & audit:
 - PII: email, NIM, tanggal lahir; simpan minimal, gunakan hashing/alias untuk ekspor.
 - AuditLog: catat impor norma, perhitungan massal, dan publikasi laporan kelas.
+- Force finalize: endpoint mediator (`/engine/sessions/{id}/force-finalize` & `/sessions/{id}/force_finalize`) menambahkan entry `FORCE_FINALIZE_SESSION` dengan hash SHA-256 atas (mediator, session_id, reason, issue_codes); memastikan jejak override terdokumentasi.
+- Payload hash finalisasi standar (`FINALIZE_SESSION`) tetap memakai salt konfigurasi (`settings.audit_salt`) sehingga laporan override dapat diverifikasi silang dengan audit biasa.
 
 Partisi & retensi (opsional skala besar):
 - Partisi `assessment_sessions` per bulan/semester untuk akselerasi laporan historis.
@@ -164,6 +166,7 @@ Partisi & retensi (opsional skala besar):
 
 - Input utama: ranking ipsatif 1..4 per item (12 item gaya) dan 8× konteks untuk LFI.
 - Output utama per sesi: CE/RO/AC/AE raw; ACCE/AERO; style utama + cadangan; LFI; persentil skala; grid posisi (v_style_grid); agregasi kelas (mv_class_style_stats).
+- Metadata tambahan: setiap finalize response menyertakan `validation` snapshot (hasil `run_session_validations`) dan bendera `override`; admin UI wajib menampilkan ini supaya keputusan override transparan.
 - Error modes yang ditangani:
   - Duplikasi rank/choice per item → ditolak oleh UNIQUE/CK.
   - Sesi belum selesai → tidak masuk index parsial "Completed" dan tidak terbaca oleh laporan tertentu.
@@ -174,6 +177,7 @@ Partisi & retensi (opsional skala besar):
 
 - Nilai tepat di ambang band (ACCE=5,6,14,15; AERO=0,1,11,12): gunakan konvensi—ACCE <6 artinya 0–5; 6–14 inklusif; >14 artinya ≥15. AERO <1 artinya ≤0; 1–11 inklusif; >11 artinya ≥12. Ini ditegaskan untuk mencegah interpretasi ganda.
 - Sesi tanpa semua 12 item lengkap → skor tidak dihitung; status bukan "Completed".
+- Force finalize mediator → status sesi tetap berubah ke Completed tetapi laporan menandai override; audit log menyimpan hash alasan & daftar isu.
 - Distribusi konteks homogen (semua konteks sama) → W=1 → LFI=0 (fleksibilitas minimal); variasi maksimum → W≈0 → LFI≈1.
 - Impor norma subset (mis. hanya Total) → sistem tetap berjalan; sumber group tercatat.
 
