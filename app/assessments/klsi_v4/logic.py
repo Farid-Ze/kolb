@@ -358,7 +358,9 @@ def apply_percentiles(
     scale: ScaleScore,
     combo: CombinationScore,
 ) -> PercentileScore:
-    repo = InMemoryNormRepository(lambda group, scale_name, raw: _db_norm_lookup(db, group, scale_name, raw))
+    repo = InMemoryNormRepository(
+        lambda group, scale_name, raw: _db_norm_lookup(db, group, scale_name, raw)
+    )
     group_chain = resolve_norm_groups(db, session_id)
 
     table_map = {
@@ -376,16 +378,16 @@ def apply_percentiles(
     }
 
     def resolve(scale_name: str, raw: int | float) -> tuple[Optional[float], str, bool]:
-        pct, provenance, truncated = repo.percentile(group_chain, scale_name, raw)
+        pct, prov, truncated_flag = repo.percentile(group_chain, scale_name, raw)
         if pct is not None:
-            return pct, provenance, truncated
+            return pct, prov, truncated_flag
         if scale_name in table_map:
             fallback_pct = lookup_percentile(int(raw), table_map[scale_name])
             low, high = range_bounds.get(scale_name, (None, None))
-            truncated_flag = False
+            truncated_outside = False
             if low is not None and high is not None:
-                truncated_flag = raw < low or raw > high
-            return fallback_pct, f"Appendix:{scale_name}", truncated_flag
+                truncated_outside = raw < low or raw > high
+            return fallback_pct, f"Appendix:{scale_name}", truncated_outside
         return None, "Unknown", False
 
     percentiles: Dict[str, Optional[float]] = {}
@@ -401,13 +403,17 @@ def apply_percentiles(
         "ACCE": combo.ACCE_raw,
         "AERO": combo.AERO_raw,
     }.items():
-        pct, prov, truncated = resolve(name, raw)
+        pct, prov, truncated_flag = resolve(name, raw)
         percentiles[name] = pct
         provenance[name] = prov
-        truncations[name] = truncated
+        truncations[name] = truncated_flag
         raw_scores[name] = raw
 
-    db_provenances = {scale: prov for scale, prov in provenance.items() if prov.startswith("DB:")}
+    db_provenances = {
+        scale_name: prov
+        for scale_name, prov in provenance.items()
+        if prov.startswith("DB:")
+    }
 
     def _session_norm_group() -> str:
         for group in group_chain:
@@ -415,7 +421,7 @@ def apply_percentiles(
             if tag in db_provenances.values():
                 return tag
         if db_provenances:
-            # fall back to deterministic ordering of scales for reproducibility
+            # deterministic order for reproducibility
             for scale_name in ("CE", "RO", "AC", "AE", "ACCE", "AERO"):
                 prov = db_provenances.get(scale_name)
                 if prov:
@@ -437,17 +443,19 @@ def apply_percentiles(
         AE_source=provenance["AE"],
         ACCE_source=provenance["ACCE"],
         AERO_source=provenance["AERO"],
-        used_fallback_any=any(not src.startswith("DB:") for src in provenance.values()),
+        used_fallback_any=any(
+            not src.startswith("DB:") for src in provenance.values()
+        ),
         norm_provenance=provenance,
-    raw_outside_norm_range=any(truncations.values()),
+        raw_outside_norm_range=any(truncations.values()),
         truncated_scales={
             name: {
                 "raw": raw_scores[name],
                 "min": range_bounds[name][0] if name in range_bounds else None,
                 "max": range_bounds[name][1] if name in range_bounds else None,
             }
-            for name, truncated in truncations.items()
-            if truncated
+            for name, truncated_flag in truncations.items()
+            if truncated_flag
         },
     )
     db.add(entity)

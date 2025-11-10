@@ -126,6 +126,9 @@ class PercentileStep:
             "AERO": percentiles.AERO_percentile,
             "sources": percentiles.norm_provenance,
             "truncated": percentiles.truncated_scales,
+            "raw_outside_norm_range": percentiles.raw_outside_norm_range,
+            "used_fallback_any": percentiles.used_fallback_any,
+            "norm_group_used": percentiles.norm_group_used,
             "entity": percentiles,
         }
 
