@@ -14,6 +14,8 @@ from app.models.klsi import (
 )
 from app.services.security import get_current_user
 from app.services.validation import run_session_validations
+from app.schemas.session import SessionSubmissionPayload
+from app.models.klsi import UserResponse, LFIContextScore, SessionStatus
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -83,6 +85,95 @@ def submit_context(
     }
     runtime.submit_payload(db, session_id, payload)
     return {"ok": True}
+
+
+@router.post("/{session_id}/submit_all_responses", response_model=dict)
+def submit_all_responses(
+    session_id: int,
+    payload: SessionSubmissionPayload,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,
+    followed by finalize. This reduces chattiness (22 calls → 1) and ensures atomicity.
+    """
+    user = get_current_user(authorization, db)
+    sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    if not sess or sess.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Akses sesi ditolak")
+    if sess.status == SessionStatus.completed:
+        raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+
+    try:
+        # Single transaction: insert all ranks then finalize
+        with db.begin():
+            # Insert/validate learning style item ranks
+            for item in payload.items:
+                for choice_id, rank_value in item.ranks.items():
+                    db.add(
+                        UserResponse(
+                            session_id=session_id,
+                            item_id=item.item_id,
+                            choice_id=int(choice_id),
+                            rank_value=int(rank_value),
+                        )
+                    )
+            # Insert LFI contexts
+            for ctx in payload.contexts:
+                db.add(
+                    LFIContextScore(
+                        session_id=session_id,
+                        context_name=ctx.context_name,
+                        CE_rank=ctx.CE,
+                        RO_rank=ctx.RO,
+                        AC_rank=ctx.AC,
+                        AE_rank=ctx.AE,
+                    )
+                )
+        # After data persisted, run finalize using the engine runtime helper with audit
+        def _payload_builder(res: dict) -> bytes:
+            combination = res.get("combination")
+            lfi = res.get("lfi")
+            if not combination or not lfi:
+                return b""
+            return (
+                f"user:{user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
+                f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
+            ).encode("utf-8")
+
+        result = runtime.finalize_with_audit(
+            db,
+            session_id,
+            actor_email=user.email,
+            action="FINALIZE_SESSION_USER_BATCH",
+            build_payload=_payload_builder,
+        )
+
+        combination = result.get("combination")
+        lfi = result.get("lfi")
+        style = result.get("style")
+        percentiles = result.get("percentiles")
+        per_scale_provenance = getattr(percentiles, "norm_provenance", None) if percentiles is not None else None
+
+        return {
+            "ok": True,
+            "result": {
+                "ACCE": combination.ACCE_raw if combination else None,
+                "AERO": combination.AERO_raw if combination else None,
+                "style_primary_id": style.primary_style_type_id if style else None,
+                "LFI": lfi.LFI_score if lfi else None,
+                "delta": result.get("delta"),
+                "percentile_sources": per_scale_provenance,
+                "validation": result.get("validation"),
+                "override": result.get("override", False),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # In case of constraint violations or other errors, rollback any pending txn
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Gagal memproses submisi batch") from exc
 
 @router.post("/{session_id}/finalize", response_model=dict)
 def finalize(session_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):

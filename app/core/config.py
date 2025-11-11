@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
     debug: bool = True
     environment: str = os.getenv("ENV", "dev")
     database_url: str = os.getenv("DATABASE_URL", "sqlite+pysqlite:///./klsi.db")
-    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "change-me")
+    jwt_secret_key: str = Field(default_factory=lambda: _require_env("JWT_SECRET_KEY"), description="JWT secret key; must be provided via environment JWT_SECRET_KEY")
     jwt_algorithm: str = "HS256"
     jwt_issuer: str = os.getenv("JWT_ISSUER", "klsi-api")
     jwt_audience: str = os.getenv("JWT_AUDIENCE", "klsi-users")
@@ -33,6 +34,13 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "env_file_encoding": "utf-8"
     }
+
+
+def _require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
 
 
 @lru_cache
