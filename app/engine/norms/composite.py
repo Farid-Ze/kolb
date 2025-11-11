@@ -6,7 +6,7 @@ import threading
 
 import httpx
 
-from app.data import norms as appendix_norms
+from app.data.norms import APPENDIX_TABLES, lookup_lfi
 from app.engine.norms.provider import NormProvider
 from app.engine.norms.value_objects import PercentileResult
 from app.core.config import settings
@@ -64,43 +64,17 @@ class AppendixNormProvider:
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> PercentileResult:
         with timer(f"norms.appendix.percentile.{scale}"):
-            match scale:
-                case "CE":
-                    table = appendix_norms.CE_PERCENTILES
-                    value = appendix_norms.lookup_percentile(int(raw), table)
-                    return PercentileResult(value, "Appendix:CE", self._is_truncated(raw, table))
-                case "RO":
-                    table = appendix_norms.RO_PERCENTILES
-                    value = appendix_norms.lookup_percentile(int(raw), table)
-                    return PercentileResult(value, "Appendix:RO", self._is_truncated(raw, table))
-                case "AC":
-                    table = appendix_norms.AC_PERCENTILES
-                    value = appendix_norms.lookup_percentile(int(raw), table)
-                    return PercentileResult(value, "Appendix:AC", self._is_truncated(raw, table))
-                case "AE":
-                    table = appendix_norms.AE_PERCENTILES
-                    value = appendix_norms.lookup_percentile(int(raw), table)
-                    return PercentileResult(value, "Appendix:AE", self._is_truncated(raw, table))
-                case "ACCE":
-                    table = appendix_norms.ACCE_PERCENTILES
-                    value = appendix_norms.lookup_percentile(int(raw), table)
-                    return PercentileResult(value, "Appendix:ACCE", self._is_truncated(raw, table))
-                case "AERO":
-                    table = appendix_norms.AERO_PERCENTILES
-                    value = appendix_norms.lookup_percentile(int(raw), table)
-                    return PercentileResult(value, "Appendix:AERO", self._is_truncated(raw, table))
-                case "LFI":
-                    value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
-                    return PercentileResult(value, "Appendix:LFI", False)
-                case _:
-                    return PercentileResult(None, "Appendix:None", False)
-
-    @staticmethod
-    def _is_truncated(raw: int | float, table: dict[int, float]) -> bool:
-        if not table:
-            return False
-        keys = sorted(table.keys())
-        return bool(raw < keys[0] or raw > keys[-1])
+            table = APPENDIX_TABLES.get(scale)
+            if table:
+                raw_value = int(raw)
+                value = table.lookup(raw_value)
+                truncated = raw_value < table.min_key or raw_value > table.max_key
+                return PercentileResult(value, f"Appendix:{table.name}", truncated)
+            if scale == "LFI":
+                lfi_value = raw / 100 if isinstance(raw, (int, float)) else raw
+                value = lookup_lfi(lfi_value)
+                return PercentileResult(value, "Appendix:LFI", False)
+            return PercentileResult(None, "Appendix:None", False)
 
 
 class ExternalNormProvider:

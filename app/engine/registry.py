@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import inspect
 import logging
+from collections.abc import MutableMapping
 from dataclasses import dataclass, replace
 from importlib.metadata import EntryPoint, entry_points
 from threading import RLock
 from types import MappingProxyType
-from typing import Callable, Dict, Iterable, Mapping, Tuple, TypeVar, overload, cast
+from typing import Callable, Dict, Iterable, Iterator, Mapping, Tuple, cast
 
 from app.engine.interfaces import (
     AssessmentDefinition,
@@ -21,6 +22,7 @@ __all__ = [
     "RegistryError",
     "RegistryKey",
     "RegistryEntry",
+    "assessment_registry",
     "register",
     "get",
     "EngineRegistry",
@@ -72,83 +74,131 @@ class RegistryEntry:
         return replace(self, report_builder=builder)
 
 
-_assessments: Dict[RegistryKey, AssessmentDefinition] = {}
-
-
-_DefaultT = TypeVar("_DefaultT")
 _UNSET = object()
 
 
-class _LegacyRegistry(dict[str, AssessmentDefinition]):
-    """Dict-like view keyed by `<name>:<version>` tokens for legacy access."""
+class _TokenMapping(MutableMapping[str, AssessmentDefinition]):
+    """Legacy MutableMapping keyed by `<name>:<version>` tokens."""
 
-    def __setitem__(self, key: str, value: AssessmentDefinition) -> None:
-        super().__setitem__(key, value)
+    def __init__(self, registry: "AssessmentRegistry") -> None:
+        self._registry = registry
+
+    def _split(self, token: str) -> RegistryKey:
         try:
-            name, version = key.split(":", 1)
-        except ValueError:  # pragma: no cover - defensive only
-            return
-        _assessments[RegistryKey(name, version)] = value
+            name, version = token.split(":", 1)
+        except ValueError as exc:  # pragma: no cover - defensive guard
+            raise KeyError(token) from exc
+        return RegistryKey(name, version)
 
-    @overload
-    def pop(self, key: str) -> AssessmentDefinition:
-        ...
-
-    @overload
-    def pop(self, key: str, default: _DefaultT) -> AssessmentDefinition | _DefaultT:
-        ...
-
-    def pop(
-        self,
-        key: str,
-        default: object = _UNSET,
-    ) -> AssessmentDefinition | object:
+    def __getitem__(self, token: str) -> AssessmentDefinition:
+        key = self._split(token)
         try:
-            value: AssessmentDefinition | object = super().pop(key)  # may raise KeyError
+            return self._registry.get(key.name, key.version)
+        except RegistryError as exc:
+            raise KeyError(token) from exc
+
+    def __setitem__(self, token: str, value: AssessmentDefinition) -> None:
+        key = self._split(token)
+        value.id = key.name
+        value.version = key.version
+        self._registry.register(value)
+
+    def __delitem__(self, token: str) -> None:
+        key = self._split(token)
+        removed = self._registry.remove(key.name, key.version)
+        if not removed:
+            raise KeyError(token)
+
+    def __iter__(self) -> Iterator[str]:
+        for key in self._registry.snapshot():
+            yield key.token()
+
+    def __len__(self) -> int:
+        return len(self._registry.snapshot())
+
+    def get(self, token: str, default: object = None) -> AssessmentDefinition | object:
+        try:
+            return self[token]
+        except KeyError:
+            return default
+
+    def pop(self, token: str, default: object = _UNSET) -> AssessmentDefinition | object:
+        try:
+            value = self[token]
         except KeyError:
             if default is _UNSET:
                 raise
             return default
-        try:
-            name, version = key.split(":", 1)
-        except ValueError:  # pragma: no cover
-            return value
-        _assessments.pop(RegistryKey(name, version), None)
+        self.__delitem__(token)
         return value
 
     def clear(self) -> None:
-        super().clear()
-        _assessments.clear()
+        self._registry.clear()
 
 
-_registry = _LegacyRegistry()
+class AssessmentRegistry:
+    """Thread-safe registry tracking assessment definitions by key."""
+
+    def __init__(self) -> None:
+        self._entries: Dict[RegistryKey, AssessmentDefinition] = {}
+        self._lock = RLock()
+        self._legacy_view = _TokenMapping(self)
+
+    def register(self, assessment: AssessmentDefinition) -> RegistryKey:
+        cls = type(assessment)
+        cls_name = getattr(cls, "id", None)
+        cls_version = getattr(cls, "version", None)
+        name = cls_name if isinstance(cls_name, str) else getattr(assessment, "id", None)
+        version = cls_version if isinstance(cls_version, str) else getattr(assessment, "version", None)
+        if name is None or version is None:  # pragma: no cover - defensive guard
+            raise RegistryError("Assessment definition must define 'id' and 'version'")
+        assessment.id = name  # sync instance attributes for downstream consumers
+        assessment.version = version
+        key = RegistryKey(name, version)
+        with self._lock:
+            self._entries[key] = assessment
+        return key
+
+    def get(self, assessment_id: str, version: str) -> AssessmentDefinition:
+        key = RegistryKey(assessment_id, version)
+        with self._lock:
+            try:
+                return self._entries[key]
+            except KeyError as exc:
+                raise RegistryError(f"Assessment definition not registered: {key.token()}") from exc
+
+    def snapshot(self) -> Mapping[RegistryKey, AssessmentDefinition]:
+        with self._lock:
+            return MappingProxyType(dict(self._entries))
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+    def remove(self, assessment_id: str, version: str) -> bool:
+        key = RegistryKey(assessment_id, version)
+        with self._lock:
+            return self._entries.pop(key, None) is not None
+
+    @property
+    def _registry(self) -> MutableMapping[str, AssessmentDefinition]:
+        """Legacy dict-like view keyed by `<name>:<version>` tokens."""
+
+        return self._legacy_view
+
+
+assessment_registry = AssessmentRegistry()
+
+# Legacy alias for callers expecting module-level `_registry`
+_registry = assessment_registry._registry
 
 
 def register(assessment: AssessmentDefinition) -> None:
-    cls = type(assessment)
-    cls_name = getattr(cls, "id", None)
-    cls_version = getattr(cls, "version", None)
-    name = cls_name if isinstance(cls_name, str) else getattr(assessment, "id", None)
-    version = cls_version if isinstance(cls_version, str) else getattr(assessment, "version", None)
-    if name is None or version is None:  # pragma: no cover - defensive guard
-        raise RegistryError("Assessment definition must define 'id' and 'version'")
-    assessment.id = name  # sync instance attributes for downstream consumers
-    assessment.version = version
-    key = RegistryKey(name, version)
-    token = key.token()
-    _assessments[key] = assessment
-    _registry[token] = assessment
+    assessment_registry.register(assessment)
 
 
 def get(assessment_id: str, version: str) -> AssessmentDefinition:
-    key = RegistryKey(assessment_id, version)
-    try:
-        return _assessments[key]
-    except KeyError as exc:
-        legacy = _registry.get(key.token())
-        if legacy is not None:
-            return legacy
-        raise RegistryError(f"Assessment definition not registered: {key.token()}") from exc
+    return assessment_registry.get(assessment_id, version)
 
 
 class EngineRegistry:
@@ -224,7 +274,7 @@ class EngineRegistry:
     def clear(self) -> None:
         with self._lock:
             self._entries.clear()
-        _registry.clear()
+        assessment_registry.clear()
 
     def discover_plugins(self, group: str = "kolb.instruments") -> Tuple[RegistryKey, ...]:
         """Load plugins from entry points and register them.

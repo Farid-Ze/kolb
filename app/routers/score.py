@@ -3,15 +3,7 @@ from typing import List
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.data.norms import (
-    AC_PERCENTILES,
-    ACCE_PERCENTILES,
-    AE_PERCENTILES,
-    AERO_PERCENTILES,
-    CE_PERCENTILES,
-    RO_PERCENTILES,
-    lookup_percentile,
-)
+from app.data.norms import APPENDIX_TABLES
 from app.services.regression import predicted_curve
 from app.services.scoring import STYLE_CUTS, compute_kendalls_w
 
@@ -78,13 +70,14 @@ def score_raw(payload: ScoreRequest):
     LFI = 1 - W
 
     # Percentiles using Appendix fallback tables
+    tables = APPENDIX_TABLES
     percentiles = {
-        "CE": lookup_percentile(CE, CE_PERCENTILES),
-        "RO": lookup_percentile(RO, RO_PERCENTILES),
-        "AC": lookup_percentile(AC, AC_PERCENTILES),
-        "AE": lookup_percentile(AE, AE_PERCENTILES),
-        "ACCE": lookup_percentile(ACCE, ACCE_PERCENTILES),
-        "AERO": lookup_percentile(AERO, AERO_PERCENTILES),
+        "CE": tables["CE"].lookup(CE),
+        "RO": tables["RO"].lookup(RO),
+        "AC": tables["AC"].lookup(AC),
+        "AE": tables["AE"].lookup(AE),
+        "ACCE": tables["ACCE"].lookup(ACCE),
+        "AERO": tables["AERO"].lookup(AERO),
         "source_provenance": "AppendixFallback"
     }
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from app.data import norms as appendix_norms
+from app.data.norms import APPENDIX_TABLES, AppendixTable, lookup_lfi
 
 _NORM_VERSION_DELIM = "|"
 _DEFAULT_NORM_VERSION = "default"
@@ -50,28 +50,19 @@ class InMemoryNormRepository:
                 return value, label, False
 
         # Appendix fallback tables differ per scale
-        if scale == "CE":
-            return appendix_norms.lookup_percentile(int(raw), appendix_norms.CE_PERCENTILES), "Appendix:CE", self._is_truncated(raw, appendix_norms.CE_PERCENTILES)
-        if scale == "RO":
-            return appendix_norms.lookup_percentile(int(raw), appendix_norms.RO_PERCENTILES), "Appendix:RO", self._is_truncated(raw, appendix_norms.RO_PERCENTILES)
-        if scale == "AC":
-            return appendix_norms.lookup_percentile(int(raw), appendix_norms.AC_PERCENTILES), "Appendix:AC", self._is_truncated(raw, appendix_norms.AC_PERCENTILES)
-        if scale == "AE":
-            return appendix_norms.lookup_percentile(int(raw), appendix_norms.AE_PERCENTILES), "Appendix:AE", self._is_truncated(raw, appendix_norms.AE_PERCENTILES)
-        if scale == "ACCE":
-            return appendix_norms.lookup_percentile(int(raw), appendix_norms.ACCE_PERCENTILES), "Appendix:ACCE", self._is_truncated(raw, appendix_norms.ACCE_PERCENTILES)
-        if scale == "AERO":
-            return appendix_norms.lookup_percentile(int(raw), appendix_norms.AERO_PERCENTILES), "Appendix:AERO", self._is_truncated(raw, appendix_norms.AERO_PERCENTILES)
+        table = APPENDIX_TABLES.get(scale)
+        if table:
+            raw_int = int(raw)
+            value = table.lookup(raw_int)
+            truncated = self._is_truncated(raw_int, table)
+            return value, f"Appendix:{table.name}", truncated
         if scale == "LFI":
-            value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
+            value = lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
             return value, "Appendix:LFI", False
         return None, "Unknown", False
 
     @staticmethod
-    def _is_truncated(raw: int | float, table: Dict[int, float]) -> bool:
+    def _is_truncated(raw: int, table: AppendixTable) -> bool:
         if not table:
             return False
-        keys = sorted(table.keys())
-        if raw < keys[0] or raw > keys[-1]:
-            return True
-        return False
+        return raw < table.min_key or raw > table.max_key

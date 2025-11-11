@@ -156,6 +156,48 @@ def timeit(label: str) -> Callable[[_F], _F]:
     return _wrap
 
 
+def measure_time(
+    label: str,
+    *,
+    histogram: bool = False,
+    buckets: Sequence[float] | None = None,
+    record_last: bool = True,
+) -> Callable[[_F], _F]:
+    """Decorator variant that optionally records histogram + last-run metadata."""
+
+    def _wrap(func: _F) -> _F:
+        @wraps(func)
+        def _inner(*args: Any, **kwargs: Any):
+            t0 = perf_counter()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                dt_ms = (perf_counter() - t0) * 1000.0
+                metrics_registry.record(label, dt_ms)
+                if histogram:
+                    metrics_registry.observe_histogram(label, dt_ms, buckets=buckets)
+                if record_last:
+                    metrics_registry.set_last_run(label, dt_ms)
+
+        return cast(_F, _inner)
+
+    return _wrap
+
+
+def count_calls(label: str) -> Callable[[_F], _F]:
+    """Decorator that increments a counter each time the function is invoked."""
+
+    def _wrap(func: _F) -> _F:
+        @wraps(func)
+        def _inner(*args: Any, **kwargs: Any):
+            metrics_registry.inc(label)
+            return func(*args, **kwargs)
+
+        return cast(_F, _inner)
+
+    return _wrap
+
+
 def get_metrics(reset: bool = False) -> Dict[str, Dict[str, float]]:
     """Return recorded timing metrics, optionally resetting the registry."""
 
@@ -201,6 +243,8 @@ def get_last_runs(reset: bool = False) -> Dict[str, Dict[str, Any]]:
 __all__ = [
     "timer",
     "timeit",
+    "measure_time",
+    "count_calls",
     "inc_counter",
     "get_metrics",
     "get_counters",

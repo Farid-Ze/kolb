@@ -1,7 +1,9 @@
+
 from __future__ import annotations
 
 import json
 from hashlib import sha256
+from typing import Iterable, Sequence, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,45 @@ from app.models.klsi import AuditLog
 from app.services.regression import analyze_lfi_contexts
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
+
+if TYPE_CHECKING:  # pragma: no cover
+    from app.models.klsi import AssessmentSession
+
+
+def _unique(sequence: Iterable[str | None]) -> list[str]:
+    seen: dict[str, None] = {}
+    for value in sequence:
+        if not value:
+            continue
+        if value not in seen:
+            seen[value] = None
+    return list(seen.keys())
+
+
+def _strategy_candidates(session: "AssessmentSession", fallback_key: str | None) -> list[str]:
+    """Derive ordered strategy candidates using structural pattern matching."""
+
+    default_code = session.instrument.default_strategy_code if session.instrument else None
+
+    match (session.strategy_code, default_code, fallback_key):
+        case (str(primary), str(default), str(fallback)) if primary and default and fallback:
+            ordered: Sequence[str] = (primary, default, fallback)
+        case (str(primary), str(default), None | "") if primary and default:
+            ordered = (primary, default)
+        case (str(primary), None | "", str(fallback)) if primary and fallback:
+            ordered = (primary, fallback)
+        case (None | "", str(default), str(fallback)) if default and fallback:
+            ordered = (default, fallback)
+        case (str(primary), None | "", None | "") if primary:
+            ordered = (primary,)
+        case (None | "", str(default), None | "") if default:
+            ordered = (default,)
+        case (None | "", None | "", str(fallback)) if fallback:
+            ordered = (fallback,)
+        case _:
+            ordered = ()
+
+    return _unique(ordered)
 
 
 def finalize_assessment(
@@ -70,17 +111,12 @@ def finalize_assessment(
         artifact_snapshots: dict[str, dict] = {}
 
         strategy = None
-        strategy_candidates: list[str] = []
-        if session.strategy_code:
-            strategy_candidates.append(session.strategy_code)
-        if session.instrument and session.instrument.default_strategy_code:
-            if session.instrument.default_strategy_code not in strategy_candidates:
-                strategy_candidates.append(session.instrument.default_strategy_code)
-        fallback_key = f"{assessment_id}{assessment_version}".upper() if assessment_id and assessment_version else None
-        if fallback_key and fallback_key not in strategy_candidates:
-            strategy_candidates.append(fallback_key)
-
-        for candidate in strategy_candidates:
+        fallback_key = (
+            f"{assessment_id}{assessment_version}".upper()
+            if assessment_id and assessment_version
+            else None
+        )
+        for candidate in _strategy_candidates(session, fallback_key):
             if not candidate:
                 continue
             try:

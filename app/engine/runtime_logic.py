@@ -1,10 +1,84 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Iterable, Mapping, MutableMapping
 
 from app.engine.interfaces import InstrumentId
 
+__all__ = [
+    "LocalePayload",
+    "ValidationReport",
+    "FinalizePayload",
+    "build_finalize_payload",
+    "compose_delivery_payload",
+]
+
 LocalePayload = Mapping[str, Any] | None
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationReport:
+    """Immutable snapshot of session validation status."""
+
+    ready: bool
+    issues: tuple[Mapping[str, Any], ...]
+    diagnostics: Mapping[str, Any]
+
+    @classmethod
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "ValidationReport":
+        ready = bool(payload.get("ready", False))
+        raw_issues = payload.get("issues") or ()
+        normalized: list[Mapping[str, Any]] = []
+        if isinstance(raw_issues, Iterable):
+            for entry in raw_issues:
+                if isinstance(entry, Mapping):
+                    normalized.append(MappingProxyType(dict(entry)))
+                else:  # pragma: no cover - defensive fallback for unexpected types
+                    normalized.append(MappingProxyType({"detail": entry}))
+        diagnostics = payload.get("diagnostics")
+        diagnostics_map = MappingProxyType(dict(diagnostics)) if isinstance(diagnostics, Mapping) else MappingProxyType({})
+        return cls(ready=ready, issues=tuple(normalized), diagnostics=diagnostics_map)
+
+    def issues_list(self) -> list[dict[str, Any]]:
+        return [dict(issue) for issue in self.issues]
+
+    def diagnostics_dict(self) -> dict[str, Any]:
+        return dict(self.diagnostics)
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "ready": self.ready,
+            "issues": self.issues_list(),
+            "diagnostics": self.diagnostics_dict(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FinalizePayload:
+    """Immutable container for finalized scorer result plus metadata."""
+
+    ok: bool
+    data: Mapping[str, Any]
+
+    def as_dict(self) -> dict[str, Any]:
+        response = {"ok": self.ok}
+        response.update(self.data)
+        return response
+
+
+def build_finalize_payload(
+    scorer_result: Mapping[str, Any],
+    validation: ValidationReport,
+    *,
+    override: bool,
+) -> FinalizePayload:
+    base = dict(scorer_result)
+    base["validation"] = validation.to_mapping()
+    base["override"] = override
+    ok = bool(base.get("ok", False))
+    body = {key: value for key, value in base.items() if key != "ok"}
+    return FinalizePayload(ok=ok, data=MappingProxyType(body))
 
 
 def _extract_localized_maps(locale_payload: LocalePayload) -> tuple[dict[int, dict[str, Any]], dict[str, str], dict[str, Any]]:

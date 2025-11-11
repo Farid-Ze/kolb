@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Iterator
+from typing import TYPE_CHECKING, Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
@@ -23,47 +25,62 @@ class Base(DeclarativeBase):
     pass
 
 
+
+@dataclass(frozen=True, slots=True)
+class DatabaseGateway:
+    """Encapsulates engine and session factory lifecycle."""
+
+    engine: Engine
+    session_factory: sessionmaker[Session]
+
+    @contextmanager
+    def session(self) -> Iterator[Session]:
+        session: Session = self.session_factory()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    @contextmanager
+    def transactional(self, *, flush_before_commit: bool = False) -> Iterator[Session]:
+        session: Session = self.session_factory()
+        try:
+            yield session
+            if flush_before_commit:
+                session.flush()
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+
 # Note: psycopg2 is used for PostgreSQL when DATABASE_URL is set accordingly
-engine = create_engine(settings.database_url, echo=False, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+engine: Engine = create_engine(settings.database_url, echo=False, future=True)
+SessionLocal: sessionmaker[Session] = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+database_gateway = DatabaseGateway(engine=engine, session_factory=SessionLocal)
 
 
 def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    with database_gateway.session() as session:
+        yield session
 
 
 @contextmanager
 def transactional_session() -> Iterator[Session]:
     """Context manager that manages commit/rollback for explicit transactions."""
-    db: Session = SessionLocal()
-    try:
-        yield db
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+
+    with database_gateway.transactional() as session:
+        yield session
 
 
 @contextmanager
 def hyperatomic_session() -> Iterator[Session]:
     """Stricter transactional scope that prevents nested commits by callers."""
 
-    db: Session = SessionLocal()
-    try:
-        yield db
-        db.flush()
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+    with database_gateway.transactional(flush_before_commit=True) as session:
+        yield session
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,3 +143,18 @@ def repository_scope() -> Iterator[RepositoryProvider]:
 
     with hyperatomic_session() as db:
         yield RepositoryProvider(db)
+
+
+__all__ = [
+    "Base",
+    "database_gateway",
+    "engine",
+    "SessionLocal",
+    "get_db",
+    "transactional_session",
+    "hyperatomic_session",
+    "RepositoryProvider",
+    "get_repository_provider",
+    "repository_scope",
+    "AssessmentRepositoryGroup",
+]

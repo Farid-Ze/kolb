@@ -14,7 +14,11 @@ from app.engine.authoring import get_instrument_locale_resource, get_instrument_
 from app.engine.interfaces import InstrumentId
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import engine_registry
-from app.engine.runtime_logic import compose_delivery_payload
+from app.engine.runtime_logic import (
+    ValidationReport,
+    build_finalize_payload,
+    compose_delivery_payload,
+)
 from app.models.klsi import AssessmentSession, SessionStatus, User, AuditLog
 from app.services.validation import run_session_validations
 from app.db.repositories import InstrumentRepository, SessionRepository
@@ -211,14 +215,14 @@ class EngineRuntime:
                     },
                 )
                 raise HTTPException(status_code=409, detail="Sesi sudah selesai")
-            validation = run_session_validations(db, session_id)
-            if not validation.get("ready", False) and not skip_validation:
+            validation = ValidationReport.from_mapping(run_session_validations(db, session_id))
+            if not validation.ready and not skip_validation:
                 logger.warning(
                     "finalize_validation_failed",
                     extra={
                         "structured_data": {
                             "session_id": session_id,
-                            "issues": validation.get("issues", []),
+                            "issues": validation.issues_list(),
                             "correlation_id": correlation_id,
                         }
                     },
@@ -226,8 +230,8 @@ class EngineRuntime:
                 raise HTTPException(
                     status_code=400,
                     detail={
-                        "issues": validation.get("issues", []),
-                        "diagnostics": validation.get("diagnostics"),
+                        "issues": validation.issues_list(),
+                        "diagnostics": validation.diagnostics_dict(),
                     },
                 )
 
@@ -236,14 +240,14 @@ class EngineRuntime:
             try:
                 # Atomic transaction: finalize artifacts + status update together
                 with db.begin():
-                    result = scorer.finalize(db, session_id, skip_checks=skip_validation)
-                    if not result.get("ok"):
+                    scorer_result = scorer.finalize(db, session_id, skip_checks=skip_validation)
+                    if not scorer_result.get("ok"):
                         logger.warning(
                             "finalize_scorer_reported_issue",
                             extra={
                                 "structured_data": {
                                     "session_id": session_id,
-                                    "issues": result.get("issues"),
+                                    "issues": scorer_result.get("issues"),
                                     "correlation_id": correlation_id,
                                 }
                             },
@@ -251,8 +255,8 @@ class EngineRuntime:
                         raise HTTPException(
                             status_code=400,
                             detail={
-                                "issues": result.get("issues"),
-                                "diagnostics": result.get("diagnostics"),
+                                "issues": scorer_result.get("issues"),
+                                "diagnostics": scorer_result.get("diagnostics"),
                             },
                         )
                     session.status = SessionStatus.completed
@@ -272,9 +276,9 @@ class EngineRuntime:
                 )
                 raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
             duration_ms = (perf_counter() - started) * 1000.0
-            result["validation"] = validation
-            override = skip_validation and not validation.get("ready", False)
-            result["override"] = override
+            override = skip_validation and not validation.ready
+            payload = build_finalize_payload(scorer_result, validation, override=override)
+            result = payload.as_dict()
             logger.info(
                 "finalize_success",
                 extra={
@@ -332,14 +336,14 @@ class EngineRuntime:
                     },
                 )
                 raise HTTPException(status_code=409, detail="Sesi sudah selesai")
-            validation = run_session_validations(db, session_id)
-            if not validation.get("ready", False) and not skip_validation:
+            validation = ValidationReport.from_mapping(run_session_validations(db, session_id))
+            if not validation.ready and not skip_validation:
                 logger.warning(
                     "finalize_audit_validation_failed",
                     extra={
                         "structured_data": {
                             "session_id": session_id,
-                            "issues": validation.get("issues", []),
+                            "issues": validation.issues_list(),
                             "correlation_id": correlation_id,
                         }
                     },
@@ -347,22 +351,22 @@ class EngineRuntime:
                 raise HTTPException(
                     status_code=400,
                     detail={
-                        "issues": validation.get("issues", []),
-                        "diagnostics": validation.get("diagnostics"),
+                        "issues": validation.issues_list(),
+                        "diagnostics": validation.diagnostics_dict(),
                     },
                 )
 
             scorer = self._registry.scorer(self._instrument_id(session))
             started = perf_counter()
             try:
-                result = scorer.finalize(db, session_id, skip_checks=skip_validation)
-                if not result.get("ok"):
+                scorer_result = scorer.finalize(db, session_id, skip_checks=skip_validation)
+                if not scorer_result.get("ok"):
                     logger.warning(
                         "finalize_audit_scorer_issue",
                         extra={
                             "structured_data": {
                                 "session_id": session_id,
-                                "issues": result.get("issues"),
+                                "issues": scorer_result.get("issues"),
                                 "correlation_id": correlation_id,
                             }
                         },
@@ -370,8 +374,8 @@ class EngineRuntime:
                     raise HTTPException(
                         status_code=400,
                         detail={
-                            "issues": result.get("issues"),
-                            "diagnostics": result.get("diagnostics"),
+                            "issues": scorer_result.get("issues"),
+                            "diagnostics": scorer_result.get("diagnostics"),
                         },
                     )
                 session.status = SessionStatus.completed
@@ -394,20 +398,25 @@ class EngineRuntime:
                 )
                 raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
 
+            override = skip_validation and not validation.ready
+            payload = build_finalize_payload(scorer_result, validation, override=override)
+            payload_dict = payload.as_dict()
+
             # Persist audit in a follow-up small transaction to preserve prior parity
             payload_bytes = None
-            try:
-                payload_bytes = build_payload(result) if callable(build_payload) else None
-            except Exception:
-                logger.warning(
-                    "audit_payload_builder_failed",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "correlation_id": correlation_id,
-                        }
-                    },
-                )
+            if callable(build_payload):
+                try:
+                    payload_bytes = build_payload(payload_dict)
+                except Exception:
+                    logger.warning(
+                        "audit_payload_builder_failed",
+                        extra={
+                            "structured_data": {
+                                "session_id": session_id,
+                                "correlation_id": correlation_id,
+                            }
+                        },
+                    )
             if payload_bytes:
                 try:
                     db.add(
@@ -434,9 +443,7 @@ class EngineRuntime:
                     pass
 
             duration_ms = (perf_counter() - started) * 1000.0
-            result["validation"] = validation
-            override = skip_validation and not validation.get("ready", False)
-            result["override"] = override
+            result = payload_dict
             logger.info(
                 "finalize_audit_success",
                 extra={

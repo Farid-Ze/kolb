@@ -3,13 +3,15 @@ from __future__ import annotations
 from datetime import date, datetime
 from functools import lru_cache
 from math import sqrt
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import load_config
+from app.assessments.klsi_v4.enums import LearningStyleCode
 from app.assessments.klsi_v4.types import ScoreVector
 from app.core.errors import InvalidAssessmentData
+from app.engine.constants import ALL_SCALE_CODES, COMBINATION_SCALE_CODES, PRIMARY_MODE_CODES
 from app.engine.norms.factory import build_composite_norm_provider
 from app.engine.norms.provider import NormProvider
 from app.db.repositories import (
@@ -37,16 +39,7 @@ if TYPE_CHECKING:
     from app.models.klsi import UserResponse
 from app.services.provenance import upsert_scale_provenance
 
-from app.data.norms import (
-    AC_PERCENTILES,
-    ACCE_PERCENTILES,
-    AE_PERCENTILES,
-    AERO_PERCENTILES,
-    CE_PERCENTILES,
-    RO_PERCENTILES,
-    lookup_lfi,
-    lookup_percentile,
-)
+from app.data.norms import APPENDIX_TABLES
 
 
 @lru_cache()
@@ -89,6 +82,9 @@ def _build_style_cuts() -> Dict[str, Any]:
 
 
 STYLE_CUTS = _build_style_cuts()
+STYLE_CODES: Tuple[LearningStyleCode, ...] = tuple(
+    LearningStyleCode(name) for name in _cfg()["style_windows"].keys()
+)
 CONTEXT_NAMES = context_names()
 _NORM_VERSION_DELIM = "|"
 DEFAULT_NORM_VERSION = "default"
@@ -156,9 +152,9 @@ def compute_kendalls_w(context_scores: List[Dict[str, int]]) -> float:
     if m == 0:
         return 0.0
     # Fixed mode ordering for deterministic accumulation
-    dims = ("CE", "RO", "AC", "AE")
-    n = 4  # number of objects (learning modes)
-    totals = [0, 0, 0, 0]
+    dims = PRIMARY_MODE_CODES
+    n = len(dims)  # number of objects (learning modes)
+    totals = [0] * n
     get = dict.get
     for row in context_scores:
         # direct indexed updates avoid inner dict iteration
@@ -460,18 +456,10 @@ def apply_percentiles(
     provider = norm_provider or build_composite_norm_provider(db)
     group_chain = resolve_norm_groups(db, session_id)
 
-    table_map = {
-        "CE": CE_PERCENTILES,
-        "RO": RO_PERCENTILES,
-        "AC": AC_PERCENTILES,
-        "AE": AE_PERCENTILES,
-        "ACCE": ACCE_PERCENTILES,
-        "AERO": AERO_PERCENTILES,
-    }
+    appendix_tables = APPENDIX_TABLES
     range_bounds = {
-        name: (min(values.keys()), max(values.keys()))
-        for name, values in table_map.items()
-        if values
+        name: (table.min_key, table.max_key)
+        for name, table in appendix_tables.items()
     }
 
     def resolve(scale_name: str, raw: int | float) -> tuple[Optional[float], str, bool]:
@@ -479,9 +467,10 @@ def apply_percentiles(
         result = provider.percentile(group_chain, scale_name, raw)
         pct, prov, truncated_flag = result.percentile, result.provenance, result.truncated
         # As a guard, compute truncation flag if provider didn't set it for appendix tables
-        if pct is not None and prov.startswith("Appendix:") and scale_name in table_map and not truncated_flag:
-            low, high = range_bounds.get(scale_name, (None, None))
-            truncated_flag = (raw < low or raw > high) if low is not None and high is not None else False
+        if pct is not None and prov.startswith("Appendix:") and not truncated_flag:
+            table = appendix_tables.get(scale_name)
+            if table:
+                truncated_flag = raw < table.min_key or raw > table.max_key
         return pct, prov, truncated_flag
 
     percentiles: Dict[str, Optional[float]] = {}
@@ -490,14 +479,20 @@ def apply_percentiles(
     raw_scores: Dict[str, int | float | None] = {}
     detailed_provenance: Dict[str, Dict[str, Any]] = {}
 
-    for name, raw in {
-        "CE": scale.CE_raw,
-        "RO": scale.RO_raw,
-        "AC": scale.AC_raw,
-        "AE": scale.AE_raw,
-        "ACCE": combo.ACCE_raw,
-        "AERO": combo.AERO_raw,
-    }.items():
+    raw_map: Dict[str, int | float] = {
+        code: getattr(scale, f"{code}_raw")
+        for code in PRIMARY_MODE_CODES
+    }
+    raw_map.update(
+        {
+            code: getattr(combo, f"{code}_raw")
+            for code in COMBINATION_SCALE_CODES
+        }
+    )
+
+    raw_scores = cast(Dict[str, int | float | None], dict(raw_map))
+
+    for name, raw in raw_map.items():
         pct, prov, truncated_flag = resolve(name, raw)
         percentiles[name] = pct
         provenance[name] = prov
@@ -533,7 +528,7 @@ def apply_percentiles(
                         return f"DB:{_pack_norm_group_token(base_group, info_version)}"
                     return f"DB:{base_group}"
         if db_provenances:
-            for scale_name in ("CE", "RO", "AC", "AE", "ACCE", "AERO"):
+            for scale_name in ALL_SCALE_CODES:
                 detail = db_provenances.get(scale_name)
                 if detail:
                     info_version = detail.get("norm_version") or DEFAULT_NORM_VERSION
@@ -566,8 +561,8 @@ def apply_percentiles(
         truncated_scales={
             name: {
                 "raw": raw_scores[name],
-                "min": range_bounds[name][0] if name in range_bounds else None,
-                "max": range_bounds[name][1] if name in range_bounds else None,
+                "min": appendix_tables[name].min_key if name in appendix_tables else None,
+                "max": appendix_tables[name].max_key if name in appendix_tables else None,
             }
             for name, truncated_flag in truncations.items()
             if truncated_flag

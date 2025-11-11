@@ -18,45 +18,105 @@ Psychometric Fidelity:
  - LFI still chooses absolute-nearest value.
 """
 
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Dict, Iterator, List
+
+__all__ = [
+    "AppendixTable",
+    "CE_PERCENTILES",
+    "RO_PERCENTILES",
+    "AC_PERCENTILES",
+    "AE_PERCENTILES",
+    "ACCE_PERCENTILES",
+    "AERO_PERCENTILES",
+    "LFI_PERCENTILES",
+    "APPENDIX_TABLES",
+    "lookup_percentile",
+    "lookup_lfi",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class AppendixTable(Mapping[int, float]):
+    """Immutable mapping with cached sorted keys for percentile lookup."""
+
+    name: str
+    _data: Mapping[int, float]
+    _keys: tuple[int, ...] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_keys", tuple(sorted(self._data.keys())))
+
+    def __getitem__(self, key: int) -> float:
+        return self._data[key]
+
+    def __iter__(self) -> Iterator[int]:  # type: ignore[override]
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    @property
+    def min_key(self) -> int:
+        return self._keys[0]
+
+    @property
+    def max_key(self) -> int:
+        return self._keys[-1]
+
+    @property
+    def data(self) -> Mapping[int, float]:
+        return self._data
+
+    def lookup(self, raw: int) -> float | None:
+        return lookup_percentile(raw, self._data)
+
+
+def _freeze(entries: Dict[int, float]) -> Mapping[int, float]:
+    return MappingProxyType(dict(entries))
+
+
 # Primary mode raw score → cumulative percentile (Appendix 1)
 # Concrete Experience (CE) raw 11–44
-CE_PERCENTILES = {
+CE_PERCENTILES = _freeze({
     11: 1.9, 12: 7.4, 13: 14.8, 14: 22.5, 15: 30.4, 16: 38.3, 17: 45.1,
     18: 51.3, 19: 57.2, 20: 62.2, 21: 66.7, 22: 70.9, 23: 74.7, 24: 78.3,
     25: 81.2, 26: 83.9, 27: 86.3, 28: 88.5, 29: 90.6, 30: 92.2, 31: 93.6,
     32: 94.8, 33: 95.7, 34: 96.6, 35: 97.3, 36: 97.9, 37: 98.4, 38: 98.9,
     39: 99.3, 40: 99.5, 41: 99.7, 42: 99.9, 43: 99.9, 44: 100.0
-}
+})
 
 # Reflective Observation (RO)
-RO_PERCENTILES = {
+RO_PERCENTILES = _freeze({
     11: 0.4, 12: 1.3, 13: 2.6, 14: 3.9, 15: 5.7, 16: 8.3, 17: 11.3,
     18: 14.8, 19: 18.9, 20: 22.9, 21: 27.5, 22: 32.3, 23: 37.2, 24: 42.3,
     25: 47.4, 26: 52.5, 27: 57.9, 28: 62.8, 29: 67.5, 30: 71.8, 31: 76.3,
     32: 80.1, 33: 83.4, 34: 86.2, 35: 89.2, 36: 91.7, 37: 93.7, 38: 95.3,
     39: 96.8, 40: 97.9, 41: 98.7, 42: 99.3, 43: 99.7, 44: 100.0
-}
+})
 
 # Abstract Conceptualization (AC)
-AC_PERCENTILES = {
+AC_PERCENTILES = _freeze({
     11: 0.0, 12: 0.1, 13: 0.4, 14: 0.7, 15: 1.4, 16: 2.1, 17: 3.6,
     18: 5.2, 19: 7.6, 20: 10.3, 21: 13.7, 22: 17.5, 23: 22.3, 24: 27.1,
     25: 32.5, 26: 37.7, 27: 42.9, 28: 48.6, 29: 54.0, 30: 59.4, 31: 64.9,
     32: 69.7, 33: 73.8, 34: 78.0, 35: 81.4, 36: 84.5, 37: 87.9, 38: 90.6,
     39: 92.9, 40: 95.2, 41: 96.9, 42: 98.3, 43: 99.4, 44: 100.0
-}
+})
 
 # Active Experimentation (AE)
-AE_PERCENTILES = {
+AE_PERCENTILES = _freeze({
     11: 0.0, 12: 0.1, 13: 0.2, 14: 0.4, 15: 0.6, 16: 0.9, 17: 1.4,
     18: 1.9, 19: 2.8, 20: 4.0, 21: 5.5, 22: 7.4, 23: 9.7, 24: 12.2,
     25: 15.5, 26: 19.4, 27: 23.4, 28: 27.6, 29: 32.5, 30: 38.2, 31: 43.8,
     32: 50.0, 33: 56.3, 34: 62.8, 35: 70.0, 36: 76.3, 37: 82.0, 38: 87.2,
     39: 91.7, 40: 95.0, 41: 97.5, 42: 99.0, 43: 99.7, 44: 100.0
-}
+})
 
 # ACCE difference distribution (AC - CE); negative to positive (excerpt)
-ACCE_PERCENTILES = {
+ACCE_PERCENTILES = _freeze({
     -29: 0.0, -28: 0.0, -27: 0.1, -26: 0.1, -25: 0.2, -24: 0.3, -23: 0.4,
     -22: 0.6, -21: 0.8, -20: 1.0, -19: 1.2, -18: 1.5, -17: 1.9, -16: 2.3,
     -15: 2.9, -14: 3.5, -13: 4.1, -12: 4.8, -11: 5.4, -10: 6.3, -9: 7.1,
@@ -66,10 +126,10 @@ ACCE_PERCENTILES = {
     13: 62.4, 14: 66.0, 15: 69.3, 16: 72.9, 17: 76.4, 18: 79.6, 19: 82.5,
     20: 85.3, 21: 87.9, 22: 90.2, 23: 92.2, 24: 93.9, 25: 95.4, 26: 96.8,
     27: 97.8, 28: 98.6, 29: 99.2, 30: 99.6, 31: 99.8, 32: 100.0, 33: 100.0
-}
+})
 
 # AERO difference distribution (AE - RO)
-AERO_PERCENTILES = {
+AERO_PERCENTILES = _freeze({
     -33: 0.0, -31: 0.0, -30: 0.0, -29: 0.1, -28: 0.1, -27: 0.1, -26: 0.2,
     -25: 0.2, -24: 0.3, -23: 0.4, -22: 0.6, -21: 0.8, -20: 1.2, -19: 1.5,
     -18: 2.0, -17: 2.7, -16: 3.4, -15: 4.3, -14: 5.2, -13: 6.3, -12: 7.4,
@@ -80,11 +140,11 @@ AERO_PERCENTILES = {
     18: 88.0, 19: 90.2, 20: 92.2, 21: 94.0, 22: 95.6, 23: 96.8, 24: 97.7,
     25: 98.5, 26: 99.0, 27: 99.5, 28: 99.8, 29: 99.9, 30: 99.9, 31: 100.0,
     32: 100.0, 33: 100.0
-}
+})
 
 # Learning Flexibility Index (LFI) percentiles (Appendix 7)
 # Values are the LFI score (0.xx). We store cumulative percent as percentile.
-LFI_PERCENTILES = {
+LFI_PERCENTILES = MappingProxyType({
     0.07: 0.0, 0.09: 0.0, 0.10: 0.0, 0.12: 0.0, 0.13: 0.1, 0.14: 0.1,
     0.16: 0.1, 0.17: 0.1, 0.18: 0.2, 0.19: 0.3, 0.20: 0.3, 0.21: 0.4,
     0.22: 0.4, 0.23: 0.5, 0.24: 0.6, 0.26: 0.7, 0.27: 0.9, 0.28: 1.1,
@@ -100,15 +160,24 @@ LFI_PERCENTILES = {
     0.84: 72.8, 0.85: 73.0, 0.86: 75.4, 0.87: 77.2, 0.88: 80.6, 0.89: 83.4,
     0.90: 83.9, 0.91: 86.0, 0.92: 88.9, 0.93: 90.8, 0.94: 93.3, 0.95: 93.6,
     0.96: 96.3, 0.97: 97.5, 0.98: 99.1, 0.99: 100.0, 1.00: 100.0
-}
+})
+
+APPENDIX_TABLES = MappingProxyType({
+    "CE": AppendixTable("CE", CE_PERCENTILES),
+    "RO": AppendixTable("RO", RO_PERCENTILES),
+    "AC": AppendixTable("AC", AC_PERCENTILES),
+    "AE": AppendixTable("AE", AE_PERCENTILES),
+    "ACCE": AppendixTable("ACCE", ACCE_PERCENTILES),
+    "AERO": AppendixTable("AERO", AERO_PERCENTILES),
+})
+
 
 from bisect import bisect_left
-from typing import Dict, List
 
 _KEY_CACHE: Dict[int, List[int]] = {}
 _LFI_KEYS: List[float] | None = None
 
-def _sorted_keys(table: dict[int, float]) -> List[int]:
+def _sorted_keys(table: Mapping[int, float]) -> List[int]:
     tid = id(table)
     keys = _KEY_CACHE.get(tid)
     if keys is None:
@@ -116,7 +185,7 @@ def _sorted_keys(table: dict[int, float]) -> List[int]:
         _KEY_CACHE[tid] = keys
     return keys
 
-def lookup_percentile(raw: int, table: dict[int, float]) -> float | None:
+def lookup_percentile(raw: int, table: Mapping[int, float]) -> float | None:
     """Percentile lookup with nearest-lower fallback using bisect.
 
     Algorithm:

@@ -5,13 +5,14 @@ from typing import Dict, Iterable, List, Tuple
 
 from sqlalchemy.orm import Session
 
+from app.engine.constants import ALL_SCALE_CODES
 from app.engine.norms.composite import AppendixNormProvider
 from app.engine.norms.value_objects import PercentileResult, ScaleSample
 from app.assessments.klsi_v4.logic import (
     DEFAULT_NORM_VERSION,
     _split_norm_group_token,
 )
-from app.data import norms as appendix_norms
+from app.data.norms import APPENDIX_TABLES, lookup_lfi
 from app.core.metrics import timer, inc_counter
 from app.db.repositories import NormativeConversionRepository, NormativeConversionRow
 
@@ -171,10 +172,10 @@ class CachedCompositeNormProvider:
     def _appendix_percentile(self, sample: ScaleSample) -> PercentileResult:
         scale = sample.scale
         raw = sample.raw
-        if scale in {"CE", "RO", "AC", "AE", "ACCE", "AERO"}:
+        if scale in ALL_SCALE_CODES:
             return self._appendix.percentile([], scale, int(raw))
         if scale == "LFI":
-            value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
+            value = lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
             return PercentileResult(value, "Appendix:LFI", False)
         return PercentileResult(None, "Appendix:None", False)
 
@@ -182,16 +183,8 @@ class CachedCompositeNormProvider:
     def _is_truncated(raw: int | float, scale: str) -> bool:
         if scale == "LFI":
             return False
-        mapping = {
-            "CE": appendix_norms.CE_PERCENTILES,
-            "RO": appendix_norms.RO_PERCENTILES,
-            "AC": appendix_norms.AC_PERCENTILES,
-            "AE": appendix_norms.AE_PERCENTILES,
-            "ACCE": appendix_norms.ACCE_PERCENTILES,
-            "AERO": appendix_norms.AERO_PERCENTILES,
-        }
-        table = mapping.get(scale)
+        table = APPENDIX_TABLES.get(scale)
         if not table:
             return False
-        keys = list(table.keys())
-        return int(raw) < min(keys) or int(raw) > max(keys)
+        raw_int = int(raw)
+        return raw_int < table.min_key or raw_int > table.max_key

@@ -8,18 +8,56 @@ rules for psychometric parameters.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from app.assessments.klsi_v4 import load_config
+from app.assessments.klsi_v4.enums import LearningStyleCode
 from app.assessments.klsi_v4.logic import (
     CONTEXT_NAMES as _KLSI_CONTEXT_NAMES,
+    STYLE_CODES as _KLSI_STYLE_CODES,
     STYLE_CUTS as _KLSI_STYLE_CUTS,
 )
+from app.engine.constants import PRIMARY_MODE_CODES
 
 
 CONTEXT_NAMES: List[str] = list(_KLSI_CONTEXT_NAMES)
 STYLE_CUTS = _KLSI_STYLE_CUTS
+STYLE_CODES: Tuple[LearningStyleCode, ...] = _KLSI_STYLE_CODES
+
+
+@dataclass(frozen=True, slots=True)
+class ContextStyleSummary:
+    context: str
+    style: str
+    ACCE: int
+    AERO: int
+    CE: int
+    RO: int
+    AC: int
+    AE: int
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "context": self.context,
+            "style": self.style,
+            "ACCE": self.ACCE,
+            "AERO": self.AERO,
+            "CE": self.CE,
+            "RO": self.RO,
+            "AC": self.AC,
+            "AE": self.AE,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ModeUsageSummary:
+    count: int
+    contexts: Tuple[str, ...]
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {"count": self.count, "contexts": list(self.contexts)}
 
 
 class RegressionConfigError(RuntimeError):
@@ -314,9 +352,9 @@ def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:
     if len(contexts) != len(CONTEXT_NAMES):
         raise ValueError(f"Expected {len(CONTEXT_NAMES)} contexts, got {len(contexts)}")
 
-    context_styles: List[Dict[str, Any]] = []
-    style_freq: Dict[str, int] = {}
-    mode_counts: Dict[str, int] = {"CE": 0, "RO": 0, "AC": 0, "AE": 0}
+    context_styles: List[ContextStyleSummary] = []
+    style_freq: Dict[LearningStyleCode, int] = {}
+    mode_counts: Dict[str, int] = {mode: 0 for mode in PRIMARY_MODE_CODES}
     
     for idx, ctx in enumerate(contexts):
         # Compute combination scores for this context
@@ -335,28 +373,29 @@ def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:
                 style = name
                 break
         
-        if style:
-            style_freq[style] = style_freq.get(style, 0) + 1
+        style_code = LearningStyleCode(style) if style else None
+        if style_code:
+            style_freq[style_code] = style_freq.get(style_code, 0) + 1
         
         # Track which mode was ranked highest (rank 4 = most preferred)
-        ranks = {"CE": ctx.get("CE", 0), "RO": ctx.get("RO", 0), 
-                 "AC": ctx.get("AC", 0), "AE": ctx.get("AE", 0)}
+        ranks = {mode: ctx.get(mode, 0) for mode in PRIMARY_MODE_CODES}
         max_rank = max(ranks.values())
         for mode, rank in ranks.items():
             if rank == max_rank:
                 mode_counts[mode] += 1
         
+        context_name = CONTEXT_NAMES[idx] if idx < len(CONTEXT_NAMES) else f"Context_{idx + 1}"
         context_styles.append(
-            {
-                "context": CONTEXT_NAMES[idx] if idx < len(CONTEXT_NAMES) else f"Context_{idx + 1}",
-                "style": style or "Unclassified",
-                "ACCE": acce,
-                "AERO": aero,
-                "CE": ce_val,
-                "RO": ro_val,
-                "AC": ac_val,
-                "AE": ae_val,
-            }
+            ContextStyleSummary(
+                context=context_name,
+                style=(style_code.value if style_code else "Unclassified"),
+                ACCE=acce,
+                AERO=aero,
+                CE=ce_val,
+                RO=ro_val,
+                AC=ac_val,
+                AE=ae_val,
+            )
         )
     
     # Determine flexibility pattern based on style diversity
@@ -369,22 +408,19 @@ def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:
         pattern = "low"  # Like Jason - stuck in 1-3 styles
     
     # Build mode usage detail
-    mode_usage: Dict[str, Dict[str, Any]] = {}
-    for mode in ["CE", "RO", "AC", "AE"]:
+    mode_usage: Dict[str, ModeUsageSummary] = {}
+    for mode in PRIMARY_MODE_CODES:
         used_contexts = [
-            cs["context"]
+            cs.context
             for cs in context_styles
-            if cs[mode] == max(cs["CE"], cs["RO"], cs["AC"], cs["AE"])
+            if getattr(cs, mode) == max(cs.CE, cs.RO, cs.AC, cs.AE)
         ]
-        mode_usage[mode] = {
-            "count": mode_counts[mode],
-            "contexts": used_contexts,
-        }
+        mode_usage[mode] = ModeUsageSummary(count=mode_counts[mode], contexts=tuple(used_contexts))
 
     return {
-        "context_styles": context_styles,
-        "style_frequency": style_freq,
-        "mode_usage": mode_usage,
+        "context_styles": [entry.as_dict() for entry in context_styles],
+        "style_frequency": {code.value: count for code, count in style_freq.items()},
+        "mode_usage": {mode: summary.as_dict() for mode, summary in mode_usage.items()},
         "flexibility_pattern": pattern,
     }
 
@@ -417,7 +453,7 @@ def generate_lfi_heatmap(lfi_score: float, context_styles: List[Dict[str, Any]])
         band = "low"
     
     # Count style occurrences
-    style_matrix = {style: 0 for style in STYLE_CUTS.keys()}
+    style_matrix = {code.value: 0 for code in STYLE_CODES}
     for cs in context_styles:
         style = cs.get("style")
         if style in style_matrix:

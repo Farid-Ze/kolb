@@ -4,6 +4,7 @@ from typing import Dict, Iterable, Optional
 
 from sqlalchemy.orm import Session
 
+from app.engine.constants import ALL_SCALE_CODES
 from app.models.klsi import (
     CombinationScore,
     PercentileScore,
@@ -45,7 +46,7 @@ def upsert_scale_provenance(
     db.query(ScaleProvenance).filter(ScaleProvenance.session_id == session_id).delete(
         synchronize_session=False
     )
-    for scale_code in ("CE", "RO", "AC", "AE", "ACCE", "AERO"):
+    for scale_code in ALL_SCALE_CODES:
         if scale_code not in raw_scores or scale_code not in provenance_map:
             continue
         raw_value = raw_scores[scale_code]
@@ -109,7 +110,7 @@ def backfill_scale_provenance(
         }
         truncated = {
             key: bool(percentile.truncated_scales.get(key)) if percentile.truncated_scales else False
-            for key in ("CE", "RO", "AC", "AE", "ACCE", "AERO")
+            for key in ALL_SCALE_CODES
         }
         upsert_scale_provenance(
             db,
