@@ -13,31 +13,32 @@ from app.assessments.klsi_v4.logic import (
     compute_longitudinal_delta,
 )
 from app.engine.strategies.base import ScoringStrategy
+from app.core.metrics import timer
 
 
 class KLSI4Strategy(ScoringStrategy):
     code = "KLSI4.0"
 
     def finalize(self, db: Session, session_id: int) -> Dict[str, Any]:
-        scale = compute_raw_scale_scores(db, session_id)
-        db.flush()
-        combo = compute_combination_scores(db, scale)
-        db.flush()
-        style, intensities = assign_learning_style(db, combo)
-        db.flush()
-        lfi = compute_lfi(db, session_id)
-        db.flush()
-        percentiles = apply_percentiles(db, session_id, scale, combo)
-        db.flush()
-        delta = compute_longitudinal_delta(db, session_id, combo, lfi, intensities)
-        if delta:
+        with timer("pipeline.klsi4.finalize"):
+            # Compute pipeline artifacts; defer flush until dependent graphs are ready
+            scale = compute_raw_scale_scores(db, session_id)
+            combo = compute_combination_scores(db, scale)
+            style, intensities = assign_learning_style(db, combo)
+            lfi = compute_lfi(db, session_id)
+            percentiles = apply_percentiles(db, session_id, scale, combo)
+            # Single flush for core artifacts
             db.flush()
-        return {
-            "scale": scale,
-            "combo": combo,
-            "style": style,
-            "intensity": intensities,
-            "lfi": lfi,
-            "percentiles": percentiles,
-            "delta": delta,
-        }
+            # Optional delta (persisted only if produced)
+            delta = compute_longitudinal_delta(db, session_id, combo, lfi, intensities)
+            if delta:
+                db.flush()
+            return {
+                "scale": scale,
+                "combo": combo,
+                "style": style,
+                "intensity": intensities,
+                "lfi": lfi,
+                "percentiles": percentiles,
+                "delta": delta,
+            }

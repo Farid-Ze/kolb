@@ -355,6 +355,24 @@ EDU:University Degree,LFI,75,52.3
 COUNTRY:Indonesia,ACCE,5,33.3
 ```
 
+### Cache Stats
+
+- DB Norm Cache stats (LRU):
+
+```http
+GET /admin/norms/cache-stats
+Authorization: Bearer {mediator_token}
+```
+
+- External Norm Provider behavior:
+  - Non-blocking lookup with TTL cache. Configure via env:
+    - `EXTERNAL_NORMS_ENABLED` (0/1)
+    - `EXTERNAL_NORMS_BASE_URL`
+    - `EXTERNAL_NORMS_TIMEOUT_MS`
+    - `EXTERNAL_NORMS_API_KEY`
+    - `EXTERNAL_NORMS_CACHE_SIZE`
+    - `EXTERNAL_NORMS_TTL_SEC` (positive and negative caching window)
+
 ### Pipeline Management (Mediator)
 
 ```http
@@ -364,6 +382,15 @@ POST   /admin/instruments/{instrument_code}/pipelines/{pipeline_id}/clone
 DELETE /admin/instruments/{instrument_code}/pipelines/{pipeline_id}
 ```
 Gunakan untuk melihat/aktivasi/mengklon/hapus pipeline penilaian (engine).
+
+### Performance Metrics (Eksperimental)
+
+```http
+GET /admin/perf-metrics?reset=false
+Authorization: Bearer {mediator_token}
+```
+
+Menampilkan ringkas waktu eksekusi jalur panas (finalisasi dan lookup norma) serta statistik cache (DB & eksternal). `reset=true` untuk mereset counter.
 
 ---
 

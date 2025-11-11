@@ -171,6 +171,15 @@ Status pengembangan lanjutan fokus pada penambahan subgroup norms dan analisis r
     - `EXTERNAL_NORMS_TIMEOUT_MS` (default 1500)
     - `EXTERNAL_NORMS_API_KEY` (opsional)
     - `EXTERNAL_NORMS_CACHE_SIZE` (default 512)
+    - `EXTERNAL_NORMS_TTL_SEC` (default 60) — TTL cache untuk hasil positif/negatif dari penyedia eksternal
+
+Perilaku kinerja:
+- Pencarian eksternal bersifat non-blocking pada jalur request: ketika cache dingin, sistem segera melanjutkan ke fallback berikutnya (Appendix) sambil menjadwalkan fetch di background untuk menghangatkan cache.
+- Hasil eksternal (include miss/404) disimpan sementara (TTL) agar tidak terjadi repeated calls.
+
+Endpoint admin terkait:
+- `GET /admin/norms/cache-stats` — Statistik LRU cache untuk lookup norma DB (in-process).
+- `GET /admin/norms/external-cache-stats` — Statistik TTL cache penyedia norma eksternal (hits/misses, ukuran cache, TTL, metrik jaringan).
 
 Catatan implementasi: Rantai penyedia norma dibangun melalui engine (DB → External [opsional] → Appendix). Provenance per skala tersedia di hasil finalisasi sebagai `DB:<group>|<version>`, `External:<group>|<version>`, atau `Appendix:<scale>`.
 
@@ -179,3 +188,37 @@ Anomali yang ditandai pada finalisasi (hanya informasi, tidak mengubah skor):
 - LOW_W_PATTERN, HIGH_W_UNIFORMITY
 - LFI_REPEATED_PATTERN_6PLUS / 7PLUS
 - NEAR_STYLE_BOUNDARY
+
+## 17. Performance Metrics (Eksperimental)
+Sistem sekarang mengumpulkan timing sederhana untuk jalur panas penilaian dan lookup norma:
+
+Label utama:
+- `pipeline.klsi4.finalize` – durasi end-to-end finalisasi KLSI 4.0 (ms)
+- `norms.db.percentile.<SCALE>` – waktu lookup percentile di cache DB
+- `norms.appendix.percentile.<SCALE>` – waktu fallback Appendix
+- `norms.external.fetch` – waktu HTTP fetch penyedia norma eksternal (termasuk network)
+- `norms.external.percentile.<SCALE>` – waktu lapisan eksternal per skala
+
+Endpoint:
+```http
+GET /admin/perf-metrics?reset=false
+Authorization: Bearer <token MEDIATOR>
+```
+Response:
+```json
+{
+    "timings": {
+        "pipeline.klsi4.finalize": {"count": 12, "total_ms": 845.2, "max_ms": 96.7},
+        "norms.db.percentile.CE": {"count": 12, "total_ms": 5.3, "max_ms": 1.2}
+    },
+    "norm_db_cache": {"hits": 120, "misses": 12, "currsize": 240, "maxsize": 4096},
+    "external_norm_cache": {"hits": 18, "misses": 6, "network_success": 6, "network_error": 0}
+}
+```
+
+Gunakan parameter `reset=true` untuk menghapus counter setelah dibaca (monitoring interval). Data disimpan in‑process; reset saat restart.
+
+Catatan:
+- Instrumentasi tidak memodifikasi logika skor psychometric.
+- Overhead sangat rendah (perf_counter + dict update).
+- Cocok untuk baseline tuning sebelum menambah observability lebih kaya (Prometheus dsb.).

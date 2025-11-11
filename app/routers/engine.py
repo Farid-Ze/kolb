@@ -151,27 +151,30 @@ def finalize_session(
     user = get_current_user(authorization, db)
     session = _get_session(db, session_id)
     _assert_access(user, session)
-    result = runtime.finalize(db, session_id)
+    def _payload_builder(res: dict) -> bytes:
+        combination = res.get("combination")
+        lfi = res.get("lfi")
+        if not combination or not lfi:
+            return b""
+        return (
+            f"user:{user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
+            f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
+        ).encode("utf-8")
+
+    result = runtime.finalize_with_audit(
+        db,
+        session_id,
+        actor_email=user.email,
+        action="FINALIZE_SESSION_USER",
+        build_payload=_payload_builder,
+    )
     combination = result.get("combination")
     lfi = result.get("lfi")
     style = result.get("style")
     validation = result.get("validation")
     override = result.get("override", False)
 
-    if combination and lfi and style:
-        payload = (
-            f"user:{user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
-            f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
-        ).encode("utf-8")
-        db.add(
-            AuditLog(
-                actor=user.email,
-                action="FINALIZE_SESSION_USER",
-                payload_hash=sha256(payload).hexdigest(),
-                created_at=datetime.now(timezone.utc),
-            )
-        )
-        db.commit()
+    # Audit persisted within runtime transaction
 
     percentiles = result.get("percentiles")
     per_scale_provenance = None
@@ -219,7 +222,26 @@ def force_finalize_session(
     if mediator.role != "MEDIATOR":
         raise HTTPException(status_code=403, detail="Hanya mediator yang dapat melakukan override")
     session = _get_session(db, session_id)
-    result = runtime.finalize(db, session_id, skip_validation=True)
+    def _payload_builder_override(res: dict) -> bytes:
+        combination = res.get("combination")
+        lfi = res.get("lfi")
+        validation = res.get("validation") or {}
+        issues = validation.get("issues", []) if isinstance(validation, dict) else []
+        issue_codes = ",".join(sorted({i.get("code", "") for i in issues if isinstance(i, dict) and i.get("code")}))
+        return (
+            f"mediator:{mediator.email};session:{session_id};override:true;"
+            f"reason:{request.reason or '-'};issues:{issue_codes or '-'};"
+            f"ACCE:{getattr(combination,'ACCE_raw',None)};AERO:{getattr(lfi,'LFI_score',None)}"
+        ).encode("utf-8")
+
+    result = runtime.finalize_with_audit(
+        db,
+        session_id,
+        actor_email=mediator.email,
+        action="FORCE_FINALIZE_SESSION",
+        build_payload=_payload_builder_override,
+        skip_validation=True,
+    )
     combination = result.get("combination")
     lfi = result.get("lfi")
     style = result.get("style")
@@ -231,15 +253,7 @@ def force_finalize_session(
         f"mediator:{mediator.email};session:{session_id};override:true;"
         f"reason:{request.reason or '-'};issues:{issue_codes or '-'}"
     ).encode("utf-8")
-    db.add(
-        AuditLog(
-            actor=mediator.email,
-            action="FORCE_FINALIZE_SESSION",
-            payload_hash=sha256(payload).hexdigest(),
-            created_at=datetime.now(timezone.utc),
-        )
-    )
-    db.commit()
+    # Audit persisted within runtime transaction
 
     percentiles = result.get("percentiles")
     per_scale_provenance = None

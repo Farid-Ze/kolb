@@ -7,15 +7,15 @@ These mappings provide cumulative percent (treated as percentile) for each raw s
 as published. They are used only as a fallback when the database normative tables
 have not been imported. If a DB row exists, DB values take precedence.
 
-NOTE:
- - Values are transcribed exactly from the excerpt supplied; if a source row
-   appeared multiple times (duplicate valid percent rows), the last cumulative
-   percentage is retained.
- - Ranges not present in the excerpt remain absent; lookup code should handle
-   missing keys gracefully (e.g., nearest-lower or None).
- - ACCE/AERO distributions are difference scores; negative values allowed.
- - LFI values are decimal fractions (0.xx to 1.00); we store them in their
-   original float form; nearest match will be used during lookup.
+Performance Optimizations (Nov 2025):
+ - Percentile lookups now use bisect on a cached sorted key list (O(log n) vs previous O(n) list scan).
+ - LFI lookup selects closest key using neighbor comparison after bisect.
+ - Conservative nearest-lower fallback semantics preserved to avoid over-estimating rarity.
+
+Psychometric Fidelity:
+ - No transformation of stored percentile values; logic only changes algorithmic access pattern.
+ - Nearest-lower rule maintained (if no exact match, choose largest key < raw; else smallest key > raw).
+ - LFI still chooses absolute-nearest value.
 """
 
 # Primary mode raw score → cumulative percentile (Appendix 1)
@@ -102,25 +102,62 @@ LFI_PERCENTILES = {
     0.96: 96.3, 0.97: 97.5, 0.98: 99.1, 0.99: 100.0, 1.00: 100.0
 }
 
+from bisect import bisect_left
+from typing import Dict, List
+
+_KEY_CACHE: Dict[int, List[int]] = {}
+_LFI_KEYS: List[float] | None = None
+
+def _sorted_keys(table: dict[int, float]) -> List[int]:
+    tid = id(table)
+    keys = _KEY_CACHE.get(tid)
+    if keys is None:
+        keys = sorted(table.keys())
+        _KEY_CACHE[tid] = keys
+    return keys
+
 def lookup_percentile(raw: int, table: dict[int, float]) -> float | None:
-    """Return percentile for raw; if exact not found choose nearest raw BELOW; if none below, nearest ABOVE.
-    This conservative approach avoids over-estimating rarity.
+    """Percentile lookup with nearest-lower fallback using bisect.
+
+    Algorithm:
+      1. Exact hit → return directly.
+      2. Compute insertion position with bisect.
+      3. If there is a lower neighbor (pos>0) → return its percentile.
+      4. Else if there is an upper neighbor → return its percentile.
+      5. Else (empty table) → None.
+    Complexity: O(log n) per lookup after first sort (which is cached).
     """
     if raw in table:
         return table[raw]
-    lower = [r for r in table.keys() if r < raw]
-    if lower:
-        return table[max(lower)]
-    higher = [r for r in table.keys() if r > raw]
-    if higher:
-        return table[min(higher)]
+    keys = _sorted_keys(table)
+    if not keys:
+        return None
+    pos = bisect_left(keys, raw)
+    if pos > 0:
+        return table[keys[pos - 1]]
+    if pos < len(keys):
+        return table[keys[pos]]
     return None
 
 def lookup_lfi(value: float) -> float | None:
-    """Nearest match for LFI percentile (value between 0 and 1)."""
+    """Nearest match for LFI percentile using bisect neighbor comparison.
+
+    This differs slightly from raw scale handling: chooses absolute-nearest key (lower or upper).
+    """
+    global _LFI_KEYS
     if value in LFI_PERCENTILES:
         return LFI_PERCENTILES[value]
-    # find closest absolute difference
-    sorted_vals = sorted(LFI_PERCENTILES.keys())
-    closest = min(sorted_vals, key=lambda v: abs(v - value))
+    if _LFI_KEYS is None:
+        _LFI_KEYS = sorted(LFI_PERCENTILES.keys())
+    if not _LFI_KEYS:
+        return None
+    pos = bisect_left(_LFI_KEYS, value)
+    if pos == 0:
+        closest = _LFI_KEYS[0]
+    elif pos == len(_LFI_KEYS):
+        closest = _LFI_KEYS[-1]
+    else:
+        before = _LFI_KEYS[pos - 1]
+        after = _LFI_KEYS[pos]
+        closest = before if abs(before - value) <= abs(after - value) else after
     return LFI_PERCENTILES.get(closest)

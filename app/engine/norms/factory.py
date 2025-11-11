@@ -81,15 +81,40 @@ def build_composite_norm_provider(db: Session):
     db_lookup = _make_cached_db_lookup(db)
     providers: List[object] = [DatabaseNormProvider(db_lookup)]
     if settings.external_norms_enabled and settings.external_norms_base_url:
-        providers.append(
-            ExternalNormProvider(
-                base_url=settings.external_norms_base_url,
-                timeout_ms=settings.external_norms_timeout_ms,
-                api_key=settings.external_norms_api_key,
-            )
-        )
+        providers.append(get_external_provider())
     providers.append(AppendixNormProvider())
     composite = CompositeNormProvider(providers)  # type: ignore[arg-type]
     # expose db lookup for invalidation from admin import
     composite._db_lookup = db_lookup  # type: ignore[attr-defined]
+    # expose external provider for stats
+    try:
+        composite._external_provider = get_external_provider()  # type: ignore[attr-defined]
+    except Exception:
+        pass
     return composite
+
+# Singleton external provider to persist TTL cache across requests
+_EXTERNAL_PROVIDER: ExternalNormProvider | None = None
+_EXTERNAL_PROVIDER_KEY: tuple[str, int, str | None] | None = None
+
+
+def get_external_provider() -> ExternalNormProvider:
+    global _EXTERNAL_PROVIDER, _EXTERNAL_PROVIDER_KEY
+    key = (
+        settings.external_norms_base_url.rstrip("/") if settings.external_norms_base_url else "",
+        int(settings.external_norms_timeout_ms or 1500),
+        settings.external_norms_api_key or None,
+    )
+    if _EXTERNAL_PROVIDER is None or _EXTERNAL_PROVIDER_KEY != key:
+        _EXTERNAL_PROVIDER = ExternalNormProvider(
+            base_url=settings.external_norms_base_url,
+            timeout_ms=settings.external_norms_timeout_ms,
+            api_key=settings.external_norms_api_key,
+        )
+        _EXTERNAL_PROVIDER_KEY = key
+    return _EXTERNAL_PROVIDER
+
+
+def external_cache_stats() -> dict:
+    prov = get_external_provider()
+    return prov.cache_stats() if hasattr(prov, "cache_stats") else {}

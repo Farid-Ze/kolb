@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from typing import List, Optional, Tuple
+import time
+import threading
 
 import httpx
 
 from app.data import norms as appendix_norms
 from app.engine.norms.provider import NormProvider
 from app.core.config import settings
+from app.core.metrics import timer, metrics_registry
 
 _NORM_VERSION_DELIM = "|"
 _DEFAULT_NORM_VERSION = "default"
@@ -32,23 +35,24 @@ class DatabaseNormProvider:
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> Tuple[Optional[float], str, bool]:
-        for group_token in group_chain:
-            base_group, requested_version = _split_norm_token(group_token)
-            token_has_version = _NORM_VERSION_DELIM in group_token
-            result = self.db_lookup(group_token, scale, raw)
-            value: Optional[float]
-            version: Optional[str]
-            if isinstance(result, tuple):
-                value = result[0]
-                version = result[1] if len(result) > 1 else None
-            else:
-                value = result
-                version = None
-            if value is not None:
-                version_token = version or requested_version or _DEFAULT_NORM_VERSION
-                include_version = token_has_version or version_token != _DEFAULT_NORM_VERSION
-                normalized = f"{base_group}{_NORM_VERSION_DELIM}{version_token}" if include_version else base_group
-                return value, f"DB:{normalized}", False
+        with timer(f"norms.db.percentile.{scale}"):
+            for group_token in group_chain:
+                base_group, requested_version = _split_norm_token(group_token)
+                token_has_version = _NORM_VERSION_DELIM in group_token
+                result = self.db_lookup(group_token, scale, raw)
+                value: Optional[float]
+                version: Optional[str]
+                if isinstance(result, tuple):
+                    value = result[0]
+                    version = result[1] if len(result) > 1 else None
+                else:
+                    value = result
+                    version = None
+                if value is not None:
+                    version_token = version or requested_version or _DEFAULT_NORM_VERSION
+                    include_version = token_has_version or version_token != _DEFAULT_NORM_VERSION
+                    normalized = f"{base_group}{_NORM_VERSION_DELIM}{version_token}" if include_version else base_group
+                    return value, f"DB:{normalized}", False
         return None, "DB:None", False
 
 
@@ -58,31 +62,32 @@ class AppendixNormProvider:
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> Tuple[Optional[float], str, bool]:
-        # Scalar scales
-        if scale == "CE":
-            val = appendix_norms.lookup_percentile(int(raw), appendix_norms.CE_PERCENTILES)
-            return val, "Appendix:CE", self._is_truncated(raw, appendix_norms.CE_PERCENTILES)
-        if scale == "RO":
-            val = appendix_norms.lookup_percentile(int(raw), appendix_norms.RO_PERCENTILES)
-            return val, "Appendix:RO", self._is_truncated(raw, appendix_norms.RO_PERCENTILES)
-        if scale == "AC":
-            val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AC_PERCENTILES)
-            return val, "Appendix:AC", self._is_truncated(raw, appendix_norms.AC_PERCENTILES)
-        if scale == "AE":
-            val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AE_PERCENTILES)
-            return val, "Appendix:AE", self._is_truncated(raw, appendix_norms.AE_PERCENTILES)
-        # Combination scales
-        if scale == "ACCE":
-            val = appendix_norms.lookup_percentile(int(raw), appendix_norms.ACCE_PERCENTILES)
-            return val, "Appendix:ACCE", self._is_truncated(raw, appendix_norms.ACCE_PERCENTILES)
-        if scale == "AERO":
-            val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AERO_PERCENTILES)
-            return val, "Appendix:AERO", self._is_truncated(raw, appendix_norms.AERO_PERCENTILES)
-        # LFI
-        if scale == "LFI":
-            # raw passed in may be 0-100 int; convert to 0-1 float if needed
-            value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
-            return value, "Appendix:LFI", False
+        with timer(f"norms.appendix.percentile.{scale}"):
+            # Scalar scales
+            if scale == "CE":
+                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.CE_PERCENTILES)
+                return val, "Appendix:CE", self._is_truncated(raw, appendix_norms.CE_PERCENTILES)
+            if scale == "RO":
+                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.RO_PERCENTILES)
+                return val, "Appendix:RO", self._is_truncated(raw, appendix_norms.RO_PERCENTILES)
+            if scale == "AC":
+                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AC_PERCENTILES)
+                return val, "Appendix:AC", self._is_truncated(raw, appendix_norms.AC_PERCENTILES)
+            if scale == "AE":
+                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AE_PERCENTILES)
+                return val, "Appendix:AE", self._is_truncated(raw, appendix_norms.AE_PERCENTILES)
+            # Combination scales
+            if scale == "ACCE":
+                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.ACCE_PERCENTILES)
+                return val, "Appendix:ACCE", self._is_truncated(raw, appendix_norms.ACCE_PERCENTILES)
+            if scale == "AERO":
+                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AERO_PERCENTILES)
+                return val, "Appendix:AERO", self._is_truncated(raw, appendix_norms.AERO_PERCENTILES)
+            # LFI
+            if scale == "LFI":
+                # raw passed in may be 0-100 int; convert to 0-1 float if needed
+                value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
+                return value, "Appendix:LFI", False
         return None, "Appendix:None", False
 
     @staticmethod
@@ -105,7 +110,17 @@ class ExternalNormProvider:
         self.base_url = base_url.rstrip("/")
         self.timeout = max(100, int(timeout_ms)) / 1000.0  # seconds
         self.api_key = api_key
-        self._cache: dict[tuple[str, str, int], tuple[Optional[float], Optional[str]]] = {}
+        # Cache: key -> (value, version, timestamp, found_flag)
+        self._cache: dict[tuple[str, str, int], tuple[Optional[float], Optional[str], float, bool]] = {}
+        # Track recently scheduled background fetches to avoid flooding
+        self._scheduled: dict[tuple[str, str, int], float] = {}
+        self._lock = threading.Lock()
+        # Counters
+        self._hits = 0
+        self._misses = 0
+        self._net_success = 0
+        self._net_404 = 0
+        self._net_error = 0
 
     def _headers(self) -> dict:
         headers = {"Accept": "application/json"}
@@ -115,31 +130,48 @@ class ExternalNormProvider:
 
     def _fetch(self, group_token: str, scale: str, raw: int | float) -> Tuple[Optional[float], Optional[str]]:
         key = (group_token, scale, int(raw))
-        # Read-through LRU with simple size cap eviction
-        if key in self._cache:
-            return self._cache[key]
+        # TTL cache (positive and negative results)
+        ttl = getattr(settings, "external_norms_ttl_sec", 60) or 60
+        now = time.time()
+        cached = self._cache.get(key)
+        if cached is not None:
+            val, version, ts, found = cached
+            if now - ts <= ttl:
+                self._hits += 1
+                return (val, version) if found else (None, None)
+        self._misses += 1
         url = f"{self.base_url}/norms/{group_token}/{scale}/{int(raw)}"
         # Simple retry loop (2 attempts)
         last_exc: Exception | None = None
         for _ in range(2):
             try:
-                resp = httpx.get(url, headers=self._headers(), timeout=self.timeout)
+                with timer("norms.external.fetch"):  # includes network time
+                    resp = httpx.get(url, headers=self._headers(), timeout=self.timeout)
                 if resp.status_code == 200:
                     data = resp.json()
                     percentile = data.get("percentile")
                     version = data.get("version")
                     if isinstance(percentile, (int, float)):
                         result = (float(percentile), str(version) if version else None)
-                        # Cache with cap
-                        self._cache[key] = result
+                        # Cache with cap + timestamp
+                        self._cache[key] = (result[0], result[1], now, True)
                         self._evict_if_needed()
+                        self._net_success += 1
                         return result
+                    # Negative cache for TTL window
+                    self._cache[key] = (None, None, now, False)
+                    self._net_success += 1  # 200 but no valid percentile
                     return None, None
                 if resp.status_code == 404:
+                    self._cache[key] = (None, None, now, False)
+                    self._net_404 += 1
                     return None, None
             except Exception as exc:  # network errors/timeouts
                 last_exc = exc
+                self._net_error += 1
                 continue
+        # On repeated failure, negative cache for TTL window
+        self._cache[key] = (None, None, now, False)
         return None, None
 
     def _evict_if_needed(self) -> None:
@@ -156,16 +188,62 @@ class ExternalNormProvider:
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> Tuple[Optional[float], str, bool]:
-        if not self.base_url:
-            return None, "External:Disabled", False
-        for group_token in group_chain:
-            value, version = self._fetch(group_token, scale, raw)
-            if value is not None:
-                label = f"External:{group_token}"
-                if version:
-                    label = f"{label}{_NORM_VERSION_DELIM}{version}"
-                return value, label, False
+        with timer(f"norms.external.percentile.{scale}"):
+            if not self.base_url:
+                return None, "External:Disabled", False
+            for group_token in group_chain:
+                # First, try cached/TTL path via _fetch; if no cached value and network slow,
+                # schedule a background fetch and return immediately (non-blocking fallback).
+                value, version = self._fetch(group_token, scale, raw)
+                if value is not None:
+                    label = f"External:{group_token}"
+                    if version:
+                        label = f"{label}{_NORM_VERSION_DELIM}{version}"
+                    return value, label, False
+                # If no value, opportunistically schedule a background refresh
+                self._schedule_background_fetch(group_token, scale, raw)
         return None, "External:None", False
+
+    def _schedule_background_fetch(self, group_token: str, scale: str, raw: int | float) -> None:
+        key = (group_token, scale, int(raw))
+        cooldown = max(1, int(getattr(settings, "external_norms_ttl_sec", 60) // 12))  # ~5s default when ttl=60
+        now = time.time()
+        with self._lock:
+            last = self._scheduled.get(key, 0)
+            if now - last < cooldown:
+                return
+            self._scheduled[key] = now
+
+        def _runner():
+            try:
+                self._fetch(group_token, scale, raw)
+            finally:
+                # allow re-scheduling after cooldown expires naturally
+                pass
+
+        t = threading.Thread(target=_runner, name=f"ext-norm-fetch-{group_token}-{scale}-{int(raw)}", daemon=True)
+        t.start()
+
+    def cache_stats(self) -> dict:
+        ttl = getattr(settings, "external_norms_ttl_sec", 60) or 60
+        limit = getattr(settings, "external_norms_cache_size", 512) or 512
+        size = len(self._cache)
+        pos = sum(1 for _, _, _, found in self._cache.values() if found)
+        neg = size - pos
+        return {
+            "hits": self._hits,
+            "misses": self._misses,
+            "network_success": self._net_success,
+            "network_404": self._net_404,
+            "network_error": self._net_error,
+            "cache_size": size,
+            "cache_limit": limit,
+            "positive_entries": pos,
+            "negative_entries": neg,
+            "scheduled_keys": len(self._scheduled),
+            "ttl_sec": ttl,
+            "enabled": bool(self.base_url),
+        }
 
 
 class CompositeNormProvider:

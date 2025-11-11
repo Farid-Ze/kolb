@@ -8,9 +8,17 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.klsi import AuditLog, NormativeConversionTable
-from app.engine.norms.factory import build_composite_norm_provider, clear_norm_db_cache, norm_cache_stats
+from app.engine.norms.factory import (
+    build_composite_norm_provider,
+    clear_norm_db_cache,
+    norm_cache_stats,
+    external_cache_stats,
+    get_external_provider,
+)
+from app.core.config import settings
 from app.services.security import get_current_user
 from app.services import pipelines as pipeline_service
+from app.core.metrics import get_metrics, metrics_registry
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -114,6 +122,52 @@ def get_norm_cache_stats(
     if hasattr(provider, "_db_lookup"):
         stats = norm_cache_stats(getattr(provider, "_db_lookup"))
     return {"cache": stats}
+
+
+@router.get("/norms/external-cache-stats")
+def get_external_norm_cache_stats(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """Statistik cache penyedia norma eksternal (Mediator only).
+
+    Mengembalikan hit/miss, ukuran cache, TTL, dan metrik jaringan dasar.
+    """
+    user = get_current_user(authorization, db)
+    if user.role != 'MEDIATOR':
+        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh melihat statistik cache eksternal")
+    if not (settings.external_norms_enabled and settings.external_norms_base_url):
+        return {"enabled": False, "message": "External norms disabled"}
+    stats = external_cache_stats()
+    return {"external_cache": stats}
+
+
+@router.get("/perf-metrics")
+def get_perf_metrics(
+    reset: bool = False,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """Return lightweight performance metrics (Mediator only).
+
+    Includes timing counters and norm provider cache stats.
+    Use `reset=true` to clear counters after reading.
+    """
+    user = get_current_user(authorization, db)
+    if user.role != 'MEDIATOR':
+        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh melihat metrics")
+    timing = get_metrics(reset=reset)
+    # Compose provider cache stats if available
+    provider = build_composite_norm_provider(db)
+    db_cache = {}
+    if hasattr(provider, "_db_lookup"):
+        db_cache = norm_cache_stats(getattr(provider, "_db_lookup"))
+    ext_cache = external_cache_stats()
+    return {
+        "timings": timing,
+        "norm_db_cache": db_cache,
+        "external_norm_cache": ext_cache,
+    }
 
 
 @router.get("/instruments/{instrument_code}/pipelines")

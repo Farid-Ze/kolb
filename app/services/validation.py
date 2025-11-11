@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func, text
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES, validate_lfi_context_ranks
 from app.models.klsi import (
@@ -43,35 +44,55 @@ def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
             "ready_to_complete": False,
         }
 
-    # Fetch items and responses
-    items = db.query(AssessmentItem).filter(AssessmentItem.item_type == ItemType.learning_style).all()
-    item_ids = [i.id for i in items]
-    responses = db.query(UserResponse).filter(UserResponse.session_id == session_id).all()
+    # Fetch learning_style item IDs
+    items = db.query(AssessmentItem.id).filter(AssessmentItem.item_type == ItemType.learning_style).all()
+    item_ids = [row[0] for row in items]
 
-    ranks_per_item = defaultdict(list)
-    choice_count: dict[int, int] = defaultdict(int)
-    for r in responses:
-        ranks_per_item[r.item_id].append(r.rank_value)
-        choice_count[r.choice_id] += 1
+    # Aggregate ranks per item with COUNT and COUNT DISTINCT via SQL
+    # This reduces Python-side processing and roundtrips.
+    rank_rows = (
+        db.query(UserResponse.item_id, UserResponse.rank_value, func.count().label("cnt"))
+        .filter(UserResponse.session_id == session_id)
+        .group_by(UserResponse.item_id, UserResponse.rank_value)
+        .all()
+    )
+    # Build maps from aggregated rows
+    ranks_by_item: dict[int, set[int]] = defaultdict(set)
+    any_dup_per_item: dict[int, bool] = defaultdict(bool)
+    for item_id, rank_value, cnt in rank_rows:
+        ranks_by_item[item_id].add(int(rank_value))
+        if cnt and int(cnt) > 1:
+            any_dup_per_item[item_id] = True
 
-    items_with_rank_conflict = []
-    items_with_missing_ranks = []
-    missing_item_ids = []
+    # Detect duplicate choices (defensive; should be prevented by constraint)
+    dup_choice_rows = (
+        db.query(UserResponse.choice_id, func.count().label("c"))
+        .filter(UserResponse.session_id == session_id)
+        .group_by(UserResponse.choice_id)
+        .having(func.count() > 1)
+        .all()
+    )
+    duplicate_choice_ids = [row[0] for row in dup_choice_rows]
+
+    items_with_rank_conflict: List[int] = []
+    items_with_missing_ranks: List[Dict[str, Any]] = []
+    missing_item_ids: List[int] = []
+    expected = {1, 2, 3, 4}
     for iid in item_ids:
-        ranks = ranks_per_item.get(iid, [])
-        if not ranks:
+        present = ranks_by_item.get(iid)
+        if not present:
             missing_item_ids.append(iid)
             continue
-        # Expect exactly {1,2,3,4}
-        unique_ranks = set(ranks)
-        if len(ranks) != len(unique_ranks):
+        if any_dup_per_item.get(iid, False):
             items_with_rank_conflict.append(iid)
-        expected = {1,2,3,4}
-        if unique_ranks != expected:
-            items_with_missing_ranks.append({"item_id": iid, "present": sorted(unique_ranks), "missing": sorted(list(expected - unique_ranks))})
+        if present != expected:
+            items_with_missing_ranks.append({
+                "item_id": iid,
+                "present": sorted(present),
+                "missing": sorted(list(expected - present)),
+            })
 
-    duplicate_choice_ids = [cid for cid, c in choice_count.items() if c > 1]
-    responded_items = len(ranks_per_item.keys())
+    responded_items = len(ranks_by_item.keys())
     ready_to_complete = not missing_item_ids and not items_with_rank_conflict and not items_with_missing_ranks
 
     return {

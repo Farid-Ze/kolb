@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -10,7 +11,8 @@ from functools import lru_cache
 from app.engine.interfaces import InstrumentId
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import engine_registry
-from app.models.klsi import AssessmentSession, Instrument, SessionStatus, User
+from app.models.klsi import AssessmentSession, Instrument, SessionStatus, User, AuditLog
+from typing import Callable
 from app.services.validation import run_session_validations
 
 
@@ -172,9 +174,59 @@ class EngineRuntime:
 
         scorer = self._registry.scorer(self._instrument_id(session))
         try:
+            # Atomic transaction: finalize artifacts + status update together
+            with db.begin():
+                result = scorer.finalize(db, session_id, skip_checks=skip_validation)
+                if not result.get("ok"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "issues": result.get("issues"),
+                            "diagnostics": result.get("diagnostics"),
+                        },
+                    )
+                session.status = SessionStatus.completed
+                session.end_time = datetime.now(timezone.utc)
+        except HTTPException:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive rollback
+            raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
+        result["validation"] = validation
+        result["override"] = skip_validation and not validation.get("ready", False)
+        return result
+
+    def finalize_with_audit(
+        self,
+        db: Session,
+        session_id: int,
+        *,
+        actor_email: str,
+        action: str,
+    build_payload: Callable[[dict], bytes],
+        skip_validation: bool = False,
+    ) -> dict:
+        """Finalize session artifacts and write an AuditLog entry atomically.
+
+        build_payload: callable that receives the result dict (post-finalize) and
+        returns bytes to be hashed for payload_hash.
+        """
+        session = self._resolve_session(db, session_id)
+        if session.status == SessionStatus.completed:
+            raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+        validation = run_session_validations(db, session_id)
+        if not validation.get("ready", False) and not skip_validation:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "issues": validation.get("issues", []),
+                    "diagnostics": validation.get("diagnostics"),
+                },
+            )
+
+        scorer = self._registry.scorer(self._instrument_id(session))
+        try:
             result = scorer.finalize(db, session_id, skip_checks=skip_validation)
             if not result.get("ok"):
-                db.rollback()
                 raise HTTPException(
                     status_code=400,
                     detail={
@@ -188,9 +240,31 @@ class EngineRuntime:
         except HTTPException:
             db.rollback()
             raise
-        except Exception as exc:  # pragma: no cover - defensive rollback
+        except Exception as exc:  # pragma: no cover
             db.rollback()
             raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
+
+        # Persist audit in a follow-up small transaction to preserve prior parity
+        try:
+            payload_bytes = build_payload(result) if callable(build_payload) else None
+        except Exception:
+            payload_bytes = None
+        if payload_bytes:
+            try:
+                db.add(
+                    AuditLog(
+                        actor=actor_email,
+                        action=action,
+                        payload_hash=sha256(payload_bytes).hexdigest(),
+                        created_at=datetime.now(timezone.utc),
+                    )
+                )
+                db.commit()
+            except Exception:
+                db.rollback()
+                # Non-fatal: keep result success even if audit write fails
+                pass
+
         result["validation"] = validation
         result["override"] = skip_validation and not validation.get("ready", False)
         return result

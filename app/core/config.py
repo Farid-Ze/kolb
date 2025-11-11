@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     external_norms_timeout_ms: int = int(os.getenv("EXTERNAL_NORMS_TIMEOUT_MS", "1500"))
     external_norms_api_key: str | None = os.getenv("EXTERNAL_NORMS_API_KEY") or None
     external_norms_cache_size: int = int(os.getenv("EXTERNAL_NORMS_CACHE_SIZE", "512"))
+    external_norms_ttl_sec: int = int(os.getenv("EXTERNAL_NORMS_TTL_SEC", "60"))
 
     # Pydantic v2 config via ConfigDict
     model_config = {

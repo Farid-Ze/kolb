@@ -259,6 +259,17 @@ def finalize_assessment(
             # Derive LFI-based backup styles: infer styles used across 8 contexts
             # and persist unique backups excluding primary style.
             try:
+                # Preload all style types once (avoid N+1 lookups)
+                all_styles = db.query(LearningStyleType).all()
+                style_by_name = {s.style_name: s for s in all_styles}
+                primary_style_type_id = None
+                if "style" in ctx:
+                    primary_style_type_id = ctx["style"].get("primary_style_type_id")
+                primary_name = None
+                if primary_style_type_id:
+                    prim_row = next((s for s in all_styles if s.id == primary_style_type_id), None)
+                    primary_name = prim_row.style_name if prim_row else None
+
                 context_payload = [
                     {"CE": r.CE_rank, "RO": r.RO_rank, "AC": r.AC_rank, "AE": r.AE_rank}
                     for r in rows
@@ -272,23 +283,11 @@ def finalize_assessment(
                         continue
                     contexts_for_style.setdefault(sname, []).append(entry.get("context"))
                 style_freq: dict[str, int] = analysis.get("style_frequency", {}) or {}
-                # Determine primary style name to exclude
-                primary_style_type_id = None
-                if "style" in ctx:
-                    primary_style_type_id = ctx["style"].get("primary_style_type_id")
-                primary_name = None
-                if primary_style_type_id:
-                    row = db.query(LearningStyleType).filter(LearningStyleType.id == primary_style_type_id).first()
-                    primary_name = row.style_name if row else None
-                # Upsert backup rows
+                # Upsert using preloaded style mapping
                 for sname, count in style_freq.items():
                     if sname == primary_name:
                         continue
-                    style_row = (
-                        db.query(LearningStyleType)
-                        .filter(LearningStyleType.style_name == sname)
-                        .first()
-                    )
+                    style_row = style_by_name.get(sname)
                     if not style_row:
                         continue
                     existing = (
