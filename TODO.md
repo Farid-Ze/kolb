@@ -1,7 +1,7 @@
 - [x] Implement repository abstraction for normative conversion and sessions
 - [x] Add transaction context manager in app/db/database.py
 - [x] Refactor scoring service to use repositories
-- [ ]  Pastikan semua modul menggunakan type hints eksplisit (mypy sudah disertakan) untuk meningkatkan kejelasan dan memungkinkan optimasi linting.
+- [x]  Pastikan semua modul menggunakan type hints eksplisit (mypy sudah disertakan) untuk meningkatkan kejelasan dan memungkinkan optimasi linting.
 - [ ]  Evaluasi penggunaan dataclass untuk entitas yang bersifat value object (misalnya item skor, profile hasil, record norma).
 - [ ]  Gunakan frozen dataclass untuk struktur immutable seperti definisi norma & parameter KLSI.
 - [ ]  Pisahkan pure computation dari I/O di engine/runtime agar mudah diuji dan diprofil.

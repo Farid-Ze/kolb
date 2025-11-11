@@ -18,10 +18,10 @@ Psychometric Fidelity:
  - LFI still chooses absolute-nearest value.
 """
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Dict, Iterator, List
+from typing import Dict, List
 
 __all__ = [
     "AppendixTable",
@@ -52,7 +52,7 @@ class AppendixTable(Mapping[int, float]):
     def __getitem__(self, key: int) -> float:
         return self._data[key]
 
-    def __iter__(self) -> Iterator[int]:  # type: ignore[override]
+    def __iter__(self) -> Iterator[int]:
         return iter(self._data)
 
     def __len__(self) -> int:

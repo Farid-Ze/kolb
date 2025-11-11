@@ -74,9 +74,6 @@ class RegistryEntry:
         return replace(self, report_builder=builder)
 
 
-_UNSET = object()
-
-
 class _TokenMapping(MutableMapping[str, AssessmentDefinition]):
     """Legacy MutableMapping keyed by `<name>:<version>` tokens."""
 
@@ -115,22 +112,6 @@ class _TokenMapping(MutableMapping[str, AssessmentDefinition]):
 
     def __len__(self) -> int:
         return len(self._registry.snapshot())
-
-    def get(self, token: str, default: object = None) -> AssessmentDefinition | object:
-        try:
-            return self[token]
-        except KeyError:
-            return default
-
-    def pop(self, token: str, default: object = _UNSET) -> AssessmentDefinition | object:
-        try:
-            value = self[token]
-        except KeyError:
-            if default is _UNSET:
-                raise
-            return default
-        self.__delitem__(token)
-        return value
 
     def clear(self) -> None:
         self._registry.clear()
