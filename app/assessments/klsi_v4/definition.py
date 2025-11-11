@@ -14,6 +14,7 @@ from app.assessments.klsi_v4.logic import (
     compute_raw_scale_scores,
     assign_learning_style,
 )
+from app.assessments.klsi_v4.types import StyleIntensityMetrics
 from app.engine.interfaces import (
     AssessmentDefinition,
     ReportComposer,
@@ -128,7 +129,8 @@ class StyleClassificationStep:
             "primary_style_type_id": user_style.primary_style_type_id,
             "ACCE": user_style.ACCE_raw,
             "AERO": user_style.AERO_raw,
-            "intensity": intensities,
+            "intensity": intensities.as_dict(),
+            "intensity_metrics": intensities,
             "entity": user_style,
         }
 class LfiStep:
@@ -195,8 +197,14 @@ class DeltaStep:
     def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
         combo_entity = ctx["combination"]["entity"]
         lfi_entity = ctx["lfi"]["entity"]
-        intensities = ctx["style"]["intensity"]
-        delta = compute_longitudinal_delta(db, session_id, combo_entity, lfi_entity, intensities)
+        intensity_metrics = ctx["style"].get("intensity_metrics")
+        if not isinstance(intensity_metrics, StyleIntensityMetrics):
+            intensities_map = ctx["style"].get("intensity", {})
+            intensity_metrics = StyleIntensityMetrics(
+                manhattan=float(intensities_map.get("manhattan", 0.0)),
+                euclidean=float(intensities_map.get("euclidean", 0.0)),
+            )
+        delta = compute_longitudinal_delta(db, session_id, combo_entity, lfi_entity, intensity_metrics)
         if delta:
             ctx[self.name] = {
                 "previous_session_id": delta.previous_session_id,
@@ -207,7 +215,7 @@ class DeltaStep:
             }
 
 
-def assign_style(db: Session, combo_entity: CombinationScore) -> Tuple[UserLearningStyle, Dict[str, float]]:
+def assign_style(db: Session, combo_entity: CombinationScore) -> Tuple[UserLearningStyle, StyleIntensityMetrics]:
     """Delegate style assignment to logic layer while preserving typing."""
 
     return assign_learning_style(db, combo_entity)

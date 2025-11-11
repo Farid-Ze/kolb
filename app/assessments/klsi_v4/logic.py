@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import load_config
 from app.assessments.klsi_v4.enums import LearningStyleCode
-from app.assessments.klsi_v4.types import ScoreVector
+from app.assessments.klsi_v4.types import ScoreVector, StyleIntensityMetrics
 from app.core.errors import InvalidAssessmentData
 from app.engine.constants import ALL_SCALE_CODES, COMBINATION_SCALE_CODES, PRIMARY_MODE_CODES
 from app.engine.norms.factory import build_composite_norm_provider
@@ -308,7 +308,7 @@ def _style_distance(acc: int, aer: int, window: Dict[str, Optional[int]]) -> int
     return dx + dy
 
 
-def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLearningStyle, Dict[str, float]]:
+def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLearningStyle, StyleIntensityMetrics]:
     """Assign primary (and backup) style using DB windows exclusively.
 
     This removes reliance on in-code STYLE_CUTS lambdas to avoid drift.
@@ -349,6 +349,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     primary_type = style_repo.get_by_name(primary_name) if primary_name else None
     manhattan = abs(acc) + abs(aer)
     euclidean = sqrt(acc**2 + aer**2)
+    intensity_metrics = StyleIntensityMetrics(manhattan=manhattan, euclidean=euclidean)
     kite = {}
     if combo.session and combo.session.scale_score:
         kite = {
@@ -374,7 +375,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
                 backup_type.id,
                 frequency_count=1,
             )
-    return user_style, {"manhattan": manhattan, "euclidean": euclidean}
+    return user_style, intensity_metrics
 
 
 def _db_norm_lookup(
@@ -576,7 +577,7 @@ def compute_longitudinal_delta(
     session_id: int,
     combo: CombinationScore,
     lfi: LearningFlexibilityIndex,
-    intensity_metrics: Dict[str, float],
+    intensity_metrics: StyleIntensityMetrics,
 ) -> Optional[AssessmentSessionDelta]:
     session_repo = SessionRepository(db)
     session = session_repo.get_by_id(session_id)
@@ -597,7 +598,7 @@ def compute_longitudinal_delta(
         delta_acce=combo.ACCE_raw - previous.combination_score.ACCE_raw,
         delta_aero=combo.AERO_raw - previous.combination_score.AERO_raw,
         delta_lfi=(lfi.LFI_score - previous.lfi_index.LFI_score) if previous.lfi_index else None,
-        delta_intensity=(int(intensity_metrics["manhattan"]) - previous_intensity) if previous_intensity is not None else None,
+    delta_intensity=(int(intensity_metrics.manhattan) - previous_intensity) if previous_intensity is not None else None,
     )
     db.add(delta)
     return delta

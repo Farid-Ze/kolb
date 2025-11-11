@@ -165,11 +165,14 @@ def finalize_assessment(
                 "primary_style_type_id": style.primary_style_type_id,
                 "ACCE": style.ACCE_raw,
                 "AERO": style.AERO_raw,
-                "intensity": intensities,
+                "intensity": intensities.as_dict(),
+                "intensity_metrics": intensities,
                 "entity": style,
             }
             artifact_snapshots["style"] = {
-                key: value for key, value in ctx["style"].items() if key != "entity"
+                key: value
+                for key, value in ctx["style"].items()
+                if key not in {"entity", "intensity_metrics"}
             }
 
             ctx["lfi"] = {
@@ -224,7 +227,7 @@ def finalize_assessment(
                     artifact_snapshots[step.name] = {
                         key: value
                         for key, value in ctx[step.name].items()
-                        if key != "entity"
+                        if key not in {"entity", "intensity_metrics"}
                     }
             session.strategy_code = None
             db.flush()

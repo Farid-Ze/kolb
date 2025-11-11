@@ -4,6 +4,17 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
+class StyleIntensityMetrics:
+    """Vector magnitude proxies used to describe learning style intensity."""
+
+    manhattan: float
+    euclidean: float
+
+    def as_dict(self) -> dict[str, float]:
+        return {"manhattan": self.manhattan, "euclidean": self.euclidean}
+
+
+@dataclass(frozen=True, slots=True)
 class ScoreVector:
     """Immutable container for raw learning mode totals."""
 
