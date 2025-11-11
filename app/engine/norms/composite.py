@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
+import httpx
+
 from app.data import norms as appendix_norms
+from app.engine.norms.provider import NormProvider
 
 _NORM_VERSION_DELIM = "|"
 _DEFAULT_NORM_VERSION = "default"
@@ -90,16 +93,62 @@ class AppendixNormProvider:
 
 
 class ExternalNormProvider:
-    """Placeholder for an external API/provider. Always returns no result."""
+    """HTTP-backed external norms provider.
+
+    Contract (assumed): GET {base_url}/norms/{norm_group}/{scale}/{raw}
+    Response JSON: {"percentile": float, "version": "vX"}
+    404 means not found for that (group, scale, raw) tuple.
+    """
+
+    def __init__(self, base_url: str, timeout_ms: int = 1500, api_key: str | None = None):
+        self.base_url = base_url.rstrip("/")
+        self.timeout = max(100, int(timeout_ms)) / 1000.0  # seconds
+        self.api_key = api_key
+
+    def _headers(self) -> dict:
+        headers = {"Accept": "application/json"}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        return headers
+
+    def _fetch(self, group_token: str, scale: str, raw: int | float) -> Tuple[Optional[float], Optional[str]]:
+        url = f"{self.base_url}/norms/{group_token}/{scale}/{int(raw)}"
+        # Simple retry loop (2 attempts)
+        last_exc: Exception | None = None
+        for _ in range(2):
+            try:
+                resp = httpx.get(url, headers=self._headers(), timeout=self.timeout)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    percentile = data.get("percentile")
+                    version = data.get("version")
+                    if isinstance(percentile, (int, float)):
+                        return float(percentile), str(version) if version else None
+                    return None, None
+                if resp.status_code == 404:
+                    return None, None
+            except Exception as exc:  # network errors/timeouts
+                last_exc = exc
+                continue
+        return None, None
 
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> Tuple[Optional[float], str, bool]:
+        if not self.base_url:
+            return None, "External:Disabled", False
+        for group_token in group_chain:
+            value, version = self._fetch(group_token, scale, raw)
+            if value is not None:
+                label = f"External:{group_token}"
+                if version:
+                    label = f"{label}{_NORM_VERSION_DELIM}{version}"
+                return value, label, False
         return None, "External:None", False
 
 
 class CompositeNormProvider:
-    def __init__(self, providers: List[object]):
+    def __init__(self, providers: List[NormProvider]):
         self.providers = providers
 
     def percentile(

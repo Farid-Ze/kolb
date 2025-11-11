@@ -11,7 +11,7 @@ from app.engine.interfaces import ScoringContext
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import get as get_definition
 from app.engine.strategy_registry import get_strategy
-from app.models.klsi import AssessmentSession, AuditLog
+from app.models.klsi import AssessmentSession, AuditLog, LFIContextScore
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
 
@@ -217,6 +217,10 @@ def finalize_assessment(
             # Anomalies: any truncated scale, mixed provenance
             if pct_ctx.get("raw_outside_norm_range"):
                 validation_result.anomalies.append("RAW_OUTSIDE_NORM_RANGE")
+            # Excessive truncations (>=2 scales truncated)
+            trunc_map = pct_ctx.get("truncated") or {}
+            if isinstance(trunc_map, dict) and len(trunc_map) >= 2:
+                validation_result.anomalies.append("EXCESSIVE_TRUNCATION")
             sources = pct_ctx.get("sources", {}) or {}
             if any(v.get("used_fallback") for v in sources.values() if isinstance(v, dict)) and any(
                 v.get("source", "").startswith("DB:") for v in sources.values() if isinstance(v, dict)
@@ -234,4 +238,34 @@ def finalize_assessment(
                     validation_result.anomalies.append("LOW_W_PATTERN")
                 elif W > 0.95:
                     validation_result.anomalies.append("HIGH_W_UNIFORMITY")
+            # Detect repeated LFI rank patterns (7+ or 6+ of 8 contexts identical)
+            patterns = []
+            rows = (
+                db.query(LFIContextScore)
+                .filter(LFIContextScore.session_id == session_id)
+                .all()
+            )
+            for r in rows:
+                patterns.append((r.CE_rank, r.RO_rank, r.AC_rank, r.AE_rank))
+            if patterns:
+                from collections import Counter
+                counts = Counter(patterns)
+                top = counts.most_common(1)[0][1]
+                if top >= 7:
+                    validation_result.anomalies.append("LFI_REPEATED_PATTERN_7PLUS")
+                elif top >= 6:
+                    validation_result.anomalies.append("LFI_REPEATED_PATTERN_6PLUS")
+        # Near-boundary style window detection using combination raw ACCE/AERO
+        if "combination" in ctx:
+            combo_ctx = ctx["combination"]
+            acce = combo_ctx.get("ACCE")
+            aero = combo_ctx.get("AERO")
+            near = False
+            # Boundaries (per docs): ACCE cutpoints at 5/6 and 14/15; AERO at 0/1 and 11/12
+            if isinstance(acce, int) and (acce in (5, 6, 14, 15)):
+                near = True
+            if isinstance(aero, int) and (aero in (0, 1, 11, 12)):
+                near = True
+            if near:
+                validation_result.anomalies.append("NEAR_STYLE_BOUNDARY")
         return {"ok": True, "context": ctx, "artifacts": artifact_snapshots, "validation": validation_result.as_dict()}

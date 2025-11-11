@@ -138,7 +138,7 @@ def submit_interaction(
     user = get_current_user(authorization, db)
     session = _get_session(db, session_id)
     _assert_access(user, session)
-    runtime.submit_payload(db, session_id, payload.dict(exclude_unset=True))
+    runtime.submit_payload(db, session_id, payload.model_dump(exclude_unset=True))
     return {"ok": True}
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
+from typing import List
 
 from app.engine.norms.composite import (
     AppendixNormProvider,
@@ -8,6 +9,7 @@ from app.engine.norms.composite import (
     DatabaseNormProvider,
     ExternalNormProvider,
 )
+from app.core.config import settings
 
 
 def build_composite_norm_provider(db: Session):
@@ -38,8 +40,15 @@ def build_composite_norm_provider(db: Session):
                 return float(row[0]), (row[1] or version)
         return None
 
-    return CompositeNormProvider([
-        DatabaseNormProvider(_db_lookup),
-        AppendixNormProvider(),
-        ExternalNormProvider(),
-    ])
+    # Precedence: DB → External (optional) → Appendix
+    providers: List[object] = [DatabaseNormProvider(_db_lookup)]
+    if settings.external_norms_enabled and settings.external_norms_base_url:
+        providers.append(
+            ExternalNormProvider(
+                base_url=settings.external_norms_base_url,
+                timeout_ms=settings.external_norms_timeout_ms,
+                api_key=settings.external_norms_api_key,
+            )
+        )
+    providers.append(AppendixNormProvider())
+    return CompositeNormProvider(providers)  # type: ignore[arg-type]

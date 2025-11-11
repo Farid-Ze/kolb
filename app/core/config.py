@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     allowed_student_domain: str = "mahasiswa.unikom.ac.id"
     audit_salt: str = os.getenv("AUDIT_SALT", "klsi-default-salt")
 
+    # External norm provider configuration
+    external_norms_enabled: bool = bool(int(os.getenv("EXTERNAL_NORMS_ENABLED", "0")))
+    external_norms_base_url: str = os.getenv("EXTERNAL_NORMS_BASE_URL", "")
+    external_norms_timeout_ms: int = int(os.getenv("EXTERNAL_NORMS_TIMEOUT_MS", "1500"))
+    external_norms_api_key: str | None = os.getenv("EXTERNAL_NORMS_API_KEY") or None
+
     # Pydantic v2 config via ConfigDict
     model_config = {
         "env_file": ".env",
