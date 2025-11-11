@@ -1,4 +1,13 @@
-from app.assessments.klsi_v4.logic import STYLE_CUTS
+from app.assessments.klsi_v4.logic import STYLE_CUTS, compute_raw_scale_scores
+from app.db.database import SessionLocal
+from app.models.klsi import (
+    AssessmentItem,
+    AssessmentSession,
+    ItemType,
+    SessionStatus,
+    User,
+    UserResponse,
+)
 from app.services.scoring import compute_kendalls_w
 
 
@@ -48,3 +57,49 @@ def test_style_cuts_boundaries():
     assert STYLE_CUTS["Thinking"](15, 11)
     # Deciding: ACCE>=15 and AERO>=12
     assert STYLE_CUTS["Deciding"](15, 12)
+
+
+def test_raw_score_rank_direction():
+    ranks_by_mode = {"CE": 1, "RO": 2, "AC": 3, "AE": 4}
+    with SessionLocal() as db:
+        user = User(full_name="Rank Direction", email="rank_direction@test", role="MAHASISWA")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        session = AssessmentSession(
+            user_id=user.id,
+            status=SessionStatus.in_progress,
+            assessment_id="KLSI",
+            assessment_version="4.0",
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        items = (
+            db.query(AssessmentItem)
+            .filter(AssessmentItem.item_type == ItemType.learning_style)
+            .order_by(AssessmentItem.item_number.asc())
+            .all()
+        )
+        assert len(items) == 12
+        for item in items:
+            choices = {choice.learning_mode.value: choice for choice in item.choices}
+            for mode, rank in ranks_by_mode.items():
+                choice = choices[mode]
+                db.add(
+                    UserResponse(
+                        session_id=session.id,
+                        item_id=item.id,
+                        choice_id=choice.id,
+                        rank_value=rank,
+                    )
+                )
+        db.commit()
+
+        scale = compute_raw_scale_scores(db, session.id)
+        assert scale.CE_raw == 12  # 12 items * rank 1
+        assert scale.RO_raw == 24  # 12 items * rank 2
+        assert scale.AC_raw == 36  # 12 items * rank 3
+        assert scale.AE_raw == 48  # 12 items * rank 4 -> highest preference

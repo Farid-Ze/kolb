@@ -172,19 +172,28 @@ class EngineRuntime:
                     "diagnostics": validation.get("diagnostics"),
                 },
             )
+
         scorer = self._registry.scorer(self._instrument_id(session))
-        result = scorer.finalize(db, session_id, skip_checks=skip_validation)
-        if not result.get("ok"):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "issues": result.get("issues"),
-                    "diagnostics": result.get("diagnostics"),
-                },
-            )
-        session.status = SessionStatus.completed
-        session.end_time = datetime.now(timezone.utc)
-        db.commit()
+        try:
+            result = scorer.finalize(db, session_id, skip_checks=skip_validation)
+            if not result.get("ok"):
+                db.rollback()
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "issues": result.get("issues"),
+                        "diagnostics": result.get("diagnostics"),
+                    },
+                )
+            session.status = SessionStatus.completed
+            session.end_time = datetime.now(timezone.utc)
+            db.commit()
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception as exc:  # pragma: no cover - defensive rollback
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
         result["validation"] = validation
         result["override"] = skip_validation and not validation.get("ready", False)
         return result

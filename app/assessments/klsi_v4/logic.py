@@ -198,6 +198,15 @@ def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
 
 
 def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
+    """Sum forced-choice ranks for each learning mode.
+
+    The KLSI 4.0 manual specifies that participants assign the value ``4``
+    to the statement that best describes them within an item and ``1`` to
+    the statement that least describes them. Summing the rank values keeps
+    that directionality so higher totals reflect stronger relative
+    preference for the associated learning mode, aligning with the
+    normative tables in Appendix 1 (range 12–48).
+    """
     responses = (
         db.query(UserResponse)
         .filter(UserResponse.session_id == session_id)

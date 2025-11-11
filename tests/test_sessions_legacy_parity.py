@@ -3,7 +3,15 @@ from __future__ import annotations
 from uuid import uuid4
 
 from app.db.database import SessionLocal
-from app.models.klsi import AssessmentItem, AssessmentSession, ItemChoice, ItemType, SessionStatus, User
+from app.models.klsi import (
+    AssessmentItem,
+    AssessmentSession,
+    ItemChoice,
+    ItemType,
+    LFIContextScore,
+    SessionStatus,
+    User,
+)
 from app.services.scoring import CONTEXT_NAMES
 from app.services.security import create_access_token
 
@@ -124,6 +132,49 @@ def test_legacy_finalize_blocks_incomplete_session(client):
     codes = {issue["code"] for issue in detail["issues"]}
     assert "ITEMS_INCOMPLETE" in codes
     assert "LFI_CONTEXT_COUNT" in codes
+
+
+def test_legacy_finalize_blocks_invalid_lfi_ranks(client):
+    _, student_token = _create_user()
+    headers = {"Authorization": f"Bearer {student_token}"}
+
+    r_start = client.post("/sessions/start", headers=headers)
+    assert r_start.status_code == 200, r_start.text
+    session_id = r_start.json()["session_id"]
+
+    for payload in _build_ranks():
+        r_submit = client.post(
+            f"/sessions/{session_id}/submit_item",
+            params={"item_id": payload["item_id"]},
+            json=payload["ranks"],
+            headers=headers,
+        )
+        assert r_submit.status_code == 200, r_submit.text
+
+    with SessionLocal() as db:
+        for idx, context_name in enumerate(CONTEXT_NAMES):
+            ranks = [1, 2, 3, 4]
+            if idx == len(CONTEXT_NAMES) - 1:
+                ranks = [1, 1, 3, 4]  # duplicate rank to violate permutation rule
+            db.add(
+                LFIContextScore(
+                    session_id=session_id,
+                    context_name=context_name,
+                    CE_rank=ranks[0],
+                    RO_rank=ranks[1],
+                    AC_rank=ranks[2],
+                    AE_rank=ranks[3],
+                )
+            )
+        db.commit()
+
+    r_finalize = client.post(f"/sessions/{session_id}/finalize", headers=headers)
+    assert r_finalize.status_code == 400, r_finalize.text
+    detail = r_finalize.json()["detail"]
+    codes = {issue["code"] for issue in detail["issues"]}
+    assert "LFI_CONTEXT_RANK_INVALID" in codes
+    diagnostics = detail.get("diagnostics", {})
+    assert diagnostics.get("items", {}).get("ready_to_complete") is True
 
 
 def test_legacy_force_finalize_by_mediator(client):

@@ -40,6 +40,14 @@ __all__ = [
 
 
 def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
+    """Aggregate forced-choice ranks into mode totals.
+
+    KLSI instructions treat rank ``4`` as "most like me" and ``1`` as
+    "least like me". The Kolb 4.0 normative tables (Appendix 1) therefore
+    expect larger summed totals to indicate a stronger relative preference
+    for that learning mode. We mirror that convention here by summing the
+    rank values directly for each mode.
+    """
     return logic_compute_raw_scale_scores(db, session_id)
 
 
