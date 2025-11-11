@@ -10,7 +10,7 @@ from app.data.norms import APPENDIX_TABLES, lookup_lfi
 from app.engine.norms.provider import NormProvider
 from app.engine.norms.value_objects import PercentileResult
 from app.core.config import settings
-from app.core.metrics import timer, metrics_registry
+from app.core.metrics import count_calls, measure_time, timer, metrics_registry
 
 _NORM_VERSION_DELIM = "|"
 _DEFAULT_NORM_VERSION = "default"
@@ -33,6 +33,8 @@ class DatabaseNormProvider:
     def __init__(self, db_lookup):
         self.db_lookup = db_lookup
 
+    @count_calls("norms.db.percentile.calls")
+    @measure_time("norms.db.percentile", histogram=True)
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> PercentileResult:
@@ -60,6 +62,8 @@ class DatabaseNormProvider:
 class AppendixNormProvider:
     """Appendix fallback provider for KLSI 4.0 norm tables."""
 
+    @count_calls("norms.appendix.percentile.calls")
+    @measure_time("norms.appendix.percentile", histogram=True)
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> PercentileResult:
@@ -164,6 +168,8 @@ class ExternalNormProvider:
             except StopIteration:
                 break
 
+    @count_calls("norms.external.percentile.calls")
+    @measure_time("norms.external.percentile", histogram=True)
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> PercentileResult:

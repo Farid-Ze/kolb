@@ -13,8 +13,9 @@ from app.assessments.klsi_v4.logic import (
     _split_norm_group_token,
 )
 from app.data.norms import APPENDIX_TABLES, lookup_lfi
-from app.core.metrics import timer, inc_counter
+from app.core.metrics import timer, inc_counter, measure_time, count_calls
 from app.db.repositories import NormativeConversionRepository, NormativeConversionRow
+from app.db.repositories.protocols import NormConversionReader
 
 
 class _LRU(OrderedDict):
@@ -44,16 +45,18 @@ class CachedCompositeNormProvider:
         group_chain: List[str] | None = None,
         *,
         max_cache: int = 8192,
-        norm_repo: NormativeConversionRepository | None = None,
+        norm_repo: NormConversionReader | None = None,
     ):
         self.db = db
         self.group_chain = group_chain or []
         self._cache: _LRU = _LRU(maxsize=max_cache)
         self._appendix = AppendixNormProvider()
-        self._norm_repo = norm_repo or NormativeConversionRepository(db)
+        self._norm_repo: NormConversionReader = norm_repo or NormativeConversionRepository(db)
 
     # Public API --------------------------------------------------------------
 
+    @count_calls("norms.cached.percentile.calls")
+    @measure_time("norms.cached.percentile", histogram=True)
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
     ) -> PercentileResult:
@@ -62,6 +65,8 @@ class CachedCompositeNormProvider:
         key = self._cache_key(chain_tuple, sample)
         return self._cache.get_or_set(key, lambda: self._lookup_single(chain_tuple, sample))
 
+    @count_calls("norms.cached.percentile_many.calls")
+    @measure_time("norms.cached.percentile_many", histogram=True)
     def percentile_many(
         self, group_chain: List[str], items: Iterable[Tuple[str, int | float] | ScaleSample]
     ) -> Dict[Tuple[str, int | float], PercentileResult]:

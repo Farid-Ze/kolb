@@ -1,4 +1,5 @@
 from app.db.repositories.normative import NormativeConversionRepository, NormativeConversionRow
+from app.db.repositories.protocols import NormConversionReader
 from app.db.repositories.sessions import SessionRepository
 from app.db.repositories.team import (
     TeamRepository,
@@ -28,6 +29,7 @@ from app.db.repositories.styles import StyleRepository
 __all__ = [
     "NormativeConversionRepository",
     "NormativeConversionRow",
+    "NormConversionReader",
     "SessionRepository",
     "TeamRepository",
     "TeamMemberRepository",

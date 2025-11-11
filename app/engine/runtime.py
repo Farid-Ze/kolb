@@ -21,8 +21,8 @@ from app.engine.runtime_logic import (
 )
 from app.models.klsi import AssessmentSession, SessionStatus, User, AuditLog
 from app.services.validation import run_session_validations
-from app.db.repositories import InstrumentRepository, SessionRepository
-from app.core.metrics import timeit
+from app.db.database import get_repository_provider
+from app.core.metrics import timeit, measure_time, count_calls
 from app.core.logging import correlation_context, get_logger
 
 
@@ -36,7 +36,8 @@ class EngineRuntime:
         self._registry = engine_registry
 
     def _resolve_session(self, db: Session, session_id: int) -> AssessmentSession:
-        repo = SessionRepository(db)
+        repo_provider = get_repository_provider(db)
+        repo = repo_provider.sessions
         session = repo.get_by_id(session_id)
         if not session:
             logger.warning(
@@ -60,7 +61,8 @@ class EngineRuntime:
     ) -> AssessmentSession:
         correlation_id = str(uuid4())
         with correlation_context(correlation_id):
-            instrument_repo = InstrumentRepository(db)
+            repo_provider = get_repository_provider(db)
+            instrument_repo = repo_provider.instruments
             instrument = instrument_repo.get_by_code(instrument_code, instrument_version)
             if not instrument:
                 logger.warning(
@@ -179,6 +181,8 @@ class EngineRuntime:
         plugin = self._registry.plugin(self._instrument_id(session))
         plugin.validate_submit(db, session_id, payload)
 
+    @count_calls("engine.finalize.calls")
+    @measure_time("engine.finalize", histogram=True)
     @timeit("engine.finalize")
     def finalize(
         self,
@@ -293,6 +297,8 @@ class EngineRuntime:
             )
             return result
 
+    @count_calls("engine.finalize_with_audit.calls")
+    @measure_time("engine.finalize_with_audit", histogram=True)
     @timeit("engine.finalize_with_audit")
     def finalize_with_audit(
         self,

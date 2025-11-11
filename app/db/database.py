@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from time import perf_counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterator
 
@@ -8,6 +9,12 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
+from app.core.metrics import (
+    inc_counter,
+    observe_histogram,
+    record_last_run,
+    metrics_registry,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers only
     from app.db.repositories import (
@@ -18,12 +25,23 @@ if TYPE_CHECKING:  # pragma: no cover - type checking helpers only
         SessionRepository,
         StyleRepository,
         UserResponseRepository,
+        NormativeConversionRepository,
     )
 
 
 class Base(DeclarativeBase):
     pass
 
+SESSION_DURATION_BUCKETS: tuple[float, ...] = (2.0, 5.0, 10.0, 25.0, 50.0, 100.0)
+TRANSACTION_DURATION_BUCKETS: tuple[float, ...] = (
+    5.0,
+    10.0,
+    25.0,
+    50.0,
+    100.0,
+    250.0,
+    500.0,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,24 +53,57 @@ class DatabaseGateway:
 
     @contextmanager
     def session(self) -> Iterator[Session]:
+        started = perf_counter()
+        inc_counter("db.session.opens")
         session: Session = self.session_factory()
         try:
             yield session
         finally:
+            elapsed_ms = (perf_counter() - started) * 1000.0
+            metrics_registry.record("db.session.duration", elapsed_ms)
+            observe_histogram("db.session.duration", elapsed_ms, buckets=SESSION_DURATION_BUCKETS)
+            record_last_run("db.session.duration", elapsed_ms)
+            inc_counter("db.session.closes")
             session.close()
 
     @contextmanager
     def transactional(self, *, flush_before_commit: bool = False) -> Iterator[Session]:
         session: Session = self.session_factory()
+        started = perf_counter()
+        committed = False
+        rolled_back = False
+        inc_counter("db.transaction.opens")
         try:
             yield session
             if flush_before_commit:
+                inc_counter("db.transaction.flushes")
                 session.flush()
             session.commit()
+            committed = True
+            inc_counter("db.transaction.commits")
         except Exception:
             session.rollback()
+            rolled_back = True
+            inc_counter("db.transaction.rollbacks")
             raise
         finally:
+            elapsed_ms = (perf_counter() - started) * 1000.0
+            metrics_registry.record("db.transaction.duration", elapsed_ms)
+            observe_histogram(
+                "db.transaction.duration",
+                elapsed_ms,
+                buckets=TRANSACTION_DURATION_BUCKETS,
+            )
+            record_last_run(
+                "db.transaction.duration",
+                elapsed_ms,
+                metadata={
+                    "committed": committed,
+                    "rolled_back": rolled_back,
+                    "flush": flush_before_commit,
+                },
+            )
+            inc_counter("db.transaction.closes")
             session.close()
 
 
@@ -119,6 +170,12 @@ class RepositoryProvider:
         from app.db.repositories import StyleRepository
 
         return StyleRepository(self.db)
+
+    @property
+    def norms(self) -> "NormativeConversionRepository":
+        from app.db.repositories import NormativeConversionRepository
+
+        return NormativeConversionRepository(self.db)
 
     @property
     def assessments(self) -> AssessmentRepositoryGroup:

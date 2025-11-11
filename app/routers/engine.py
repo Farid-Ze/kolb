@@ -19,7 +19,13 @@ from app.engine.runtime import runtime
 from app.models.klsi import AssessmentSession, AuditLog, User, UserResponse, LFIContextScore, SessionStatus
 from app.services.security import get_current_user
 from app.schemas.session import SessionSubmissionPayload
-from app.core.metrics import inc_counter
+from app.core.metrics import (
+    get_metrics,
+    get_counters,
+    get_histograms,
+    get_last_runs,
+    inc_counter,
+)
 
 
 def _format_sunset(value: datetime | None) -> str | None:
@@ -247,6 +253,32 @@ def submit_interaction(
     inc_counter("deprecated.engine.interactions")
     runtime.submit_payload(db, session_id, payload.model_dump(exclude_unset=True))
     return {"ok": True}
+
+
+@router.get("/metrics", response_model=dict)
+def engine_metrics(
+    reset: bool = False,
+    include_last_runs: bool = True,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    if user.role != "MEDIATOR":
+        raise HTTPException(status_code=403, detail="Hanya mediator yang dapat melihat metrik")
+
+    timings = get_metrics(reset=reset)
+    counters = get_counters(reset=reset)
+    histograms = get_histograms(reset=reset)
+    last_runs = get_last_runs(reset=reset) if include_last_runs or reset else {}
+
+    payload = {
+        "timings": timings,
+        "counters": counters,
+        "histograms": histograms,
+    }
+    if include_last_runs:
+        payload["last_runs"] = last_runs
+    return payload
 
 
 @router.post("/sessions/{session_id}/finalize", response_model=dict)

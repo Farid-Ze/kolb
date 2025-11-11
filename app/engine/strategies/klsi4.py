@@ -13,12 +13,14 @@ from app.assessments.klsi_v4.logic import (
     compute_longitudinal_delta,
 )
 from app.engine.strategies.base import ScoringStrategy
-from app.core.metrics import timer
+from app.core.metrics import count_calls, measure_time, timer
 
 
 class KLSI4Strategy(ScoringStrategy):
     code = "KLSI4.0"
 
+    @count_calls("pipeline.klsi4.finalize.calls")
+    @measure_time("pipeline.klsi4.finalize", histogram=True)
     def finalize(self, db: Session, session_id: int) -> Dict[str, Any]:
         with timer("pipeline.klsi4.finalize"):
             # Compute pipeline artifacts; defer flush until dependent graphs are ready
