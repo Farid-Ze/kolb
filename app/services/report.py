@@ -253,7 +253,8 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             joinedload(AssessmentSession.learning_style),
             joinedload(AssessmentSession.percentile_score),
             joinedload(AssessmentSession.lfi_index),
-            selectinload(AssessmentSession.backup_styles),
+            selectinload(AssessmentSession.backup_styles).joinedload(BackupLearningStyle.style_type),
+            selectinload(AssessmentSession.lfi_context_scores),
             joinedload(AssessmentSession.user),
         )
         .filter(AssessmentSession.id == session_id)
@@ -269,11 +270,11 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
     lfi = s.lfi_index
 
     primary = db.query(LearningStyleType).filter(LearningStyleType.id == ustyle.primary_style_type_id).first() if ustyle else None
-    # From preloaded collection, select most frequent backup style
     backup = None
+    backup_type = None
     if s.backup_styles:
         backup = max(s.backup_styles, key=lambda b: (b.frequency_count or 0))
-    backup_type = db.query(LearningStyleType).filter(LearningStyleType.id == backup.style_type_id).first() if backup else None
+        backup_type = backup.style_type  # Already eagerly loaded
 
     intensity = abs(combo.ACCE_raw) + abs(combo.AERO_raw) if combo else None
     intensity_key = "low_intensity" if intensity is not None and intensity <= 10 else ("moderate_intensity" if intensity and intensity <= 20 else "high_intensity")
@@ -297,9 +298,8 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
     enhanced_analytics = None
     if viewer_role == "MEDIATOR":
         # Retrieve LFI context scores (ordered by context_name to ensure consistency)
-        context_scores = db.query(LFIContextScore).filter(
-            LFIContextScore.session_id == session_id
-        ).order_by(LFIContextScore.context_name).all()
+        # Use eagerly loaded context scores (already limited to this session)
+        context_scores = sorted(s.lfi_context_scores, key=lambda c: c.context_name)
         
         # Validate exactly 8 LFI contexts before including enhanced analytics
         if len(context_scores) != 8:

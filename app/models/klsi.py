@@ -180,6 +180,7 @@ class AssessmentSession(Base):
     lfi_index: Mapped[Optional[LearningFlexibilityIndex]] = relationship(back_populates="session", uselist=False)
     percentile_score: Mapped[Optional["PercentileScore"]] = relationship(back_populates="session", uselist=False)
     backup_styles: Mapped[list["BackupLearningStyle"]] = relationship(back_populates="session")
+    lfi_context_scores: Mapped[list["LFIContextScore"]] = relationship(back_populates="session")
     delta: Mapped[Optional["AssessmentSessionDelta"]] = relationship(back_populates="session", uselist=False)
     scale_provenances: Mapped[list["ScaleProvenance"]] = relationship(back_populates="session")
 
@@ -299,6 +300,7 @@ class LFIContextScore(Base):
         ),
         Index("ix_lfi_context_scores_session", "session_id"),
     )
+    session: Mapped[AssessmentSession] = relationship(back_populates="lfi_context_scores")
 
 class LearningFlexibilityIndex(Base):
     __tablename__ = "learning_flexibility_index"
@@ -322,6 +324,7 @@ class BackupLearningStyle(Base):
     contexts_used: Mapped[Optional[dict]] = mapped_column(JSON)
     percentage: Mapped[Optional[int]] = mapped_column(Integer)
     session: Mapped[AssessmentSession] = relationship(back_populates="backup_styles")
+    style_type: Mapped["LearningStyleType"] = relationship()
 
 class NormativeConversionTable(Base):
     __tablename__ = "normative_conversion_table"
