@@ -18,7 +18,7 @@ from app.engine.norms.factory import (
 from app.core.config import settings
 from app.services.security import get_current_user
 from app.services import pipelines as pipeline_service
-from app.core.metrics import get_metrics, metrics_registry
+from app.core.metrics import get_metrics, get_counters
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -157,6 +157,15 @@ def get_perf_metrics(
     if user.role != 'MEDIATOR':
         raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh melihat metrics")
     timing = get_metrics(reset=reset)
+    counters = get_counters(reset=reset)
+    # Toggle visibility for ops
+    from app.core.config import settings as _settings
+    toggles = {
+        "environment": _settings.environment,
+        "disable_legacy_submission": _settings.disable_legacy_submission,
+        "disable_legacy_router": _settings.disable_legacy_router,
+        "legacy_sunset": _settings.legacy_sunset,
+    }
     # Compose provider cache stats if available
     provider = build_composite_norm_provider(db)
     db_cache = {}
@@ -165,8 +174,10 @@ def get_perf_metrics(
     ext_cache = external_cache_stats()
     return {
         "timings": timing,
+        "counters": counters,
         "norm_db_cache": db_cache,
         "external_norm_cache": ext_cache,
+        "toggles": toggles,
     }
 
 

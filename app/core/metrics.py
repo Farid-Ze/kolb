@@ -18,6 +18,7 @@ class _MetricsRegistry:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._timings: Dict[str, Dict[str, float]] = {}
+        self._counters: Dict[str, float] = {}
 
     def record(self, label: str, elapsed_ms: float) -> None:
         if not label:
@@ -42,6 +43,21 @@ class _MetricsRegistry:
     def reset(self) -> None:
         with self._lock:
             self._timings.clear()
+            self._counters.clear()
+
+    # --- Counters ---
+    def inc(self, label: str, amount: float = 1.0) -> None:
+        if not label:
+            return
+        with self._lock:
+            self._counters[label] = self._counters.get(label, 0.0) + float(amount)
+
+    def counters_snapshot(self, reset: bool = False) -> Dict[str, float]:
+        with self._lock:
+            data = dict(self._counters)
+            if reset:
+                self._counters.clear()
+            return data
 
 
 metrics_registry = _MetricsRegistry()
@@ -77,3 +93,11 @@ def record_timing(label: str):
 
 def get_metrics(reset: bool = False) -> Dict[str, Dict[str, float]]:
     return metrics_registry.snapshot(reset=reset)
+
+
+def inc_counter(label: str, amount: float = 1.0) -> None:
+    metrics_registry.inc(label, amount)
+
+
+def get_counters(reset: bool = False) -> Dict[str, float]:
+    return metrics_registry.counters_snapshot(reset=reset)

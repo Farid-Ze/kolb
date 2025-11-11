@@ -262,7 +262,43 @@ POST /sessions/{session_id}/submit_context     (deprecated)
 |----------|-------|-----------|
 | `JWT_SECRET_KEY` | ✅ | Kunci HS256 untuk token JWT (tanpa default; harus diset) |
 | `DISABLE_LEGACY_SUBMISSION` | Opsional | `1` → Matikan endpoint `submit_item` & `submit_context` dengan HTTP 410 |
+| `DISABLE_LEGACY_ROUTER` | Opsional | `1` → Jangan register router `/sessions/*` (selain dev/test) |
+| `LEGACY_SUNSET` | Opsional | RFC 8594 datetime untuk header `Sunset` pada endpoint deprecated |
 | `EXTERNAL_NORMS_ENABLED` | Opsional | Aktifkan provider norma eksternal (non-blocking) |
+### Telemetri Depresiasi
+
+Endpoint lama menambahkan header HTTP berikut untuk membantu migrasi:
+
+```
+Deprecation: true
+Link: </sessions/{session_id}/submit_all_responses>; rel=successor-version
+```
+
+Engine single-interaction endpoint:
+
+```
+Deprecation: true
+Link: </engine/sessions/{session_id}/submit_all>; rel=successor-version
+```
+
+Mediator dapat memeriksa hit pemakaian endpoint deprecated via:
+
+```http
+GET /admin/perf-metrics
+Authorization: Bearer {mediator_token}
+```
+
+Respons mencakup blok `counters` dengan label:
+
+```
+"counters": {
+  "deprecated.sessions.submit_item": 42,
+  "deprecated.sessions.submit_context": 40,
+  "deprecated.engine.interactions": 180
+}
+```
+
+Gunakan tren ini untuk menentukan kapan aman mengaktifkan `DISABLE_LEGACY_SUBMISSION=1` di staging/produksi.
 | `EXTERNAL_NORMS_BASE_URL` | Opsional | Base URL service norma eksternal |
 | `EXTERNAL_NORMS_TIMEOUT_MS` | Opsional | Timeout lookup eksternal (default 1500ms) |
 | `EXTERNAL_NORMS_CACHE_SIZE` | Opsional | Ukuran LRU cache norma eksternal |
@@ -489,6 +525,14 @@ validate_ipsative_response(session_id, item_id, rankings, db)
 | "Session already finalized" | Re-submitting finalization | Return existing results (idempotent) |
 | "Percentile not found" | Missing norm row | Check fallback triggered (Appendix 7) |
 | "Kendall's W out of range" | Bug in computation | Verify sum of ranks = 20 per mode |
+| "Endpoint deprecated" | Legacy endpoints dinonaktifkan | Gunakan batch: `/engine/sessions/{id}/submit_all` atau `/sessions/{id}/submit_all_responses` |
+## 🧹 Remove Legacy Flow
+
+1) Monitor pemakaian endpoint deprecated (counters) via `GET /admin/perf-metrics`.
+2) Staging: set `DISABLE_LEGACY_SUBMISSION=1` dan (opsional) `DISABLE_LEGACY_ROUTER=1` (non-dev/test).
+3) Produksi: aktifkan toggles di atas saat pemakaian deprecated ≈ 0.
+4) Hapus file `app/routers/sessions.py` dan test parity legacy pada rilis minor berikutnya; dokumentasikan breaking change.
+5) Pertahankan header `Sunset` dengan tanggal target selama masa transisi.
 
 ### Debug SQL
 

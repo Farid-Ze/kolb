@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,8 +15,10 @@ from app.engine.authoring import (
     list_instrument_specs,
 )
 from app.engine.runtime import runtime
-from app.models.klsi import AssessmentSession, AuditLog, User
+from app.models.klsi import AssessmentSession, AuditLog, User, UserResponse, LFIContextScore, SessionStatus
 from app.services.security import get_current_user
+from app.schemas.session import SessionSubmissionPayload
+from app.core.metrics import inc_counter
 
 router = APIRouter(prefix="/engine", tags=["engine"])
 
@@ -128,16 +130,112 @@ def get_delivery(
     return runtime.delivery_package(db, session_id, locale=locale)
 
 
+@router.post("/sessions/{session_id}/submit_all", response_model=dict)
+def submit_all_responses(
+    session_id: int,
+    payload: SessionSubmissionPayload,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically."""
+    user = get_current_user(authorization, db)
+    session = _get_session(db, session_id)
+    _assert_access(user, session)
+
+    if session.status == SessionStatus.completed:
+        raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+
+    try:
+        with db.begin():
+            # Insert all item ranks
+            for item in payload.items:
+                for choice_id, rank_value in item.ranks.items():
+                    db.add(
+                        UserResponse(
+                            session_id=session_id,
+                            item_id=item.item_id,
+                            choice_id=int(choice_id),
+                            rank_value=int(rank_value),
+                        )
+                    )
+            # Insert all contexts
+            for ctx in payload.contexts:
+                db.add(
+                    LFIContextScore(
+                        session_id=session_id,
+                        context_name=ctx.context_name,
+                        CE_rank=ctx.CE,
+                        RO_rank=ctx.RO,
+                        AC_rank=ctx.AC,
+                        AE_rank=ctx.AE,
+                    )
+                )
+        # Finalize with audit after persistence
+        def _payload_builder(res: dict) -> bytes:
+            combination = res.get("combination")
+            lfi = res.get("lfi")
+            if not combination or not lfi:
+                return b""
+            return (
+                f"user:{user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
+                f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
+            ).encode("utf-8")
+
+        result = runtime.finalize_with_audit(
+            db,
+            session_id,
+            actor_email=user.email,
+            action="FINALIZE_SESSION_ENGINE_BATCH",
+            build_payload=_payload_builder,
+        )
+
+        combination = result.get("combination")
+        lfi = result.get("lfi")
+        style = result.get("style")
+        percentiles = result.get("percentiles")
+        per_scale_provenance = getattr(percentiles, "norm_provenance", None) if percentiles is not None else None
+
+        return {
+            "ok": True,
+            "result": {
+                "ACCE": getattr(combination, "ACCE_raw", None),
+                "AERO": getattr(combination, "AERO_raw", None),
+                "style_primary_id": getattr(style, "primary_style_type_id", None),
+                "LFI": getattr(lfi, "LFI_score", None),
+                "delta": result.get("delta"),
+                "percentile_sources": per_scale_provenance,
+                "validation": result.get("validation"),
+                "override": result.get("override", False),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Gagal memproses submisi batch") from exc
+
+
 @router.post("/sessions/{session_id}/interactions", response_model=dict)
 def submit_interaction(
     session_id: int,
     payload: SubmissionPayload,
+    response: Response,
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
+    """Backward-compatible single interaction submission (deprecated).
+    Retained to support existing clients and tests; prefer submit_all.
+    """
     user = get_current_user(authorization, db)
     session = _get_session(db, session_id)
     _assert_access(user, session)
+    # Deprecation telemetry
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = f"</engine/sessions/{session_id}/submit_all>; rel=successor-version"
+    from app.core.config import settings as _settings
+    if _settings.legacy_sunset:
+        response.headers["Sunset"] = _settings.legacy_sunset
+    inc_counter("deprecated.engine.interactions")
     runtime.submit_payload(db, session_id, payload.model_dump(exclude_unset=True))
     return {"ok": True}
 

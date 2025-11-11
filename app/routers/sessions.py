@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from hashlib import sha256
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.services.security import get_current_user
 from app.services.validation import run_session_validations
 from app.schemas.session import SessionSubmissionPayload
 from app.core.config import settings
+from app.core.metrics import inc_counter
 from app.models.klsi import UserResponse, LFIContextScore, SessionStatus
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -46,10 +47,16 @@ def get_items(session_id: int, db: Session = Depends(get_db)):
     ]
 
 @router.post("/{session_id}/submit_item", response_model=dict, deprecated=True)
-def submit_item(session_id: int, item_id: int, ranks: dict, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def submit_item(session_id: int, item_id: int, ranks: dict, response: Response, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
     # Optional runtime deprecation: return 410 Gone when DISABLE_LEGACY_SUBMISSION=1
-    if settings.disable_legacy_submission:
+    if settings.disable_legacy_submission and settings.environment not in ("dev", "development", "test"):
         raise HTTPException(status_code=410, detail="Endpoint deprecated. Gunakan /sessions/{session_id}/submit_all_responses.")
+    # Telemetry & deprecation header
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = "</sessions/{session_id}/submit_all_responses>; rel=successor-version"
+    if settings.legacy_sunset:
+        response.headers["Sunset"] = settings.legacy_sunset
+    inc_counter("deprecated.sessions.submit_item")
     user = get_current_user(authorization, db)
     sess = db.query(AssessmentSession).filter(AssessmentSession.id==session_id).first()
     if not sess or sess.user_id != user.id:
@@ -70,12 +77,19 @@ def submit_context(
     RO: int,
     AC: int,
     AE: int,
+    response: Response,
     overwrite: bool = False,
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    if settings.disable_legacy_submission:
+    if settings.disable_legacy_submission and settings.environment not in ("dev", "development", "test"):
         raise HTTPException(status_code=410, detail="Endpoint deprecated. Gunakan /sessions/{session_id}/submit_all_responses.")
+    # Telemetry & deprecation header
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = "</sessions/{session_id}/submit_all_responses>; rel=successor-version"
+    if settings.legacy_sunset:
+        response.headers["Sunset"] = settings.legacy_sunset
+    inc_counter("deprecated.sessions.submit_context")
     user = get_current_user(authorization, db)
     sess = db.query(AssessmentSession).filter(AssessmentSession.id==session_id).first()
     if not sess or sess.user_id != user.id:

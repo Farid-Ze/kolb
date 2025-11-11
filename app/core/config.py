@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # API compatibility toggles
     # When set to 1, legacy per-item/context submission endpoints return HTTP 410
     disable_legacy_submission: bool = bool(int(os.getenv("DISABLE_LEGACY_SUBMISSION", "0")))
+    # When set to 1, legacy sessions router is not registered (except in dev/test)
+    disable_legacy_router: bool = bool(int(os.getenv("DISABLE_LEGACY_ROUTER", "0")))
+    # Optional RFC 8594 Sunset date-time string for deprecated endpoints, e.g., "2026-01-31T00:00:00Z"
+    legacy_sunset: str | None = os.getenv("LEGACY_SUNSET") or None
 
     # Pydantic v2 config via ConfigDict
     model_config = {
