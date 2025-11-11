@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
+# This test suite validated legacy /sessions/* parity.
+# The Sessions router has been removed (breaking change in 0.2.0), so this file is retired.
+pytest.skip("Legacy sessions router removed; tests retired. Use Engine endpoints tests instead.", allow_module_level=True)
+
 from uuid import uuid4
 
 from app.db.database import SessionLocal

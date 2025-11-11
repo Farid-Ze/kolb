@@ -37,7 +37,7 @@ Dokumentasi lengkap ada di `docs/02-relational-model.md` dan `docs/psychometrics
 | `app/data/norms.py` | Fallback Appendix 1 & 7 percentile dictionaries |
 | `app/services/report.py` | Kompilasi laporan (kite, backup, sumber norma) |
 | `app/routers/admin.py` | Import norma dengan validasi monotonic, idempotent upsert, audit |
-| `app/routers/sessions.py` | Operasi sesi terproteksi JWT (RBAC & audit) |
+| `app/routers/engine.py` | Operasi sesi generik berbasis instrumen (KLSI via Engine) |
 | `docs/psychometrics_spec.md` | Kontrak matematis resmi |
 | `docs/hci_model.md` | Model mental & HCI berlandaskan ELT |
 
@@ -113,13 +113,38 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 Swagger: http://localhost:8000/docs
+## 11.1 Contoh Alur Engine (Disarankan; Sessions legacy dihapus)
 
-## 11. Docker
+```http
+POST /engine/sessions/start
+Body: {"instrument_code":"KLSI","instrument_version":"4.0"}
+→ {"session_id": 123}
+
+GET /engine/sessions/{session_id}/delivery?locale=id
+→ Paket item (12 gaya + 8 konteks LFI)
+
+POST /engine/sessions/{session_id}/interactions
+Body (item): {"kind":"item","item_id":1,"ranks":{"CE":4,"RO":2,"AC":1,"AE":3}}
+Body (context): {"kind":"context","context_name":"Starting_Something_New","CE":4,"RO":2,"AC":1,"AE":3}
+
+POST /engine/sessions/{session_id}/submit_all
+Body: SessionSubmissionPayload (12 items + 8 contexts)
+→ Atomic finalize: ACCE/AERO, gaya, LFI, percentiles, provenance
+
+POST /engine/sessions/{session_id}/finalize
+→ Alternatif finalize jika tidak menggunakan batch submit_all
+
+GET /engine/sessions/{session_id}/report
+→ Ringkasan laporan (kite, konteks LFI, dll.)
+```
+
+
+## 12. Docker
 ```powershell
 docker compose up --build
 ```
 
-## 12. Seed & Startup (Rekomendasi)
+## 13. Seed & Startup (Rekomendasi)
 Gunakan Alembic untuk mengelola skema dan seed awal di lingkungan produksi. Untuk keperluan pengembangan cepat, aplikasi menyediakan toggle startup berikut (lihat `app/core/config.py`):
 
 - `RUN_STARTUP_DDL` (default: 1) — `Base.metadata.create_all()` untuk dev; nonaktifkan di prod
@@ -138,20 +163,20 @@ alembic upgrade head
 
 Import norma lakukan via endpoint admin (`POST /admin/norms/import`) dengan CSV sesuai contoh pada `docs/examples/norm_import.sample.csv`.
 
-## 13. Referensi
+## 14. Referensi
 - Kolb, D. A. (1984). Experiential Learning.
 - Kolb, A. Y., & Kolb, D. A. (2013). KLSI 4.0 Guide (Appendix 1, 7; Figures 4–5).
 - AERA/APA/NCME (1999). Standards for Educational and Psychological Testing.
 - Kendall, M. G. (1948). Rank Correlation Methods.
 
-## 14. Sumber Akademis & Keterbukaan
+## 15. Sumber Akademis & Keterbukaan
 Implementasi ini didasarkan pada publikasi ilmiah open-source "The Kolb Learning Style Inventory 4.0 - Guide to Theory, Psychometrics, Research & Applications" oleh Alice Y. Kolb & David A. Kolb (2013), yang tersedia secara publik untuk tujuan penelitian dan pendidikan.
 
 Dokumen sumber tersedia di: https://www.researchgate.net/publication/303446688
 
 Semua konten KLSI 4.0, formula, dan spesifikasi psikometrik diambil langsung dari karya akademis yang dipublikasikan ini, memastikan kesetiaan penuh terhadap penelitian asli.
 
-## 15. Pernyataan Epistemik
+## 16. Pernyataan Epistemik
 Semua keputusan implementasi merujuk langsung pada sumber primer; tidak ada interpolasi percentile kecuali strategi konservatif nearest-lower saat data hilang (ditandai sebagai fallback). Provenance norma dicatat guna menghindari kesalahan inferensi statistik.
 
 ---

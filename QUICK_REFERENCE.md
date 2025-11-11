@@ -233,27 +233,14 @@ GET /engine/sessions/{session_id}/report
 → Ringkasan laporan (kite, konteks LFI, dsb.)
 ```
 
-### B. Jalur Sessions (legacy) & Batch Endpoint (disarankan KLSI)
+### B. Jalur Sessions (legacy) — REMOVED
+
+Catatan: Router `/sessions/*` telah dihapus. Gunakan jalur Engine untuk seluruh alur (batch: `POST /engine/sessions/{id}/submit_all`). Bagian di bawah ini bersifat historis dan akan dihapus pada rilis berikutnya.
 
 ```http
-POST /sessions/start
-→ { "session_id": 123 }
-
-GET /sessions/{session_id}/items
-→ Daftar item 12 gaya + 8 LFI
-
-POST /sessions/{session_id}/submit_all_responses
-Body:
-{
-  "items": [ {"item_id": 1, "ranks": {"101":1, "102":2, "103":3, "104":4}}, ... 12 total ... ],
-  "contexts": [ {"context_name": "Starting_Something_New", "CE":4, "RO":2, "AC":1, "AE":3}, ... 8 total ... ]
-}
+POST /engine/sessions/{session_id}/submit_all
+Body: SessionSubmissionPayload (items + contexts)
 → Menyimpan 12×4 + 8×4 ranking dalam satu transaksi & langsung finalisasi (ACCE/AERO, gaya, LFI, percentiles, provenance)
-
-# Endpoint legacy (per-item) akan deprecated:
-POST /sessions/{session_id}/submit_item        (deprecated)
-POST /sessions/{session_id}/submit_context     (deprecated)
-→ Dapat dipaksa non-aktif (HTTP 410) dengan env `DISABLE_LEGACY_SUBMISSION=1`
 ```
 
 ### C. Konfigurasi Lingkungan Penting
@@ -265,6 +252,9 @@ POST /sessions/{session_id}/submit_context     (deprecated)
 | `DISABLE_LEGACY_ROUTER` | Opsional | `1` → Jangan register router `/sessions/*` (selain dev/test) |
 | `LEGACY_SUNSET` | Opsional | RFC 8594 datetime untuk header `Sunset` pada endpoint deprecated |
 | `EXTERNAL_NORMS_ENABLED` | Opsional | Aktifkan provider norma eksternal (non-blocking) |
+| `NORMS_PRELOAD_ENABLED` | Opsional | `1` → Aktifkan adaptive preload tabel norma ke memori (otomatis jika ukuran tabel di bawah ambang) |
+| `NORMS_PRELOAD_ROW_THRESHOLD` | Opsional | Ambang jumlah baris untuk mengaktifkan preload (default 200000) |
+| `NORMS_PRELOAD_MAX_ENTRIES` | Opsional | Batas keras jumlah entri yang boleh dimuat ke memori (default 400000) |
 ### Telemetri Depresiasi
 
 Endpoint lama menambahkan header HTTP berikut untuk membantu migrasi:
@@ -287,6 +277,20 @@ Mediator dapat memeriksa hit pemakaian endpoint deprecated via:
 GET /admin/perf-metrics
 Authorization: Bearer {mediator_token}
 ```
+Menampilkan ringkas waktu eksekusi jalur panas (finalisasi dan lookup norma) serta statistik cache (DB & eksternal). `reset=true` untuk mereset counter.
+
+Contoh blok tambahan untuk adaptive preload norma:
+
+```
+"norm_preload": {
+  "enabled": true,
+  "rows_loaded": 1267,
+  "groups": 5,
+  "versions": 2,
+  "scales": 7,
+  "preload_config": {"enabled_flag": true, "row_threshold": 200000, "max_entries": 400000}
+}
+```
 
 Respons mencakup blok `counters` dengan label:
 
@@ -303,6 +307,9 @@ Gunakan tren ini untuk menentukan kapan aman mengaktifkan `DISABLE_LEGACY_SUBMIS
 | `EXTERNAL_NORMS_TIMEOUT_MS` | Opsional | Timeout lookup eksternal (default 1500ms) |
 | `EXTERNAL_NORMS_CACHE_SIZE` | Opsional | Ukuran LRU cache norma eksternal |
 | `EXTERNAL_NORMS_TTL_SEC` | Opsional | TTL positif & negatif caching |
+| `NORMS_PRELOAD_ENABLED` | Opsional | `1` → Adaptive preload norma (lihat perf-metrics: norm_preload) |
+| `NORMS_PRELOAD_ROW_THRESHOLD` | Opsional | Ambang aktivasi preload (default 200000) |
+| `NORMS_PRELOAD_MAX_ENTRIES` | Opsional | Batas maksimum entri preload (default 400000) |
 
 Contoh PowerShell dev:
 
@@ -427,6 +434,15 @@ COUNTRY:Indonesia,ACCE,5,33.3
 ```http
 GET /admin/norms/cache-stats
 Authorization: Bearer {mediator_token}
+```
+Contoh respons bila preload aktif:
+
+```
+{
+  "cache": {"hits": 10, "misses": 3, "maxsize": 4096, "currsize": 123},
+  "preload": {"enabled": true, "rows_loaded": 1267, "groups": 5, "versions": 2, "scales": 7,
+               "preload_config": {"enabled_flag": true, "row_threshold": 200000, "max_entries": 400000}}
+}
 ```
 
 - External Norm Provider behavior:

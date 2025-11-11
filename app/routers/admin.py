@@ -14,6 +14,7 @@ from app.engine.norms.factory import (
     norm_cache_stats,
     external_cache_stats,
     get_external_provider,
+    preload_cache_stats,
 )
 from app.core.config import settings
 from app.services.security import get_current_user
@@ -121,7 +122,8 @@ def get_norm_cache_stats(
     stats = {}
     if hasattr(provider, "_db_lookup"):
         stats = norm_cache_stats(getattr(provider, "_db_lookup"))
-    return {"cache": stats}
+    preload = preload_cache_stats()
+    return {"cache": stats, "preload": preload}
 
 
 @router.get("/norms/external-cache-stats")
@@ -172,11 +174,13 @@ def get_perf_metrics(
     if hasattr(provider, "_db_lookup"):
         db_cache = norm_cache_stats(getattr(provider, "_db_lookup"))
     ext_cache = external_cache_stats()
+    preload = getattr(provider, "_preload_stats", preload_cache_stats())
     return {
         "timings": timing,
         "counters": counters,
         "norm_db_cache": db_cache,
         "external_norm_cache": ext_cache,
+        "norm_preload": preload,
         "toggles": toggles,
     }
 

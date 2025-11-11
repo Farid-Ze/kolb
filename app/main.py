@@ -16,7 +16,6 @@ from app.services.seeds import seed_assessment_items, seed_instruments, seed_lea
 # Ensure instrument authoring manifest and plugins register on import
 import app.instruments.klsi4  # noqa: F401
 from app.routers.engine import router as engine_router
-from app.routers.sessions import router as sessions_router
 
 
 @asynccontextmanager
@@ -54,9 +53,6 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 # Register routers at import time so tests see routes without requiring startup
 app.include_router(auth_router)
 app.include_router(engine_router)
-# Register legacy sessions router unless disabled for non-dev/test environments
-if not (settings.disable_legacy_router and settings.environment not in ("dev", "development", "test")):
-    app.include_router(sessions_router)
 app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(score_router)

@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     external_norms_cache_size: int = int(os.getenv("EXTERNAL_NORMS_CACHE_SIZE", "512"))
     external_norms_ttl_sec: int = int(os.getenv("EXTERNAL_NORMS_TTL_SEC", "60"))
 
+    # Norm DB adaptive preload
+    # When enabled, if the normative_conversion_table row count is below the threshold,
+    # the norms are preloaded into an in-memory map for O(1) lookups (avoids per-lookup SQL).
+    norms_preload_enabled: bool = bool(int(os.getenv("NORMS_PRELOAD_ENABLED", "1")))
+    # If total rows <= threshold, preload will be activated. Keep conservative by default.
+    norms_preload_row_threshold: int = int(os.getenv("NORMS_PRELOAD_ROW_THRESHOLD", "200000"))
+    # Safety limit on maximum entries to load into memory (protect low-RAM envs)
+    norms_preload_max_entries: int = int(os.getenv("NORMS_PRELOAD_MAX_ENTRIES", "400000"))
+
     # API compatibility toggles
     # When set to 1, legacy per-item/context submission endpoints return HTTP 410
     disable_legacy_submission: bool = bool(int(os.getenv("DISABLE_LEGACY_SUBMISSION", "0")))
