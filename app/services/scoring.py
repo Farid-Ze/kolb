@@ -20,6 +20,10 @@ from app.assessments.klsi_v4.logic import (
 )
 from app.core.config import settings
 from app.engine.finalize import finalize_assessment
+from app.db.repositories import (
+    NormativeConversionRepository,
+    SessionRepository,
+)
 from app.models.klsi import AssessmentSession, CombinationScore, ScaleScore, SessionStatus, UserLearningStyle
 
 
@@ -81,7 +85,12 @@ def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore):
     if getattr(settings, "cached_norm_provider_enabled", True):
         try:
             from app.engine.norms.cached_composite import CachedCompositeNormProvider
-            provider = CachedCompositeNormProvider(db, group_chain=group_chain)
+            norm_repo = NormativeConversionRepository(db)
+            provider = CachedCompositeNormProvider(
+                db,
+                group_chain=group_chain,
+                norm_repo=norm_repo,
+            )
             required = [
                 ("CE", scale.CE_raw),
                 ("RO", scale.RO_raw),
@@ -107,11 +116,8 @@ def _resolve_norm_groups(db: Session, session_id: int):  # legacy alias for test
 
 
 def finalize_session(db: Session, session_id: int, *, skip_checks: bool = False) -> Dict[str, Any]:
-    session = (
-        db.query(AssessmentSession)
-        .filter(AssessmentSession.id == session_id)
-        .first()
-    )
+    session_repo = SessionRepository(db)
+    session = session_repo.get_by_id(session_id)
     if not session:
         raise ValueError("Sesi tidak ditemukan")
     assessment_id = session.assessment_id or "KLSI"

@@ -1,0 +1,3 @@
+- [x] Implement repository abstraction for normative conversion and sessions
+- [x] Add transaction context manager in app/db/database.py
+- [x] Refactor scoring service to use repositories

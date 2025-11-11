@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.engine.norms.composite import AppendixNormProvider
@@ -13,6 +12,7 @@ from app.assessments.klsi_v4.logic import (
 )
 from app.data import norms as appendix_norms
 from app.core.metrics import timer, inc_counter
+from app.db.repositories import NormativeConversionRepository
 
 
 ScaleRaw = Tuple[str, int | float]
@@ -48,11 +48,19 @@ class CachedCompositeNormProvider:
     plus percentile_many() and prime() for pre-warming cache.
     """
 
-    def __init__(self, db: Session, group_chain: List[str] | None = None, *, max_cache: int = 8192):
+    def __init__(
+        self,
+        db: Session,
+        group_chain: List[str] | None = None,
+        *,
+        max_cache: int = 8192,
+        norm_repo: NormativeConversionRepository | None = None,
+    ):
         self.db = db
         self.group_chain = group_chain or []
         self._cache: _LRU = _LRU(maxsize=max_cache)
         self._appendix = AppendixNormProvider()
+        self._norm_repo = norm_repo or NormativeConversionRepository(db)
 
     # Public API --------------------------------------------------------------
 
@@ -107,56 +115,24 @@ class CachedCompositeNormProvider:
                     for s, r in int_needed:
                         by_scale.setdefault(s, []).append(r)
 
-                    # Build ORed scale filters; parameterize raw lists (dialect aware)
-                    where_clauses = []
-                    params: Dict[str, object] = {"g": base_group}
-                    version_frag = " OR ".join([f"norm_version=:v{i}" for i, _ in enumerate(versions)])
-                    for i, v in enumerate(versions):
-                        params[f"v{i}"] = v
-
-                    # Detect SQLite to avoid ANY() which is PostgreSQL-specific
-                    is_sqlite = False
-                    try:
-                        bind = self.db.get_bind()  # type: ignore[attr-defined]
-                        is_sqlite = bool(getattr(getattr(bind, "dialect", None), "name", "") == "sqlite")
-                    except Exception:
-                        is_sqlite = False
-
-                    k = 0
-                    for scale, raws in by_scale.items():
-                        params[f"s_{scale}"] = scale
-                        if is_sqlite:
-                            raw_list = ",".join(str(int(x)) for x in set(raws)) or "-999999"
-                            where_clauses.append(
-                                f"(scale_name=:s_{scale} AND raw_score IN ({raw_list}))"
-                            )
-                        else:
-                            params[f"rs{k}"] = tuple(set(raws))
-                            where_clauses.append(
-                                f"(scale_name=:s_{scale} AND raw_score = ANY(:rs{k}))"
-                            )
-                            k += 1
-
-                    if where_clauses:
-                        sql = f"""
-                            SELECT norm_group, norm_version, scale_name, raw_score, percentile
-                            FROM normative_conversion_table
-                            WHERE norm_group=:g AND ({version_frag})
-                              AND ({' OR '.join(where_clauses)})
-                        """
-                        rows = self.db.execute(text(sql), params).fetchall()
+                    rows = self._norm_repo.fetch_batch(base_group, versions, by_scale)
+                    if rows:
                         inc_counter("norms.cached.batch.query")
-                        for norm_group, norm_version, scale_name, raw_score, pct in rows:
-                            pair = (str(scale_name), int(raw_score))
-                            # Only fill if not resolved yet (respect precedence)
-                            if pair not in results:
-                                resolved = float(pct)
-                                prov = f"DB:{str(norm_group)}|{str(norm_version or req_version)}"
-                                trunc = self._is_truncated(int(raw_score), str(scale_name))
-                                res: PctResult = (resolved, prov, trunc)
-                                results[pair] = res
-                                # populate cache
-                                self._cache[(tuple(chain), str(scale_name), int(raw_score))] = res
+                    else:
+                        # Even when no rows returned, the repository executed the query; keep counters consistent
+                        if by_scale:
+                            inc_counter("norms.cached.batch.query")
+                    for entry in rows:
+                        pair = (entry.scale_name, entry.raw_score)
+                        if pair in results:
+                            continue
+                        resolved = entry.percentile
+                        provenance_version = entry.norm_version or req_version
+                        prov = f"DB:{entry.norm_group}|{provenance_version}"
+                        trunc = self._is_truncated(entry.raw_score, entry.scale_name)
+                        res: PctResult = (resolved, prov, trunc)
+                        results[pair] = res
+                        self._cache[(tuple(chain), entry.scale_name, entry.raw_score)] = res
 
                 # Remove resolved ints from int_needed before next precedence
                 int_needed = [(s, r) for (s, r) in int_needed if (s, r) not in results]
@@ -189,18 +165,15 @@ class CachedCompositeNormProvider:
             versions = [req_version] if req_version == DEFAULT_NORM_VERSION else [req_version, DEFAULT_NORM_VERSION]
             if scale != "LFI":  # integer raw in DB
                 for version in versions:
-                    row = self.db.execute(
-                        text(
-                            "SELECT percentile, norm_version FROM normative_conversion_table "
-                            "WHERE norm_group=:g AND norm_version=:v AND scale_name=:s AND raw_score=:r LIMIT 1"
-                        ),
-                        {"g": base_group, "v": version, "s": scale, "r": int(raw)},
-                    ).fetchone()
-                    if row:
+                    entry = self._norm_repo.fetch_one(base_group, version, scale, int(raw))
+                    if entry:
                         inc_counter("norms.cached.single.lookup")
-                        pct = float(row[0])
-                        v = row[1] or version
-                        return pct, f"DB:{base_group}|{v}", self._is_truncated(raw, scale)
+                        v = entry.norm_version or version
+                        return (
+                            entry.percentile,
+                            f"DB:{entry.norm_group}|{v}",
+                            self._is_truncated(entry.raw_score, entry.scale_name),
+                        )
         # Fallback appendix
         inc_counter("norms.cached.appendix_fallback")
         return self._appendix_percentile(scale, raw)
