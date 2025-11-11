@@ -5,7 +5,8 @@ from fastapi.testclient import TestClient
 
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
-from app.models import klsi as _  # ensure models load before schema sync
+from app.models import klsi as _  # ensure legacy models load before schema sync
+from app.models import engine as _engine  # register new engine authoring models
 from app.services.seeds import seed_learning_styles, seed_assessment_items, seed_instruments
 
 

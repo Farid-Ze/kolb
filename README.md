@@ -147,3 +147,18 @@ Status pengembangan lanjutan fokus pada penambahan subgroup norms dan analisis r
 - Koefisien reliabilitas tradisional (mis. Cronbach’s α) pada difference scores memiliki keterbatasan; gunakan metrik yang sesuai konteks.
 - Percentile fallback dari Appendix menggunakan nearest-lower; bila rentang raw tidak tercakup, interpretasi harus menyebutkan keterbatasan sumber norma.
 - Alat ini bersifat non-diagnostik; gunakan sebagai dukungan refleksi dan perancangan pengalaman belajar, bukan pengkategorian deterministik.
+
+### 16.1 Provenance & External Norm Provider
+- Ketika tersedia, sistem dapat menggunakan penyedia norma eksternal (HTTP) setelah DB dan sebelum Appendix. Status ini dicatat per skala pada `percentile_scores.norm_provenance` dan diringkas di `norm_group_used`.
+- Konfigurasi environment:
+    - `EXTERNAL_NORMS_ENABLED` (0/1)
+    - `EXTERNAL_NORMS_BASE_URL`
+    - `EXTERNAL_NORMS_TIMEOUT_MS` (default 1500)
+    - `EXTERNAL_NORMS_API_KEY` (opsional)
+    - `EXTERNAL_NORMS_CACHE_SIZE` (default 512)
+
+Anomali yang ditandai pada finalisasi (hanya informasi, tidak mengubah skor):
+- RAW_OUTSIDE_NORM_RANGE, EXCESSIVE_TRUNCATION, MIXED_PROVENANCE
+- LOW_W_PATTERN, HIGH_W_UNIFORMITY
+- LFI_REPEATED_PATTERN_6PLUS / 7PLUS
+- NEAR_STYLE_BOUNDARY

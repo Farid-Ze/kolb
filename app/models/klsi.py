@@ -16,6 +16,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -213,7 +214,8 @@ class UserResponse(Base):
     __table_args__ = (
         UniqueConstraint("session_id", "item_id", "rank_value", name="uq_rank_per_item"),
         UniqueConstraint("session_id", "choice_id", name="uq_choice_once_per_session"),
-        CheckConstraint("rank_value BETWEEN 1 AND 4", name="ck_rank_range")
+        CheckConstraint("rank_value BETWEEN 1 AND 4", name="ck_rank_range"),
+        Index("ix_user_responses_session_item", "session_id", "item_id"),
     )
 
     session: Mapped[AssessmentSession] = relationship(back_populates="responses")
@@ -293,6 +295,7 @@ class LFIContextScore(Base):
             "'Choosing_Between_Alternatives')",
             name="ck_context_name_allowed",
         ),
+        Index("ix_lfi_context_scores_session", "session_id"),
     )
 
 class LearningFlexibilityIndex(Base):
