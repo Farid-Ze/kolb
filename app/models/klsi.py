@@ -178,6 +178,8 @@ class AssessmentSession(Base):
     combination_score: Mapped[Optional[CombinationScore]] = relationship(back_populates="session", uselist=False)
     learning_style: Mapped[Optional[UserLearningStyle]] = relationship(back_populates="session", uselist=False)
     lfi_index: Mapped[Optional[LearningFlexibilityIndex]] = relationship(back_populates="session", uselist=False)
+    percentile_score: Mapped[Optional["PercentileScore"]] = relationship(back_populates="session", uselist=False)
+    backup_styles: Mapped[list["BackupLearningStyle"]] = relationship(back_populates="session")
     delta: Mapped[Optional["AssessmentSessionDelta"]] = relationship(back_populates="session", uselist=False)
     scale_provenances: Mapped[list["ScaleProvenance"]] = relationship(back_populates="session")
 
@@ -319,6 +321,7 @@ class BackupLearningStyle(Base):
     frequency_count: Mapped[int] = mapped_column(Integer)
     contexts_used: Mapped[Optional[dict]] = mapped_column(JSON)
     percentage: Mapped[Optional[int]] = mapped_column(Integer)
+    session: Mapped[AssessmentSession] = relationship(back_populates="backup_styles")
 
 class NormativeConversionTable(Base):
     __tablename__ = "normative_conversion_table"
@@ -363,6 +366,7 @@ class PercentileScore(Base):
     norm_provenance: Mapped[Optional[dict]] = mapped_column(JSON)
     raw_outside_norm_range: Mapped[bool] = mapped_column(Boolean, default=False)
     truncated_scales: Mapped[Optional[dict]] = mapped_column(JSON)
+    session: Mapped[AssessmentSession] = relationship(back_populates="percentile_score")
 
 
 class ScaleProvenance(Base):

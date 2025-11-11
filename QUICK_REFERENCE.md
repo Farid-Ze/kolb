@@ -1,6 +1,6 @@
 # KLSI 4.0 Quick Reference
 
-**Last Updated:** November 8, 2025  
+**Last Updated:** November 11, 2025  
 **Status:** ✅ Production Ready
 
 ---
@@ -31,7 +31,7 @@ pytest tests/ -v
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| **Tests** | 55/55 passing | ✅ |
+| **Tests** | 92/92 passing | ✅ |
 | **Tables** | 34+ | ✅ |
 | **LFI Contexts** | 8 | ✅ |
 | **Learning Styles** | 9 | ✅ |
@@ -65,10 +65,10 @@ ACCE = AC - CE (Abstract-Concrete axis)
 AERO = AE - RO (Active-Reflective axis)
 
 Style Grid (3×3):
-           AERO ≤ 0    1-11    ≥ 12
-ACCE ≤ 5   Imagining   Acting   Deciding
- 6-14      Reflecting  Balancing Thinking
- ≥ 15      Analyzing   Experiencing Initiating
+           AERO ≤ 0      1-11         ≥ 12
+ACCE ≤ 5   Imagining     Experiencing  Initiating
+ 6-14      Reflecting    Balancing     Acting
+ ≥ 15      Analyzing     Thinking      Deciding
 ```
 
 ---
@@ -208,7 +208,49 @@ for ctx in contexts:
 
 ---
 
-## 🔄 API Workflow
+## 🔄 API Workflow (Ringkas)
+
+Berikut dua jalur API yang tersedia: legacy `sessions` dan generik `engine`. Keduanya setara secara fungsi.
+
+### A. Jalur Engine (disarankan untuk integrasi generik)
+
+```http
+POST /engine/sessions/start
+Body: { "instrument_code": "KLSI", "instrument_version": "4.0" }
+→ { "session_id": 123 }
+
+GET /engine/sessions/{session_id}/delivery?locale=id
+→ Paket item (12 gaya + 8 LFI)
+
+POST /engine/sessions/{session_id}/interactions
+Body (item): { "kind": "item", "item_id": 1, "ranks": {"CE":4,"RO":2,"AC":1,"AE":3} }
+Body (context): { "kind": "context", "context_name": "Starting_Something_New", "CE":4, "RO":2, "AC":1, "AE":3 }
+
+POST /engine/sessions/{session_id}/finalize
+→ Hasil lengkap (ACCE/AERO, gaya, LFI, percentiles, provenance)
+
+GET /engine/sessions/{session_id}/report
+→ Ringkasan laporan (kite, konteks LFI, dsb.)
+```
+
+### B. Jalur Sessions (legacy, spesifik KLSI)
+
+```http
+POST /sessions/start
+→ { "session_id": 123 }
+
+GET /sessions/{session_id}/items
+→ Daftar item 12 gaya + 8 LFI
+
+POST /sessions/{session_id}/submit_item
+Body: { "item_id": 1, "ranks": {"CE":4,"RO":2,"AC":1,"AE":3} }
+
+POST /sessions/{session_id}/submit_context
+Body: { "context_name": "Starting_Something_New", "CE":4, "RO":2, "AC":1, "AE":3, "overwrite": false }
+
+POST /sessions/{session_id}/finalize
+→ Hasil lengkap + audit log
+```
 
 ### 1. User Registration
 
@@ -249,64 +291,13 @@ Response: 200 OK
 ```
 
 ### 3. Create Session
-
-```bash
-POST /sessions
-Headers: Authorization: Bearer {token}
-
-Response: 201 Created
-{
-  "id": 123,
-  "user_id": 42,
-  "status": "Started",
-  "created_at": "2025-11-08T10:30:00Z"
-}
-```
+(lihat jalur Engine atau Sessions di atas)
 
 ### 4. Submit Responses
-
-```bash
-POST /sessions/123/responses
-{
-  "item_id": 1,
-  "rankings": {
-    "CE": 4,
-    "RO": 2,
-    "AC": 1,
-    "AE": 3
-  }
-}
-
-Repeat for all 12 learning style items + 8 LFI contexts
-```
+Gunakan endpoint `interactions` (engine) atau `submit_item` / `submit_context` (sessions). `submit_context` mendukung `overwrite` opsional untuk koreksi.
 
 ### 5. Finalize Session
-
-```bash
-POST /sessions/123/finalize
-
-Response: 200 OK
-{
-  "session_id": 123,
-  "learning_style": {
-    "primary": "Balancing",
-    "backup": "Reflecting",
-    "ACCE": 8,
-    "AERO": 5
-  },
-  "lfi": {
-    "W_coefficient": 0.234,
-    "LFI_score": 0.766,
-    "percentile": 62.4,
-    "flexibility_level": "Moderate"
-  },
-  "percentiles": {
-    "CE": 45.2,
-    "RO": 58.1,
-    ...
-  }
-}
-```
+Keduanya mengembalikan ACCE/AERO, gaya utama, LFI, percentiles, dan provenance norma per skala.
 
 ### 6. Generate Report
 
@@ -364,13 +355,15 @@ EDU:University Degree,LFI,75,52.3
 COUNTRY:Indonesia,ACCE,5,33.3
 ```
 
-### Seed Assessment Items
+### Pipeline Management (Mediator)
 
-```bash
-POST /admin/seed-items
-# Creates 12 learning style items + 48 choices
-# Creates 8 LFI context items
+```http
+GET    /admin/instruments/{instrument_code}/pipelines
+POST   /admin/instruments/{instrument_code}/pipelines/{pipeline_id}/activate
+POST   /admin/instruments/{instrument_code}/pipelines/{pipeline_id}/clone
+DELETE /admin/instruments/{instrument_code}/pipelines/{pipeline_id}
 ```
+Gunakan untuk melihat/aktivasi/mengklon/hapus pipeline penilaian (engine).
 
 ---
 

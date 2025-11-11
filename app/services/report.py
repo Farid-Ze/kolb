@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.data.session_designs import recommend_for_primary
 from app.i18n.id_styles import (
@@ -244,18 +244,36 @@ def _generate_flexibility_narrative(lfi_score: float, pattern: str, style_freq: 
 
 
 def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None) -> dict:
-    s = db.query(AssessmentSession).filter(AssessmentSession.id==session_id).first()
+    # Eager load all required relations to avoid N+1 and reduce roundtrips
+    s = (
+        db.query(AssessmentSession)
+        .options(
+            joinedload(AssessmentSession.scale_score),
+            joinedload(AssessmentSession.combination_score),
+            joinedload(AssessmentSession.learning_style),
+            joinedload(AssessmentSession.percentile_score),
+            joinedload(AssessmentSession.lfi_index),
+            selectinload(AssessmentSession.backup_styles),
+            joinedload(AssessmentSession.user),
+        )
+        .filter(AssessmentSession.id == session_id)
+        .first()
+    )
     if not s:
         raise ValueError("Session not found")
-    scale = db.query(ScaleScore).filter(ScaleScore.session_id==session_id).first()
-    combo = db.query(CombinationScore).filter(CombinationScore.session_id==session_id).first()
-    ustyle = db.query(UserLearningStyle).filter(UserLearningStyle.session_id==session_id).first()
-    p = db.query(PercentileScore).filter(PercentileScore.session_id==session_id).first()
-    lfi = db.query(LearningFlexibilityIndex).filter(LearningFlexibilityIndex.session_id==session_id).first()
 
-    primary = db.query(LearningStyleType).filter(LearningStyleType.id==ustyle.primary_style_type_id).first() if ustyle else None
-    backup = db.query(BackupLearningStyle).filter(BackupLearningStyle.session_id==session_id).order_by(BackupLearningStyle.frequency_count.desc()).first()
-    backup_type = db.query(LearningStyleType).filter(LearningStyleType.id==backup.style_type_id).first() if backup else None
+    scale = s.scale_score
+    combo = s.combination_score
+    ustyle = s.learning_style
+    p = s.percentile_score
+    lfi = s.lfi_index
+
+    primary = db.query(LearningStyleType).filter(LearningStyleType.id == ustyle.primary_style_type_id).first() if ustyle else None
+    # From preloaded collection, select most frequent backup style
+    backup = None
+    if s.backup_styles:
+        backup = max(s.backup_styles, key=lambda b: (b.frequency_count or 0))
+    backup_type = db.query(LearningStyleType).filter(LearningStyleType.id == backup.style_type_id).first() if backup else None
 
     intensity = abs(combo.ACCE_raw) + abs(combo.AERO_raw) if combo else None
     intensity_key = "low_intensity" if intensity is not None and intensity <= 10 else ("moderate_intensity" if intensity and intensity <= 20 else "high_intensity")
@@ -309,7 +327,7 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             heatmap = generate_lfi_heatmap(lfi.LFI_score, contextual_profile["context_styles"])
             
             # Integrative Development prediction
-            user = db.query(User).filter(User.id == s.user_id).first()
+            user = s.user
             age_val = None
             gender_val = None
             education_val = None

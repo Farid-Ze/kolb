@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Tuple, Optional
+from functools import lru_cache
 
 from app.engine.norms.composite import (
     AppendixNormProvider,
@@ -12,22 +13,23 @@ from app.engine.norms.composite import (
 from app.core.config import settings
 
 
-def build_composite_norm_provider(db: Session):
-    """Build the default composite norm provider chain: DB → Appendix → External.
+def _make_cached_db_lookup(db: Session):
+    """Return a cached DB lookup function.
 
-    The DB provider uses the same lookup semantics as existing code
-    (norm_group|version support with default fallback).
+    Cache key: (group_token, scale_name, int(raw))
+    Resolves norm_group|version precedence: requested version → default.
+    Explicit invalidation required after norm import.
     """
     from sqlalchemy import text
 
-    def _db_lookup(group_token: str, scale_name: str, raw: int | float):
-        # Split token into base and version if present
+    @lru_cache(maxsize=4096)
+    def _cached(key: Tuple[str, str, int]) -> Optional[Tuple[float, str]]:
+        group_token, scale_name, raw = key
         delim = "|"
         if delim in group_token:
             base_group, req_version = group_token.split(delim, 1)
         else:
             base_group, req_version = group_token, "default"
-        # Try requested version first, then default
         for version in (req_version, "default"):
             row = db.execute(
                 text(
@@ -40,8 +42,44 @@ def build_composite_norm_provider(db: Session):
                 return float(row[0]), (row[1] or version)
         return None
 
-    # Precedence: DB → External (optional) → Appendix
-    providers: List[object] = [DatabaseNormProvider(_db_lookup)]
+    def _lookup(group_token: str, scale_name: str, raw: int | float):
+        return _cached((group_token, scale_name, int(raw)))
+
+    # attach invalidation hook and stats accessor
+    _lookup.clear_cache = _cached.cache_clear  # type: ignore[attr-defined]
+    _lookup.cache_info = _cached.cache_info  # type: ignore[attr-defined]
+    return _lookup
+
+
+def clear_norm_db_cache(db_lookup) -> None:
+    """Invalidate the normative DB LRU cache (called after imports)."""
+    try:
+        db_lookup.clear_cache()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
+def norm_cache_stats(db_lookup) -> dict:
+    """Return statistics for the normative DB lookup cache."""
+    try:
+        info = db_lookup.cache_info()  # type: ignore[attr-defined]
+        return {
+            "hits": info.hits,
+            "misses": info.misses,
+            "maxsize": info.maxsize,
+            "currsize": info.currsize,
+        }
+    except Exception:
+        return {"hits": 0, "misses": 0, "maxsize": 0, "currsize": 0}
+
+
+def build_composite_norm_provider(db: Session):
+    """Build the default composite norm provider chain: DB → External (optional) → Appendix.
+
+    Adds an LRU cache for DB lookups to reduce repeated queries under load.
+    """
+    db_lookup = _make_cached_db_lookup(db)
+    providers: List[object] = [DatabaseNormProvider(db_lookup)]
     if settings.external_norms_enabled and settings.external_norms_base_url:
         providers.append(
             ExternalNormProvider(
@@ -51,4 +89,7 @@ def build_composite_norm_provider(db: Session):
             )
         )
     providers.append(AppendixNormProvider())
-    return CompositeNormProvider(providers)  # type: ignore[arg-type]
+    composite = CompositeNormProvider(providers)  # type: ignore[arg-type]
+    # expose db lookup for invalidation from admin import
+    composite._db_lookup = db_lookup  # type: ignore[attr-defined]
+    return composite

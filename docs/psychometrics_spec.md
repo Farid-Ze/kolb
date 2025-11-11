@@ -60,6 +60,7 @@ Tabel keputusan (Cartesian product) membentuk 9 tipe:
 Algoritma:
 1. Tentukan band ACCE & AERO → gaya utama (primary) dengan rule deterministik.
 2. Gaya cadangan (backup) = window terdekat berdasarkan jarak Manhattan (L1) ke interval tiap gaya selain primary.
+	Catatan implementasi: Selain penentuan geometrik ini, sistem juga menurunkan gaya "cadangan kontekstual" dari 8 konteks LFI (analisis pola peringkat per konteks). Frekuensi kemunculan gaya per konteks dipersisten ke tabel `backup_learning_styles` untuk transparansi fleksibilitas praktis; gaya utama dikecualikan dari daftar cadangan kontekstual.
 3. Intensitas gaya opsional = |ACCE| + |AERO| (indikator diferensiasi preferensi).
 
 ## 4. Indeks Fleksibilitas Belajar (LFI)
@@ -170,7 +171,7 @@ Semua formula di atas telah diterapkan langsung tanpa modifikasi spekulatif; tid
 - [ ] Raw responses → sum mode = nilai di `scale_scores`.
 - [ ] ACCE_raw & AERO_raw konsisten dengan formula difference.
 - [ ] Primary style window contains (ACCE_raw, AERO_raw).
-- [ ] Backup style ≠ primary & jarak minimal kedua.
+- [ ] Backup style ≠ primary & jarak minimal kedua (geometrik) + cadangan kontekstual tersimpan (frekuensi per konteks LFI).
 - [ ] LFI ∈ [0,1] & W ∈ [0,1].
 - [ ] Percentile sumber fallback ditandai ketika DB kosong.
 

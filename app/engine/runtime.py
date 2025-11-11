@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.engine.authoring import get_instrument_locale_resource, get_instrument_spec
+from functools import lru_cache
 from app.engine.interfaces import InstrumentId
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import engine_registry
@@ -84,16 +85,10 @@ class EngineRuntime:
         plugin = self._registry.plugin(inst_id)
         items = plugin.fetch_items(db, session_id)
         delivery = plugin.delivery()
-        try:
-            manifest = get_instrument_spec(inst_id.key, inst_id.version).manifest()
-        except KeyError:
-            manifest = None
+        manifest = _cached_manifest(inst_id.key, inst_id.version)
         locale_payload: dict | None = None
         if locale:
-            try:
-                locale_payload = get_instrument_locale_resource(inst_id.key, inst_id.version, locale)
-            except KeyError:
-                locale_payload = None
+            locale_payload = _cached_locale(inst_id.key, inst_id.version, locale)
         localized_items = {}
         localized_contexts: dict[str, str] = {}
         locale_metadata: dict[str, object] = {}
@@ -214,3 +209,20 @@ class EngineRuntime:
 
 
 runtime = EngineRuntime()
+
+
+# Caching helpers (module-level to persist across runtime calls)
+@lru_cache(maxsize=128)
+def _cached_manifest(instrument_code: str, instrument_version: str):  # pragma: no cover - pure cache
+    try:
+        return get_instrument_spec(instrument_code, instrument_version).manifest()
+    except KeyError:
+        return None
+
+
+@lru_cache(maxsize=256)
+def _cached_locale(instrument_code: str, instrument_version: str, locale: str):  # pragma: no cover - pure cache
+    try:
+        return get_instrument_locale_resource(instrument_code, instrument_version, locale)
+    except KeyError:
+        return None

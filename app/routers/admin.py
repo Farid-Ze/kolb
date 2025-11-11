@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.klsi import AuditLog, NormativeConversionTable
+from app.engine.norms.factory import build_composite_norm_provider, clear_norm_db_cache, norm_cache_stats
 from app.services.security import get_current_user
 from app.services import pipelines as pipeline_service
 
@@ -80,6 +81,14 @@ def import_norms(
                 percentile=percentile,
             ))
             inserted += 1
+    # Invalidate in-process normative cache so subsequent lookups see fresh data
+    try:
+        provider = build_composite_norm_provider(db)
+        if hasattr(provider, "_db_lookup"):
+            clear_norm_db_cache(getattr(provider, "_db_lookup"))
+    except Exception:
+        # Non-fatal; cache will naturally evict eventually if invalidation fails
+        pass
     db.add(AuditLog(actor=user.email, action=f'norm_import:{norm_group}:{norm_version}', payload_hash=batch_hash))
     db.commit()
     return {
@@ -89,6 +98,22 @@ def import_norms(
         "rows_processed": len(rows),
         "hash": batch_hash,
     }
+
+
+@router.get("/norms/cache-stats")
+def get_norm_cache_stats(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """Return in-process normative DB lookup cache statistics (Mediator only)."""
+    user = get_current_user(authorization, db)
+    if user.role != 'MEDIATOR':
+        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh melihat statistik cache")
+    provider = build_composite_norm_provider(db)
+    stats = {}
+    if hasattr(provider, "_db_lookup"):
+        stats = norm_cache_stats(getattr(provider, "_db_lookup"))
+    return {"cache": stats}
 
 
 @router.get("/instruments/{instrument_code}/pipelines")

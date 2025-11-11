@@ -103,7 +103,13 @@ Catatan: Percentile harus non-decreasing terhadap `raw_score` per `(norm_group, 
 
 ## 10. Menjalankan Secara Lokal
 ```powershell
+# Install deps
 pip install -r requirements.txt
+
+# Terapkan migrasi skema (disarankan untuk dev & prod)
+alembic upgrade head
+
+# Jalankan server
 uvicorn app.main:app --reload
 ```
 Swagger: http://localhost:8000/docs
@@ -113,15 +119,24 @@ Swagger: http://localhost:8000/docs
 docker compose up --build
 ```
 
-## 12. Seed Awal (Jika Belum Otomatis)
-```python
-from app.db.database import SessionLocal, Base, engine
-from app.services.seeds import seed_learning_styles, seed_assessment_items
-Base.metadata.create_all(bind=engine)
-with SessionLocal() as db:
-    seed_learning_styles(db)
-    seed_assessment_items(db)
+## 12. Seed & Startup (Rekomendasi)
+Gunakan Alembic untuk mengelola skema dan seed awal di lingkungan produksi. Untuk keperluan pengembangan cepat, aplikasi menyediakan toggle startup berikut (lihat `app/core/config.py`):
+
+- `RUN_STARTUP_DDL` (default: 1) — `Base.metadata.create_all()` untuk dev; nonaktifkan di prod
+- `RUN_STARTUP_SEED` (default: 1) — seed instrument KLSI 4.0 & item; nonaktifkan di prod
+
+Rekomendasi:
+- Dev: biarkan default (cepat dan idempotent)
+- Prod/CI: set ke 0 dan jalankan Alembic
+
+```powershell
+# Contoh prod/CI
+$Env:RUN_STARTUP_DDL = 0
+$Env:RUN_STARTUP_SEED = 0
+alembic upgrade head
 ```
+
+Import norma lakukan via endpoint admin (`POST /admin/norms/import`) dengan CSV sesuai contoh pada `docs/examples/norm_import.sample.csv`.
 
 ## 13. Referensi
 - Kolb, D. A. (1984). Experiential Learning.
@@ -156,6 +171,8 @@ Status pengembangan lanjutan fokus pada penambahan subgroup norms dan analisis r
     - `EXTERNAL_NORMS_TIMEOUT_MS` (default 1500)
     - `EXTERNAL_NORMS_API_KEY` (opsional)
     - `EXTERNAL_NORMS_CACHE_SIZE` (default 512)
+
+Catatan implementasi: Rantai penyedia norma dibangun melalui engine (DB → External [opsional] → Appendix). Provenance per skala tersedia di hasil finalisasi sebagai `DB:<group>|<version>`, `External:<group>|<version>`, atau `Appendix:<scale>`.
 
 Anomali yang ditandai pada finalisasi (hanya informasi, tidak mengubah skor):
 - RAW_OUTSIDE_NORM_RANGE, EXCESSIVE_TRUNCATION, MIXED_PROVENANCE
