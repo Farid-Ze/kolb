@@ -1,19 +1,28 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import lru_cache
 from hashlib import sha256
+from time import perf_counter
+from typing import Callable
+from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.engine.authoring import get_instrument_locale_resource, get_instrument_spec
-from functools import lru_cache
 from app.engine.interfaces import InstrumentId
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import engine_registry
-from app.models.klsi import AssessmentSession, Instrument, SessionStatus, User, AuditLog
-from typing import Callable
+from app.engine.runtime_logic import compose_delivery_payload
+from app.models.klsi import AssessmentSession, SessionStatus, User, AuditLog
 from app.services.validation import run_session_validations
+from app.db.repositories import InstrumentRepository, SessionRepository
+from app.core.metrics import timeit
+from app.core.logging import correlation_context, get_logger
+
+
+logger = get_logger("kolb.engine.runtime", component="engine")
 
 
 class EngineRuntime:
@@ -23,12 +32,13 @@ class EngineRuntime:
         self._registry = engine_registry
 
     def _resolve_session(self, db: Session, session_id: int) -> AssessmentSession:
-        session = (
-            db.query(AssessmentSession)
-            .filter(AssessmentSession.id == session_id)
-            .first()
-        )
+        repo = SessionRepository(db)
+        session = repo.get_by_id(session_id)
         if not session:
+            logger.warning(
+                "session_not_found",
+                extra={"structured_data": {"session_id": session_id}},
+            )
             raise HTTPException(status_code=404, detail="Session tidak ditemukan")
         return session
 
@@ -44,42 +54,102 @@ class EngineRuntime:
         instrument_code: str,
         instrument_version: str | None = None,
     ) -> AssessmentSession:
-        query = db.query(Instrument).filter(Instrument.code == instrument_code)
-        if instrument_version:
-            query = query.filter(Instrument.version == instrument_version)
-        instrument = query.first()
-        if not instrument:
-            raise HTTPException(status_code=404, detail="Instrumen tidak ditemukan")
+        correlation_id = str(uuid4())
+        with correlation_context(correlation_id):
+            instrument_repo = InstrumentRepository(db)
+            instrument = instrument_repo.get_by_code(instrument_code, instrument_version)
+            if not instrument:
+                logger.warning(
+                    "instrument_not_found",
+                    extra={
+                        "structured_data": {
+                            "instrument_code": instrument_code,
+                            "instrument_version": instrument_version,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(status_code=404, detail="Instrumen tidak ditemukan")
 
-        inst_id = InstrumentId(instrument.code, instrument.version)
-        try:
-            self._registry.plugin(inst_id)
-        except KeyError:
-            raise HTTPException(
-                status_code=400,
-                detail="Instrument plugin belum terdaftar di engine",
-            ) from None
-        try:
-            get_instrument_spec(inst_id.key, inst_id.version)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=500,
-                detail="Instrument manifest belum dikonfigurasi",
-            ) from exc
+            inst_id = InstrumentId(instrument.code, instrument.version)
+            try:
+                self._registry.plugin(inst_id)
+            except KeyError:
+                logger.error(
+                    "plugin_not_registered",
+                    extra={
+                        "structured_data": {
+                            "instrument_code": inst_id.key,
+                            "instrument_version": inst_id.version,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail="Instrument plugin belum terdaftar di engine",
+                ) from None
+            try:
+                get_instrument_spec(inst_id.key, inst_id.version)
+            except KeyError as exc:
+                logger.error(
+                    "manifest_missing",
+                    extra={
+                        "structured_data": {
+                            "instrument_code": inst_id.key,
+                            "instrument_version": inst_id.version,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail="Instrument manifest belum dikonfigurasi",
+                ) from exc
 
-        session = AssessmentSession(
-            user_id=user.id,
-            status=SessionStatus.started,
-            assessment_id=instrument.code,
-            assessment_version=instrument.version,
-            instrument_id=instrument.id,
-            start_time=datetime.now(timezone.utc),
-        )
-        assign_pipeline_version(db, session, instrument.default_strategy_code)
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-        return session
+            session = AssessmentSession(
+                user_id=user.id,
+                status=SessionStatus.started,
+                assessment_id=instrument.code,
+                assessment_version=instrument.version,
+                instrument_id=instrument.id,
+                start_time=datetime.now(timezone.utc),
+            )
+            started = perf_counter()
+            try:
+                assign_pipeline_version(db, session, instrument.default_strategy_code)
+                db.add(session)
+                db.commit()
+                db.refresh(session)
+            except Exception:
+                db.rollback()
+                logger.exception(
+                    "start_session_failure",
+                    extra={
+                        "structured_data": {
+                            "instrument_code": instrument.code,
+                            "instrument_version": instrument.version,
+                            "user_id": user.id,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise
+            duration_ms = (perf_counter() - started) * 1000.0
+            logger.info(
+                "start_session_success",
+                extra={
+                    "structured_data": {
+                        "session_id": session.id,
+                        "instrument_code": instrument.code,
+                        "instrument_version": instrument.version,
+                        "user_id": user.id,
+                        "duration_ms": duration_ms,
+                        "correlation_id": correlation_id,
+                    }
+                },
+            )
+            return session
 
     def delivery_package(self, db: Session, session_id: int, *, locale: str | None = None) -> dict:
         session = self._resolve_session(db, session_id)
@@ -91,67 +161,21 @@ class EngineRuntime:
         locale_payload: dict | None = None
         if locale:
             locale_payload = _cached_locale(inst_id.key, inst_id.version, locale)
-        localized_items = {}
-        localized_contexts: dict[str, str] = {}
-        locale_metadata: dict[str, object] = {}
-        if locale_payload:
-            localized_items = {
-                entry.get("item_number"): entry
-                for entry in locale_payload.get("items", {}).get("learning_style", [])
-                if isinstance(entry, dict) and entry.get("item_number") is not None
-            }
-            localized_contexts = locale_payload.get("contexts", {}) or {}
-            locale_metadata = locale_payload.get("metadata", {}) or {}
-        items_payload = []
-        for item in items:
-            entry = {
-                "id": item.id,
-                "number": item.number,
-                "type": item.type,
-                "stem": item.stem,
-                "options": [dict(option) for option in item.options] if isinstance(item.options, list) else item.options,
-            }
-            if locale_payload:
-                localized = localized_items.get(item.number)
-                if localized and isinstance(localized, dict):
-                    if localized.get("stem"):
-                        entry["stem_localized"] = localized["stem"]
-                    options_localized = localized.get("options", {}) or {}
-                    if isinstance(entry["options"], list):
-                        for option in entry["options"]:
-                            mode = option.get("learning_mode")
-                            if mode in options_localized:
-                                option["text_localized"] = options_localized[mode]
-            items_payload.append(entry)
-        return {
-            "instrument": {
-                "code": inst_id.key,
-                "version": inst_id.version,
-            },
-            "delivery": {
-                "forced_choice": delivery.forced_choice,
-                "sections": delivery.sections,
-                "randomize": delivery.randomize,
-                "expected_contexts": delivery.expected_contexts,
-            },
-            "items": items_payload,
-            "manifest": manifest,
-            "i18n": (
-                {
-                    "locale": locale,
-                    "metadata": locale_metadata,
-                    "contexts": localized_contexts,
-                }
-                if locale_payload
-                else None
-            ),
-        }
+        return compose_delivery_payload(
+            inst_id,
+            items,
+            delivery,
+            manifest,
+            locale_payload,
+            locale=locale,
+        )
 
     def submit_payload(self, db: Session, session_id: int, payload: dict) -> None:
         session = self._resolve_session(db, session_id)
         plugin = self._registry.plugin(self._instrument_id(session))
         plugin.validate_submit(db, session_id, payload)
 
+    @timeit("engine.finalize")
     def finalize(
         self,
         db: Session,
@@ -159,25 +183,190 @@ class EngineRuntime:
         *,
         skip_validation: bool = False,
     ) -> dict:
-        session = self._resolve_session(db, session_id)
-        if session.status == SessionStatus.completed:
-            raise HTTPException(status_code=409, detail="Sesi sudah selesai")
-        validation = run_session_validations(db, session_id)
-        if not validation.get("ready", False) and not skip_validation:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "issues": validation.get("issues", []),
-                    "diagnostics": validation.get("diagnostics"),
+        correlation_id = str(uuid4())
+        with correlation_context(correlation_id):
+            try:
+                session = self._resolve_session(db, session_id)
+            except HTTPException as exc:
+                logger.warning(
+                    "finalize_session_missing",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "status_code": exc.status_code,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise
+            if session.status == SessionStatus.completed:
+                logger.info(
+                    "finalize_already_completed",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "user_id": session.user_id,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+            validation = run_session_validations(db, session_id)
+            if not validation.get("ready", False) and not skip_validation:
+                logger.warning(
+                    "finalize_validation_failed",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "issues": validation.get("issues", []),
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "issues": validation.get("issues", []),
+                        "diagnostics": validation.get("diagnostics"),
+                    },
+                )
+
+            scorer = self._registry.scorer(self._instrument_id(session))
+            started = perf_counter()
+            try:
+                # Atomic transaction: finalize artifacts + status update together
+                with db.begin():
+                    result = scorer.finalize(db, session_id, skip_checks=skip_validation)
+                    if not result.get("ok"):
+                        logger.warning(
+                            "finalize_scorer_reported_issue",
+                            extra={
+                                "structured_data": {
+                                    "session_id": session_id,
+                                    "issues": result.get("issues"),
+                                    "correlation_id": correlation_id,
+                                }
+                            },
+                        )
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "issues": result.get("issues"),
+                                "diagnostics": result.get("diagnostics"),
+                            },
+                        )
+                    session.status = SessionStatus.completed
+                    session.end_time = datetime.now(timezone.utc)
+            except HTTPException:
+                raise
+            except Exception as exc:  # pragma: no cover - defensive rollback
+                logger.exception(
+                    "finalize_runtime_error",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "user_id": session.user_id,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
+            duration_ms = (perf_counter() - started) * 1000.0
+            result["validation"] = validation
+            override = skip_validation and not validation.get("ready", False)
+            result["override"] = override
+            logger.info(
+                "finalize_success",
+                extra={
+                    "structured_data": {
+                        "session_id": session_id,
+                        "user_id": session.user_id,
+                        "duration_ms": duration_ms,
+                        "override": override,
+                        "correlation_id": correlation_id,
+                    }
                 },
             )
+            return result
 
-        scorer = self._registry.scorer(self._instrument_id(session))
-        try:
-            # Atomic transaction: finalize artifacts + status update together
-            with db.begin():
+    @timeit("engine.finalize_with_audit")
+    def finalize_with_audit(
+        self,
+        db: Session,
+        session_id: int,
+        *,
+        actor_email: str,
+        action: str,
+        build_payload: Callable[[dict], bytes],
+        skip_validation: bool = False,
+    ) -> dict:
+        """Finalize session artifacts and write an AuditLog entry atomically.
+
+        build_payload: callable that receives the result dict (post-finalize) and
+        returns bytes to be hashed for payload_hash.
+        """
+        correlation_id = str(uuid4())
+        with correlation_context(correlation_id):
+            try:
+                session = self._resolve_session(db, session_id)
+            except HTTPException:
+                logger.warning(
+                    "finalize_audit_session_missing",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise
+            if session.status == SessionStatus.completed:
+                logger.info(
+                    "finalize_audit_already_completed",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "user_id": session.user_id,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+            validation = run_session_validations(db, session_id)
+            if not validation.get("ready", False) and not skip_validation:
+                logger.warning(
+                    "finalize_audit_validation_failed",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "issues": validation.get("issues", []),
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "issues": validation.get("issues", []),
+                        "diagnostics": validation.get("diagnostics"),
+                    },
+                )
+
+            scorer = self._registry.scorer(self._instrument_id(session))
+            started = perf_counter()
+            try:
                 result = scorer.finalize(db, session_id, skip_checks=skip_validation)
                 if not result.get("ok"):
+                    logger.warning(
+                        "finalize_audit_scorer_issue",
+                        extra={
+                            "structured_data": {
+                                "session_id": session_id,
+                                "issues": result.get("issues"),
+                                "correlation_id": correlation_id,
+                            }
+                        },
+                    )
                     raise HTTPException(
                         status_code=400,
                         detail={
@@ -187,87 +376,81 @@ class EngineRuntime:
                     )
                 session.status = SessionStatus.completed
                 session.end_time = datetime.now(timezone.utc)
-        except HTTPException:
-            raise
-        except Exception as exc:  # pragma: no cover - defensive rollback
-            raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
-        result["validation"] = validation
-        result["override"] = skip_validation and not validation.get("ready", False)
-        return result
-
-    def finalize_with_audit(
-        self,
-        db: Session,
-        session_id: int,
-        *,
-        actor_email: str,
-        action: str,
-    build_payload: Callable[[dict], bytes],
-        skip_validation: bool = False,
-    ) -> dict:
-        """Finalize session artifacts and write an AuditLog entry atomically.
-
-        build_payload: callable that receives the result dict (post-finalize) and
-        returns bytes to be hashed for payload_hash.
-        """
-        session = self._resolve_session(db, session_id)
-        if session.status == SessionStatus.completed:
-            raise HTTPException(status_code=409, detail="Sesi sudah selesai")
-        validation = run_session_validations(db, session_id)
-        if not validation.get("ready", False) and not skip_validation:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "issues": validation.get("issues", []),
-                    "diagnostics": validation.get("diagnostics"),
-                },
-            )
-
-        scorer = self._registry.scorer(self._instrument_id(session))
-        try:
-            result = scorer.finalize(db, session_id, skip_checks=skip_validation)
-            if not result.get("ok"):
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "issues": result.get("issues"),
-                        "diagnostics": result.get("diagnostics"),
+                db.commit()
+            except HTTPException:
+                db.rollback()
+                raise
+            except Exception as exc:  # pragma: no cover
+                db.rollback()
+                logger.exception(
+                    "finalize_audit_runtime_error",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "user_id": session.user_id,
+                            "correlation_id": correlation_id,
+                        }
                     },
                 )
-            session.status = SessionStatus.completed
-            session.end_time = datetime.now(timezone.utc)
-            db.commit()
-        except HTTPException:
-            db.rollback()
-            raise
-        except Exception as exc:  # pragma: no cover
-            db.rollback()
-            raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
+                raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
 
-        # Persist audit in a follow-up small transaction to preserve prior parity
-        try:
-            payload_bytes = build_payload(result) if callable(build_payload) else None
-        except Exception:
+            # Persist audit in a follow-up small transaction to preserve prior parity
             payload_bytes = None
-        if payload_bytes:
             try:
-                db.add(
-                    AuditLog(
-                        actor=actor_email,
-                        action=action,
-                        payload_hash=sha256(payload_bytes).hexdigest(),
-                        created_at=datetime.now(timezone.utc),
-                    )
-                )
-                db.commit()
+                payload_bytes = build_payload(result) if callable(build_payload) else None
             except Exception:
-                db.rollback()
-                # Non-fatal: keep result success even if audit write fails
-                pass
+                logger.warning(
+                    "audit_payload_builder_failed",
+                    extra={
+                        "structured_data": {
+                            "session_id": session_id,
+                            "correlation_id": correlation_id,
+                        }
+                    },
+                )
+            if payload_bytes:
+                try:
+                    db.add(
+                        AuditLog(
+                            actor=actor_email,
+                            action=action,
+                            payload_hash=sha256(payload_bytes).hexdigest(),
+                            created_at=datetime.now(timezone.utc),
+                        )
+                    )
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.warning(
+                        "audit_write_failed",
+                        extra={
+                            "structured_data": {
+                                "session_id": session_id,
+                                "correlation_id": correlation_id,
+                            }
+                        },
+                    )
+                    # Non-fatal: keep result success even if audit write fails
+                    pass
 
-        result["validation"] = validation
-        result["override"] = skip_validation and not validation.get("ready", False)
-        return result
+            duration_ms = (perf_counter() - started) * 1000.0
+            result["validation"] = validation
+            override = skip_validation and not validation.get("ready", False)
+            result["override"] = override
+            logger.info(
+                "finalize_audit_success",
+                extra={
+                    "structured_data": {
+                        "session_id": session_id,
+                        "user_id": session.user_id,
+                        "duration_ms": duration_ms,
+                        "override": override,
+                        "actor": actor_email,
+                        "correlation_id": correlation_id,
+                    }
+                },
+            )
+            return result
 
     def build_report(self, db: Session, session_id: int, viewer_role: str | None) -> dict:
         session = self._resolve_session(db, session_id)

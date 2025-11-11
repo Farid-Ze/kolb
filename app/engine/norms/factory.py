@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
-from typing import List, Tuple, Optional, Dict
 from functools import lru_cache
+from typing import Dict, List, Optional, Tuple
+from types import MappingProxyType
+
+from sqlalchemy.orm import Session
 
 from app.engine.norms.composite import (
     AppendixNormProvider,
@@ -11,7 +13,7 @@ from app.engine.norms.composite import (
     ExternalNormProvider,
 )
 from app.core.config import settings
-from app.models.klsi import NormativeConversionTable
+from app.db.repositories import NormativeConversionRepository
 from sqlalchemy import text
 
 
@@ -22,6 +24,8 @@ def _make_cached_db_lookup(db: Session):
     Resolves norm_group|version precedence: requested version → default.
     Explicit invalidation required after norm import.
     """
+    repo = NormativeConversionRepository(db)
+
     @lru_cache(maxsize=4096)
     def _cached(key: Tuple[str, str, int]) -> Optional[Tuple[float, str]]:
         group_token, scale_name, raw = key
@@ -30,16 +34,13 @@ def _make_cached_db_lookup(db: Session):
             base_group, req_version = group_token.split(delim, 1)
         else:
             base_group, req_version = group_token, "default"
-        for version in (req_version, "default"):
-            row = db.execute(
-                text(
-                    "SELECT percentile, norm_version FROM normative_conversion_table "
-                    "WHERE norm_group=:g AND norm_version=:v AND scale_name=:s AND raw_score=:r LIMIT 1"
-                ),
-                {"g": base_group, "v": version, "s": scale_name, "r": int(raw)},
-            ).fetchone()
-            if row:
-                return float(row[0]), (row[1] or version)
+        versions = [req_version]
+        if req_version != "default":
+            versions.append("default")
+        result = repo.fetch_first_for_versions(base_group, versions, scale_name, int(raw))
+        if result:
+            entry, resolved_version = result
+            return entry.percentile, resolved_version
         return None
 
     def _lookup(group_token: str, scale_name: str, raw: int | float):
@@ -54,7 +55,7 @@ def _make_cached_db_lookup(db: Session):
 # --- Adaptive Preload Support ---
 
 # Module-level cache for preloaded norms to persist across provider instances
-_PRELOADED: Dict[Tuple[str, str, str, int], float] | None = None
+_PRELOADED: MappingProxyType | None = None
 _PRELOAD_STATS: Dict[str, int | bool] = {
     "enabled": False,
     "rows_loaded": 0,
@@ -102,22 +103,20 @@ def _maybe_build_preloaded_map(db: Session) -> None:
     versions: set[str] = set()
     scales: set[str] = set()
     try:
-        rows = (
-            db.query(
-                NormativeConversionTable.norm_group,
-                NormativeConversionTable.norm_version,
-                NormativeConversionTable.scale_name,
-                NormativeConversionTable.raw_score,
-                NormativeConversionTable.percentile,
-            ).all()
-        )
-        for g, v, s, r, p in rows:
-            key = (str(g), str(v or "default"), str(s), int(r))
-            mapping[key] = float(p)
-            groups.add(str(g))
-            versions.add(str(v or "default"))
-            scales.add(str(s))
-        _PRELOADED = mapping
+        repo = NormativeConversionRepository(db)
+        rows = repo.fetch_all_entries()
+        for entry in rows:
+            key = (
+                entry.norm_group,
+                str(entry.norm_version or "default"),
+                entry.scale_name,
+                int(entry.raw_score),
+            )
+            mapping[key] = float(entry.percentile)
+            groups.add(entry.norm_group)
+            versions.add(str(entry.norm_version or "default"))
+            scales.add(entry.scale_name)
+        _PRELOADED = MappingProxyType(mapping)
         _PRELOAD_STATS = {
             "enabled": True,
             "rows_loaded": len(mapping),

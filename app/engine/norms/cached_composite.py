@@ -12,7 +12,7 @@ from app.assessments.klsi_v4.logic import (
 )
 from app.data import norms as appendix_norms
 from app.core.metrics import timer, inc_counter
-from app.db.repositories import NormativeConversionRepository
+from app.db.repositories import NormativeConversionRepository, NormativeConversionRow
 
 
 ScaleRaw = Tuple[str, int | float]
@@ -115,13 +115,13 @@ class CachedCompositeNormProvider:
                     for s, r in int_needed:
                         by_scale.setdefault(s, []).append(r)
 
-                    rows = self._norm_repo.fetch_batch(base_group, versions, by_scale)
-                    if rows:
+                    rows: List[NormativeConversionRow] = []
+                    query_executed = False
+                    if by_scale:
+                        rows = self._norm_repo.fetch_batch(base_group, versions, by_scale)
+                        query_executed = True
+                    if query_executed:
                         inc_counter("norms.cached.batch.query")
-                    else:
-                        # Even when no rows returned, the repository executed the query; keep counters consistent
-                        if by_scale:
-                            inc_counter("norms.cached.batch.query")
                     for entry in rows:
                         pair = (entry.scale_name, entry.raw_score)
                         if pair in results:
@@ -164,16 +164,20 @@ class CachedCompositeNormProvider:
             base_group, req_version = _split_norm_group_token(token)
             versions = [req_version] if req_version == DEFAULT_NORM_VERSION else [req_version, DEFAULT_NORM_VERSION]
             if scale != "LFI":  # integer raw in DB
-                for version in versions:
-                    entry = self._norm_repo.fetch_one(base_group, version, scale, int(raw))
-                    if entry:
-                        inc_counter("norms.cached.single.lookup")
-                        v = entry.norm_version or version
-                        return (
-                            entry.percentile,
-                            f"DB:{entry.norm_group}|{v}",
-                            self._is_truncated(entry.raw_score, entry.scale_name),
-                        )
+                result = self._norm_repo.fetch_first_for_versions(
+                    base_group,
+                    versions,
+                    scale,
+                    int(raw),
+                )
+                if result:
+                    entry, resolved_version = result
+                    inc_counter("norms.cached.single.lookup")
+                    return (
+                        entry.percentile,
+                        f"DB:{entry.norm_group}|{resolved_version}",
+                        self._is_truncated(entry.raw_score, entry.scale_name),
+                    )
         # Fallback appendix
         inc_counter("norms.cached.appendix_fallback")
         return self._appendix_percentile(scale, raw)

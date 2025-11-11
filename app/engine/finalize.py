@@ -11,7 +11,8 @@ from app.engine.interfaces import ScoringContext
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import get as get_definition
 from app.engine.strategy_registry import get_strategy
-from app.models.klsi import AssessmentSession, AuditLog, LFIContextScore, BackupLearningStyle, LearningStyleType
+from app.db.repositories import SessionRepository, StyleRepository
+from app.models.klsi import AuditLog
 from app.services.regression import analyze_lfi_contexts
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
@@ -26,11 +27,13 @@ def finalize_assessment(
     *,
     skip_checks: bool = False,
 ) -> dict:
+    session_repo = SessionRepository(db)
+    style_repo = StyleRepository(db)
     # Ensure atomicity: perform all writes within a nested transaction (SAVEPOINT)
     # so that any exception rolls back partial artifacts, while letting the outer
     # request/response life cycle control the final commit.
     with db.begin_nested():
-        session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+        session = session_repo.get_with_instrument(session_id)
         if not session:
             raise ValueError(f"Session {session_id} tidak ditemukan")
 
@@ -241,11 +244,7 @@ def finalize_assessment(
                     validation_result.anomalies.append("HIGH_W_UNIFORMITY")
             # Detect repeated LFI rank patterns (7+ or 6+ of 8 contexts identical)
             patterns = []
-            rows = (
-                db.query(LFIContextScore)
-                .filter(LFIContextScore.session_id == session_id)
-                .all()
-            )
+            rows = session_repo.list_lfi_context_scores(session_id)
             for r in rows:
                 patterns.append((r.CE_rank, r.RO_rank, r.AC_rank, r.AE_rank))
             if patterns:
@@ -260,7 +259,7 @@ def finalize_assessment(
             # and persist unique backups excluding primary style.
             try:
                 # Preload all style types once (avoid N+1 lookups)
-                all_styles = db.query(LearningStyleType).all()
+                all_styles = style_repo.list_learning_style_types()
                 style_by_name = {s.style_name: s for s in all_styles}
                 primary_style_type_id = None
                 if "style" in ctx:
@@ -290,28 +289,12 @@ def finalize_assessment(
                     style_row = style_by_name.get(sname)
                     if not style_row:
                         continue
-                    existing = (
-                        db.query(BackupLearningStyle)
-                        .filter(
-                            BackupLearningStyle.session_id == session_id,
-                            BackupLearningStyle.style_type_id == style_row.id,
-                        )
-                        .first()
+                    style_repo.upsert_backup_style(
+                        session_id,
+                        style_row.id,
+                        frequency_count=int(count),
+                        contexts=contexts_for_style.get(sname, []),
                     )
-                    if existing:
-                        existing.frequency_count = count
-                        existing.contexts_used = {"contexts": contexts_for_style.get(sname, [])}
-                        existing.percentage = None
-                    else:
-                        db.add(
-                            BackupLearningStyle(
-                                session_id=session_id,
-                                style_type_id=style_row.id,
-                                frequency_count=int(count),
-                                contexts_used={"contexts": contexts_for_style.get(sname, [])},
-                                percentage=None,
-                            )
-                        )
             except Exception:
                 # Non-fatal: keep finalize robust even if analysis fails
                 pass

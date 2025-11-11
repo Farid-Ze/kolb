@@ -82,7 +82,8 @@ def test_team_rollup_single_session():
     )
     db.commit()
 
-    roll = compute_team_rollup(db, team_id=t.id, for_date=date(2025, 1, 2))
+    with db.begin():
+        roll = compute_team_rollup(db, team_id=t.id, for_date=date(2025, 1, 2))
     assert roll.total_sessions == 1
     assert roll.avg_lfi is not None and abs(roll.avg_lfi - 0.5) < 1e-9
     assert roll.style_counts is not None and roll.style_counts.get("Balancing") == 1

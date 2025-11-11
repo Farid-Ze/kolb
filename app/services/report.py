@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session
 
 from app.data.session_designs import recommend_for_primary
 from app.i18n.id_styles import (
@@ -15,7 +15,6 @@ from app.models.klsi import (
     BackupLearningStyle,
     CombinationScore,
     LearningFlexibilityIndex,
-    LearningStyleType,
     LFIContextScore,
     PercentileScore,
     ScaleScore,
@@ -28,6 +27,7 @@ from app.services.regression import (
     predict_integrative_development,
     predicted_curve,
 )
+from app.db.repositories import SessionRepository
 
 
 def _derive_learning_space_suggestions(acce: int | None, aero: int | None,
@@ -245,21 +245,8 @@ def _generate_flexibility_narrative(lfi_score: float, pattern: str, style_freq: 
 
 def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None) -> dict:
     # Eager load all required relations to avoid N+1 and reduce roundtrips
-    s = (
-        db.query(AssessmentSession)
-        .options(
-            joinedload(AssessmentSession.scale_score),
-            joinedload(AssessmentSession.combination_score),
-            joinedload(AssessmentSession.learning_style),
-            joinedload(AssessmentSession.percentile_score),
-            joinedload(AssessmentSession.lfi_index),
-            selectinload(AssessmentSession.backup_styles).joinedload(BackupLearningStyle.style_type),
-            selectinload(AssessmentSession.lfi_context_scores),
-            joinedload(AssessmentSession.user),
-        )
-        .filter(AssessmentSession.id == session_id)
-        .first()
-    )
+    session_repo = SessionRepository(db)
+    s = session_repo.get_with_details(session_id)
     if not s:
         raise ValueError("Session not found")
 
@@ -269,7 +256,7 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
     p = s.percentile_score
     lfi = s.lfi_index
 
-    primary = db.query(LearningStyleType).filter(LearningStyleType.id == ustyle.primary_style_type_id).first() if ustyle else None
+    primary = ustyle.style_type if ustyle else None
     backup = None
     backup_type = None
     if s.backup_styles:

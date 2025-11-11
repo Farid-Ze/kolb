@@ -7,7 +7,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.klsi import AuditLog, NormativeConversionTable
+from app.db.repositories import NormativeConversionRepository
+from app.models.klsi import AuditLog
 from app.engine.norms.factory import (
     build_composite_norm_provider,
     clear_norm_db_cache,
@@ -70,26 +71,14 @@ def import_norms(
             last = percentile
             rows.append((scale_name, raw_score, percentile))
     batch_hash = sha256(content.encode('utf-8')).hexdigest()
+    norm_repo = NormativeConversionRepository(db)
     inserted = 0
-    for scale_name, raw_score, percentile in rows:
-        # Idempotent upsert: check existing
-        existing = db.query(NormativeConversionTable).filter(
-            NormativeConversionTable.norm_group==norm_group,
-            NormativeConversionTable.norm_version==norm_version,
-            NormativeConversionTable.scale_name==scale_name,
-            NormativeConversionTable.raw_score==raw_score
-        ).first()
-        if existing:
-            existing.percentile = percentile  # update if changed
-        else:
-            db.add(NormativeConversionTable(
-                norm_group=norm_group,
-                norm_version=norm_version,
-                scale_name=scale_name,
-                raw_score=raw_score,
-                percentile=percentile,
-            ))
-            inserted += 1
+    with db.begin():
+        for scale_name, raw_score, percentile in rows:
+            _, created = norm_repo.upsert(norm_group, norm_version, scale_name, raw_score, percentile)
+            if created:
+                inserted += 1
+        db.add(AuditLog(actor=user.email, action=f'norm_import:{norm_group}:{norm_version}', payload_hash=batch_hash))
     # Invalidate in-process normative cache so subsequent lookups see fresh data
     try:
         provider = build_composite_norm_provider(db)
@@ -98,8 +87,6 @@ def import_norms(
     except Exception:
         # Non-fatal; cache will naturally evict eventually if invalidation fails
         pass
-    db.add(AuditLog(actor=user.email, action=f'norm_import:{norm_group}:{norm_version}', payload_hash=batch_hash))
-    db.commit()
     return {
         "norm_group": norm_group,
         "norm_version": norm_version,

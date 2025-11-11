@@ -178,7 +178,6 @@ def seed_instruments(db: Session) -> None:
                     is_terminal=terminal,
                 )
             )
-    db.commit()
 
 
 def seed_learning_styles(db: Session):
@@ -196,7 +195,6 @@ def seed_learning_styles(db: Session):
                     description=None,
                 )
             )
-        db.commit()
 
 
 def seed_assessment_items(db: Session):
@@ -224,4 +222,3 @@ def seed_assessment_items(db: Session):
                 ItemChoice(item_id=item.id, learning_mode=LearningMode.AC, choice_text="Saya berpikir tentang gagasan"),
                 ItemChoice(item_id=item.id, learning_mode=LearningMode.AE, choice_text="Saya mencoba melakukannya")
             ])
-        db.commit()

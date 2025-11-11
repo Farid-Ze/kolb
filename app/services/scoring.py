@@ -19,6 +19,7 @@ from app.assessments.klsi_v4.logic import (
     validate_lfi_context_ranks,
 )
 from app.core.config import settings
+from app.core.errors import SessionNotFoundError
 from app.engine.finalize import finalize_assessment
 from app.db.repositories import (
     NormativeConversionRepository,
@@ -119,7 +120,7 @@ def finalize_session(db: Session, session_id: int, *, skip_checks: bool = False)
     session_repo = SessionRepository(db)
     session = session_repo.get_by_id(session_id)
     if not session:
-        raise ValueError("Sesi tidak ditemukan")
+        raise SessionNotFoundError("Sesi tidak ditemukan")
     assessment_id = session.assessment_id or "KLSI"
     assessment_version = session.assessment_version or "4.0"
     outcome = finalize_assessment(

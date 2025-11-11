@@ -4,7 +4,8 @@ from fastapi import FastAPI, Response
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.db.database import Base, SessionLocal, engine
+from app.core.logging import configure_logging, get_logger
+from app.db.database import Base, engine, transactional_session
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.reports import router as reports_router
@@ -16,6 +17,10 @@ from app.services.seeds import seed_assessment_items, seed_instruments, seed_lea
 # Ensure instrument authoring manifest and plugins register on import
 import app.instruments.klsi4  # noqa: F401
 from app.routers.engine import router as engine_router
+
+
+configure_logging()
+logger = get_logger("kolb.app.main", component="app")
 
 
 @asynccontextmanager
@@ -38,13 +43,14 @@ async def lifespan(app: FastAPI):
     # NOTE: In production, disable create_all() via RUN_STARTUP_DDL=false env var
     # and rely on Alembic migrations only
     if settings.run_startup_ddl:
+        logger.info("startup_execute_ddl", extra={"structured_data": {"run_startup_ddl": True}})
         Base.metadata.create_all(bind=engine)
     if settings.run_startup_seed:
-        with SessionLocal() as db:
+        logger.info("startup_seed_data", extra={"structured_data": {"run_startup_seed": True}})
+        with transactional_session() as db:
             seed_instruments(db)
             seed_learning_styles(db)
             seed_assessment_items(db)
-            db.commit()
     yield
     # Shutdown: nothing
 

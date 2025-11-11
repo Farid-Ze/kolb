@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.assessments.klsi_v4.logic import STYLE_CUTS, compute_raw_scale_scores
 from app.db.database import SessionLocal
 from app.models.klsi import (
@@ -62,7 +64,8 @@ def test_style_cuts_boundaries():
 def test_raw_score_rank_direction():
     ranks_by_mode = {"CE": 1, "RO": 2, "AC": 3, "AE": 4}
     with SessionLocal() as db:
-        user = User(full_name="Rank Direction", email="rank_direction@test", role="MAHASISWA")
+        unique_email = f"rank_direction+{datetime.utcnow().timestamp()}@test"
+        user = User(full_name="Rank Direction", email=unique_email, role="MAHASISWA")
         db.add(user)
         db.commit()
         db.refresh(user)

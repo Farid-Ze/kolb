@@ -24,6 +24,7 @@ from app.models.klsi import (
     SessionStatus,
     UserResponse,
 )
+from app.core.errors import DomainError, InvalidAssessmentData, SessionNotFoundError
 from app.services.report import build_report
 from app.services.scoring import CONTEXT_NAMES, finalize_session
 
@@ -79,19 +80,24 @@ class KLSI4Plugin(
     def validate_submit(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
         self._ensure_session(db, session_id)
         kind = payload.get("kind")
-        if kind == "item":
-            self._submit_item(db, session_id, payload)
-        elif kind == "context":
-            self._submit_context(db, session_id, payload)
-        else:
-            raise HTTPException(status_code=400, detail="Jenis payload tidak dikenal")
+        match kind:
+            case "item":
+                self._submit_item(db, session_id, payload)
+            case "context":
+                self._submit_context(db, session_id, payload)
+            case _:
+                raise HTTPException(status_code=400, detail="Jenis payload tidak dikenal")
 
     def finalize(self, db: Session, session_id: int, *, skip_checks: bool = False) -> Dict[str, object]:
         session = self._ensure_session(db, session_id)
         if session.status != SessionStatus.completed:
             try:
                 result = finalize_session(db, session_id, skip_checks=skip_checks)
-            except ValueError as exc:
+            except SessionNotFoundError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from None
+            except InvalidAssessmentData as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from None
+            except DomainError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from None
             return result
         return {"ok": True}

@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
-from app.models.klsi import Instrument, ScoringPipeline, ScoringPipelineNode
+from app.db.repositories import InstrumentRepository, PipelineRepository
+from app.models.klsi import Instrument
 
 
 def _instrument_or_404(
@@ -13,10 +14,8 @@ def _instrument_or_404(
     instrument_code: str,
     instrument_version: Optional[str],
 ) -> Instrument:
-    query = db.query(Instrument).filter(Instrument.code == instrument_code)
-    if instrument_version:
-        query = query.filter(Instrument.version == instrument_version)
-    instrument = query.order_by(Instrument.version.desc()).first()
+    instrument_repo = InstrumentRepository(db)
+    instrument = instrument_repo.get_by_code(instrument_code, instrument_version)
     if not instrument:
         raise HTTPException(status_code=404, detail="Instrumen tidak ditemukan")
     return instrument
@@ -29,13 +28,8 @@ def list_pipelines(
 ) -> dict:
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
-    pipelines = (
-        db.query(ScoringPipeline)
-        .options(joinedload(ScoringPipeline.nodes))
-        .filter(ScoringPipeline.instrument_id == instrument.id)
-        .order_by(ScoringPipeline.pipeline_code.asc(), ScoringPipeline.version.asc())
-        .all()
-    )
+    pipeline_repo = PipelineRepository(db)
+    pipelines = pipeline_repo.list_with_nodes(instrument.id)
 
     payload = []
     for pipeline in pipelines:
@@ -84,25 +78,19 @@ def activate_pipeline(
 ) -> dict:
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
-    pipeline = (
-        db.query(ScoringPipeline)
-        .filter(
-            ScoringPipeline.id == pipeline_id,
-            ScoringPipeline.instrument_id == instrument.id,
-        )
-        .first()
-    )
+    pipeline_repo = PipelineRepository(db)
+    pipeline = pipeline_repo.get(pipeline_id, instrument.id)
     if not pipeline:
         raise HTTPException(status_code=404, detail="Pipeline tidak ditemukan")
 
-    db.query(ScoringPipeline).filter(
-        ScoringPipeline.instrument_id == instrument.id,
-        ScoringPipeline.id != pipeline.id,
-    ).update({"is_active": False}, synchronize_session=False)
-
-    pipeline.is_active = True
-    db.commit()
-    db.refresh(pipeline)
+    try:
+        pipeline_repo.deactivate_all_except(instrument.id, pipeline.id)
+        pipeline.is_active = True
+        db.commit()
+        db.refresh(pipeline)
+    except Exception:
+        db.rollback()
+        raise
 
     return {
         "instrument": {
@@ -132,57 +120,32 @@ def clone_pipeline(
 ) -> dict:
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
-    source = (
-        db.query(ScoringPipeline)
-        .options(joinedload(ScoringPipeline.nodes))
-        .filter(
-            ScoringPipeline.id == pipeline_id,
-            ScoringPipeline.instrument_id == instrument.id,
-        )
-        .first()
-    )
+    pipeline_repo = PipelineRepository(db)
+    source = pipeline_repo.get(pipeline_id, instrument.id, with_nodes=True)
     if not source:
         raise HTTPException(status_code=404, detail="Pipeline tidak ditemukan")
 
     candidate_code = new_pipeline_code or source.pipeline_code
-    existing = (
-        db.query(ScoringPipeline)
-        .filter(
-            ScoringPipeline.instrument_id == instrument.id,
-            ScoringPipeline.pipeline_code == candidate_code,
-            ScoringPipeline.version == new_version,
-        )
-        .first()
-    )
-    if existing:
+    if pipeline_repo.exists_version(instrument.id, candidate_code, new_version):
         raise HTTPException(status_code=409, detail="Versi pipeline sudah ada")
 
-    cloned = ScoringPipeline(
-        instrument_id=instrument.id,
-        pipeline_code=candidate_code,
-        version=new_version,
-        description=description or source.description,
-        is_active=False,
-        metadata_payload=metadata_override if metadata_override is not None else source.metadata_payload,
-    )
-    db.add(cloned)
-    db.flush()
-
-    for node in sorted(source.nodes, key=lambda n: n.execution_order):
-        db.add(
-            ScoringPipelineNode(
-                pipeline_id=cloned.id,
-                node_key=node.node_key,
-                node_type=node.node_type,
-                execution_order=node.execution_order,
-                config=node.config,
-                next_node_key=node.next_node_key,
-                is_terminal=node.is_terminal,
-            )
+    try:
+        cloned = pipeline_repo.clone(
+            source,
+            instrument_id=instrument.id,
+            pipeline_code=candidate_code,
+            version=new_version,
+            description=description or source.description,
+            is_active=False,
+            metadata_payload=(
+                metadata_override if metadata_override is not None else source.metadata_payload
+            ),
         )
-
-    db.commit()
-    db.refresh(cloned)
+        db.commit()
+        db.refresh(cloned)
+    except Exception:
+        db.rollback()
+        raise
 
     return {
         "instrument": {
@@ -210,21 +173,19 @@ def delete_pipeline(
 ) -> dict:
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
-    pipeline = (
-        db.query(ScoringPipeline)
-        .filter(
-            ScoringPipeline.id == pipeline_id,
-            ScoringPipeline.instrument_id == instrument.id,
-        )
-        .first()
-    )
+    pipeline_repo = PipelineRepository(db)
+    pipeline = pipeline_repo.get(pipeline_id, instrument.id)
     if not pipeline:
         raise HTTPException(status_code=404, detail="Pipeline tidak ditemukan")
     if pipeline.is_active:
         raise HTTPException(status_code=409, detail="Tidak dapat menghapus pipeline aktif")
 
-    db.delete(pipeline)
-    db.commit()
+    try:
+        pipeline_repo.delete(pipeline)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     return {
         "instrument": {

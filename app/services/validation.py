@@ -4,15 +4,13 @@ from collections import defaultdict
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES, validate_lfi_context_ranks
-from app.models.klsi import (
-    AssessmentItem,
-    AssessmentSession,
-    ItemType,
-    LFIContextScore,
-    UserResponse,
+from app.db.repositories import (
+    AssessmentItemRepository,
+    LFIContextRepository,
+    SessionRepository,
+    UserResponseRepository,
 )
 
 
@@ -30,7 +28,8 @@ def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
     - duplicate_choice_ids: list of choice_ids that appear >1 for same session (should be prevented by constraint, defensive)
     - ready_to_complete: bool (true if all items have exactly ranks 1..4 once)
     """
-    session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    session_repo = SessionRepository(db)
+    session = session_repo.get_by_id(session_id)
     if not session:
         return {
             "session_exists": False,
@@ -45,34 +44,23 @@ def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
         }
 
     # Fetch learning_style item IDs
-    items = db.query(AssessmentItem.id).filter(AssessmentItem.item_type == ItemType.learning_style).all()
-    item_ids = [row[0] for row in items]
+    item_repo = AssessmentItemRepository(db)
+    item_ids = item_repo.get_learning_item_ids()
 
     # Aggregate ranks per item with COUNT and COUNT DISTINCT via SQL
     # This reduces Python-side processing and roundtrips.
-    rank_rows = (
-        db.query(UserResponse.item_id, UserResponse.rank_value, func.count().label("cnt"))
-        .filter(UserResponse.session_id == session_id)
-        .group_by(UserResponse.item_id, UserResponse.rank_value)
-        .all()
-    )
+    response_repo = UserResponseRepository(db)
+    rank_rows = response_repo.aggregate_ranks_by_item(session_id)
     # Build maps from aggregated rows
     ranks_by_item: dict[int, set[int]] = defaultdict(set)
     any_dup_per_item: dict[int, bool] = defaultdict(bool)
-    for item_id, rank_value, cnt in rank_rows:
-        ranks_by_item[item_id].add(int(rank_value))
-        if cnt and int(cnt) > 1:
-            any_dup_per_item[item_id] = True
+    for aggregate in rank_rows:
+        ranks_by_item[aggregate.item_id].add(aggregate.rank_value)
+        if aggregate.count > 1:
+            any_dup_per_item[aggregate.item_id] = True
 
     # Detect duplicate choices (defensive; should be prevented by constraint)
-    dup_choice_rows = (
-        db.query(UserResponse.choice_id, func.count().label("c"))
-        .filter(UserResponse.session_id == session_id)
-        .group_by(UserResponse.choice_id)
-        .having(func.count() > 1)
-        .all()
-    )
-    duplicate_choice_ids = [row[0] for row in dup_choice_rows]
+    duplicate_choice_ids = response_repo.find_duplicate_choices(session_id)
 
     items_with_rank_conflict: List[int] = []
     items_with_missing_ranks: List[Dict[str, Any]] = []
@@ -155,11 +143,8 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
         )
 
     # LFI context validations
-    contexts = (
-        db.query(LFIContextScore)
-        .filter(LFIContextScore.session_id == session_id)
-        .all()
-    )
+    context_repo = LFIContextRepository(db)
+    contexts = context_repo.list_for_session(session_id)
     if len(contexts) != len(CONTEXT_NAMES):
         issues.append(
             {

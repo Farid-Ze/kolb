@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
-from app.models.klsi import User
+from app.db.repositories import UserRepository
 from app.schemas.auth import Role, Token, UserCreate, UserOut
 from app.services.security import create_access_token, hash_password, verify_password
 
@@ -29,10 +29,11 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Format kelas harus IF-<nomor>")
         if not payload.tahun_masuk or payload.tahun_masuk < 1990 or payload.tahun_masuk > 2100:
             raise HTTPException(status_code=400, detail="Tahun masuk tidak valid")
-    existing = db.query(User).filter(User.email == payload.email).first()
+    user_repo = UserRepository(db)
+    existing = user_repo.get_by_email(payload.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email sudah terdaftar")
-    user = User(
+    user = user_repo.create(
         full_name=payload.full_name,
         email=payload.email,
         password_hash=hash_password(payload.password),
@@ -41,14 +42,18 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         kelas=payload.kelas if role == Role.MAHASISWA else None,
         tahun_masuk=payload.tahun_masuk if role == Role.MAHASISWA else None,
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        raise
     return user
 
 @router.post("/login", response_model=Token)
 def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == email).first()
+    user_repo = UserRepository(db)
+    user = user_repo.get_by_email(email)
     if not user or not user.password_hash or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Kredensial salah")
     token = create_access_token(str(user.id))

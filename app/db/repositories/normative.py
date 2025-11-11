@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Sequence
+from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.db.repositories.base import Repository
+from app.models.klsi import NormativeConversionTable
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class NormativeConversionRow:
     norm_group: str
     norm_version: str | None
@@ -117,3 +118,76 @@ class NormativeConversionRepository(Repository[Session]):
             raw_score=int(raw_score),
             percentile=float(percentile),
         )
+
+    def fetch_first_for_versions(
+        self,
+        norm_group: str,
+        versions: Sequence[str],
+        scale: str,
+        raw: int,
+    ) -> Tuple[NormativeConversionRow, str] | None:
+        normalized_versions = list(dict.fromkeys(versions))
+        if not normalized_versions:
+            return None
+        rows = self.fetch_batch(norm_group, normalized_versions, {scale: [raw]})
+        if not rows:
+            return None
+        for version in normalized_versions:
+            for entry in rows:
+                resolved_version = entry.norm_version or version
+                if resolved_version == version:
+                    return entry, resolved_version
+        entry = rows[0]
+        fallback_version = entry.norm_version or normalized_versions[0]
+        return entry, fallback_version
+
+    def upsert(
+        self,
+        norm_group: str,
+        norm_version: str,
+        scale_name: str,
+        raw_score: int,
+        percentile: float,
+    ) -> Tuple[NormativeConversionTable, bool]:
+        stmt = (
+            select(NormativeConversionTable)
+            .where(NormativeConversionTable.norm_group == norm_group)
+            .where(NormativeConversionTable.norm_version == norm_version)
+            .where(NormativeConversionTable.scale_name == scale_name)
+            .where(NormativeConversionTable.raw_score == raw_score)
+            .limit(1)
+        )
+        existing = self.db.execute(stmt).scalar_one_or_none()
+        if existing:
+            existing.percentile = percentile
+            return existing, False
+        entity = NormativeConversionTable(
+            norm_group=norm_group,
+            norm_version=norm_version,
+            scale_name=scale_name,
+            raw_score=raw_score,
+            percentile=percentile,
+        )
+        self.db.add(entity)
+        return entity, True
+
+    def fetch_all_entries(self) -> List[NormativeConversionRow]:
+        """Return all normative conversion entries as lightweight rows."""
+        stmt = select(
+            NormativeConversionTable.norm_group,
+            NormativeConversionTable.norm_version,
+            NormativeConversionTable.scale_name,
+            NormativeConversionTable.raw_score,
+            NormativeConversionTable.percentile,
+        )
+        rows = self.db.execute(stmt).all()
+        return [
+            NormativeConversionRow(
+                norm_group=str(row[0]),
+                norm_version=str(row[1]) if row[1] is not None else None,
+                scale_name=str(row[2]),
+                raw_score=int(row[3]),
+                percentile=float(row[4]),
+            )
+            for row in rows
+        ]

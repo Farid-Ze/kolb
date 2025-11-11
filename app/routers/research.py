@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.klsi import ReliabilityResult, ResearchStudy, User, ValidityEvidence
+from app.db.repositories import (
+    ReliabilityRepository,
+    ResearchStudyRepository,
+    ValidityRepository,
+)
+from app.models.klsi import User
 from app.schemas.research import (
     ReliabilityCreate,
     ResearchStudyCreate,
@@ -32,10 +37,14 @@ def create_study(
 ):
     user = get_current_user(authorization, db)
     _require_mediator(user)
-    study = ResearchStudy(**payload.model_dump())
-    db.add(study)
-    db.commit()
-    db.refresh(study)
+    study_repo = ResearchStudyRepository(db)
+    try:
+        study = study_repo.create(**payload.model_dump())
+        db.commit()
+        db.refresh(study)
+    except Exception:
+        db.rollback()
+        raise
     return study
 
 
@@ -46,17 +55,14 @@ def list_studies(
     limit: int = Query(50, ge=1, le=200),
     q: Optional[str] = Query(None),
 ):
-    qry = db.query(ResearchStudy)
-    if q:
-        like = f"%{q}%"
-        qry = qry.filter(ResearchStudy.title.ilike(like))
-    studies = qry.order_by(ResearchStudy.id.desc()).offset(skip).limit(limit).all()
-    return studies
+    study_repo = ResearchStudyRepository(db)
+    return study_repo.list(skip, limit, q)
 
 
 @router.get("/studies/{study_id}", response_model=ResearchStudyOut)
 def get_study(study_id: int, db: Session = Depends(get_db)):
-    study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
+    study_repo = ResearchStudyRepository(db)
+    study = study_repo.get(study_id)
     if not study:
         raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
     return study
@@ -71,14 +77,20 @@ def update_study(
 ):
     user = get_current_user(authorization, db)
     _require_mediator(user)
-    study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
-    if not study:
-        raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
-    data = payload.model_dump(exclude_unset=True)
-    for key, value in data.items():
-        setattr(study, key, value)
-    db.commit()
-    db.refresh(study)
+    study_repo = ResearchStudyRepository(db)
+    try:
+        study = study_repo.get(study_id)
+        if not study:
+            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+        data = payload.model_dump(exclude_unset=True)
+        for key, value in data.items():
+            setattr(study, key, value)
+        db.flush()
+        db.commit()
+        db.refresh(study)
+    except Exception:
+        db.rollback()
+        raise
     return study
 
 
@@ -90,18 +102,28 @@ def delete_study(
 ):
     user = get_current_user(authorization, db)
     _require_mediator(user)
-    study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
-    if not study:
-        raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
-    rel_count = db.query(ReliabilityResult).filter(ReliabilityResult.study_id == study_id).count()
-    val_count = db.query(ValidityEvidence).filter(ValidityEvidence.study_id == study_id).count()
-    if rel_count > 0 or val_count > 0:
-        raise HTTPException(
-            status_code=409,
-            detail="Hapus bukti reliabilitas/validitas terlebih dahulu",
-        )
-    db.delete(study)
-    db.commit()
+    study_repo = ResearchStudyRepository(db)
+    reliability_repo = ReliabilityRepository(db)
+    validity_repo = ValidityRepository(db)
+    try:
+        study = study_repo.get(study_id)
+        if not study:
+            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+        rel_count = reliability_repo.count_by_study(study_id)
+        val_count = validity_repo.count_by_study(study_id)
+        if rel_count > 0 or val_count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Hapus bukti reliabilitas/validitas terlebih dahulu",
+            )
+        study_repo.delete(study)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
     return {"ok": True}
 
 
@@ -114,13 +136,21 @@ def add_reliability(
 ):
     user = get_current_user(authorization, db)
     _require_mediator(user)
-    study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
-    if not study:
-        raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
-    row = ReliabilityResult(study_id=study_id, **payload.model_dump())
-    db.add(row)
-    db.commit()
-    db.refresh(row)
+    study_repo = ResearchStudyRepository(db)
+    reliability_repo = ReliabilityRepository(db)
+    try:
+        study = study_repo.get(study_id)
+        if not study:
+            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+        row = reliability_repo.add(study_id, **payload.model_dump())
+        db.commit()
+        db.refresh(row)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
     return {"id": row.id, "metric_name": row.metric_name, "value": row.value}
 
 
@@ -133,19 +163,28 @@ def add_validity(
 ):
     user = get_current_user(authorization, db)
     _require_mediator(user)
-    study = db.query(ResearchStudy).filter(ResearchStudy.id == study_id).first()
-    if not study:
-        raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
-    row = ValidityEvidence(study_id=study_id, **payload.model_dump())
-    db.add(row)
-    db.commit()
-    db.refresh(row)
+    study_repo = ResearchStudyRepository(db)
+    validity_repo = ValidityRepository(db)
+    try:
+        study = study_repo.get(study_id)
+        if not study:
+            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+        row = validity_repo.add(study_id, **payload.model_dump())
+        db.commit()
+        db.refresh(row)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
     return {"id": row.id, "evidence_type": row.evidence_type}
 
 
 @router.get("/studies/{study_id}/reliability", response_model=list[dict])
 def list_reliability(study_id: int, db: Session = Depends(get_db)):
-    rows = db.query(ReliabilityResult).filter(ReliabilityResult.study_id == study_id).all()
+    repo = ReliabilityRepository(db)
+    rows = repo.list_by_study(study_id)
     return [
         {"id": r.id, "metric_name": r.metric_name, "value": r.value, "notes": r.notes}
         for r in rows
@@ -154,7 +193,8 @@ def list_reliability(study_id: int, db: Session = Depends(get_db)):
 
 @router.get("/studies/{study_id}/validity", response_model=list[dict])
 def list_validity(study_id: int, db: Session = Depends(get_db)):
-    rows = db.query(ValidityEvidence).filter(ValidityEvidence.study_id == study_id).all()
+    repo = ValidityRepository(db)
+    rows = repo.list_by_study(study_id)
     return [
         {
             "id": r.id,

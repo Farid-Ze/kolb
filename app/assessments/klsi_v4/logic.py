@@ -3,14 +3,22 @@ from __future__ import annotations
 from datetime import date, datetime
 from functools import lru_cache
 from math import sqrt
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import load_config
-from app.engine.norms.provider import NormProvider
+from app.assessments.klsi_v4.types import ScoreVector
+from app.core.errors import InvalidAssessmentData
 from app.engine.norms.factory import build_composite_norm_provider
+from app.engine.norms.provider import NormProvider
+from app.db.repositories import (
+    LFIContextRepository,
+    NormativeConversionRepository,
+    SessionRepository,
+    StyleRepository,
+    UserResponseRepository,
+)
 from app.models.klsi import (
     AssessmentSession,
     AssessmentSessionDelta,
@@ -19,14 +27,14 @@ from app.models.klsi import (
     LearningFlexibilityIndex,
     LearningMode,
     LearningStyleType,
-    LFIContextScore,
     PercentileScore,
     ScaleScore,
-    SessionStatus,
     User,
     UserLearningStyle,
-    UserResponse,
 )
+
+if TYPE_CHECKING:
+    from app.models.klsi import UserResponse
 from app.services.provenance import upsert_scale_provenance
 
 from app.data.norms import (
@@ -114,16 +122,16 @@ def validate_lfi_context_ranks(context_scores: List[Dict[str, int]]) -> None:
     expected = {1, 2, 3, 4}
     for idx, ctx in enumerate(context_scores, start=1):
         if set(ctx.keys()) != set(modes):
-            raise ValueError(
+            raise InvalidAssessmentData(
                 f"Context {idx} must contain ranks for exactly {modes}. Got keys: {sorted(ctx.keys())}"
             )
         ranks = list(ctx.values())
         if not all(isinstance(rank, int) for rank in ranks):
-            raise ValueError(f"Context {idx} has non-integer rank(s): {ranks}")
+            raise InvalidAssessmentData(f"Context {idx} has non-integer rank(s): {ranks}")
         if not all(1 <= rank <= 4 for rank in ranks):
-            raise ValueError(f"Context {idx} ranks must be within 1..4. Got: {ranks}")
+            raise InvalidAssessmentData(f"Context {idx} ranks must be within 1..4. Got: {ranks}")
         if set(ranks) != expected:
-            raise ValueError(
+            raise InvalidAssessmentData(
                 f"Context {idx} must be a permutation of [1,2,3,4]. Got: {ranks}"
             )
 
@@ -202,7 +210,8 @@ def _age_to_band(user: User, reference_date: Optional[date]) -> Optional[str]:
 
 
 def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
-    sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    session_repo = SessionRepository(db)
+    sess = session_repo.get_with_user(session_id)
     user: Optional[User] = sess.user if sess else None
     reference_date: Optional[date] = None
     if sess:
@@ -230,6 +239,22 @@ def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
     return ordered
 
 
+def _accumulate_mode_totals(responses: Iterable[UserResponse]) -> ScoreVector:
+    mode_totals = {mode.value: 0 for mode in LearningMode}
+    for response in responses:
+        choice = getattr(response, "choice", None)
+        item = getattr(choice, "item", None) if choice else None
+        if not choice or not item or item.item_type != ItemType.learning_style:
+            continue
+        mode_totals[choice.learning_mode.value] += response.rank_value
+    return ScoreVector(
+        CE=mode_totals["CE"],
+        RO=mode_totals["RO"],
+        AC=mode_totals["AC"],
+        AE=mode_totals["AE"],
+    )
+
+
 def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
     """Sum forced-choice ranks for each learning mode.
 
@@ -240,21 +265,15 @@ def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
     preference for the associated learning mode, aligning with the
     normative tables in Appendix 1 (range 12–48).
     """
-    responses = (
-        db.query(UserResponse)
-        .filter(UserResponse.session_id == session_id)
-        .all()
-    )
-    mode_totals = {mode.value: 0 for mode in LearningMode}
-    for response in responses:
-        if response.choice.item.item_type == ItemType.learning_style:
-            mode_totals[response.choice.learning_mode.value] += response.rank_value
+    response_repo = UserResponseRepository(db)
+    responses = response_repo.list_with_choices(session_id)
+    vector = _accumulate_mode_totals(responses)
     scale = ScaleScore(
         session_id=session_id,
-        CE_raw=mode_totals["CE"],
-        RO_raw=mode_totals["RO"],
-        AC_raw=mode_totals["AC"],
-        AE_raw=mode_totals["AE"],
+        CE_raw=vector.CE,
+        RO_raw=vector.RO,
+        AC_raw=vector.AC,
+        AE_raw=vector.AE,
     )
     db.add(scale)
     return scale
@@ -304,9 +323,10 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     acc, aer = combo.ACCE_raw, combo.AERO_raw
 
     # Load windows from DB
-    types: list[LearningStyleType] = db.query(LearningStyleType).all()
+    style_repo = StyleRepository(db)
+    types: list[LearningStyleType] = style_repo.list_learning_style_types()
     if not types:
-        raise ValueError("Learning style windows not seeded; please seed learning_style_types")
+        raise InvalidAssessmentData("Learning style windows not seeded; please seed learning_style_types")
     windows: dict[str, dict[str, Optional[int]]] = {}
     for t in types:
         windows[t.style_name] = {
@@ -332,13 +352,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
         primary_name = ordered_by_distance[0][0]
     backup_name = next((name for name, dist in ordered_by_distance if name != primary_name), None)
 
-    primary_type = (
-        db.query(LearningStyleType)
-        .filter(LearningStyleType.style_name == primary_name)
-        .first()
-        if primary_name
-        else None
-    )
+    primary_type = style_repo.get_by_name(primary_name) if primary_name else None
     manhattan = abs(acc) + abs(aer)
     euclidean = sqrt(acc**2 + aer**2)
     kite = {}
@@ -359,22 +373,12 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     )
     db.add(user_style)
     if backup_name:
-        backup_type = (
-            db.query(LearningStyleType)
-            .filter(LearningStyleType.style_name == backup_name)
-            .first()
-        )
+        backup_type = style_repo.get_by_name(backup_name)
         if backup_type:
-            from app.models.klsi import BackupLearningStyle
-
-            db.add(
-                BackupLearningStyle(
-                    session_id=combo.session_id,
-                    style_type_id=backup_type.id,
-                    frequency_count=1,
-                    percentage=None,
-                    contexts_used=None,
-                )
+            style_repo.upsert_backup_style(
+                combo.session_id,
+                backup_type.id,
+                frequency_count=1,
             )
     return user_style, {"manhattan": manhattan, "euclidean": euclidean}
 
@@ -389,34 +393,24 @@ def _db_norm_lookup(
     candidates = [requested_version]
     if requested_version != DEFAULT_NORM_VERSION:
         candidates.append(DEFAULT_NORM_VERSION)
-    for version in candidates:
-        row = db.execute(
-            text(
-                "SELECT percentile, norm_version FROM normative_conversion_table "
-                "WHERE norm_group=:g AND norm_version=:v AND scale_name=:s AND raw_score=:r LIMIT 1"
-            ),
-            {"g": base_group, "v": version, "s": scale, "r": int(raw)},
-        ).fetchone()
-        if row:
-            percentile = float(row[0])
-            resolved_version = row[1] or version
-            return percentile, resolved_version
+    repo = NormativeConversionRepository(db)
+    result = repo.fetch_first_for_versions(base_group, candidates, scale, int(raw))
+    if result:
+        entry, resolved_version = result
+        return entry.percentile, resolved_version
     return None, None
 
 
 def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None = None) -> LearningFlexibilityIndex:
-    rows = (
-        db.query(LFIContextScore)
-        .filter(LFIContextScore.session_id == session_id)
-        .all()
-    )
+    context_repo = LFIContextRepository(db)
+    rows = context_repo.list_for_session(session_id)
     if len(rows) != _cfg()["context_count"]:
-        raise ValueError(f"Expected {_cfg()['context_count']} contexts, found {len(rows)}")
+        raise InvalidAssessmentData(f"Expected {_cfg()['context_count']} contexts, found {len(rows)}")
     allowed = set(context_names())
     if any(row.context_name not in allowed for row in rows):
-        raise ValueError("Context name tidak dikenal dalam konfigurasi")
+        raise InvalidAssessmentData("Context name tidak dikenal dalam konfigurasi")
     if len({row.context_name for row in rows}) != len(rows):
-        raise ValueError("Duplicate context names detected for session")
+        raise InvalidAssessmentData("Duplicate context names detected for session")
     payload = []
     for row in rows:
         payload.append(
@@ -588,22 +582,15 @@ def compute_longitudinal_delta(
     lfi: LearningFlexibilityIndex,
     intensity_metrics: Dict[str, float],
 ) -> Optional[AssessmentSessionDelta]:
-    session = (
-        db.query(AssessmentSession)
-        .filter(AssessmentSession.id == session_id)
-        .first()
-    )
+    session_repo = SessionRepository(db)
+    session = session_repo.get_by_id(session_id)
     if not session:
         return None
-    previous = (
-        db.query(AssessmentSession)
-        .filter(AssessmentSession.user_id == session.user_id)
-        .filter(AssessmentSession.assessment_id == session.assessment_id)
-        .filter(AssessmentSession.assessment_version == session.assessment_version)
-        .filter(AssessmentSession.status == SessionStatus.completed)
-        .filter(AssessmentSession.id != session_id)
-        .order_by(AssessmentSession.end_time.desc())
-        .first()
+    previous = session_repo.get_previous_completed_session(
+        user_id=session.user_id,
+        assessment_id=session.assessment_id,
+        assessment_version=session.assessment_version,
+        exclude_session_id=session_id,
     )
     if not previous or not previous.combination_score or not previous.lfi_index:
         return None

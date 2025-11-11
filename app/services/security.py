@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.db.repositories import UserRepository
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -144,13 +145,11 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     except (KeyError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid token payload")
     
-    # Lazy import to avoid circular dependency
-    from app.models.klsi import User
-    
     if not db:
         raise HTTPException(status_code=500, detail="Database session not provided")
-    
-    user = db.query(User).filter(User.id == user_id).first()
+
+    user_repo = UserRepository(db)
+    user = user_repo.get(user_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.klsi import AssessmentSession, User
+from app.db.repositories import SessionRepository
+from app.models.klsi import User
 from app.services.report import build_report
 from app.services.security import get_current_user
 
@@ -29,9 +30,8 @@ def get_report(
 ):
     # Get current viewer
     viewer = _try_get_current_user(authorization, db)
-    
-    # Check if session exists
-    session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    repo = SessionRepository(db)
+    session = repo.get_by_id(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session tidak ditemukan")
     

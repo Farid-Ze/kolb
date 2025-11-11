@@ -2,8 +2,9 @@ import csv
 import sys
 from hashlib import sha256
 
-from app.db.database import Base, SessionLocal, engine
-from app.models.klsi import AuditLog, NormativeConversionTable
+from app.db.database import Base, engine, transactional_session
+from app.db.repositories import NormativeConversionRepository
+from app.models.klsi import AuditLog
 
 """
 CLI usage (optional):
@@ -31,35 +32,14 @@ def main():
         print("CSV header must be: scale_name,raw_score,percentile")
         sys.exit(2)
     rows = list(reader)
-    with SessionLocal() as db:
+    with transactional_session() as db:
+        repo = NormativeConversionRepository(db)
         for row in rows:
             scale_name = row['scale_name'].strip()
             raw_score = int(row['raw_score'])
             percentile = float(row['percentile'])
-            existing = (
-                db.query(NormativeConversionTable)
-                .filter(
-                    NormativeConversionTable.norm_group == norm_group,
-                    NormativeConversionTable.norm_version == norm_version,
-                    NormativeConversionTable.scale_name == scale_name,
-                    NormativeConversionTable.raw_score == raw_score,
-                )
-                .first()
-            )
-            if existing:
-                existing.percentile = percentile
-            else:
-                db.add(
-                    NormativeConversionTable(
-                        norm_group=norm_group,
-                        norm_version=norm_version,
-                        scale_name=scale_name,
-                        raw_score=raw_score,
-                        percentile=percentile,
-                    )
-                )
+            repo.upsert(norm_group, norm_version, scale_name, raw_score, percentile)
         db.add(AuditLog(actor='system', action=f'norm_import:{norm_group}:{norm_version}', payload_hash=h))
-        db.commit()
     print(f"Imported {len(rows)} rows for norm_group={norm_group} version={norm_version}")
 
 if __name__ == '__main__':
