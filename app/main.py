@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -66,3 +66,21 @@ app.include_router(research_router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    """Lightweight index to avoid 404s and point to docs."""
+    return {
+        "name": settings.app_name,
+        "status": "ok",
+        "docs": "/docs",
+        "redoc": "/redoc",
+        "health": "/health",
+    }
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """Empty favicon to prevent 404 noise in logs."""
+    return Response(status_code=204)

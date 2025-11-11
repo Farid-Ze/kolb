@@ -15,6 +15,7 @@ from app.models.klsi import (
 from app.services.security import get_current_user
 from app.services.validation import run_session_validations
 from app.schemas.session import SessionSubmissionPayload
+from app.core.config import settings
 from app.models.klsi import UserResponse, LFIContextScore, SessionStatus
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -44,8 +45,11 @@ def get_items(session_id: int, db: Session = Depends(get_db)):
         for item in items
     ]
 
-@router.post("/{session_id}/submit_item", response_model=dict)
+@router.post("/{session_id}/submit_item", response_model=dict, deprecated=True)
 def submit_item(session_id: int, item_id: int, ranks: dict, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+    # Optional runtime deprecation: return 410 Gone when DISABLE_LEGACY_SUBMISSION=1
+    if settings.disable_legacy_submission:
+        raise HTTPException(status_code=410, detail="Endpoint deprecated. Gunakan /sessions/{session_id}/submit_all_responses.")
     user = get_current_user(authorization, db)
     sess = db.query(AssessmentSession).filter(AssessmentSession.id==session_id).first()
     if not sess or sess.user_id != user.id:
@@ -58,7 +62,7 @@ def submit_item(session_id: int, item_id: int, ranks: dict, db: Session = Depend
     runtime.submit_payload(db, session_id, payload)
     return {"ok": True}
 
-@router.post("/{session_id}/submit_context", response_model=dict)
+@router.post("/{session_id}/submit_context", response_model=dict, deprecated=True)
 def submit_context(
     session_id: int,
     context_name: str,
@@ -70,6 +74,8 @@ def submit_context(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
+    if settings.disable_legacy_submission:
+        raise HTTPException(status_code=410, detail="Endpoint deprecated. Gunakan /sessions/{session_id}/submit_all_responses.")
     user = get_current_user(authorization, db)
     sess = db.query(AssessmentSession).filter(AssessmentSession.id==session_id).first()
     if not sess or sess.user_id != user.id:

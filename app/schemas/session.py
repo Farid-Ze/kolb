@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ItemRank(BaseModel):
     item_id: int = Field(gt=0)
     ranks: dict[int, int]
 
-    @validator("ranks")
+    @field_validator("ranks")
+    @classmethod
     def validate_ranks(cls, v: dict[int, int]):  # noqa: D401
         # Must be exactly 4 entries and a permutation of {1,2,3,4}
         if len(v) != 4:
@@ -25,27 +26,29 @@ class ContextRank(BaseModel):
     AC: int = Field(ge=1, le=4)
     AE: int = Field(ge=1, le=4)
 
-    @validator("AE")
-    def validate_context(cls, _v, values):  # noqa: D401
+    @model_validator(mode="after")
+    def validate_context(self):  # noqa: D401
         # Ensure permutation across the four ranks
-        ranks = [values.get("CE"), values.get("RO"), values.get("AC"), values.get("AE")]
+        ranks = [self.CE, self.RO, self.AC, self.AE]
         if sorted(ranks) != [1, 2, 3, 4]:
             raise ValueError("Ranking konteks LFI harus permutasi [1,2,3,4]")
-        return _v
+        return self
 
 
 class SessionSubmissionPayload(BaseModel):
-    items: list[ItemRank] = Field(..., min_items=12, max_items=12)
-    contexts: list[ContextRank] = Field(..., min_items=8, max_items=8)
+    items: list[ItemRank] = Field(..., min_length=12, max_length=12)
+    contexts: list[ContextRank] = Field(..., min_length=8, max_length=8)
 
-    @validator("items")
+    @field_validator("items")
+    @classmethod
     def ensure_unique_items(cls, v: list[ItemRank]):  # noqa: D401
         ids = [x.item_id for x in v]
         if len(ids) != len(set(ids)):
             raise ValueError("Item ID duplikat dalam payload batch")
         return v
 
-    @validator("contexts")
+    @field_validator("contexts")
+    @classmethod
     def ensure_unique_contexts(cls, v: list[ContextRank]):  # noqa: D401
         names = [x.context_name for x in v]
         if len(names) != len(set(names)):

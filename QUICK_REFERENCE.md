@@ -210,7 +210,7 @@ for ctx in contexts:
 
 ## 🔄 API Workflow (Ringkas)
 
-Berikut dua jalur API yang tersedia: legacy `sessions` dan generik `engine`. Keduanya setara secara fungsi.
+Terdapat dua jalur API: generic `engine` dan KLSI-spesifik `sessions` (legacy). Untuk efisiensi maksimal gunakan batch endpoint (`submit_all_responses`) agar 22 panggilan → 3 panggilan.
 
 ### A. Jalur Engine (disarankan untuk integrasi generik)
 
@@ -233,7 +233,7 @@ GET /engine/sessions/{session_id}/report
 → Ringkasan laporan (kite, konteks LFI, dsb.)
 ```
 
-### B. Jalur Sessions (legacy, spesifik KLSI)
+### B. Jalur Sessions (legacy) & Batch Endpoint (disarankan KLSI)
 
 ```http
 POST /sessions/start
@@ -242,14 +242,38 @@ POST /sessions/start
 GET /sessions/{session_id}/items
 → Daftar item 12 gaya + 8 LFI
 
-POST /sessions/{session_id}/submit_item
-Body: { "item_id": 1, "ranks": {"CE":4,"RO":2,"AC":1,"AE":3} }
+POST /sessions/{session_id}/submit_all_responses
+Body:
+{
+  "items": [ {"item_id": 1, "ranks": {"101":1, "102":2, "103":3, "104":4}}, ... 12 total ... ],
+  "contexts": [ {"context_name": "Starting_Something_New", "CE":4, "RO":2, "AC":1, "AE":3}, ... 8 total ... ]
+}
+→ Menyimpan 12×4 + 8×4 ranking dalam satu transaksi & langsung finalisasi (ACCE/AERO, gaya, LFI, percentiles, provenance)
 
-POST /sessions/{session_id}/submit_context
-Body: { "context_name": "Starting_Something_New", "CE":4, "RO":2, "AC":1, "AE":3, "overwrite": false }
+# Endpoint legacy (per-item) akan deprecated:
+POST /sessions/{session_id}/submit_item        (deprecated)
+POST /sessions/{session_id}/submit_context     (deprecated)
+→ Dapat dipaksa non-aktif (HTTP 410) dengan env `DISABLE_LEGACY_SUBMISSION=1`
+```
 
-POST /sessions/{session_id}/finalize
-→ Hasil lengkap + audit log
+### C. Konfigurasi Lingkungan Penting
+
+| Variabel | Wajib | Deskripsi |
+|----------|-------|-----------|
+| `JWT_SECRET_KEY` | ✅ | Kunci HS256 untuk token JWT (tanpa default; harus diset) |
+| `DISABLE_LEGACY_SUBMISSION` | Opsional | `1` → Matikan endpoint `submit_item` & `submit_context` dengan HTTP 410 |
+| `EXTERNAL_NORMS_ENABLED` | Opsional | Aktifkan provider norma eksternal (non-blocking) |
+| `EXTERNAL_NORMS_BASE_URL` | Opsional | Base URL service norma eksternal |
+| `EXTERNAL_NORMS_TIMEOUT_MS` | Opsional | Timeout lookup eksternal (default 1500ms) |
+| `EXTERNAL_NORMS_CACHE_SIZE` | Opsional | Ukuran LRU cache norma eksternal |
+| `EXTERNAL_NORMS_TTL_SEC` | Opsional | TTL positif & negatif caching |
+
+Contoh PowerShell dev:
+
+```powershell
+$Env:JWT_SECRET_KEY='dev-secret'
+$Env:DISABLE_LEGACY_SUBMISSION='1'
+uvicorn app.main:app --reload
 ```
 
 ### 1. User Registration
@@ -294,10 +318,15 @@ Response: 200 OK
 (lihat jalur Engine atau Sessions di atas)
 
 ### 4. Submit Responses
-Gunakan endpoint `interactions` (engine) atau `submit_item` / `submit_context` (sessions). `submit_context` mendukung `overwrite` opsional untuk koreksi.
+Gunakan:
+
+- `engine`: multi panggilan `interactions` (satu per item/konteks) ATAU migrasi ke pola batch custom Anda.
+- `sessions`: SATU panggilan `submit_all_responses` (disarankan) → hemat round trips & atomic.
+
+Endpoint `submit_item` / `submit_context` lama akan dihapus setelah semua klien bermigrasi.
 
 ### 5. Finalize Session
-Keduanya mengembalikan ACCE/AERO, gaya utama, LFI, percentiles, dan provenance norma per skala.
+Batch endpoint (`submit_all_responses`) sudah melakukan finalisasi otomatis. Jalur engine tetap memakai finalize terpisah. Hasil meliputi ACCE/AERO, gaya utama, LFI, percentiles, provenance norma per skala, audit log.
 
 ### 6. Generate Report
 

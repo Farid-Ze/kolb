@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     external_norms_cache_size: int = int(os.getenv("EXTERNAL_NORMS_CACHE_SIZE", "512"))
     external_norms_ttl_sec: int = int(os.getenv("EXTERNAL_NORMS_TTL_SEC", "60"))
 
+    # API compatibility toggles
+    # When set to 1, legacy per-item/context submission endpoints return HTTP 410
+    disable_legacy_submission: bool = bool(int(os.getenv("DISABLE_LEGACY_SUBMISSION", "0")))
+
     # Pydantic v2 config via ConfigDict
     model_config = {
         "env_file": ".env",
