@@ -65,7 +65,36 @@ def compute_lfi(db: Session, session_id: int):
 
 
 def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore):
-    return logic_apply_percentiles(db, scale.session_id, scale, combo)
+    """Apply percentile conversions with a pre-warmed cached provider.
+
+    This preserves the public API surface while internally constructing a
+    CachedCompositeNormProvider that batch-loads all required scale raws
+    (CE/RO/AC/AE + ACCE/AERO) for the session's resolved norm precedence
+    chain and primes an in-process LRU cache. Subsequent per-scale
+    lookups performed inside the validated logic layer become cache hits,
+    removing the N+1 query pattern without altering psychometric math.
+    """
+    session_id = scale.session_id
+    group_chain = list(resolve_norm_groups(db, session_id))
+
+    # Build provider and prime required raw scores in a single batch
+    try:
+        from app.engine.norms.cached_composite import CachedCompositeNormProvider
+    except Exception:  # Fallback safely if module not available
+        return logic_apply_percentiles(db, session_id, scale, combo)
+
+    provider = CachedCompositeNormProvider(db, group_chain=group_chain)
+    required = [
+        ("CE", scale.CE_raw),
+        ("RO", scale.RO_raw),
+        ("AC", scale.AC_raw),
+        ("AE", scale.AE_raw),
+        ("ACCE", combo.ACCE_raw),
+        ("AERO", combo.AERO_raw),
+    ]
+    provider.prime(group_chain, required)
+
+    return logic_apply_percentiles(db, session_id, scale, combo, norm_provider=provider)
 
 
 def resolve_norm_groups(db: Session, session_id: int):

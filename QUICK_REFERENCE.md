@@ -31,7 +31,7 @@ pytest tests/ -v
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| **Tests** | 92/92 passing | ✅ |
+| **Tests** | 93/93 passing | ✅ |
 | **Tables** | 34+ | ✅ |
 | **LFI Contexts** | 8 | ✅ |
 | **Learning Styles** | 9 | ✅ |
@@ -472,6 +472,30 @@ Authorization: Bearer {mediator_token}
 ```
 
 Menampilkan ringkas waktu eksekusi jalur panas (finalisasi dan lookup norma) serta statistik cache (DB & eksternal). `reset=true` untuk mereset counter.
+
+#### Cached Composite Norm Provider
+
+Optimisasi lookup persentil:
+
+- Batch query per precedence chain (EDU→COUNTRY→AGE→GENDER→Total) melalui provider baru (`CachedCompositeNormProvider`).
+- `prime()` memuat semua raw scale yang diperlukan (CE, RO, AC, AE, ACCE, AERO) dalam satu batch sebelum logika persentil jalan → menghapus pola N+1.
+- LRU cache per-proses (aman karena tabel norma read-only saat runtime).
+
+Metrik baru:
+
+| Label | Jenis | Deskripsi |
+|-------|-------|-----------|
+| `norms.cached.batch.percentile_many` | timing | Durasi batch load awal |
+| `norms.cached.prime` | counter | Jumlah pemanggilan pre-warm |
+| `norms.cached.batch.query` | counter | Jumlah eksekusi SQL batch norm |
+| `norms.cached.cache_hit` | counter | Item terpenuhi dari cache LRU |
+| `norms.cached.single.lookup` | counter | Lookup tunggal (fallback jalur non-batch) |
+| `norms.cached.appendix_fallback` | counter | Item jatuh ke Appendix karena miss DB |
+
+Interpretasi cepat:
+- Rasio `cache_hit / (cache_hit + batch.query)` semakin tinggi → efisiensi meningkat.
+- `appendix_fallback` tinggi → pertimbangkan menambah baris DB untuk skala/raw tersebut.
+- `single.lookup` seharusnya rendah setelah integrasi batch prime (hanya muncul pada jalur ad-hoc / edge).
 
 ---
 

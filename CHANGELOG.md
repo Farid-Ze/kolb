@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Cached composite norm provider with batch pre-warm and in-process LRU cache for percentile lookups. New metrics: 
+  - timings: `norms.cached.batch.percentile_many`
+  - counters: `norms.cached.prime`, `norms.cached.batch.query`, `norms.cached.cache_hit`, `norms.cached.appendix_fallback`, `norms.cached.single.lookup`
 - Adaptive preload for normative conversion table: optional in-memory map when table is small. Config via:
   - `NORMS_PRELOAD_ENABLED` (default 1)
   - `NORMS_PRELOAD_ROW_THRESHOLD` (default 200000)

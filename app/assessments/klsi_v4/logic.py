@@ -129,21 +129,53 @@ def validate_lfi_context_ranks(context_scores: List[Dict[str, int]]) -> None:
 
 
 def compute_kendalls_w(context_scores: List[Dict[str, int]]) -> float:
+    """Optimized Kendall's W computation for forced-choice LFI contexts.
+
+    Each context provides a permutation of ranks (1..4) across the four
+    learning modes (CE, RO, AC, AE). For KLSI 4.0 the number of objects
+    ``n`` is always 4. The number of contexts ``m`` is typically 8 but we
+    keep the formula general for validation flexibility.
+
+    W = (12 * S) / (m^2 * (n^3 - n))
+      with S = Σ_j (R_j - R_mean)^2 where R_j is the total rank for
+      object j across all contexts.
+
+    This implementation minimizes Python attribute and dictionary lookup
+    overhead by using local bindings and list arithmetic. Numerical
+    guarding clamps the result to [0,1] per the coefficient definition.
+    """
     m = len(context_scores)
-    modes = [mode.value for mode in LearningMode]
-    n = len(modes)
-    sums = {mode: 0 for mode in modes}
-    for ctx in context_scores:
-        for mode in modes:
-            sums[mode] += ctx[mode]
-    mean_rank = m * (n + 1) / 2
-    S = sum((total - mean_rank) ** 2 for total in sums.values())
-    numerator = 12 * S
-    denominator = m * m * (pow(n, 3) - n)
-    if denominator == 0:
+    if m == 0:
         return 0.0
-    W = numerator / denominator
-    return max(0.0, min(1.0, W))
+    # Fixed mode ordering for deterministic accumulation
+    dims = ("CE", "RO", "AC", "AE")
+    n = 4  # number of objects (learning modes)
+    totals = [0, 0, 0, 0]
+    get = dict.get
+    for row in context_scores:
+        # direct indexed updates avoid inner dict iteration
+        totals[0] += get(row, "CE", 0)
+        totals[1] += get(row, "RO", 0)
+        totals[2] += get(row, "AC", 0)
+        totals[3] += get(row, "AE", 0)
+    # mean total rank per object (m * (n + 1) / 2) equals average of sums
+    # but we retain canonical form for clarity
+    mean_rank = m * (n + 1) / 2.0
+    # S = Σ (Rj - mean_rank)^2 expanded inline for speed
+    d0 = totals[0] - mean_rank
+    d1 = totals[1] - mean_rank
+    d2 = totals[2] - mean_rank
+    d3 = totals[3] - mean_rank
+    S = d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3
+    denom = (m * m) * (n * n * n - n)
+    if denom <= 0:
+        return 0.0
+    W = (12.0 * S) / denom
+    if W < 0.0:
+        return 0.0
+    if W > 1.0:
+        return 1.0
+    return W
 
 
 def _age_to_band(user: User, reference_date: Optional[date]) -> Optional[str]:
