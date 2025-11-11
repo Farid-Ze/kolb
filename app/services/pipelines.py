@@ -199,3 +199,38 @@ def clone_pipeline(
             "metadata": cloned.metadata_payload,
         },
     }
+
+
+def delete_pipeline(
+    db: Session,
+    instrument_code: str,
+    pipeline_id: int,
+    *,
+    instrument_version: Optional[str] = None,
+) -> dict:
+    instrument = _instrument_or_404(db, instrument_code, instrument_version)
+
+    pipeline = (
+        db.query(ScoringPipeline)
+        .filter(
+            ScoringPipeline.id == pipeline_id,
+            ScoringPipeline.instrument_id == instrument.id,
+        )
+        .first()
+    )
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline tidak ditemukan")
+    if pipeline.is_active:
+        raise HTTPException(status_code=409, detail="Tidak dapat menghapus pipeline aktif")
+
+    db.delete(pipeline)
+    db.commit()
+
+    return {
+        "instrument": {
+            "id": instrument.id,
+            "code": instrument.code,
+            "version": instrument.version,
+        },
+        "deleted_pipeline_id": pipeline_id,
+    }

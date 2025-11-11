@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from typing import Dict
 
+from sqlalchemy import select
+
 from app.db.database import SessionLocal
-from app.models.klsi import (
-    ScoringPipeline,
-    ScoringPipelineNode,
-    User,
-)
+from app.models.klsi import Instrument, ScoringPipeline, ScoringPipelineNode, User
 from app.services.security import create_access_token
 
 
@@ -74,53 +72,42 @@ def test_activate_pipeline_requires_mediator(client):
     assert response.status_code == 403
 
 
-def _ensure_pipeline_variant() -> ScoringPipeline:
+def _default_pipeline() -> tuple[ScoringPipeline, str]:
     with SessionLocal() as db:
-        instrument = db.query(ScoringPipeline.instrument_id, ScoringPipeline.pipeline_code).first()
-        if instrument is None:
-            raise AssertionError("Default pipeline missing")
-        existing = db.query(ScoringPipeline).filter(ScoringPipeline.version == "v2").first()
-        if existing:
-            return existing
-
-        reference_pipeline = db.query(ScoringPipeline).first()
-        if reference_pipeline is None:
+        row = db.execute(
+            select(ScoringPipeline, Instrument.code)
+            .join(Instrument, ScoringPipeline.instrument_id == Instrument.id)
+            .order_by(ScoringPipeline.id.asc())
+        ).first()
+        if not row:
             raise AssertionError("Pipeline table empty")
+        pipeline, code = row
+        db.expunge(pipeline)
+        return pipeline, code
 
-        variant = ScoringPipeline(
-            instrument_id=reference_pipeline.instrument_id,
-            pipeline_code=reference_pipeline.pipeline_code,
-            version="v2",
-            description="Experimental pipeline",
-            is_active=False,
-            metadata_payload=reference_pipeline.metadata_payload,
-        )
-        db.add(variant)
-        db.flush()
 
-        for node in reference_pipeline.nodes:
-            db.add(
-                ScoringPipelineNode(
-                    pipeline_id=variant.id,
-                    node_key=node.node_key,
-                    node_type=node.node_type,
-                    execution_order=node.execution_order,
-                    config=node.config,
-                    next_node_key=node.next_node_key,
-                    is_terminal=node.is_terminal,
-                )
-            )
-        db.commit()
-        db.refresh(variant)
-        return variant
+def _clone_pipeline_via_api(client, mediator: User, version: str = "v2") -> Dict:
+    pipeline, instrument_code = _default_pipeline()
+    response = client.post(
+        f"/admin/instruments/{instrument_code}/pipelines/{pipeline.id}/clone",
+        headers=_auth_header(mediator),
+        json={
+            "version": version,
+            "pipeline_code": pipeline.pipeline_code,
+            "description": "Experimental pipeline",
+        },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
 
 
 def test_activate_pipeline_switches_active(client):
     mediator = _create_user("MEDIATOR", "mediator-switch@example.com")
-    variant = _ensure_pipeline_variant()
+    clone_payload = _clone_pipeline_via_api(client, mediator)
+    variant_id = clone_payload["pipeline"]["id"]
 
     response = client.post(
-        f"/admin/instruments/KLSI/pipelines/{variant.id}/activate",
+        f"/admin/instruments/KLSI/pipelines/{variant_id}/activate",
         headers=_auth_header(mediator),
     )
     assert response.status_code == 200
@@ -134,5 +121,101 @@ def test_activate_pipeline_switches_active(client):
             .filter(ScoringPipeline.is_active.is_(True))
             .all()
         ]
-    assert variant.id in active_ids
+    assert variant_id in active_ids
     assert len(active_ids) == 1
+
+
+def test_clone_pipeline_requires_mediator(client):
+    student = _create_user("MAHASISWA", "student-clone@example.com")
+    pipeline, instrument_code = _default_pipeline()
+    response = client.post(
+        f"/admin/instruments/{instrument_code}/pipelines/{pipeline.id}/clone",
+        headers=_auth_header(student),
+        json={"version": "v9"},
+    )
+    assert response.status_code == 403
+
+
+def test_clone_pipeline_copies_nodes(client):
+    mediator = _create_user("MEDIATOR", "mediator-clone@example.com")
+    pipeline, instrument_code = _default_pipeline()
+
+    response = client.post(
+        f"/admin/instruments/{instrument_code}/pipelines/{pipeline.id}/clone",
+        headers=_auth_header(mediator),
+        json={
+            "version": "v99",
+            "metadata": {"strategy_code": "EXPERIMENT"},
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["pipeline"]["version"] == "v99"
+    assert payload["pipeline"]["metadata"] == {"strategy_code": "EXPERIMENT"}
+
+    new_pipeline_id = payload["pipeline"]["id"]
+    with SessionLocal() as db:
+        original_count = db.query(ScoringPipelineNode).filter(
+            ScoringPipelineNode.pipeline_id == pipeline.id
+        ).count()
+        cloned_count = db.query(ScoringPipelineNode).filter(
+            ScoringPipelineNode.pipeline_id == new_pipeline_id
+        ).count()
+        assert cloned_count == original_count
+
+
+def test_clone_pipeline_rejects_duplicate_version(client):
+    mediator = _create_user("MEDIATOR", "mediator-dup@example.com")
+    pipeline, instrument_code = _default_pipeline()
+
+    duplicate = client.post(
+        f"/admin/instruments/{instrument_code}/pipelines/{pipeline.id}/clone",
+        headers=_auth_header(mediator),
+        json={"version": pipeline.version},
+    )
+    assert duplicate.status_code == 409
+
+
+def test_delete_pipeline_requires_mediator(client):
+    student = _create_user("MAHASISWA", "student-delete@example.com")
+    pipeline, instrument_code = _default_pipeline()
+    response = client.delete(
+        f"/admin/instruments/{instrument_code}/pipelines/{pipeline.id}",
+        headers=_auth_header(student),
+    )
+    assert response.status_code == 403
+
+
+def test_delete_pipeline_rejects_active(client):
+    mediator = _create_user("MEDIATOR", "mediator-delete-active@example.com")
+    pipeline, instrument_code = _default_pipeline()
+    client.post(
+        f"/admin/instruments/{instrument_code}/pipelines/{pipeline.id}/activate",
+        headers=_auth_header(mediator),
+    )
+    response = client.delete(
+        f"/admin/instruments/{instrument_code}/pipelines/{pipeline.id}",
+        headers=_auth_header(mediator),
+    )
+    assert response.status_code == 409
+
+
+def test_delete_pipeline_removes_clone(client):
+    mediator = _create_user("MEDIATOR", "mediator-delete@example.com")
+    clone_payload = _clone_pipeline_via_api(client, mediator, version="v77")
+    clone_id = clone_payload["pipeline"]["id"]
+    instrument_code = clone_payload["instrument"]["code"]
+
+    response = client.delete(
+        f"/admin/instruments/{instrument_code}/pipelines/{clone_id}",
+        headers=_auth_header(mediator),
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["deleted_pipeline_id"] == clone_id
+
+    with SessionLocal() as db:
+        exists = db.query(ScoringPipeline).filter(ScoringPipeline.id == clone_id).first()
+        assert exists is None
+        node_exists = db.query(ScoringPipelineNode).filter(ScoringPipelineNode.pipeline_id == clone_id).count()
+        assert node_exists == 0

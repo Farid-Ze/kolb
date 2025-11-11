@@ -11,7 +11,7 @@ STYLE_LABELS_ID = {
 }
 
 STYLE_BRIEF_ID = {
-    "Imagining": "Fokus membuka kemungkinan melalui pengalaman dan refleksi; cocok untuk eksplorasi ide awal.",
+    "Imagining": "Fokus membuka kemungkinan melalui pengalaman dan refleksi yang mendalam; cocok untuk eksplorasi ide awal.",
     "Experiencing": "Mendalamkan makna dengan terlibat langsung secara emosional; kuat untuk membangun empati dan relevansi.",
     "Initiating": "Menggabungkan pengalaman konkret dengan tindakan cepat; efektif memulai proyek baru dan memanfaatkan peluang langsung.",
     "Creating": "Menciptakan makna melalui observasi peka dan refleksi mendalam atas pengalaman sosial dan situasional.",
@@ -23,7 +23,6 @@ STYLE_BRIEF_ID = {
     "Deciding": "Menutup alternatif menjadi solusi yang jelas untuk tindakan; efektif dalam pilihan strategis dan keputusan cepat."
 }
 
-# Extended style detail paragraphs (non-copyright paraphrase) for richer report use.
 STYLE_DETAIL_ID = {
     "Initiating": {
         "overview": (
@@ -90,20 +89,19 @@ STYLE_DETAIL_ID = {
     "Reflecting": {
         "overview": (
             "Gaya Reflecting menonjol pada penggunaan observasi mendalam dan refleksi berstruktur untuk menghubungkan pengalaman (CE) dengan pemahaman ide (AC) tanpa tergesa melakukan aksi. "
-            "Menilai makna peristiwa melalui pola, dinamika kelompok, dan nuansa emosional lalu merumuskan integrasi yang koheren."),
+            "Menilai makna peristiwa melalui pola, dinamika kelompok, dan nuansa emosional lalu merumuskan integrasi yang koheren dengan bahasa kontekstual yang mudah dibagikan."),
         "strengths": (
             "Kekuatan: pemrosesan reflektif mendalam; mampu melihat berbagai alternatif dan perspektif; sensitif terhadap perasaan/kebutuhan orang; mengenali pola dan makna tersembunyi; "
-            "mengorganisasi informasi secara sistematis; memfasilitasi dialog sehat dan proses kelompok yang konstruktif."),
+            "mengorganisasi informasi secara sistematis; memfasilitasi dialog sehat dan proses kelompok yang konstruktif; membantu tim memahami pelajaran dari pengalaman sebelum menentukan tindakan."),
         "challenges": (
-            "Tantangan: dapat menunda inisiasi aksi; kecenderungan ‘over‑processing’ atau rumination; bisa lambat berbicara dalam kelompok besar; kesulitan mengkonversi wawasan reflektif menjadi langkah konkret cepat."),
+            "Tantangan: dapat menunda inisiasi aksi; kecenderungan ‘over‑processing’ atau rumination; bisa lambat berbicara dalam kelompok besar; kesulitan mengkonversi wawasan reflektif menjadi langkah konkret cepat; perlu dukungan untuk mengkomunikasikan insight secara ringkas."),
         "learning_tips": (
-            "Tips Pengembangan: tetapkan ‘trigger to act’ setelah jatah waktu refleksi; gunakan papan ringkas (misal 3 temuan kunci → 1 eksperimen kecil); berlatih menyuarakan draft ide sebelum sempurna; kolaborasi dengan gaya berorientasi tindakan untuk eksekusi."),
+            "Tips Pengembangan: tetapkan ‘trigger to act’ setelah jatah waktu refleksi; gunakan papan ringkas (misal 3 temuan kunci → 1 eksperimen kecil); berlatih menyuarakan draft ide sebelum sempurna; kolaborasi dengan gaya berorientasi tindakan untuk eksekusi; jadwalkan sesi umpan balik cepat untuk menguji pemahaman."),
         "preferred_space": (
-            "Ruang Belajar Disukai: dialog mendalam, diskusi terstruktur, kesempatan catatan independen, kuliah/refleksi tertulis, sesi brainstorming multi-perspektif dengan waktu jeda untuk integrasi pribadi."),
+            "Ruang Belajar Disukai: dialog mendalam, diskusi terstruktur, kesempatan catatan independen, kuliah/refleksi tertulis, sesi brainstorming multi-perspektif dengan waktu jeda untuk integrasi pribadi; mentor yang menghargai proses introspeksi."),
         "others_view": (
-            "Kesan Orang Lain: tenang, penuh wawasan, teliti, sensitif, ‘dalam’. Kontribusinya sering menata ulang pemahaman kolektif dan menyatukan sudut pandang beragam."),
-    }
-    ,
+            "Kesan Orang Lain: tenang, penuh wawasan, teliti, sensitif, ‘dalam’. Kontribusinya sering menata ulang pemahaman kolektif dan menyatukan sudut pandang beragam; dipandang sebagai penjaga kualitas makna."),
+    },
     "Analyzing": {
         "overview": (
             "Gaya Analyzing memadukan observasi reflektif (RO) dengan konseptualisasi abstrak (AC) untuk menyaring beragam informasi menjadi struktur logis ringkas. "
@@ -118,8 +116,7 @@ STYLE_DETAIL_ID = {
             "Ruang Belajar Disukai: kuliah konseptual, bacaan mendalam, eksplorasi model analitis, waktu mandiri bagi pemetaan ide. Tutor yang memaparkan proses berpikir (think‑aloud) memperkuat internalisasi struktur."),
         "others_view": (
             "Kesan Orang Lain: logis, teratur, dapat diandalkan, berhati-hati, penuh pertimbangan; kadang dianggap terlalu intelektual atau kurang spontan."),
-    }
-    ,
+    },
     "Thinking": {
         "overview": (
             "Gaya Thinking menekankan konseptualisasi abstrak (AC) dengan keterlibatan disiplin pada penalaran, matematika, dan logika, sambil menyeimbangkan RO dan AE seperlunya. "
@@ -134,8 +131,7 @@ STYLE_DETAIL_ID = {
             "Ruang Belajar Disukai: kelas terstruktur dengan tujuan jelas, tugas teknis/eksperimen atau manipulasi data, kesempatan kerja mandiri dan waktu berpikir mendalam; kompetensi ahli pengajar sangat diapresiasi."),
         "others_view": (
             "Kesan Orang Lain: teliti, presisi, andal, konsisten, introspektif; dapat terlihat terlalu analitis bila konteks menuntut kehangatan relasional."),
-    }
-    ,
+    },
     "Deciding": {
         "overview": (
             "Gaya Deciding mengintegrasikan konseptualisasi abstrak (AC) dengan eksperimen aktif (AE) untuk menguji model dan teori secara praktis dan memilih solusi yang paling layak. "
@@ -150,8 +146,7 @@ STYLE_DETAIL_ID = {
             "Ruang Belajar Disukai: simulasi, laboratorium, tugas aplikasi praktis, studi kasus dengan kriteria performa jelas, lingkungan evaluasi yang menyediakan umpan balik benar/salah dan standar eksplisit."),
         "others_view": (
             "Kesan Orang Lain: fokus, pragmatis, rasional, tegas; kadang dianggap terlalu langsung atau kurang memerhatikan dinamika interpersonal."),
-    }
-    ,
+    },
     "Acting": {
         "overview": (
             "Gaya Acting menekankan eksperimen aktif (AE) dengan menyeimbangkan pengalaman konkret (CE) dan konsep (AC) untuk menggerakkan rencana menjadi hasil nyata. "
@@ -166,8 +161,7 @@ STYLE_DETAIL_ID = {
             "Ruang Belajar Disukai: pembelajaran langsung di tempat kerja, diskusi kolaboratif, proyek tim dengan deliverable terukur, mentor berpengalaman yang menunjukkan praktik nyata dan dapat ditiru."),
         "others_view": (
             "Kesan Orang Lain: dinamis, strategis, ramah, bertanggung jawab; kadang dianggap terlalu cepat bergerak atau kurang memberi ruang untuk eksplorasi alternatif panjang."),
-    }
-    ,
+    },
     "Balancing": {
         "overview": (
             "Gaya Balancing menunjukkan kemampuan menimbang aksi vs refleksi dan pengalaman (CE) vs pemikiran (AC), berpindah mode sesuai tuntutan situasi. "
@@ -182,7 +176,7 @@ STYLE_DETAIL_ID = {
             "Ruang Belajar Disukai: kombinasi kuliah, diskusi, brainstorming, laboratorium, proyek lapangan, rotasi peran tim—memberi kesempatan menggunakan seluruh siklus dan menyesuaikan kontribusi sesuai kebutuhan kelompok."),
         "others_view": (
             "Kesan Orang Lain: ingin tahu, terbuka, fleksibel, multi-talenta, penuh sumber; kadang tampak kurang fokus atau enggan memilih satu posisi final."),
-    }
+    },
 }
 
 EDUCATOR_RECO_ID = {

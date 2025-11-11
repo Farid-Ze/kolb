@@ -3,6 +3,7 @@ from hashlib import sha256
 from io import StringIO
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -108,6 +109,56 @@ def activate_instrument_pipeline(
     if user.role != "MEDIATOR":
         raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengubah pipeline")
     return pipeline_service.activate_pipeline(
+        db,
+        instrument_code,
+        pipeline_id,
+        instrument_version=instrument_version,
+    )
+
+
+class ClonePipelineRequest(BaseModel):
+    version: str = Field(min_length=1, max_length=20)
+    pipeline_code: str | None = Field(default=None, max_length=60)
+    description: str | None = Field(default=None, max_length=500)
+    metadata: dict | None = None
+
+
+@router.post("/instruments/{instrument_code}/pipelines/{pipeline_id}/clone")
+def clone_instrument_pipeline(
+    instrument_code: str,
+    pipeline_id: int,
+    payload: ClonePipelineRequest,
+    instrument_version: str | None = None,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    if user.role != "MEDIATOR":
+        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengubah pipeline")
+    return pipeline_service.clone_pipeline(
+        db,
+        instrument_code,
+        pipeline_id,
+        instrument_version=instrument_version,
+        new_pipeline_code=payload.pipeline_code,
+        new_version=payload.version,
+        description=payload.description,
+        metadata_override=payload.metadata,
+    )
+
+
+@router.delete("/instruments/{instrument_code}/pipelines/{pipeline_id}")
+def delete_instrument_pipeline(
+    instrument_code: str,
+    pipeline_id: int,
+    instrument_version: str | None = None,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    if user.role != "MEDIATOR":
+        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengubah pipeline")
+    return pipeline_service.delete_pipeline(
         db,
         instrument_code,
         pipeline_id,
