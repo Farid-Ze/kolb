@@ -13,6 +13,7 @@ from app.engine.registry import get as get_definition
 from app.engine.strategy_registry import get_strategy
 from app.models.klsi import AssessmentSession, AuditLog
 from app.services.validation import check_session_complete
+from app.engine.validation import ValidationResult
 
 
 def finalize_assessment(
@@ -34,6 +35,7 @@ def finalize_assessment(
 
         assessment = get_definition(assessment_id, assessment_version)
 
+        validation_result = ValidationResult()
         if not skip_checks:
             # Run validation rules declared by the assessment definition.
             issues = []
@@ -46,6 +48,7 @@ def finalize_assessment(
 
             # Always ensure ipsative core validation runs (engine-agnostic guard).
             completeness = check_session_complete(db, session_id)
+            validation_result.structural["item_completeness"] = completeness
             if not completeness.get("ready_to_complete"):
                 return {
                     "ok": False,
@@ -202,4 +205,33 @@ def finalize_assessment(
             )
         )
 
-        return {"ok": True, "context": ctx, "artifacts": artifact_snapshots}
+        # Populate provenance + anomaly diagnostics if present
+        if "percentiles" in ctx:
+            pct_ctx = ctx["percentiles"]
+            validation_result.provenance = {
+                "used_fallback_any": pct_ctx.get("used_fallback_any"),
+                "raw_outside_norm_range": pct_ctx.get("raw_outside_norm_range"),
+                "truncated_scales": pct_ctx.get("truncated"),
+                "norm_group_used": pct_ctx.get("norm_group_used"),
+            }
+            # Anomalies: any truncated scale, mixed provenance
+            if pct_ctx.get("raw_outside_norm_range"):
+                validation_result.anomalies.append("RAW_OUTSIDE_NORM_RANGE")
+            sources = pct_ctx.get("sources", {}) or {}
+            if any(v.get("used_fallback") for v in sources.values() if isinstance(v, dict)) and any(
+                v.get("source", "").startswith("DB:") for v in sources.values() if isinstance(v, dict)
+            ):
+                validation_result.anomalies.append("MIXED_PROVENANCE")
+        if "lfi" in ctx:
+            lfi_ctx = ctx["lfi"]
+            W = lfi_ctx.get("W")
+            lfi_score = lfi_ctx.get("score")
+            validation_result.psychometric["kendalls_w"] = W
+            validation_result.psychometric["lfi_score"] = lfi_score
+            # Anomalies: extreme W (near 0 or 1)
+            if isinstance(W, (int, float)):
+                if W < 0.05:
+                    validation_result.anomalies.append("LOW_W_PATTERN")
+                elif W > 0.95:
+                    validation_result.anomalies.append("HIGH_W_UNIFORMITY")
+        return {"ok": True, "context": ctx, "artifacts": artifact_snapshots, "validation": validation_result.as_dict()}

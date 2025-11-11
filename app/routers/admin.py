@@ -28,6 +28,10 @@ def import_norms(
     if not fname.lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail="File harus CSV")
     norm_version = norm_version.strip() or "default"
+    if not norm_group or len(norm_group.strip()) == 0:
+        raise HTTPException(status_code=400, detail="norm_group wajib diisi")
+    if len(norm_group) > 150:
+        raise HTTPException(status_code=400, detail="norm_group maksimal 150 karakter")
     if len(norm_version) > 40:
         raise HTTPException(status_code=400, detail="norm_version maksimal 40 karakter")
     content = file.file.read().decode('utf-8')
@@ -35,8 +39,8 @@ def import_norms(
     expected_cols = {"scale_name","raw_score","percentile"}
     if not reader.fieldnames or set(reader.fieldnames) != expected_cols:
         raise HTTPException(status_code=400, detail="Header CSV harus scale_name,raw_score,percentile")
-    rows = []
-    last_percentiles: dict[str, float] = {}
+    # Group rows by scale, sort by raw_score, then enforce monotonic increase
+    scale_rows: dict[str, list[tuple[int, float]]] = {}
     for row in reader:
         try:
             scale_name = row['scale_name'].strip()
@@ -44,14 +48,17 @@ def import_norms(
             percentile = float(row['percentile'])
         except Exception:
             raise HTTPException(status_code=400, detail=f"Format baris tidak valid: {row}") from None
-        # Monotonic cumulative percentage check per scale
-        if scale_name not in last_percentiles:
-            last_percentiles[scale_name] = percentile
-        else:
-            if percentile < last_percentiles[scale_name]:
-                raise HTTPException(status_code=400, detail=f"Percentile tidak monotonic untuk skala {scale_name} raw {raw_score}")
-            last_percentiles[scale_name] = percentile
-        rows.append((scale_name, raw_score, percentile))
+        scale_rows.setdefault(scale_name, []).append((raw_score, percentile))
+
+    rows: list[tuple[str, int, float]] = []
+    for scale_name, tuples in scale_rows.items():
+        tuples.sort(key=lambda t: t[0])  # sort by raw_score
+        last = None
+        for raw_score, percentile in tuples:
+            if last is not None and percentile < last:
+                raise HTTPException(status_code=400, detail=f"Percentile tidak monotonic untuk skala {scale_name} pada raw {raw_score}")
+            last = percentile
+            rows.append((scale_name, raw_score, percentile))
     batch_hash = sha256(content.encode('utf-8')).hexdigest()
     inserted = 0
     for scale_name, raw_score, percentile in rows:

@@ -9,7 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import load_config
-from app.engine.norms.base import InMemoryNormRepository
+from app.engine.norms.provider import NormProvider
+from app.engine.norms.factory import build_composite_norm_provider
 from app.models.klsi import (
     AssessmentSession,
     AssessmentSessionDelta,
@@ -263,17 +264,42 @@ def _style_distance(acc: int, aer: int, window: Dict[str, Optional[int]]) -> int
 
 
 def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLearningStyle, Dict[str, float]]:
+    """Assign primary (and backup) style using DB windows exclusively.
+
+    This removes reliance on in-code STYLE_CUTS lambdas to avoid drift.
+    Windows are read from learning_style_types (ACCE_min/max, AERO_min/max).
+    """
     acc, aer = combo.ACCE_raw, combo.AERO_raw
+
+    # Load windows from DB
+    types: list[LearningStyleType] = db.query(LearningStyleType).all()
+    if not types:
+        raise ValueError("Learning style windows not seeded; please seed learning_style_types")
+    windows: dict[str, dict[str, Optional[int]]] = {}
+    for t in types:
+        windows[t.style_name] = {
+            "acce_min": t.ACCE_min,
+            "acce_max": t.ACCE_max,
+            "aero_min": t.AERO_min,
+            "aero_max": t.AERO_max,
+        }
+
+    # Determine primary by containment
     primary_name: Optional[str] = None
-    for name, rule in STYLE_CUTS.items():
-        if rule(acc, aer):
+    for name, w in windows.items():
+        if _within(acc, w["acce_min"], w["acce_max"]) and _within(aer, w["aero_min"], w["aero_max"]):
             primary_name = name
             break
-    windows = {name: _style_window(name) for name in STYLE_CUTS.keys()}
-    distances = sorted(((name, _style_distance(acc, aer, window)) for name, window in windows.items()), key=lambda item: item[1])
-    if primary_name is None and distances:
-        primary_name = distances[0][0]
-    backup_name = next((name for name, dist in distances if name != primary_name), None)
+
+    # Compute L1 distance to each window for backup selection and tie-breaks
+    ordered_by_distance = sorted(
+        ((name, _style_distance(acc, aer, w)) for name, w in windows.items()),
+        key=lambda item: (item[1], item[0]),  # stable deterministic ordering
+    )
+    if primary_name is None and ordered_by_distance:
+        primary_name = ordered_by_distance[0][0]
+    backup_name = next((name for name, dist in ordered_by_distance if name != primary_name), None)
+
     primary_type = (
         db.query(LearningStyleType)
         .filter(LearningStyleType.style_name == primary_name)
@@ -346,7 +372,7 @@ def _db_norm_lookup(
     return None, None
 
 
-def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
+def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None = None) -> LearningFlexibilityIndex:
     rows = (
         db.query(LFIContextScore)
         .filter(LFIContextScore.session_id == session_id)
@@ -372,12 +398,9 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
     validate_lfi_context_ranks(payload)
     W = compute_kendalls_w(payload)
     lfi_value = 1 - W
-    repo = InMemoryNormRepository(lambda group, scale, raw: _db_norm_lookup(db, group, scale, raw))
+    provider = norm_provider or build_composite_norm_provider(db)
     group_chain = resolve_norm_groups(db, session_id)
-    percentile, provenance, _ = repo.percentile(group_chain, "LFI", int(round(lfi_value * 100)))
-    if percentile is None:
-        percentile = lookup_lfi(round(lfi_value, 2))
-        provenance = "Appendix:LFI"
+    percentile, provenance, _ = provider.percentile(group_chain, "LFI", int(round(lfi_value * 100)))
     tertiles = _cfg()["lfi"]["tertiles"]
     level = None
     if percentile is not None:
@@ -404,10 +427,9 @@ def apply_percentiles(
     session_id: int,
     scale: ScaleScore,
     combo: CombinationScore,
+    norm_provider: NormProvider | None = None,
 ) -> PercentileScore:
-    repo = InMemoryNormRepository(
-        lambda group, scale_name, raw: _db_norm_lookup(db, group, scale_name, raw)
-    )
+    provider = norm_provider or build_composite_norm_provider(db)
     group_chain = resolve_norm_groups(db, session_id)
 
     table_map = {
@@ -425,17 +447,13 @@ def apply_percentiles(
     }
 
     def resolve(scale_name: str, raw: int | float) -> tuple[Optional[float], str, bool]:
-        pct, prov, truncated_flag = repo.percentile(group_chain, scale_name, raw)
-        if pct is not None:
-            return pct, prov, truncated_flag
-        if scale_name in table_map:
-            fallback_pct = lookup_percentile(int(raw), table_map[scale_name])
+        # Provider already chains DB → Appendix → External; preserve truncation
+        pct, prov, truncated_flag = provider.percentile(group_chain, scale_name, raw)
+        # As a guard, compute truncation flag if provider didn't set it for appendix tables
+        if pct is not None and prov.startswith("Appendix:") and scale_name in table_map and not truncated_flag:
             low, high = range_bounds.get(scale_name, (None, None))
-            truncated_outside = False
-            if low is not None and high is not None:
-                truncated_outside = raw < low or raw > high
-            return fallback_pct, f"Appendix:{scale_name}", truncated_outside
-        return None, "Unknown", False
+            truncated_flag = (raw < low or raw > high) if low is not None and high is not None else False
+        return pct, prov, truncated_flag
 
     percentiles: Dict[str, Optional[float]] = {}
     provenance: Dict[str, str] = {}
