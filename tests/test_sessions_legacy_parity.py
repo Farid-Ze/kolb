@@ -177,6 +177,44 @@ def test_legacy_finalize_blocks_invalid_lfi_ranks(client):
     assert diagnostics.get("items", {}).get("ready_to_complete") is True
 
 
+def test_legacy_submit_duplicate_context_rejected(client):
+    _, student_token = _create_user()
+    headers = {"Authorization": f"Bearer {student_token}"}
+
+    r_start = client.post("/sessions/start", headers=headers)
+    assert r_start.status_code == 200, r_start.text
+    session_id = r_start.json()["session_id"]
+
+    # Submit one context successfully
+    r_first = client.post(
+        f"/sessions/{session_id}/submit_context",
+        params={
+            "context_name": CONTEXT_NAMES[0],
+            "CE": 1,
+            "RO": 2,
+            "AC": 3,
+            "AE": 4,
+        },
+        headers=headers,
+    )
+    assert r_first.status_code == 200, r_first.text
+
+    # Re-submit the same context should be rejected
+    r_second = client.post(
+        f"/sessions/{session_id}/submit_context",
+        params={
+            "context_name": CONTEXT_NAMES[0],
+            "CE": 4,
+            "RO": 3,
+            "AC": 2,
+            "AE": 1,
+        },
+        headers=headers,
+    )
+    assert r_second.status_code == 400
+    assert "sudah dinilai" in r_second.text
+
+
 def test_legacy_force_finalize_by_mediator(client):
     _, student_token = _create_user()
     headers = {"Authorization": f"Bearer {student_token}"}

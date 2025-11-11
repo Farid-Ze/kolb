@@ -201,10 +201,19 @@ class KLSI4Plugin(
             raise HTTPException(status_code=400, detail="Semua peringkat konteks harus numerik") from None
         if set(ranks.values()) != {1, 2, 3, 4}:
             raise HTTPException(status_code=400, detail="Context ranks harus kombinasi unik 1..4")
-        db.query(LFIContextScore).filter(
-            LFIContextScore.session_id == session_id,
-            LFIContextScore.context_name == context_name,
-        ).delete(synchronize_session=False)
+        existing = (
+            db.query(LFIContextScore)
+            .filter(
+                LFIContextScore.session_id == session_id,
+                LFIContextScore.context_name == context_name,
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Konteks ini sudah dinilai. Hubungi mediator untuk koreksi.",
+            )
         db.add(
             LFIContextScore(
                 session_id=session_id,
