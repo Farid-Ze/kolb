@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 import app.engine.strategies  # noqa: F401  # ensure strategy registrations execute
 
 from app.engine.interfaces import ScoringContext
+from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import get as get_definition
 from app.engine.strategy_registry import get_strategy
 from app.models.klsi import AssessmentSession, AuditLog
@@ -74,6 +75,7 @@ def finalize_assessment(
         try:
             strategy = get_strategy(candidate)
             session.strategy_code = candidate
+            assign_pipeline_version(db, session, candidate)
             break
         except KeyError:
             continue
@@ -164,6 +166,7 @@ def finalize_assessment(
             artifact_snapshots["delta"] = ctx["delta"]
         db.flush()
     else:
+        assign_pipeline_version(db, session, None)
         for step in assessment.steps:
             for dep in getattr(step, "depends_on", []):
                 if dep not in artifact_snapshots and dep not in ctx:

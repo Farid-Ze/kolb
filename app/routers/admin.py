@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.klsi import AuditLog, NormativeConversionTable
 from app.services.security import get_current_user
+from app.services import pipelines as pipeline_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -80,3 +81,35 @@ def import_norms(
         "rows_processed": len(rows),
         "hash": batch_hash,
     }
+
+
+@router.get("/instruments/{instrument_code}/pipelines")
+def list_instrument_pipelines(
+    instrument_code: str,
+    instrument_version: str | None = None,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    if user.role != "MEDIATOR":
+        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengakses pipeline")
+    return pipeline_service.list_pipelines(db, instrument_code, instrument_version)
+
+
+@router.post("/instruments/{instrument_code}/pipelines/{pipeline_id}/activate")
+def activate_instrument_pipeline(
+    instrument_code: str,
+    pipeline_id: int,
+    instrument_version: str | None = None,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    if user.role != "MEDIATOR":
+        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengubah pipeline")
+    return pipeline_service.activate_pipeline(
+        db,
+        instrument_code,
+        pipeline_id,
+        instrument_version=instrument_version,
+    )

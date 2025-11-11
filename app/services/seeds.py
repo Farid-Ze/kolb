@@ -11,6 +11,8 @@ from app.models.klsi import (
     ItemType,
     LearningMode,
     LearningStyleType,
+    ScoringPipeline,
+    ScoringPipelineNode,
 )
 
 def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
@@ -76,6 +78,106 @@ def seed_instruments(db: Session) -> None:
                 rendering_order=order,
             )
         )
+
+    if (
+        db.query(ScoringPipeline)
+        .filter(
+            ScoringPipeline.instrument_id == instrument.id,
+            ScoringPipeline.pipeline_code == "KLSI4.0",
+            ScoringPipeline.version == "v1",
+        )
+        .first()
+        is None
+    ):
+        pipeline = ScoringPipeline(
+            instrument_id=instrument.id,
+            pipeline_code="KLSI4.0",
+            version="v1",
+            description="Default scoring pipeline for KLSI 4.0",
+            is_active=True,
+            metadata_payload={
+                "strategy_code": "KLSI4.0",
+                "stages": [
+                    "compute_raw_scale_scores",
+                    "compute_combination_scores",
+                    "assign_learning_style",
+                    "compute_lfi",
+                    "apply_percentiles",
+                ],
+            },
+        )
+        db.add(pipeline)
+        db.flush()
+
+        nodes = [
+            (
+                "compute_raw_scale_scores",
+                "service_call",
+                1,
+                {
+                    "callable": "app.assessments.klsi_v4.logic.compute_raw_scale_scores",
+                    "artifact_key": "raw_modes",
+                },
+                "compute_combination_scores",
+                False,
+            ),
+            (
+                "compute_combination_scores",
+                "service_call",
+                2,
+                {
+                    "callable": "app.assessments.klsi_v4.logic.compute_combination_scores",
+                    "artifact_key": "combination",
+                },
+                "assign_learning_style",
+                False,
+            ),
+            (
+                "assign_learning_style",
+                "service_call",
+                3,
+                {
+                    "callable": "app.assessments.klsi_v4.logic.assign_learning_style",
+                    "artifact_key": "style",
+                },
+                "compute_lfi",
+                False,
+            ),
+            (
+                "compute_lfi",
+                "service_call",
+                4,
+                {
+                    "callable": "app.assessments.klsi_v4.logic.compute_lfi",
+                    "artifact_key": "lfi",
+                },
+                "apply_percentiles",
+                False,
+            ),
+            (
+                "apply_percentiles",
+                "service_call",
+                5,
+                {
+                    "callable": "app.assessments.klsi_v4.logic.apply_percentiles",
+                    "artifact_key": "percentiles",
+                },
+                None,
+                True,
+            ),
+        ]
+        for key, node_type, order, config, next_key, terminal in nodes:
+            db.add(
+                ScoringPipelineNode(
+                    pipeline_id=pipeline.id,
+                    node_key=key,
+                    node_type=node_type,
+                    execution_order=order,
+                    config=config,
+                    next_node_key=next_key,
+                    is_terminal=terminal,
+                )
+            )
     db.commit()
 
 

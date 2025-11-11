@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.engine.authoring import get_instrument_locale_resource, get_instrument_spec
 from app.engine.interfaces import InstrumentId
+from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import engine_registry
 from app.models.klsi import AssessmentSession, Instrument, SessionStatus, User
 from app.services.validation import run_session_validations
@@ -71,6 +72,7 @@ class EngineRuntime:
             instrument_id=instrument.id,
             start_time=datetime.now(timezone.utc),
         )
+        assign_pipeline_version(db, session, instrument.default_strategy_code)
         db.add(session)
         db.commit()
         db.refresh(session)

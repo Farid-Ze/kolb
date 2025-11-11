@@ -19,6 +19,7 @@ from app.models.klsi import (
 )
 
 from app.engine.strategies.klsi4 import KLSI4Strategy
+from app.engine.runtime import EngineRuntime
 from app.services.scoring import finalize_session
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 
@@ -205,4 +206,39 @@ def test_finalize_falls_back_to_definition_steps_when_strategy_missing():
             assessment_registry._registry[alt_key] = original_definition
         else:
             assessment_registry._registry.pop(alt_key, None)
+        db.close()
+
+
+def test_finalize_assigns_pipeline_version():
+    db = _db_session()
+    try:
+        session = _seed_complete_session(db)
+        session.pipeline_version = None
+        db.flush()
+
+        result = finalize_session(db, session.id)
+        assert result["ok"] is True
+
+        refetched = (
+            db.query(AssessmentSession)
+            .filter(AssessmentSession.id == session.id)
+            .first()
+        )
+        assert refetched is not None
+        assert refetched.pipeline_version == "KLSI4.0:v1"
+    finally:
+        db.close()
+
+
+def test_runtime_start_session_sets_pipeline_version():
+    db = _db_session()
+    runtime = EngineRuntime()
+    try:
+        user = User(full_name="Runtime User", email="runtime_user@example.com")
+        db.add(user)
+        db.flush()
+
+        session = runtime.start_session(db, user, "KLSI", "4.0")
+        assert session.pipeline_version == "KLSI4.0:v1"
+    finally:
         db.close()
