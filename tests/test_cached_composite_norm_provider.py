@@ -1,4 +1,4 @@
-import math
+from typing import Any, cast
 from app.engine.norms.cached_composite import CachedCompositeNormProvider
 from app.models.klsi import NormativeConversionTable
 
@@ -47,13 +47,14 @@ def test_cached_composite_batch_and_cache(session):
 
     # Monkeypatch session.execute to count calls
     counts = {"exec": 0}
-    original_execute = session.execute
+    session_any = cast(Any, session)
+    original_execute = session_any.execute
 
     def counting_execute(*args, **kwargs):
         counts["exec"] += 1
         return original_execute(*args, **kwargs)
 
-    session.execute = counting_execute  # type: ignore
+    session_any.execute = counting_execute
 
     required = [
         ("CE", 12),
@@ -73,16 +74,22 @@ def test_cached_composite_batch_and_cache(session):
 
     # Act: percentile() calls should be cache hits (no new DB queries)
     for scale, raw in required:
-        pct, provenance, truncated = provider.percentile(["Total"], scale, raw)
+        result = provider.percentile(["Total"], scale, raw)
+        pct = result.percentile
+        provenance = result.provenance
+        truncated = result.truncated
         assert pct is not None and provenance.startswith("DB:"), f"Expected DB provenance for {scale}"
 
     post_execs = counts["exec"]
     assert post_execs == batch_execs, "No additional DB queries should occur after prime cache warm-up"
 
     # LFI fallback path uses appendix, should not increment DB executes
-    pct_lfi, prov_lfi, trunc_lfi = provider.percentile(["Total"], "LFI", 50)
+    lfi_result = provider.percentile(["Total"], "LFI", 50)
+    pct_lfi = lfi_result.percentile
+    prov_lfi = lfi_result.provenance
+    trunc_lfi = lfi_result.truncated
     assert prov_lfi.startswith("Appendix:"), "Expected Appendix provenance for LFI"
     assert counts["exec"] == batch_execs, "LFI lookup should not trigger DB query"
 
     # Clean up monkeypatch
-    session.execute = original_execute  # type: ignore
+    session_any.execute = original_execute

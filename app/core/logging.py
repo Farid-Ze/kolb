@@ -5,7 +5,7 @@ import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Iterator, Mapping, MutableMapping
 from uuid import uuid4
 
 
@@ -38,7 +38,7 @@ class JsonFormatter(logging.Formatter):
 class StructuredAdapter(logging.LoggerAdapter):
     """Logger adapter that merges keyword extra fields into structured JSON."""
 
-    def process(self, msg: str, kwargs: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+    def process(self, msg: str, kwargs: MutableMapping[str, Any]) -> tuple[str, MutableMapping[str, Any]]:
         extra_payload: Dict[str, Any] = dict(self.extra or {})
         existing_extra = kwargs.get("extra")
         if isinstance(existing_extra, dict):
@@ -52,18 +52,21 @@ class StructuredAdapter(logging.LoggerAdapter):
         return msg, kwargs
 
 
+_STRUCTURED_ATTR = "_structured_configured"
+
+
 def configure_logging(*, level: int = logging.INFO) -> None:
     """Configure root logger with JSON formatter once (idempotent)."""
 
     root = logging.getLogger()
-    if getattr(root, "_structured_configured", False):  # type: ignore[attr-defined]
+    if bool(getattr(root, _STRUCTURED_ATTR, False)):
         return
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level)
-    setattr(root, "_structured_configured", True)  # type: ignore[attr-defined]
+    setattr(root, _STRUCTURED_ATTR, True)
 
 
 def get_logger(name: str, **defaults: Any) -> StructuredAdapter:
@@ -92,7 +95,7 @@ def clear_correlation_id() -> None:
 
 
 @contextmanager
-def correlation_context(correlation_id: str | None = None):
+def correlation_context(correlation_id: str | None = None) -> Iterator[str]:
     """Context manager to bind/unbind correlation id automatically."""
 
     cid = correlation_id or str(uuid4())

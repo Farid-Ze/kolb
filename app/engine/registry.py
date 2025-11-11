@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from importlib.metadata import EntryPoint, entry_points
 from threading import RLock
 from types import MappingProxyType
-from typing import Dict, Iterable, Mapping, Tuple
+from typing import Callable, Dict, Iterable, Mapping, Tuple, TypeVar, overload, cast
 
 from app.engine.interfaces import (
     AssessmentDefinition,
@@ -75,10 +75,14 @@ class RegistryEntry:
 _assessments: Dict[RegistryKey, AssessmentDefinition] = {}
 
 
+_DefaultT = TypeVar("_DefaultT")
+_UNSET = object()
+
+
 class _LegacyRegistry(dict[str, AssessmentDefinition]):
     """Dict-like view keyed by `<name>:<version>` tokens for legacy access."""
 
-    def __setitem__(self, key: str, value: AssessmentDefinition) -> None:  # type: ignore[override]
+    def __setitem__(self, key: str, value: AssessmentDefinition) -> None:
         super().__setitem__(key, value)
         try:
             name, version = key.split(":", 1)
@@ -86,17 +90,33 @@ class _LegacyRegistry(dict[str, AssessmentDefinition]):
             return
         _assessments[RegistryKey(name, version)] = value
 
-    def pop(self, key: str, default=None):  # type: ignore[override]
-        value = super().pop(key, default)
-        if value is not default:
-            try:
-                name, version = key.split(":", 1)
-            except ValueError:  # pragma: no cover
-                return value
-            _assessments.pop(RegistryKey(name, version), None)
+    @overload
+    def pop(self, key: str) -> AssessmentDefinition:
+        ...
+
+    @overload
+    def pop(self, key: str, default: _DefaultT) -> AssessmentDefinition | _DefaultT:
+        ...
+
+    def pop(
+        self,
+        key: str,
+        default: object = _UNSET,
+    ) -> AssessmentDefinition | object:
+        try:
+            value: AssessmentDefinition | object = super().pop(key)  # may raise KeyError
+        except KeyError:
+            if default is _UNSET:
+                raise
+            return default
+        try:
+            name, version = key.split(":", 1)
+        except ValueError:  # pragma: no cover
+            return value
+        _assessments.pop(RegistryKey(name, version), None)
         return value
 
-    def clear(self) -> None:  # type: ignore[override]
+    def clear(self) -> None:
         super().clear()
         _assessments.clear()
 
@@ -215,13 +235,13 @@ class EngineRegistry:
 
         discovered: list[RegistryKey] = []
         try:
-            eps: Iterable[EntryPoint]
-            eps = entry_points(group=group)  # type: ignore[call-arg]
+            eps_any = entry_points(group=group)
         except TypeError:
-            eps = entry_points().select(group=group)  # type: ignore[call-arg]
+            eps_any = entry_points().select(group=group)
         except Exception:
             logger.debug("No entry points group '%s' found for discovery", group)
             return tuple()
+        eps = cast(Iterable[EntryPoint], eps_any)
         for ep in eps:
             try:
                 candidate = ep.load()
@@ -238,11 +258,12 @@ class EngineRegistry:
         return tuple(discovered)
 
     @staticmethod
-    def _coerce_plugin(candidate) -> InstrumentPlugin | None:
+    def _coerce_plugin(candidate: object) -> InstrumentPlugin | None:
         instance = candidate
         if inspect.isclass(candidate):
+            ctor = cast(Callable[[], object], candidate)
             try:
-                instance = candidate()  # type: ignore[call-arg]
+                instance = ctor()
             except Exception:
                 logger.exception("Unable to instantiate plugin class %s", candidate)
                 return None
@@ -254,7 +275,7 @@ class EngineRegistry:
                 return None
         required_attrs = ("id", "delivery", "fetch_items", "validate_submit")
         if all(hasattr(instance, attr) for attr in required_attrs):
-            return instance  # type: ignore[return-value]
+            return cast(InstrumentPlugin, instance)
         return None
 
 

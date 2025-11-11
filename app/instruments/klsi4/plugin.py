@@ -29,6 +29,20 @@ from app.services.report import build_report
 from app.services.scoring import CONTEXT_NAMES, finalize_session
 
 
+def _coerce_int(value: object) -> int:
+    if isinstance(value, bool):
+        raise TypeError("Boolean value not allowed")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return int(value)
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ValueError("Expected integer-compatible float")
+        return int(value)
+    raise TypeError("Value must be an integer-compatible type")
+
+
 class KLSI4Plugin(
     InstrumentPlugin,
     EngineScorer,
@@ -144,21 +158,21 @@ class KLSI4Plugin(
         return session
 
     def _submit_item(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
-        item_id = payload.get("item_id")
-        ranks = payload.get("ranks")
-        if item_id is None or ranks is None:
+        item_id_raw = payload.get("item_id")
+        ranks_raw = payload.get("ranks")
+        if item_id_raw is None or ranks_raw is None:
             raise HTTPException(status_code=400, detail="item_id dan ranks wajib diisi")
         try:
-            item_id_int = int(item_id)  # type: ignore[arg-type]
+            item_id_int = _coerce_int(item_id_raw)
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="item_id harus numerik") from None
-        if not isinstance(ranks, dict):
+        if not isinstance(ranks_raw, dict):
             raise HTTPException(status_code=400, detail="ranks harus berupa objek")
         normalized: Dict[int, int] = {}
-        for choice_id, rank in ranks.items():
+        for choice_id, rank in ranks_raw.items():
             try:
-                cid = int(choice_id)
-                rval = int(rank)  # type: ignore[arg-type]
+                cid = _coerce_int(choice_id)
+                rval = _coerce_int(rank)
             except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail="Pilihan dan peringkat harus numerik") from None
             normalized[cid] = rval
@@ -200,10 +214,10 @@ class KLSI4Plugin(
             raise HTTPException(status_code=400, detail="Semua peringkat konteks wajib diisi")
         ranks: Dict[str, int] = {}
         try:
-            ranks["CE"] = int(raw_ce)  # type: ignore[arg-type]
-            ranks["RO"] = int(raw_ro)  # type: ignore[arg-type]
-            ranks["AC"] = int(raw_ac)  # type: ignore[arg-type]
-            ranks["AE"] = int(raw_ae)  # type: ignore[arg-type]
+            ranks["CE"] = _coerce_int(raw_ce)
+            ranks["RO"] = _coerce_int(raw_ro)
+            ranks["AC"] = _coerce_int(raw_ac)
+            ranks["AE"] = _coerce_int(raw_ae)
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="Semua peringkat konteks harus numerik") from None
         if set(ranks.values()) != {1, 2, 3, 4}:

@@ -51,24 +51,31 @@ def compose_delivery_payload(
     localized_items, localized_contexts, locale_metadata = _extract_localized_maps(locale_payload)
     items_payload: list[dict[str, Any]] = []
     for item in items:
+        item_id = getattr(item, "id", None)
+        item_number = getattr(item, "number", None)
         entry: dict[str, Any] = {
-            "id": getattr(item, "id", None),
-            "number": getattr(item, "number", None),
+            "id": item_id,
+            "number": item_number,
             "type": getattr(item, "type", None),
             "stem": getattr(item, "stem", None),
         }
-        options = getattr(item, "options", None)
-        if isinstance(options, list):
-            entry["options"] = [dict(opt) if isinstance(opt, Mapping) else opt for opt in options]
+        options_payload: Any = getattr(item, "options", None)
+        if isinstance(options_payload, list):
+            normalized_options: list[Any] = [dict(opt) if isinstance(opt, Mapping) else opt for opt in options_payload]
+            entry["options"] = normalized_options
         else:
-            entry["options"] = options
-        localized_entry = localized_items.get(entry.get("number")) if entry.get("number") is not None else None
+            entry["options"] = options_payload
+
+        localized_entry = None
+        if isinstance(item_number, int):
+            localized_entry = localized_items.get(item_number)
         if isinstance(localized_entry, Mapping):
             stem = localized_entry.get("stem")
             if stem:
                 entry["stem_localized"] = stem
-            if isinstance(entry.get("options"), list):
-                for option_payload in entry["options"]:  # type: ignore[index]
+            options_section = entry.get("options")
+            if isinstance(options_section, list):
+                for option_payload in options_section:
                     if isinstance(option_payload, MutableMapping):
                         _localize_options(option_payload, localized_entry)
         items_payload.append(entry)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 import time
 import threading
 
@@ -8,6 +8,7 @@ import httpx
 
 from app.data import norms as appendix_norms
 from app.engine.norms.provider import NormProvider
+from app.engine.norms.value_objects import PercentileResult
 from app.core.config import settings
 from app.core.metrics import timer, metrics_registry
 
@@ -34,7 +35,7 @@ class DatabaseNormProvider:
 
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
-    ) -> Tuple[Optional[float], str, bool]:
+    ) -> PercentileResult:
         with timer(f"norms.db.percentile.{scale}"):
             for group_token in group_chain:
                 base_group, requested_version = _split_norm_token(group_token)
@@ -52,8 +53,8 @@ class DatabaseNormProvider:
                     version_token = version or requested_version or _DEFAULT_NORM_VERSION
                     include_version = token_has_version or version_token != _DEFAULT_NORM_VERSION
                     normalized = f"{base_group}{_NORM_VERSION_DELIM}{version_token}" if include_version else base_group
-                    return value, f"DB:{normalized}", False
-        return None, "DB:None", False
+                    return PercentileResult(value, f"DB:{normalized}", False)
+        return PercentileResult(None, "DB:None", False)
 
 
 class AppendixNormProvider:
@@ -61,34 +62,38 @@ class AppendixNormProvider:
 
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
-    ) -> Tuple[Optional[float], str, bool]:
+    ) -> PercentileResult:
         with timer(f"norms.appendix.percentile.{scale}"):
-            # Scalar scales
-            if scale == "CE":
-                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.CE_PERCENTILES)
-                return val, "Appendix:CE", self._is_truncated(raw, appendix_norms.CE_PERCENTILES)
-            if scale == "RO":
-                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.RO_PERCENTILES)
-                return val, "Appendix:RO", self._is_truncated(raw, appendix_norms.RO_PERCENTILES)
-            if scale == "AC":
-                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AC_PERCENTILES)
-                return val, "Appendix:AC", self._is_truncated(raw, appendix_norms.AC_PERCENTILES)
-            if scale == "AE":
-                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AE_PERCENTILES)
-                return val, "Appendix:AE", self._is_truncated(raw, appendix_norms.AE_PERCENTILES)
-            # Combination scales
-            if scale == "ACCE":
-                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.ACCE_PERCENTILES)
-                return val, "Appendix:ACCE", self._is_truncated(raw, appendix_norms.ACCE_PERCENTILES)
-            if scale == "AERO":
-                val = appendix_norms.lookup_percentile(int(raw), appendix_norms.AERO_PERCENTILES)
-                return val, "Appendix:AERO", self._is_truncated(raw, appendix_norms.AERO_PERCENTILES)
-            # LFI
-            if scale == "LFI":
-                # raw passed in may be 0-100 int; convert to 0-1 float if needed
-                value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
-                return value, "Appendix:LFI", False
-        return None, "Appendix:None", False
+            match scale:
+                case "CE":
+                    table = appendix_norms.CE_PERCENTILES
+                    value = appendix_norms.lookup_percentile(int(raw), table)
+                    return PercentileResult(value, "Appendix:CE", self._is_truncated(raw, table))
+                case "RO":
+                    table = appendix_norms.RO_PERCENTILES
+                    value = appendix_norms.lookup_percentile(int(raw), table)
+                    return PercentileResult(value, "Appendix:RO", self._is_truncated(raw, table))
+                case "AC":
+                    table = appendix_norms.AC_PERCENTILES
+                    value = appendix_norms.lookup_percentile(int(raw), table)
+                    return PercentileResult(value, "Appendix:AC", self._is_truncated(raw, table))
+                case "AE":
+                    table = appendix_norms.AE_PERCENTILES
+                    value = appendix_norms.lookup_percentile(int(raw), table)
+                    return PercentileResult(value, "Appendix:AE", self._is_truncated(raw, table))
+                case "ACCE":
+                    table = appendix_norms.ACCE_PERCENTILES
+                    value = appendix_norms.lookup_percentile(int(raw), table)
+                    return PercentileResult(value, "Appendix:ACCE", self._is_truncated(raw, table))
+                case "AERO":
+                    table = appendix_norms.AERO_PERCENTILES
+                    value = appendix_norms.lookup_percentile(int(raw), table)
+                    return PercentileResult(value, "Appendix:AERO", self._is_truncated(raw, table))
+                case "LFI":
+                    value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
+                    return PercentileResult(value, "Appendix:LFI", False)
+                case _:
+                    return PercentileResult(None, "Appendix:None", False)
 
     @staticmethod
     def _is_truncated(raw: int | float, table: dict[int, float]) -> bool:
@@ -128,7 +133,7 @@ class ExternalNormProvider:
             headers["X-API-Key"] = self.api_key
         return headers
 
-    def _fetch(self, group_token: str, scale: str, raw: int | float) -> Tuple[Optional[float], Optional[str]]:
+    def _fetch(self, group_token: str, scale: str, raw: int | float) -> tuple[Optional[float], Optional[str]]:
         key = (group_token, scale, int(raw))
         # TTL cache (positive and negative results)
         ttl = getattr(settings, "external_norms_ttl_sec", 60) or 60
@@ -187,10 +192,10 @@ class ExternalNormProvider:
 
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
-    ) -> Tuple[Optional[float], str, bool]:
+    ) -> PercentileResult:
         with timer(f"norms.external.percentile.{scale}"):
             if not self.base_url:
-                return None, "External:Disabled", False
+                return PercentileResult(None, "External:Disabled", False)
             for group_token in group_chain:
                 # First, try cached/TTL path via _fetch; if no cached value and network slow,
                 # schedule a background fetch and return immediately (non-blocking fallback).
@@ -199,10 +204,10 @@ class ExternalNormProvider:
                     label = f"External:{group_token}"
                     if version:
                         label = f"{label}{_NORM_VERSION_DELIM}{version}"
-                    return value, label, False
+                    return PercentileResult(value, label, False)
                 # If no value, opportunistically schedule a background refresh
                 self._schedule_background_fetch(group_token, scale, raw)
-        return None, "External:None", False
+        return PercentileResult(None, "External:None", False)
 
     def _schedule_background_fetch(self, group_token: str, scale: str, raw: int | float) -> None:
         key = (group_token, scale, int(raw))
@@ -247,14 +252,22 @@ class ExternalNormProvider:
 
 
 class CompositeNormProvider:
+    providers: List[NormProvider]
+    _db_lookup: Optional[Callable[..., Any]]
+    _preload_stats: Optional[Dict[str, Any]]
+    _external_provider: Optional["ExternalNormProvider"]
+
     def __init__(self, providers: List[NormProvider]):
         self.providers = providers
+        self._db_lookup = None
+        self._preload_stats = None
+        self._external_provider = None
 
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
-    ) -> Tuple[Optional[float], str, bool]:
+    ) -> PercentileResult:
         for provider in self.providers:
-            value, label, truncated = provider.percentile(group_chain, scale, raw)
-            if value is not None:
-                return value, label, truncated
-        return None, "Unknown", False
+            result = provider.percentile(group_chain, scale, raw)
+            if result.percentile is not None:
+                return result
+        return PercentileResult(None, "Unknown", False)

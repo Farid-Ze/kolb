@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 from sqlalchemy.orm import Session
 
 from app.engine.norms.composite import AppendixNormProvider
+from app.engine.norms.value_objects import PercentileResult, ScaleSample
 from app.assessments.klsi_v4.logic import (
     DEFAULT_NORM_VERSION,
     _split_norm_group_token,
@@ -13,10 +14,6 @@ from app.assessments.klsi_v4.logic import (
 from app.data import norms as appendix_norms
 from app.core.metrics import timer, inc_counter
 from app.db.repositories import NormativeConversionRepository, NormativeConversionRow
-
-
-ScaleRaw = Tuple[str, int | float]
-PctResult = Tuple[Optional[float], str, bool]
 
 
 class _LRU(OrderedDict):
@@ -38,15 +35,7 @@ class _LRU(OrderedDict):
 
 
 class CachedCompositeNormProvider:
-    """
-    DB-first norm repository with:
-    - Batch loading across a precedence chain (EDU→COUNTRY→AGE→GENDER→Total)
-    - Per-process LRU cache (safe for read-only tables)
-    - Appendix fallback for missing entries
-
-    Implements the same percentile() contract as other NormProvider(s),
-    plus percentile_many() and prime() for pre-warming cache.
-    """
+    """Hybrid DB+Appendix norm repository with LRU caching."""
 
     def __init__(
         self,
@@ -66,54 +55,46 @@ class CachedCompositeNormProvider:
 
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
-    ) -> PctResult:
-        chain = tuple(group_chain or self.group_chain)
-        key = (chain, scale, raw)
-        return self._cache.get_or_set(key, lambda: self._lookup_single(chain, scale, raw))
+    ) -> PercentileResult:
+        chain_tuple = tuple(group_chain or self.group_chain)
+        sample = ScaleSample(scale, raw)
+        key = self._cache_key(chain_tuple, sample)
+        return self._cache.get_or_set(key, lambda: self._lookup_single(chain_tuple, sample))
 
     def percentile_many(
-        self, group_chain: List[str], items: Iterable[ScaleRaw]
-    ) -> Dict[ScaleRaw, PctResult]:
-        """Batch resolve percentiles for multiple (scale, raw) pairs.
+        self, group_chain: List[str], items: Iterable[Tuple[str, int | float] | ScaleSample]
+    ) -> Dict[Tuple[str, int | float], PercentileResult]:
+        """Batch resolve percentiles for multiple (scale, raw) pairs."""
 
-        Performance instrumentation:
-        - Timer label: norms.cached.batch.percentile_many
-        - Counters:
-          * norms.cached.prime (when called via prime())
-          * norms.cached.batch.query (each executed SQL batch)
-          * norms.cached.cache_hit (per item served from cache)
-          * norms.cached.appendix_fallback (per item falling back to appendix)
-        """
         with timer("norms.cached.batch.percentile_many"):
-            chain = list(group_chain or self.group_chain)
-            needed = list(items)
-            results: Dict[ScaleRaw, PctResult] = {}
+            chain_list = list(group_chain or self.group_chain)
+            chain_tuple = tuple(chain_list)
+            samples = [self._coerce_sample(item) for item in items]
+            results: Dict[ScaleSample, PercentileResult] = {}
 
-            # First: fill from cache
-            for pair in list(needed):
-                cached = self._cache.get((tuple(chain), pair[0], pair[1]))
+            for sample in list(samples):
+                cached = self._cache.get(self._cache_key(chain_tuple, sample))
                 if cached is not None:
-                    results[pair] = cached
+                    results[sample] = cached
                     inc_counter("norms.cached.cache_hit")
-            needed = [p for p in needed if p not in results]
 
-            if not needed:
-                return results
+            pending = [sample for sample in samples if sample not in results]
+            if not pending:
+                return {(sample.scale, sample.raw): results[sample] for sample in results}
 
-            # Batch DB per group precedence
-            # Only integer-raw scales are stored in DB (CE/RO/AC/AE/ACCE/AERO). LFI handled by appendix.
-            int_needed = [(s, int(r)) for (s, r) in needed if s != "LFI"]
+            int_pending = [sample for sample in pending if sample.scale != "LFI"]
+            sample_lookup: Dict[Tuple[str, int], List[ScaleSample]] = {}
+            for sample in pending:
+                sample_lookup.setdefault((sample.scale, int(sample.raw)), []).append(sample)
 
-            for token in chain:
+            for token in chain_list:
                 base_group, req_version = _split_norm_group_token(token)
-                versions = [req_version]
-                if req_version != DEFAULT_NORM_VERSION:
-                    versions.append(DEFAULT_NORM_VERSION)
+                versions = [req_version] if req_version == DEFAULT_NORM_VERSION else [req_version, DEFAULT_NORM_VERSION]
 
-                if int_needed:
+                if int_pending:
                     by_scale: Dict[str, List[int]] = {}
-                    for s, r in int_needed:
-                        by_scale.setdefault(s, []).append(r)
+                    for sample in int_pending:
+                        by_scale.setdefault(sample.scale, []).append(int(sample.raw))
 
                     rows: List[NormativeConversionRow] = []
                     query_executed = False
@@ -122,96 +103,84 @@ class CachedCompositeNormProvider:
                         query_executed = True
                     if query_executed:
                         inc_counter("norms.cached.batch.query")
+
                     for entry in rows:
-                        pair = (entry.scale_name, entry.raw_score)
-                        if pair in results:
+                        key = (entry.scale_name, entry.raw_score)
+                        target_samples = sample_lookup.get(key, [])
+                        if not target_samples:
                             continue
-                        resolved = entry.percentile
                         provenance_version = entry.norm_version or req_version
-                        prov = f"DB:{entry.norm_group}|{provenance_version}"
-                        trunc = self._is_truncated(entry.raw_score, entry.scale_name)
-                        res: PctResult = (resolved, prov, trunc)
-                        results[pair] = res
-                        self._cache[(tuple(chain), entry.scale_name, entry.raw_score)] = res
+                        label = f"DB:{entry.norm_group}|{provenance_version}"
+                        truncated = self._is_truncated(entry.raw_score, entry.scale_name)
+                        result = PercentileResult(entry.percentile, label, truncated)
+                        for sample in target_samples:
+                            results[sample] = result
+                            self._cache[self._cache_key(chain_tuple, sample)] = result
 
-                # Remove resolved ints from int_needed before next precedence
-                int_needed = [(s, r) for (s, r) in int_needed if (s, r) not in results]
-
-                if not int_needed:
+                int_pending = [sample for sample in int_pending if sample not in results]
+                if not int_pending:
                     break
 
-            # Appendix fallback for remaining
-            for scale, raw in needed:
-                if (scale, raw) in results:
-                    continue
-                res = self._appendix_percentile(scale, raw)
-                results[(scale, raw)] = res
-                self._cache[(tuple(chain), scale, raw)] = res
+            remaining = [sample for sample in pending if sample not in results]
+            for sample in remaining:
+                result = self._appendix_percentile(sample)
+                results[sample] = result
+                self._cache[self._cache_key(chain_tuple, sample)] = result
                 inc_counter("norms.cached.appendix_fallback")
 
-            return results
+            return {(sample.scale, sample.raw): results[sample] for sample in results}
 
-    def prime(self, group_chain: List[str], required: Iterable[ScaleRaw]) -> None:
-        # Pre-warm cache with a single batch
+    def prime(self, group_chain: List[str], required: Iterable[Tuple[str, int | float] | ScaleSample]) -> None:
         inc_counter("norms.cached.prime")
         self.percentile_many(group_chain or self.group_chain, required)
 
     # Internals ---------------------------------------------------------------
 
-    def _lookup_single(self, chain: Tuple[str, ...], scale: str, raw: int | float) -> PctResult:
-        # Try DB in precedence order
+    @staticmethod
+    def _coerce_sample(item: Tuple[str, int | float] | ScaleSample) -> ScaleSample:
+        if isinstance(item, ScaleSample):
+            return item
+        scale, raw = item
+        return ScaleSample(scale, raw)
+
+    @staticmethod
+    def _cache_key(chain: Tuple[str, ...], sample: ScaleSample) -> Tuple[Tuple[str, ...], str, int | float]:
+        raw_key: int | float = int(sample.raw) if sample.scale != "LFI" else sample.raw
+        return chain, sample.scale, raw_key
+
+    def _lookup_single(self, chain: Tuple[str, ...], sample: ScaleSample) -> PercentileResult:
         for token in chain:
             base_group, req_version = _split_norm_group_token(token)
             versions = [req_version] if req_version == DEFAULT_NORM_VERSION else [req_version, DEFAULT_NORM_VERSION]
-            if scale != "LFI":  # integer raw in DB
+            if sample.scale != "LFI":
                 result = self._norm_repo.fetch_first_for_versions(
                     base_group,
                     versions,
-                    scale,
-                    int(raw),
+                    sample.scale,
+                    int(sample.raw),
                 )
                 if result:
                     entry, resolved_version = result
                     inc_counter("norms.cached.single.lookup")
-                    return (
-                        entry.percentile,
-                        f"DB:{entry.norm_group}|{resolved_version}",
-                        self._is_truncated(entry.raw_score, entry.scale_name),
-                    )
-        # Fallback appendix
+                    label = f"DB:{entry.norm_group}|{resolved_version}"
+                    truncated = self._is_truncated(entry.raw_score, entry.scale_name)
+                    return PercentileResult(entry.percentile, label, truncated)
         inc_counter("norms.cached.appendix_fallback")
-        return self._appendix_percentile(scale, raw)
+        return self._appendix_percentile(sample)
 
-    def _appendix_percentile(self, scale: str, raw: int | float) -> PctResult:
-        # Delegate to existing appendix provider; ensure LFI raw normalized to 0-1 for lookup
-        if scale == "CE":
-            val, src, trunc = self._appendix.percentile([], "CE", int(raw))
-            return val, src, trunc
-        if scale == "RO":
-            val, src, trunc = self._appendix.percentile([], "RO", int(raw))
-            return val, src, trunc
-        if scale == "AC":
-            val, src, trunc = self._appendix.percentile([], "AC", int(raw))
-            return val, src, trunc
-        if scale == "AE":
-            val, src, trunc = self._appendix.percentile([], "AE", int(raw))
-            return val, src, trunc
-        if scale == "ACCE":
-            val, src, trunc = self._appendix.percentile([], "ACCE", int(raw))
-            return val, src, trunc
-        if scale == "AERO":
-            val, src, trunc = self._appendix.percentile([], "AERO", int(raw))
-            return val, src, trunc
+    def _appendix_percentile(self, sample: ScaleSample) -> PercentileResult:
+        scale = sample.scale
+        raw = sample.raw
+        if scale in {"CE", "RO", "AC", "AE", "ACCE", "AERO"}:
+            return self._appendix.percentile([], scale, int(raw))
         if scale == "LFI":
             value = appendix_norms.lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
-            return value, "Appendix:LFI", False
-        return None, "Appendix:None", False
+            return PercentileResult(value, "Appendix:LFI", False)
+        return PercentileResult(None, "Appendix:None", False)
 
     @staticmethod
     def _is_truncated(raw: int | float, scale: str) -> bool:
-        # Mark if raw outside appendix range (for transparency)
         if scale == "LFI":
-            # Appendix LFI handled via lookup_lfi which clamps appropriately; mark False
             return False
         mapping = {
             "CE": appendix_norms.CE_PERCENTILES,
@@ -224,5 +193,5 @@ class CachedCompositeNormProvider:
         table = mapping.get(scale)
         if not table:
             return False
-        keys = table.keys()
+        keys = list(table.keys())
         return int(raw) < min(keys) or int(raw) > max(keys)

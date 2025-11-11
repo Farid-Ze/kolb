@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from email.utils import format_datetime
 from hashlib import sha256
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
@@ -21,6 +22,14 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 class ForceFinalizeRequest(BaseModel):
     reason: str | None = None
+
+
+def _sunset_header_value() -> str | None:
+    sunset = settings.legacy_sunset
+    if sunset is None:
+        return None
+    aware = sunset if sunset.tzinfo else sunset.replace(tzinfo=timezone.utc)
+    return format_datetime(aware.astimezone(timezone.utc))
 
 @router.post("/start", response_model=dict)
 def start_session(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
@@ -51,8 +60,9 @@ def submit_item(session_id: int, item_id: int, ranks: dict, response: Response, 
     # Telemetry & deprecation header
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = "</sessions/{session_id}/submit_all_responses>; rel=successor-version"
-    if settings.legacy_sunset:
-        response.headers["Sunset"] = settings.legacy_sunset
+    sunset_value = _sunset_header_value()
+    if sunset_value:
+        response.headers["Sunset"] = sunset_value
     inc_counter("deprecated.sessions.submit_item")
     user = get_current_user(authorization, db)
     repo = SessionRepository(db)
@@ -85,8 +95,9 @@ def submit_context(
     # Telemetry & deprecation header
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = "</sessions/{session_id}/submit_all_responses>; rel=successor-version"
-    if settings.legacy_sunset:
-        response.headers["Sunset"] = settings.legacy_sunset
+    sunset_value = _sunset_header_value()
+    if sunset_value:
+        response.headers["Sunset"] = sunset_value
     inc_counter("deprecated.sessions.submit_context")
     user = get_current_user(authorization, db)
     repo = SessionRepository(db)

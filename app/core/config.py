@@ -1,7 +1,8 @@
 import os
 from datetime import datetime
 from functools import lru_cache
-from typing import Literal, Optional, cast
+
+from typing import Literal, Optional
 
 from pydantic import Field, HttpUrl, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -58,29 +59,37 @@ class Settings(BaseSettings):
 
     mode: Literal["development", "testing", "staging", "production"] = Field(default="development")
 
-    @field_validator("legacy_sunset")
+    @field_validator("legacy_sunset", mode="before")
     @classmethod
-    def _normalize_legacy_sunset(cls, value: Optional[str | datetime]) -> Optional[datetime]:
+    def _normalize_legacy_sunset(cls, value: object) -> Optional[datetime]:
         if value in (None, "", b""):
             return None
         if isinstance(value, datetime):
             return value
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError as exc:  # pragma: no cover - defensive parsing
-            raise ValueError(
-                "LEGACY_SUNSET must be an ISO 8601 timestamp, e.g. 2026-01-31T00:00:00Z"
-            ) from exc
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:  # pragma: no cover - defensive parsing
+                raise ValueError(
+                    "LEGACY_SUNSET must be an ISO 8601 timestamp, e.g. 2026-01-31T00:00:00Z"
+                ) from exc
+        raise TypeError("LEGACY_SUNSET must be a datetime or ISO 8601 string")
 
-    @field_validator("external_norms_base_url")
+    @field_validator("external_norms_base_url", mode="before")
     @classmethod
-    def _normalize_blank_url(cls, value: Optional[HttpUrl | str]) -> Optional[HttpUrl]:
+    def _normalize_blank_url(cls, value: object) -> Optional[str | HttpUrl]:
         if value in (None, "", b""):
             return None
-        return cast(HttpUrl, value)
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        raise TypeError("EXTERNAL_NORMS_BASE_URL must be a URL string")
 
-    @computed_field
-    @property
+    @computed_field(return_type=bool)
     def is_production(self) -> bool:
         return self.environment == "prod"
 

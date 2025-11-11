@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from email.utils import format_datetime
 from hashlib import sha256
 from typing import Literal, Optional
 
@@ -19,6 +20,13 @@ from app.models.klsi import AssessmentSession, AuditLog, User, UserResponse, LFI
 from app.services.security import get_current_user
 from app.schemas.session import SessionSubmissionPayload
 from app.core.metrics import inc_counter
+
+
+def _format_sunset(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return format_datetime(aware.astimezone(timezone.utc))
 
 router = APIRouter(prefix="/engine", tags=["engine"])
 
@@ -233,8 +241,9 @@ def submit_interaction(
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = f"</engine/sessions/{session_id}/submit_all>; rel=successor-version"
     from app.core.config import settings as _settings
-    if _settings.legacy_sunset:
-        response.headers["Sunset"] = _settings.legacy_sunset
+    sunset_header = _format_sunset(_settings.legacy_sunset)
+    if sunset_header:
+        response.headers["Sunset"] = sunset_header
     inc_counter("deprecated.engine.interactions")
     runtime.submit_payload(db, session_id, payload.model_dump(exclude_unset=True))
     return {"ok": True}

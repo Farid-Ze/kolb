@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import importlib
 
 from fastapi import FastAPI, Response
 from sqlalchemy import text
@@ -15,7 +16,7 @@ from app.routers.teams import router as teams_router
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 
 # Ensure instrument authoring manifest and plugins register on import
-import app.instruments.klsi4  # noqa: F401
+importlib.import_module("app.instruments.klsi4")
 from app.routers.engine import router as engine_router
 
 

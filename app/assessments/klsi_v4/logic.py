@@ -426,7 +426,9 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
     lfi_value = 1 - W
     provider = norm_provider or build_composite_norm_provider(db)
     group_chain = resolve_norm_groups(db, session_id)
-    percentile, provenance, _ = provider.percentile(group_chain, "LFI", int(round(lfi_value * 100)))
+    lfi_result = provider.percentile(group_chain, "LFI", int(round(lfi_value * 100)))
+    percentile = lfi_result.percentile
+    provenance = lfi_result.provenance
     tertiles = _cfg()["lfi"]["tertiles"]
     level = None
     if percentile is not None:
@@ -474,7 +476,8 @@ def apply_percentiles(
 
     def resolve(scale_name: str, raw: int | float) -> tuple[Optional[float], str, bool]:
         # Provider already chains DB → Appendix → External; preserve truncation
-        pct, prov, truncated_flag = provider.percentile(group_chain, scale_name, raw)
+        result = provider.percentile(group_chain, scale_name, raw)
+        pct, prov, truncated_flag = result.percentile, result.provenance, result.truncated
         # As a guard, compute truncation flag if provider didn't set it for appendix tables
         if pct is not None and prov.startswith("Appendix:") and scale_name in table_map and not truncated_flag:
             low, high = range_bounds.get(scale_name, (None, None))
@@ -484,7 +487,7 @@ def apply_percentiles(
     percentiles: Dict[str, Optional[float]] = {}
     provenance: Dict[str, str] = {}
     truncations: Dict[str, bool] = {}
-    raw_scores: Dict[str, int | float] = {}
+    raw_scores: Dict[str, int | float | None] = {}
     detailed_provenance: Dict[str, Dict[str, Any]] = {}
 
     for name, raw in {
@@ -558,7 +561,7 @@ def apply_percentiles(
         used_fallback_any=any(
             not src.startswith("DB:") for src in provenance.values()
         ),
-    norm_provenance=detailed_provenance,
+        norm_provenance=detailed_provenance,
         raw_outside_norm_range=any(truncations.values()),
         truncated_scales={
             name: {

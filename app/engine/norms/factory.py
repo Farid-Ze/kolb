@@ -12,6 +12,7 @@ from app.engine.norms.composite import (
     DatabaseNormProvider,
     ExternalNormProvider,
 )
+from app.engine.norms.provider import NormProvider
 from app.core.config import settings
 from app.db.repositories import NormativeConversionRepository
 from sqlalchemy import text
@@ -47,8 +48,8 @@ def _make_cached_db_lookup(db: Session):
         return _cached((group_token, scale_name, int(raw)))
 
     # attach invalidation hook and stats accessor
-    _lookup.clear_cache = _cached.cache_clear  # type: ignore[attr-defined]
-    _lookup.cache_info = _cached.cache_info  # type: ignore[attr-defined]
+    setattr(_lookup, "clear_cache", _cached.cache_clear)
+    setattr(_lookup, "cache_info", _cached.cache_info)
     return _lookup
 
 
@@ -167,15 +168,17 @@ def _make_preloaded_db_lookup(db: Session):
             "currsize": _PRELOAD_STATS.get("rows_loaded", 0),
         })()
 
-    _lookup.clear_cache = _clear_cache  # type: ignore[attr-defined]
-    _lookup.cache_info = _cache_info  # type: ignore[attr-defined]
+    setattr(_lookup, "clear_cache", _clear_cache)
+    setattr(_lookup, "cache_info", _cache_info)
     return _lookup
 
 
 def clear_norm_db_cache(db_lookup) -> None:
     """Invalidate the normative DB LRU cache (called after imports)."""
     try:
-        db_lookup.clear_cache()  # type: ignore[attr-defined]
+        clear_cache = getattr(db_lookup, "clear_cache", None)
+        if callable(clear_cache):
+            clear_cache()
     except Exception:
         pass
     # Also invalidate preloaded map if present
@@ -188,7 +191,10 @@ def clear_norm_db_cache(db_lookup) -> None:
 def norm_cache_stats(db_lookup) -> dict:
     """Return statistics for the normative DB lookup cache."""
     try:
-        info = db_lookup.cache_info()  # type: ignore[attr-defined]
+        cache_info = getattr(db_lookup, "cache_info", None)
+        if cache_info is None:
+            raise AttributeError
+        info = cache_info()
         return {
             "hits": info.hits,
             "misses": info.misses,
@@ -226,20 +232,20 @@ def build_composite_norm_provider(db: Session):
         db_lookup = _make_preloaded_db_lookup(db)
     else:
         db_lookup = _make_cached_db_lookup(db)
-    providers: List[object] = [DatabaseNormProvider(db_lookup)]
+    providers: List[NormProvider] = [DatabaseNormProvider(db_lookup)]
     if settings.external_norms_enabled and settings.external_norms_base_url:
         providers.append(get_external_provider())
     providers.append(AppendixNormProvider())
-    composite = CompositeNormProvider(providers)  # type: ignore[arg-type]
+    composite = CompositeNormProvider(providers)
     # expose db lookup for invalidation from admin import
-    composite._db_lookup = db_lookup  # type: ignore[attr-defined]
+    composite._db_lookup = db_lookup
     # expose adaptive preload stats
-    composite._preload_stats = preload_cache_stats()  # type: ignore[attr-defined]
+    composite._preload_stats = preload_cache_stats()
     # expose external provider for stats
     try:
-        composite._external_provider = get_external_provider()  # type: ignore[attr-defined]
+        composite._external_provider = get_external_provider()
     except Exception:
-        pass
+        composite._external_provider = None
     return composite
 
 # Singleton external provider to persist TTL cache across requests
@@ -249,14 +255,17 @@ _EXTERNAL_PROVIDER_KEY: tuple[str, int, str | None] | None = None
 
 def get_external_provider() -> ExternalNormProvider:
     global _EXTERNAL_PROVIDER, _EXTERNAL_PROVIDER_KEY
+    base_url_setting = ""
+    if settings.external_norms_base_url:
+        base_url_setting = str(settings.external_norms_base_url).rstrip("/")
     key = (
-        settings.external_norms_base_url.rstrip("/") if settings.external_norms_base_url else "",
+        base_url_setting,
         int(settings.external_norms_timeout_ms or 1500),
         settings.external_norms_api_key or None,
     )
     if _EXTERNAL_PROVIDER is None or _EXTERNAL_PROVIDER_KEY != key:
         _EXTERNAL_PROVIDER = ExternalNormProvider(
-            base_url=settings.external_norms_base_url,
+            base_url=base_url_setting,
             timeout_ms=settings.external_norms_timeout_ms,
             api_key=settings.external_norms_api_key,
         )

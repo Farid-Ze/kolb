@@ -26,7 +26,7 @@ class NormativeConversionRepository(Repository[Session]):
     def __post_init__(self) -> None:
         bind = None
         try:
-            bind = self.db.get_bind()  # type: ignore[attr-defined]
+            bind = self.db.get_bind()
         except Exception:
             bind = None
         dialect_name = getattr(getattr(bind, "dialect", None), "name", "") if bind else ""
@@ -45,9 +45,9 @@ class NormativeConversionRepository(Repository[Session]):
 
         normalized_pairs: Dict[str, List[int]] = {}
         for scale, raws in scale_to_raws.items():
-            raw_values = {int(value) for value in raws}
-            if raw_values:
-                normalized_pairs[scale] = sorted(raw_values)
+            unique_values = sorted({int(value) for value in raws})
+            if unique_values:
+                normalized_pairs[scale] = unique_values
         if not normalized_pairs:
             return []
 

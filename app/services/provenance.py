@@ -37,7 +37,7 @@ def _normalize_provenance(tag: str) -> tuple[str, Optional[str]]:
 def upsert_scale_provenance(
     db: Session,
     session_id: int,
-    raw_scores: Dict[str, float | int],
+    raw_scores: ScaleDict,
     percentile_map: Dict[str, Optional[float]],
     provenance_map: Dict[str, str],
     truncations: Dict[str, bool],
@@ -83,7 +83,7 @@ def backfill_scale_provenance(
         query = query.filter(PercentileScore.session_id.in_(list(session_ids)))
 
     for percentile, scales, combo in query.all():
-        raw_scores: Dict[str, float | int] = {
+        raw_scores: ScaleDict = {
             "CE": scales.CE_raw,
             "RO": scales.RO_raw,
             "AC": scales.AC_raw,

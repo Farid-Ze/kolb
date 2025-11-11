@@ -27,9 +27,9 @@ def test_external_norms_fallback_to_appendix(monkeypatch, session):
     monkeypatch.setattr(httpx, "get", _fake_get)
 
     provider = build_composite_norm_provider(session)
-    value, prov, truncated = provider.percentile(["Total"], "AC", 20)
-    assert value is not None
-    assert prov.startswith("Appendix:")
+    result = provider.percentile(["Total"], "AC", 20)
+    assert result.percentile is not None
+    assert result.provenance.startswith("Appendix:")
 
 
 def test_external_norms_success_precedence(monkeypatch, session):
@@ -44,7 +44,7 @@ def test_external_norms_success_precedence(monkeypatch, session):
     monkeypatch.setattr(httpx, "get", _fake_get)
 
     provider = build_composite_norm_provider(session)
-    value, prov, truncated = provider.percentile(["Total"], "AC", 20)
-    assert value == 42.5
-    assert prov.startswith("External:")
-    assert not truncated
+    result = provider.percentile(["Total"], "AC", 20)
+    assert result.percentile == 42.5
+    assert result.provenance.startswith("External:")
+    assert not result.truncated
