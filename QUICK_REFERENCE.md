@@ -31,7 +31,7 @@ pytest tests/ -v
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| **Tests** | 93/93 passing | ✅ |
+| **Tests** | 89 total (88 passing, 1 skipped) | ✅ |
 | **Tables** | 34+ | ✅ |
 | **LFI Contexts** | 8 | ✅ |
 | **Learning Styles** | 9 | ✅ |

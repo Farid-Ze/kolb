@@ -224,6 +224,32 @@ Label utama:
 - `norms.external.fetch` – waktu HTTP fetch penyedia norma eksternal (termasuk network)
 - `norms.external.percentile.<SCALE>` – waktu lapisan eksternal per skala
 
+### 17.1 Cached Composite Norm Provider (Batch + LRU)
+
+Untuk menghapus pola N+1 pada konversi persentil, sistem menambahkan provider cache berfitur:
+
+- Batch lookup per precedence chain (EDU→COUNTRY→AGE→GENDER→Total) untuk semua kebutuhan skala sesi (CE, RO, AC, AE, ACCE, AERO)
+- Pre-warm via `prime()` agar semua lookup downstream menjadi cache hit
+- LRU cache per-proses, aman karena tabel norma bersifat read-only saat runtime
+
+Feature flag:
+
+```powershell
+$Env:CACHED_NORM_PROVIDER_ENABLED = 1   # default; set 0 untuk mematikan saat troubleshooting
+```
+
+Label metrik tambahan:
+
+- Timing: `norms.cached.batch.percentile_many`
+- Counters: `norms.cached.prime`, `norms.cached.batch.query`, `norms.cached.cache_hit`, `norms.cached.single.lookup`, `norms.cached.appendix_fallback`
+
+Interpretasi cepat:
+
+- Rasio `cache_hit` tinggi → batch pre-warm efektif, N+1 dihilangkan
+- `batch.query` ≈ jumlah group yang berhasil diselesaikan di rantai precedence
+- `single.lookup` rendah → jalur non-batch jarang (edge cases)
+- `appendix_fallback` tinggi → pertimbangkan menambah baris norma di DB
+
 Endpoint:
 ```http
 GET /admin/perf-metrics?reset=false

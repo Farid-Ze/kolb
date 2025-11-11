@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # Safety limit on maximum entries to load into memory (protect low-RAM envs)
     norms_preload_max_entries: int = int(os.getenv("NORMS_PRELOAD_MAX_ENTRIES", "400000"))
 
+    # Cached composite norm provider toggle (guards rollout / troubleshooting)
+    cached_norm_provider_enabled: bool = bool(int(os.getenv("CACHED_NORM_PROVIDER_ENABLED", "1")))
+
     # API compatibility toggles
     # When set to 1, legacy per-item/context submission endpoints return HTTP 410
     disable_legacy_submission: bool = bool(int(os.getenv("DISABLE_LEGACY_SUBMISSION", "0")))

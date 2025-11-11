@@ -77,24 +77,25 @@ def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore):
     session_id = scale.session_id
     group_chain = list(resolve_norm_groups(db, session_id))
 
-    # Build provider and prime required raw scores in a single batch
-    try:
-        from app.engine.norms.cached_composite import CachedCompositeNormProvider
-    except Exception:  # Fallback safely if module not available
-        return logic_apply_percentiles(db, session_id, scale, combo)
-
-    provider = CachedCompositeNormProvider(db, group_chain=group_chain)
-    required = [
-        ("CE", scale.CE_raw),
-        ("RO", scale.RO_raw),
-        ("AC", scale.AC_raw),
-        ("AE", scale.AE_raw),
-        ("ACCE", combo.ACCE_raw),
-        ("AERO", combo.AERO_raw),
-    ]
-    provider.prime(group_chain, required)
-
-    return logic_apply_percentiles(db, session_id, scale, combo, norm_provider=provider)
+    # Feature-flagged cached provider; fallback to default path if disabled or import fails
+    if getattr(settings, "cached_norm_provider_enabled", True):
+        try:
+            from app.engine.norms.cached_composite import CachedCompositeNormProvider
+            provider = CachedCompositeNormProvider(db, group_chain=group_chain)
+            required = [
+                ("CE", scale.CE_raw),
+                ("RO", scale.RO_raw),
+                ("AC", scale.AC_raw),
+                ("AE", scale.AE_raw),
+                ("ACCE", combo.ACCE_raw),
+                ("AERO", combo.AERO_raw),
+            ]
+            provider.prime(group_chain, required)
+            return logic_apply_percentiles(db, session_id, scale, combo, norm_provider=provider)
+        except Exception:
+            # On any unexpected failure, fall back safely
+            pass
+    return logic_apply_percentiles(db, session_id, scale, combo)
 
 
 def resolve_norm_groups(db: Session, session_id: int):
