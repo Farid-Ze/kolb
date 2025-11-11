@@ -83,17 +83,29 @@ Kategori (heuristik persentil):
 - High: > 66.67
 
 ## 5. Konversi Percentile (Normatif)
-Sumber utama: `normative_conversion_table` (DB) berisi baris (norm_group, scale_name, raw_score, percentile) dari Appendix 1 (CE, RO, AC, AE, ACCE, AERO) & Appendix 7 (LFI). Fallback lokal `app/data/norms.py` dipakai apabila baris tidak tersedia.
+Sumber utama: `normative_conversion_table` (DB) berisi baris (norm_group, scale_name, raw_score, percentile) dari Appendix 1 (CE, RO, AC, AE, ACCE, AERO) & Appendix 7 (LFI). Fallback lokal `app/data/norms.py` dipakai apabila baris tidak tersedia. Sistem juga mendukung penyedia norma eksternal opsional via HTTP.
 
-Strategi lookup fallback:
+Strategi lookup & fallback (urutan precedence):
+1. Database subgroup norms terlebih dahulu (EDU, COUNTRY, AGE, GENDER, Total)
+2. Penyedia eksternal (opsional; HTTP): jika diaktifkan dan tersedia
+3. Appendix fallback lokal (Appendix 1 & 7)
 - Skala mode & difference: nearest-lower jika exact missing (konservatif menghindari over-estimasi keberbedaan); jika tidak ada lower, nearest-higher.
 - LFI: nearest absolute match (karena nilai kontinu dua decimal).
 
 Pseudo-code fallback (disederhanakan):
 ```
 if db_row_exists(raw): return db_row.percentile
-else: return nearest_lower(raw) or nearest_higher(raw)
+elif external_enabled and external_value(raw) exists: return external.percentile
+else: return nearest_lower(raw) or nearest_higher(raw) from Appendix
 ```
+
+Konfigurasi penyedia eksternal (environment):
+- `EXTERNAL_NORMS_ENABLED` (0/1)
+- `EXTERNAL_NORMS_BASE_URL` (contoh: https://norms.example.com)
+- `EXTERNAL_NORMS_TIMEOUT_MS` (default 1500)
+- `EXTERNAL_NORMS_API_KEY` (opsional)
+
+Label provenance mencerminkan sumber: `DB:<group>|<version>`, `External:<group>|<version>`, atau `Appendix:<scale>`.
 
 ### 5.1 Subgroup Norms & Precedence (Appendix 2–5)
 Ketika tersedia, konversi akan mencoba norm-group subkelompok berikut secara berurutan:
@@ -121,6 +133,16 @@ Interpretasi: Semakin tinggi nilai P_BAL semakin dekat ke pusat (lebih seimbang)
 | Window gaya | Assert primary window mengandung (ACCE,AERO) | Konsistensi klasifikasi deterministik. |
 | Kendall's W | Uji batas: semua konteks ranking identik → W=1 (LFI=0); konteks orthogonal → W mendekati 0 (LFI≈1) | Menguji implementasi formula. |
 | Percentile fallback | Bandingkan beberapa raw acak dengan DB setelah impor | Mendeteksi mismatch transkripsi. |
+
+### 6.1 Deteksi Anomali (ValidationResult)
+Selama finalisasi, sistem mengembalikan payload `validation` yang memuat anomali berikut (tidak memengaruhi skor, hanya diagnostik):
+- `RAW_OUTSIDE_NORM_RANGE`: satu atau lebih skala berada di luar rentang tabel norma dan perlu truncation
+- `EXCESSIVE_TRUNCATION`: dua atau lebih skala mengalami truncation
+- `MIXED_PROVENANCE`: kombinasi sumber DB dan fallback (Appendix/External) pada satu sesi
+- `LOW_W_PATTERN`: Kendall's W < 0.05 (pola sangat tidak konsisten)
+- `HIGH_W_UNIFORMITY`: Kendall's W > 0.95 (pola hampir seragam)
+- `LFI_REPEATED_PATTERN_6PLUS` / `LFI_REPEATED_PATTERN_7PLUS`: pola ranking identik berulang ≥6/≥7 dari 8 konteks
+- `NEAR_STYLE_BOUNDARY`: nilai ACCE atau AERO tepat pada batas window (ACCE 5/6, 14/15; AERO 0/1, 11/12)
 
 ## 7. Potensi Analisis Lanjut
 - Reliabilitas internal difference scores: pemeriksaan distribusi varian ACCE/AERO.

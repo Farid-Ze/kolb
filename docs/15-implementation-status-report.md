@@ -12,7 +12,7 @@ The KLSI 4.0 API implementation is **production-ready** with 100% psychometric f
 
 ### Key Achievements
 
-- ✅ **55 unit tests** passing (0 failures)
+- ✅ **92 unit tests** passing (0 failures)
 - ✅ **100% formula accuracy** validated against academic source
 - ✅ **Complete LFI pipeline** with percentile conversion
 - ✅ **Comprehensive documentation** (2000+ pages across 15 docs)
@@ -552,7 +552,18 @@ async def import_norms(
     # Return import summary
 ```
 
-#### Tier 2: Appendix Fallback (Static, from KLSI 4.0 Guide)
+#### Tier 2: External Norm Provider (Optional, HTTP)
+
+When enabled via environment flags, an HTTP-backed provider is queried after DB and before Appendix. Provenance labels use `External:<group>|<version>`. Timeouts and simple retry are implemented, and successful lookups are cached in-memory with a configurable cap.
+
+Config:
+- `EXTERNAL_NORMS_ENABLED` (0/1)
+- `EXTERNAL_NORMS_BASE_URL`
+- `EXTERNAL_NORMS_TIMEOUT_MS` (default 1500)
+- `EXTERNAL_NORMS_API_KEY` (optional)
+- `EXTERNAL_NORMS_CACHE_SIZE` (default 512)
+
+#### Tier 3: Appendix Fallback (Static, from KLSI 4.0 Guide)
 
 **File:** `app/data/norms.py`
 
@@ -681,7 +692,8 @@ def _age_to_band(user: User) -> str | None:
 
 5. If not found, try: 'Total'
 
-6. If still not found, fallback to Appendix: lookup_lfi(0.97) → 97.5%
+6. If external provider enabled, call `GET /norms/{group}/{scale}/{raw}`; if found, use returned percentile/version
+7. If still not found, fallback to Appendix: lookup_lfi(0.97) → 97.5%
 
 7. Track provenance: norm_group_used = "EDU:University Degree" or "AppendixFallback"
 ```

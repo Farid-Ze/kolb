@@ -6,6 +6,7 @@ import httpx
 
 from app.data import norms as appendix_norms
 from app.engine.norms.provider import NormProvider
+from app.core.config import settings
 
 _NORM_VERSION_DELIM = "|"
 _DEFAULT_NORM_VERSION = "default"
@@ -104,6 +105,7 @@ class ExternalNormProvider:
         self.base_url = base_url.rstrip("/")
         self.timeout = max(100, int(timeout_ms)) / 1000.0  # seconds
         self.api_key = api_key
+        self._cache: dict[tuple[str, str, int], tuple[Optional[float], Optional[str]]] = {}
 
     def _headers(self) -> dict:
         headers = {"Accept": "application/json"}
@@ -112,6 +114,10 @@ class ExternalNormProvider:
         return headers
 
     def _fetch(self, group_token: str, scale: str, raw: int | float) -> Tuple[Optional[float], Optional[str]]:
+        key = (group_token, scale, int(raw))
+        # Read-through LRU with simple size cap eviction
+        if key in self._cache:
+            return self._cache[key]
         url = f"{self.base_url}/norms/{group_token}/{scale}/{int(raw)}"
         # Simple retry loop (2 attempts)
         last_exc: Exception | None = None
@@ -123,7 +129,11 @@ class ExternalNormProvider:
                     percentile = data.get("percentile")
                     version = data.get("version")
                     if isinstance(percentile, (int, float)):
-                        return float(percentile), str(version) if version else None
+                        result = (float(percentile), str(version) if version else None)
+                        # Cache with cap
+                        self._cache[key] = result
+                        self._evict_if_needed()
+                        return result
                     return None, None
                 if resp.status_code == 404:
                     return None, None
@@ -131,6 +141,17 @@ class ExternalNormProvider:
                 last_exc = exc
                 continue
         return None, None
+
+    def _evict_if_needed(self) -> None:
+        max_size = getattr(settings, "external_norms_cache_size", 512) or 512
+        if len(self._cache) <= max_size:
+            return
+        # Pop arbitrary items until within size cap (simple policy)
+        while len(self._cache) > max_size:
+            try:
+                self._cache.pop(next(iter(self._cache)))
+            except StopIteration:
+                break
 
     def percentile(
         self, group_chain: List[str], scale: str, raw: int | float
