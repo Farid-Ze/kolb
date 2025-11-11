@@ -5,7 +5,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.models.klsi import AuditLog, AssessmentSession, SessionStatus, User
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.audit import AuditLog
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.user import User
 from app.engine.finalize import finalize_assessment
 from app.engine.strategies.klsi4 import KLSI4Strategy
 from app.engine.strategy_registry import register_strategy, _STRATEGIES
@@ -66,14 +69,14 @@ def test_finalize_is_atomic_on_failure():
         # Verify nothing was persisted from the failed finalize call
         assert db.query(AuditLog).count() == 0
         # No Scale/Combo/Style/LFI/Percentiles rows should exist for this session
-        from app.models.klsi import (
-            ScaleScore,
+        from app.models.klsi.learning import (
             CombinationScore,
-            UserLearningStyle,
             LearningFlexibilityIndex,
-            PercentileScore,
             ScaleProvenance,
+            ScaleScore,
+            UserLearningStyle,
         )
+        from app.models.klsi.norms import PercentileScore
 
         assert db.query(ScaleScore).filter_by(session_id=sess.id).count() == 0
         assert db.query(CombinationScore).filter_by(session_id=sess.id).count() == 0

@@ -19,7 +19,10 @@ from app.engine.runtime_logic import (
     build_finalize_payload,
     compose_delivery_payload,
 )
-from app.models.klsi import AssessmentSession, SessionStatus, User, AuditLog
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.user import User
+from app.models.klsi.audit import AuditLog
 from app.services.validation import run_session_validations
 from app.db.database import get_repository_provider
 from app.core.metrics import timeit, measure_time, count_calls

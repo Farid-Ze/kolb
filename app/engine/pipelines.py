@@ -5,10 +5,10 @@ from typing import Optional, TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.klsi import ScoringPipeline
+from app.models.klsi.instrument import ScoringPipeline
 
 if TYPE_CHECKING:  # pragma: no cover
-    from app.models.klsi import AssessmentSession
+    from app.models.klsi.assessment import AssessmentSession
 
 
 def _compose_version(pipeline: ScoringPipeline) -> str:

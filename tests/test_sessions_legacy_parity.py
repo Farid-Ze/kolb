@@ -9,15 +9,11 @@ pytest.skip("Legacy sessions router removed; tests retired. Use Engine endpoints
 from uuid import uuid4
 
 from app.db.database import SessionLocal
-from app.models.klsi import (
-    AssessmentItem,
-    AssessmentSession,
-    ItemChoice,
-    ItemType,
-    LFIContextScore,
-    SessionStatus,
-    User,
-)
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import ItemType, SessionStatus
+from app.models.klsi.items import AssessmentItem, ItemChoice
+from app.models.klsi.learning import LFIContextScore
+from app.models.klsi.user import User
 from app.services.scoring import CONTEXT_NAMES
 from app.services.security import create_access_token
 

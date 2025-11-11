@@ -5,13 +5,9 @@ from typing import Optional
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db.repositories.base import Repository
-from app.models.klsi import (
-    AssessmentSession,
-    BackupLearningStyle,
-    LFIContextScore,
-    SessionStatus,
-    UserLearningStyle,
-)
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.learning import BackupLearningStyle, LFIContextScore, UserLearningStyle
+from app.models.klsi.enums import SessionStatus
 
 
 from dataclasses import dataclass

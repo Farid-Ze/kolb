@@ -7,16 +7,12 @@ import app.engine.registry as assessment_registry
 import app.engine.strategy_registry as strategy_registry
 from app.assessments.klsi_v4.definition import CONTEXT_NAMES, KLSIAssessmentDefinition  # noqa: F401 ensures registration
 from app.db.database import Base
-from app.models.klsi import (
-    AssessmentItem,
-    AssessmentSession,
-    Instrument,
-    LFIContextScore,
-    ScaleProvenance,
-    SessionStatus,
-    User,
-    UserResponse,
-)
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.instrument import Instrument
+from app.models.klsi.items import AssessmentItem, UserResponse
+from app.models.klsi.learning import LFIContextScore, ScaleProvenance
+from app.models.klsi.user import User
 
 from app.engine.strategies.klsi4 import KLSI4Strategy
 from app.engine.runtime import EngineRuntime

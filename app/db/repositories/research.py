@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.db.repositories.base import Repository
-from app.models.klsi import ReliabilityResult, ResearchStudy, ValidityEvidence
+from app.models.klsi.research import ReliabilityResult, ResearchStudy, ValidityEvidence
 
 
 @dataclass

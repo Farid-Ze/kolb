@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.db.repositories.base import Repository
-from app.models.klsi import NormativeConversionTable
+from app.models.klsi.norms import NormativeConversionTable
 
 
 @dataclass(frozen=True, slots=True)

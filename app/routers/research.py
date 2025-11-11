@@ -11,7 +11,7 @@ from app.db.repositories import (
     ResearchStudyRepository,
     ValidityRepository,
 )
-from app.models.klsi import User
+from app.models.klsi.user import User
 from app.schemas.research import (
     ReliabilityCreate,
     ResearchStudyCreate,

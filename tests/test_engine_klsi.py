@@ -1,7 +1,9 @@
 from uuid import uuid4
 
 from app.db.database import SessionLocal
-from app.models.klsi import AssessmentSession, SessionStatus, User
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.user import User
 from app.services.scoring import CONTEXT_NAMES
 from app.services.security import create_access_token
 

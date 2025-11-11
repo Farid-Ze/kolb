@@ -12,7 +12,7 @@ from app.db.repositories import (
     TeamRepository,
     TeamRollupRepository,
 )
-from app.models.klsi import User
+from app.models.klsi.user import User
 from app.schemas.team import (
     TeamCreate,
     TeamMemberAdd,

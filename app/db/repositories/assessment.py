@@ -7,7 +7,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.repositories.base import Repository
-from app.models.klsi import AssessmentItem, ItemChoice, ItemType, LFIContextScore, UserResponse
+from app.models.klsi.enums import ItemType
+from app.models.klsi.items import AssessmentItem, ItemChoice, UserResponse
+from app.models.klsi.learning import LFIContextScore
 
 
 @dataclass

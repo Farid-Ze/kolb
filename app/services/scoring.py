@@ -25,7 +25,9 @@ from app.db.repositories import (
     NormativeConversionRepository,
     SessionRepository,
 )
-from app.models.klsi import AssessmentSession, CombinationScore, ScaleScore, SessionStatus, UserLearningStyle
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.learning import CombinationScore, ScaleScore, UserLearningStyle
 
 
 __all__ = [

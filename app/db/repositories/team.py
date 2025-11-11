@@ -8,16 +8,14 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.repositories.base import Repository
-from app.models.klsi import (
-    AssessmentSession,
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.learning import (
     LearningFlexibilityIndex,
     LearningStyleType,
-    SessionStatus,
-    Team,
-    TeamAssessmentRollup,
-    TeamMember,
     UserLearningStyle,
 )
+from app.models.klsi.team import Team, TeamAssessmentRollup, TeamMember
 
 
 @dataclass

@@ -9,13 +9,15 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.engine.runtime import runtime
-from app.models.klsi import User
+from app.models.klsi.user import User
 from app.services.security import get_current_user
 from app.services.validation import run_session_validations
 from app.schemas.session import SessionSubmissionPayload
 from app.core.config import settings
 from app.core.metrics import inc_counter
-from app.models.klsi import UserResponse, LFIContextScore, SessionStatus
+from app.models.klsi.items import UserResponse
+from app.models.klsi.learning import LFIContextScore
+from app.models.klsi.enums import SessionStatus
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 

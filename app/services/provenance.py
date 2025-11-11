@@ -5,12 +5,8 @@ from typing import Dict, Iterable, Optional
 from sqlalchemy.orm import Session
 
 from app.engine.constants import ALL_SCALE_CODES
-from app.models.klsi import (
-    CombinationScore,
-    PercentileScore,
-    ScaleProvenance,
-    ScaleScore,
-)
+from app.models.klsi.learning import CombinationScore, ScaleProvenance, ScaleScore
+from app.models.klsi.norms import PercentileScore
 
 
 ScaleDict = Dict[str, float | int | None]

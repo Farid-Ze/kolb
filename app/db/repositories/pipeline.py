@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.repositories.base import Repository
-from app.models.klsi import Instrument, ScoringPipeline, ScoringPipelineNode
+from app.models.klsi.instrument import Instrument, ScoringPipeline, ScoringPipelineNode
 
 
 @dataclass

@@ -5,7 +5,8 @@ from typing import Dict
 from sqlalchemy import select
 
 from app.db.database import SessionLocal
-from app.models.klsi import Instrument, ScoringPipeline, ScoringPipelineNode, User
+from app.models.klsi.instrument import Instrument, ScoringPipeline, ScoringPipelineNode
+from app.models.klsi.user import User
 from app.services.security import create_access_token
 
 

@@ -3,7 +3,10 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
 from app.engine.strategy_registry import get_strategy
-from app.models.klsi import AssessmentSession, Instrument, SessionStatus, User
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.instrument import Instrument
+from app.models.klsi.user import User
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 
 

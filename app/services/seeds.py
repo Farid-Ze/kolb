@@ -3,17 +3,10 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
 from app.assessments.klsi_v4 import load_config
-from app.models.klsi import (
-    AssessmentItem,
-    Instrument,
-    InstrumentScale,
-    ItemChoice,
-    ItemType,
-    LearningMode,
-    LearningStyleType,
-    ScoringPipeline,
-    ScoringPipelineNode,
-)
+from app.models.klsi.enums import ItemType, LearningMode
+from app.models.klsi.instrument import Instrument, InstrumentScale, ScoringPipeline, ScoringPipelineNode
+from app.models.klsi.items import AssessmentItem, ItemChoice
+from app.models.klsi.learning import LearningStyleType
 
 def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
     cfg = load_config()

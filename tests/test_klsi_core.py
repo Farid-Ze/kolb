@@ -2,14 +2,10 @@ from datetime import datetime
 
 from app.assessments.klsi_v4.logic import STYLE_CUTS, compute_raw_scale_scores
 from app.db.database import SessionLocal
-from app.models.klsi import (
-    AssessmentItem,
-    AssessmentSession,
-    ItemType,
-    SessionStatus,
-    User,
-    UserResponse,
-)
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import ItemType, SessionStatus
+from app.models.klsi.items import AssessmentItem, UserResponse
+from app.models.klsi.user import User
 from app.services.scoring import compute_kendalls_w
 
 

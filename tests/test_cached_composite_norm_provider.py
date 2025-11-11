@@ -1,6 +1,6 @@
 from typing import Any, cast
 from app.engine.norms.cached_composite import CachedCompositeNormProvider
-from app.models.klsi import NormativeConversionTable
+from app.models.klsi.norms import NormativeConversionTable
 
 # NOTE: Uses existing session fixture (named 'session') provided by conftest.py
 # We focus on DB hit reduction: prime() performs at most one batch query per precedence

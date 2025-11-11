@@ -16,7 +16,12 @@ from app.engine.authoring import (
     list_instrument_specs,
 )
 from app.engine.runtime import runtime
-from app.models.klsi import AssessmentSession, AuditLog, User, UserResponse, LFIContextScore, SessionStatus
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.audit import AuditLog
+from app.models.klsi.user import User
+from app.models.klsi.items import UserResponse
+from app.models.klsi.learning import LFIContextScore
+from app.models.klsi.enums import SessionStatus
 from app.services.security import get_current_user
 from app.schemas.session import SessionSubmissionPayload
 from app.core.metrics import (

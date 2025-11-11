@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
-from app.models.klsi import User
+from app.models.klsi.user import User
 from app.services.report import build_report
 from app.services.security import get_current_user
 

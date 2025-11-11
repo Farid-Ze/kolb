@@ -10,17 +10,19 @@ from app.i18n.id_styles import (
     STYLE_DETAIL_ID,
     STYLE_LABELS_ID,
 )
-from app.models.klsi import (
-    AssessmentSession,
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.learning import (
     BackupLearningStyle,
     CombinationScore,
-    LearningFlexibilityIndex,
     LFIContextScore,
-    PercentileScore,
+    LearningFlexibilityIndex,
+    LearningStyleType,
+    ScaleProvenance,
     ScaleScore,
-    User,
     UserLearningStyle,
 )
+from app.models.klsi.norms import PercentileScore
+from app.models.klsi.user import User
 from app.services.regression import (
     analyze_lfi_contexts,
     generate_lfi_heatmap,

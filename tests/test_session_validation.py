@@ -4,16 +4,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.models.klsi import (
-    AssessmentItem,
-    AssessmentSession,
-    ItemChoice,
-    ItemType,
-    LearningMode,
-    SessionStatus,
-    User,
-    UserResponse,
-)
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import ItemType, LearningMode, SessionStatus
+from app.models.klsi.items import AssessmentItem, ItemChoice, UserResponse
+from app.models.klsi.user import User
 from app.services.validation import check_session_complete
 
 # NOTE: Using in-memory SQLite for unit test speed; ranks logic independent of PG features.

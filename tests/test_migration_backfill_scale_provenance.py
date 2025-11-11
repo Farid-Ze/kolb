@@ -2,16 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.models.klsi import (
-    AssessmentSession,
-    CombinationScore,
-    Instrument,
-    PercentileScore,
-    ScaleProvenance,
-    ScaleScore,
-    SessionStatus,
-    User,
-)
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.instrument import Instrument
+from app.models.klsi.learning import CombinationScore, ScaleProvenance, ScaleScore
+from app.models.klsi.norms import PercentileScore
+from app.models.klsi.user import User
 from app.services.provenance import backfill_scale_provenance
 
 

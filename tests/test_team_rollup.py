@@ -4,16 +4,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.models.klsi import (
-    AssessmentSession,
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.learning import (
     LearningFlexibilityIndex,
     LearningStyleType,
-    SessionStatus,
-    Team,
-    TeamMember,
-    User,
     UserLearningStyle,
 )
+from app.models.klsi.team import Team, TeamMember
+from app.models.klsi.user import User
 from app.services.rollup import compute_team_rollup
 
 

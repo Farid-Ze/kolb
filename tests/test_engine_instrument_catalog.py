@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from app.db.database import SessionLocal
-from app.models.klsi import User
+from app.models.klsi.user import User
 from app.services.security import create_access_token
 
 

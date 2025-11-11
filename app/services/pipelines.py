@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.repositories import InstrumentRepository, PipelineRepository
-from app.models.klsi import Instrument
+from app.models.klsi.instrument import Instrument
 
 
 def _instrument_or_404(

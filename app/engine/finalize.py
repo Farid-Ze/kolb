@@ -14,13 +14,13 @@ from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import get as get_definition
 from app.engine.strategy_registry import get_strategy
 from app.db.repositories import SessionRepository, StyleRepository
-from app.models.klsi import AuditLog
+from app.models.klsi.audit import AuditLog
 from app.services.regression import analyze_lfi_contexts
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
 
 if TYPE_CHECKING:  # pragma: no cover
-    from app.models.klsi import AssessmentSession
+    from app.models.klsi.assessment import AssessmentSession
 
 
 def _unique(sequence: Iterable[str | None]) -> list[str]:

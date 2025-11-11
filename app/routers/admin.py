@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.repositories import NormativeConversionRepository
-from app.models.klsi import AuditLog
+from app.models.klsi.audit import AuditLog
 from app.engine.norms.factory import (
     build_composite_norm_provider,
     clear_norm_db_cache,

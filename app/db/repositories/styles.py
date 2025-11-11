@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.db.repositories.base import Repository
-from app.models.klsi import BackupLearningStyle, LearningStyleType
+from app.models.klsi.learning import BackupLearningStyle, LearningStyleType
 
 
 @dataclass

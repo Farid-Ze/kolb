@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.klsi import User
+from app.models.klsi.user import User
 
 
 class UserRepository:

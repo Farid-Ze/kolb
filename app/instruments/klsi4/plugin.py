@@ -15,15 +15,11 @@ from app.engine.interfaces import (
     ItemDTO,
 )
 from app.engine.registry import engine_registry
-from app.models.klsi import (
-    AssessmentItem,
-    AssessmentSession,
-    ItemChoice,
-    LFIContextScore,
-    PercentileScore,
-    SessionStatus,
-    UserResponse,
-)
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.items import AssessmentItem, ItemChoice, UserResponse
+from app.models.klsi.learning import LFIContextScore
+from app.models.klsi.norms import PercentileScore
+from app.models.klsi.enums import SessionStatus
 from app.core.errors import DomainError, InvalidAssessmentData, SessionNotFoundError
 from app.services.report import build_report
 from app.services.scoring import CONTEXT_NAMES, finalize_session

@@ -4,7 +4,7 @@ from hashlib import sha256
 
 from app.db.database import Base, engine, transactional_session
 from app.db.repositories import NormativeConversionRepository
-from app.models.klsi import AuditLog
+from app.models.klsi.audit import AuditLog
 
 """
 CLI usage (optional):

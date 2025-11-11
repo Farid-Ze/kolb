@@ -21,22 +21,20 @@ from app.db.repositories import (
     StyleRepository,
     UserResponseRepository,
 )
-from app.models.klsi import (
-    AssessmentSession,
-    AssessmentSessionDelta,
+from app.models.klsi.assessment import AssessmentSession, AssessmentSessionDelta
+from app.models.klsi.enums import ItemType, LearningMode
+from app.models.klsi.learning import (
     CombinationScore,
-    ItemType,
     LearningFlexibilityIndex,
-    LearningMode,
     LearningStyleType,
-    PercentileScore,
     ScaleScore,
-    User,
     UserLearningStyle,
 )
+from app.models.klsi.norms import PercentileScore
+from app.models.klsi.user import User
 
 if TYPE_CHECKING:
-    from app.models.klsi import UserResponse
+    from app.models.klsi.items import UserResponse
 from app.services.provenance import upsert_scale_provenance
 
 from app.data.norms import APPENDIX_TABLES

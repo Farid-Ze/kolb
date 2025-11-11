@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.repositories import TeamAnalyticsRepository, TeamRollupRepository
-from app.models.klsi import TeamAssessmentRollup
+from app.models.klsi.team import TeamAssessmentRollup
 
 
 def compute_team_rollup(

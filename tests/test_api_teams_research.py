@@ -2,15 +2,16 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from app.db.database import SessionLocal
-from app.models.klsi import (
-    AssessmentSession,
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.learning import (
     LearningFlexibilityIndex,
     LearningStyleType,
-    SessionStatus,
-    TeamAssessmentRollup,
-    User,
     UserLearningStyle,
 )
+from app.models.klsi.research import ReliabilityResult, ValidityEvidence
+from app.models.klsi.team import TeamAssessmentRollup
+from app.models.klsi.user import User
 
 
 def _issue_token(user_id: int):
@@ -219,7 +220,6 @@ def test_research_crud_and_children(client):
     # (Optional) Remove children then delete
     # For brevity: direct DB delete
     with SessionLocal() as db:
-        from app.models.klsi import ReliabilityResult, ValidityEvidence
         db.query(ReliabilityResult).filter_by(study_id=sid).delete()
         db.query(ValidityEvidence).filter_by(study_id=sid).delete()
         db.commit()

@@ -2,8 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.models.klsi import (
-    AssessmentSession,
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.learning import (
     BackupLearningStyle,
     CombinationScore,
     LearningStyleType,

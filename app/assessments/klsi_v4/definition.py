@@ -23,7 +23,8 @@ from app.engine.interfaces import (
     ValidationRule,
 )
 from app.engine.registry import register
-from app.models.klsi import AssessmentSession, CombinationScore, UserLearningStyle
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.learning import CombinationScore, UserLearningStyle
 
 __all__ = [
     "LFIContextRule",
@@ -48,7 +49,7 @@ class LFIContextRule:
         self.code = "LFI_CONTEXT_COUNT"
 
     def validate(self, db: Session, session_id: int) -> List[ValidationIssue]:
-        from app.models.klsi import LFIContextScore
+        from app.models.klsi.learning import LFIContextScore
 
         count = (
             db.query(LFIContextScore)

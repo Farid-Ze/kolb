@@ -2,7 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.models.klsi import AssessmentSession, EducationLevel, Gender, User
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import EducationLevel, Gender
+from app.models.klsi.user import User
 from app.services.scoring import _resolve_norm_groups
 
 
