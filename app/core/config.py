@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     allowed_student_domain: str = "mahasiswa.unikom.ac.id"
     audit_salt: str = os.getenv("AUDIT_SALT", "klsi-default-salt")
+    # Startup behavior toggles (prefer Alembic in production)
+    run_startup_seed: bool = bool(int(os.getenv("RUN_STARTUP_SEED", "1")))
+    run_startup_ddl: bool = bool(int(os.getenv("RUN_STARTUP_DDL", "1")))
 
     # External norm provider configuration
     external_norms_enabled: bool = bool(int(os.getenv("EXTERNAL_NORMS_ENABLED", "0")))

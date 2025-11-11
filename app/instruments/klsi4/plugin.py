@@ -164,6 +164,7 @@ class KLSI4Plugin(
         }
         if valid_choices != set(normalized.keys()):
             raise HTTPException(status_code=400, detail="Pilihan tidak cocok dengan item")
+        # Upsert semantics: allow re-submission; treat as overwrite not rejection.
         db.query(UserResponse).filter(
             UserResponse.session_id == session_id,
             UserResponse.item_id == item_id_int,
@@ -209,7 +210,17 @@ class KLSI4Plugin(
             )
             .first()
         )
+        overwrite = bool(payload.get("overwrite", False))
         if existing:
+            if overwrite:
+                # Upsert semantics: allow correction before finalize when client opts-in.
+                existing.CE_rank = ranks["CE"]
+                existing.RO_rank = ranks["RO"]
+                existing.AC_rank = ranks["AC"]
+                existing.AE_rank = ranks["AE"]
+                db.commit()
+                return
+            # Maintain legacy behavior (reject duplicates) for default path/parity tests.
             raise HTTPException(
                 status_code=400,
                 detail="Konteks ini sudah dinilai. Hubungi mediator untuk koreksi.",

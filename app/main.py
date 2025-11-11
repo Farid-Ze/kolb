@@ -38,53 +38,14 @@ async def lifespan(app: FastAPI):
     # Startup
     # NOTE: In production, disable create_all() via RUN_STARTUP_DDL=false env var
     # and rely on Alembic migrations only
-    Base.metadata.create_all(bind=engine)
-    with SessionLocal() as db:
-        seed_instruments(db)
-        seed_learning_styles(db)
-        seed_assessment_items(db)
-        try:
-            db.execute(text(
-                """
-            DO $$ BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'ix_assessment_sessions_completed'
-                ) THEN
-                    EXECUTE 'CREATE INDEX ix_assessment_sessions_completed ON assessment_sessions (user_id, end_time) WHERE status = ''Completed''';
-                END IF;
-            END $$;"""
-            ))
-        except Exception:
-            # Non-Postgres atau sudah ada
-            if settings.environment != 'prod':
-                try:
-                    db.execute(text(
-                        """
-                    CREATE OR REPLACE VIEW v_style_grid AS
-                    SELECT s.id AS session_id,
-                             s.user_id,
-                             cs.ACCE_raw,
-                             cs.AERO_raw,
-                             CASE
-                                 WHEN cs.ACCE_raw <= 5 THEN 'Low'
-                                 WHEN cs.ACCE_raw <= 14 THEN 'Mid'
-                                 ELSE 'High'
-                             END AS acce_band,
-                             CASE
-                                 WHEN cs.AERO_raw <= 0 THEN 'Low'
-                                 WHEN cs.AERO_raw <= 11 THEN 'Mid'
-                                 ELSE 'High'
-                             END AS aero_band,
-                             lst.style_name
-                    FROM assessment_sessions s
-                        JOIN combination_scores cs ON cs.session_id = s.id
-                        LEFT JOIN user_learning_styles uls ON uls.session_id = s.id
-                        LEFT JOIN learning_style_types lst ON lst.id = uls.primary_style_type_id;
-                    """
-                    ))
-                except Exception:
-                    pass
-        db.commit()
+    if settings.run_startup_ddl:
+        Base.metadata.create_all(bind=engine)
+    if settings.run_startup_seed:
+        with SessionLocal() as db:
+            seed_instruments(db)
+            seed_learning_styles(db)
+            seed_assessment_items(db)
+            db.commit()
     yield
     # Shutdown: nothing
 

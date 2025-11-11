@@ -57,7 +57,17 @@ def submit_item(session_id: int, item_id: int, ranks: dict, db: Session = Depend
     return {"ok": True}
 
 @router.post("/{session_id}/submit_context", response_model=dict)
-def submit_context(session_id: int, context_name: str, CE: int, RO: int, AC: int, AE: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def submit_context(
+    session_id: int,
+    context_name: str,
+    CE: int,
+    RO: int,
+    AC: int,
+    AE: int,
+    overwrite: bool = False,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
     user = get_current_user(authorization, db)
     sess = db.query(AssessmentSession).filter(AssessmentSession.id==session_id).first()
     if not sess or sess.user_id != user.id:
@@ -69,6 +79,7 @@ def submit_context(session_id: int, context_name: str, CE: int, RO: int, AC: int
         "RO": RO,
         "AC": AC,
         "AE": AE,
+        "overwrite": overwrite,
     }
     runtime.submit_payload(db, session_id, payload)
     return {"ok": True}
@@ -79,6 +90,12 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
     sess = db.query(AssessmentSession).filter(AssessmentSession.id==session_id).first()
     if not sess or sess.user_id != user.id:
         raise HTTPException(status_code=403, detail="Akses sesi ditolak")
+    # Explicit guard: require all 8 LFI contexts present before finalize,
+    # even if engine validation would catch it. Gives clearer 400 with detail.
+    validation_snapshot = run_session_validations(db, session_id)
+    if not validation_snapshot.get("ready", False):
+        issues = validation_snapshot.get("issues", [])
+        raise HTTPException(status_code=400, detail={"issues": issues, "diagnostics": validation_snapshot.get("diagnostics")})
     result = runtime.finalize(db, session_id)
     combination = result.get("combination")
     lfi = result.get("lfi")

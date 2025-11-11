@@ -11,7 +11,8 @@ from app.engine.interfaces import ScoringContext
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import get as get_definition
 from app.engine.strategy_registry import get_strategy
-from app.models.klsi import AssessmentSession, AuditLog, LFIContextScore
+from app.models.klsi import AssessmentSession, AuditLog, LFIContextScore, BackupLearningStyle, LearningStyleType
+from app.services.regression import analyze_lfi_contexts
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
 
@@ -255,6 +256,66 @@ def finalize_assessment(
                     validation_result.anomalies.append("LFI_REPEATED_PATTERN_7PLUS")
                 elif top >= 6:
                     validation_result.anomalies.append("LFI_REPEATED_PATTERN_6PLUS")
+            # Derive LFI-based backup styles: infer styles used across 8 contexts
+            # and persist unique backups excluding primary style.
+            try:
+                context_payload = [
+                    {"CE": r.CE_rank, "RO": r.RO_rank, "AC": r.AC_rank, "AE": r.AE_rank}
+                    for r in rows
+                ]
+                analysis = analyze_lfi_contexts(context_payload)
+                # Map style -> list of contexts where it appeared
+                contexts_for_style: dict[str, list[str]] = {}
+                for entry in analysis.get("context_styles", []):
+                    sname = entry.get("style")
+                    if not sname or sname == "Unclassified":
+                        continue
+                    contexts_for_style.setdefault(sname, []).append(entry.get("context"))
+                style_freq: dict[str, int] = analysis.get("style_frequency", {}) or {}
+                # Determine primary style name to exclude
+                primary_style_type_id = None
+                if "style" in ctx:
+                    primary_style_type_id = ctx["style"].get("primary_style_type_id")
+                primary_name = None
+                if primary_style_type_id:
+                    row = db.query(LearningStyleType).filter(LearningStyleType.id == primary_style_type_id).first()
+                    primary_name = row.style_name if row else None
+                # Upsert backup rows
+                for sname, count in style_freq.items():
+                    if sname == primary_name:
+                        continue
+                    style_row = (
+                        db.query(LearningStyleType)
+                        .filter(LearningStyleType.style_name == sname)
+                        .first()
+                    )
+                    if not style_row:
+                        continue
+                    existing = (
+                        db.query(BackupLearningStyle)
+                        .filter(
+                            BackupLearningStyle.session_id == session_id,
+                            BackupLearningStyle.style_type_id == style_row.id,
+                        )
+                        .first()
+                    )
+                    if existing:
+                        existing.frequency_count = count
+                        existing.contexts_used = {"contexts": contexts_for_style.get(sname, [])}
+                        existing.percentage = None
+                    else:
+                        db.add(
+                            BackupLearningStyle(
+                                session_id=session_id,
+                                style_type_id=style_row.id,
+                                frequency_count=int(count),
+                                contexts_used={"contexts": contexts_for_style.get(sname, [])},
+                                percentage=None,
+                            )
+                        )
+            except Exception:
+                # Non-fatal: keep finalize robust even if analysis fails
+                pass
         # Near-boundary style window detection using combination raw ACCE/AERO
         if "combination" in ctx:
             combo_ctx = ctx["combination"]
