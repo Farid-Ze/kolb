@@ -10,15 +10,15 @@ from app.models.klsi.learning import LearningStyleType
 
 def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
     cfg = load_config()
-    windows: dict[str, dict[str, int | None]] = {}
-    for style_name, bounds in cfg["style_windows"].items():
-        windows[style_name] = {
-            "ACCE_min": bounds["ACCE"][0],
-            "ACCE_max": bounds["ACCE"][1],
-            "AERO_min": bounds["AERO"][0],
-            "AERO_max": bounds["AERO"][1],
+    return {
+        style_name: {
+            "ACCE_min": window.acce_min,
+            "ACCE_max": window.acce_max,
+            "AERO_min": window.aero_min,
+            "AERO_max": window.aero_max,
         }
-    return windows
+        for style_name, window in cfg.style_windows.items()
+    }
 
 
 STYLE_WINDOWS = _style_windows_from_config()

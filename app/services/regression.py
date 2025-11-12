@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from app.assessments.klsi_v4 import load_config
 from app.assessments.klsi_v4.enums import LearningStyleCode
@@ -65,9 +65,9 @@ class RegressionConfigError(RuntimeError):
 
 
 @lru_cache()
-def _regression_cfg() -> Dict[str, Any]:
+def _regression_cfg() -> Mapping[str, Any]:
     cfg = load_config()
-    block = cfg.get("regression")
+    block = cfg.regression
     if not block:
         raise RegressionConfigError("Missing 'regression' section in KLSI config.")
     return block

@@ -5,9 +5,11 @@ from typing import Any, Dict
 
 import yaml
 
+from app.assessments.klsi_v4.types import KLSIParameters
 CONFIG_PATH = Path(__file__).with_name("config.yaml")
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> KLSIParameters:
     with CONFIG_PATH.open("r", encoding="utf-8") as fh:
-        return yaml.safe_load(fh)
+        raw: Dict[str, Any] = yaml.safe_load(fh)
+    return KLSIParameters.from_raw(raw)

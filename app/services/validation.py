@@ -6,12 +6,14 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES, validate_lfi_context_ranks
+from app.core.errors import InvalidAssessmentData
 from app.db.repositories import (
     AssessmentItemRepository,
     LFIContextRepository,
     SessionRepository,
     UserResponseRepository,
 )
+from app.schemas.session import SessionSubmissionPayload
 
 
 def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
@@ -204,3 +206,41 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
             "context_count": len(contexts),
         },
     }
+
+
+def validate_full_submission_payload(db: Session, payload: SessionSubmissionPayload) -> None:
+    """Fail-fast validation for batch submissions before persistence."""
+
+    item_repo = AssessmentItemRepository(db)
+    expected_ids = set(item_repo.get_learning_item_ids())
+    provided_ids = {entry.item_id for entry in payload.items}
+
+    missing = expected_ids - provided_ids
+    if missing:
+        raise InvalidAssessmentData(
+            "Payload batch tidak memuat seluruh item gaya belajar yang wajib diisi",
+            detail={"missing_item_ids": sorted(missing)},
+        )
+
+    extra = provided_ids - expected_ids
+    if extra:
+        raise InvalidAssessmentData(
+            "Payload batch mengandung item yang tidak dikenal",
+            detail={"unknown_item_ids": sorted(extra)},
+        )
+
+    allowed_contexts = set(CONTEXT_NAMES)
+    provided_contexts = {ctx.context_name for ctx in payload.contexts}
+    unknown_contexts = provided_contexts - allowed_contexts
+    if unknown_contexts:
+        raise InvalidAssessmentData(
+            "Payload batch mengandung nama konteks LFI yang tidak dikenali",
+            detail={"unknown_contexts": sorted(unknown_contexts)},
+        )
+
+    # Reuse core validator to ensure permutation semantics for ranks
+    context_payload = [
+        {"CE": ctx.CE, "RO": ctx.RO, "AC": ctx.AC, "AE": ctx.AE}
+        for ctx in payload.contexts
+    ]
+    validate_lfi_context_ranks(context_payload)

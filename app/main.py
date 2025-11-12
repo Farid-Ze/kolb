@@ -9,6 +9,7 @@ from app.core.logging import configure_logging, get_logger
 from app.db.database import Base, engine, transactional_session
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
+from app.routers.exceptions import register_exception_handlers
 from app.routers.reports import router as reports_router
 from app.routers.research import router as research_router
 from app.routers.score import router as score_router
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI):
     # Shutdown: nothing
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+register_exception_handlers(app)
 
 # Register routers at import time so tests see routes without requiring startup
 app.include_router(auth_router)

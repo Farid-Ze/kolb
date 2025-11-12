@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from email.utils import format_datetime
-from hashlib import sha256
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,15 +14,9 @@ from app.engine.authoring import (
     get_instrument_spec,
     list_instrument_specs,
 )
-from app.engine.runtime import runtime
-from app.models.klsi.assessment import AssessmentSession
-from app.models.klsi.audit import AuditLog
-from app.models.klsi.user import User
-from app.models.klsi.items import UserResponse
-from app.models.klsi.learning import LFIContextScore
-from app.models.klsi.enums import SessionStatus
 from app.services.security import get_current_user
 from app.schemas.session import SessionSubmissionPayload
+from app.core.errors import InstrumentNotFoundError, PermissionDeniedError
 from app.core.metrics import (
     get_metrics,
     get_counters,
@@ -31,7 +24,7 @@ from app.core.metrics import (
     get_last_runs,
     inc_counter,
 )
-
+from app.services.engine import EngineSessionService
 
 def _format_sunset(value: datetime | None) -> str | None:
     if value is None:
@@ -60,24 +53,6 @@ class SubmissionPayload(BaseModel):
 
 class ForceFinalizeRequest(BaseModel):
     reason: Optional[str] = None
-
-
-def _get_session(db: Session, session_id: int) -> AssessmentSession:
-    session = (
-        db.query(AssessmentSession)
-        .filter(AssessmentSession.id == session_id)
-        .first()
-    )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session tidak ditemukan")
-    return session
-
-
-def _assert_access(user: User, session: AssessmentSession) -> None:
-    if user.role != "MEDIATOR" and session.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Akses sesi ditolak")
-
-
 @router.get("/instruments", response_model=dict)
 def list_instruments(
     db: Session = Depends(get_db),
@@ -100,7 +75,7 @@ def get_instrument_manifest(
     try:
         spec = get_instrument_spec(instrument_code, instrument_version)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Instrument manifest tidak ditemukan") from exc
+        raise InstrumentNotFoundError("Instrument manifest tidak ditemukan") from exc
     return {"instrument": spec.manifest()}
 
 
@@ -116,7 +91,7 @@ def get_instrument_locale_resource_endpoint(
     try:
         payload = get_instrument_locale_resource(instrument_code, instrument_version, locale)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Resource locale tidak ditemukan") from exc
+        raise InstrumentNotFoundError("Resource locale tidak ditemukan") from exc
     return {"locale": locale, "resources": payload}
 
 
@@ -127,8 +102,8 @@ def start_engine_session(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    session = runtime.start_session(
-        db,
+    service = EngineSessionService(db)
+    session = service.start_session(
         user,
         instrument_code=payload.instrument_code,
         instrument_version=payload.instrument_version,
@@ -144,9 +119,8 @@ def get_delivery(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    session = _get_session(db, session_id)
-    _assert_access(user, session)
-    return runtime.delivery_package(db, session_id, locale=locale)
+    service = EngineSessionService(db)
+    return service.delivery_package(session_id, user, locale=locale)
 
 
 @router.post("/sessions/{session_id}/submit_all", response_model=dict)
@@ -158,80 +132,9 @@ def submit_all_responses(
 ):
     """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically."""
     user = get_current_user(authorization, db)
-    session = _get_session(db, session_id)
-    _assert_access(user, session)
-
-    if session.status == SessionStatus.completed:
-        raise HTTPException(status_code=409, detail="Sesi sudah selesai")
-
-    try:
-        with db.begin():
-            # Insert all item ranks
-            for item in payload.items:
-                for choice_id, rank_value in item.ranks.items():
-                    db.add(
-                        UserResponse(
-                            session_id=session_id,
-                            item_id=item.item_id,
-                            choice_id=int(choice_id),
-                            rank_value=int(rank_value),
-                        )
-                    )
-            # Insert all contexts
-            for ctx in payload.contexts:
-                db.add(
-                    LFIContextScore(
-                        session_id=session_id,
-                        context_name=ctx.context_name,
-                        CE_rank=ctx.CE,
-                        RO_rank=ctx.RO,
-                        AC_rank=ctx.AC,
-                        AE_rank=ctx.AE,
-                    )
-                )
-        # Finalize with audit after persistence
-        def _payload_builder(res: dict) -> bytes:
-            combination = res.get("combination")
-            lfi = res.get("lfi")
-            if not combination or not lfi:
-                return b""
-            return (
-                f"user:{user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
-                f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
-            ).encode("utf-8")
-
-        result = runtime.finalize_with_audit(
-            db,
-            session_id,
-            actor_email=user.email,
-            action="FINALIZE_SESSION_ENGINE_BATCH",
-            build_payload=_payload_builder,
-        )
-
-        combination = result.get("combination")
-        lfi = result.get("lfi")
-        style = result.get("style")
-        percentiles = result.get("percentiles")
-        per_scale_provenance = getattr(percentiles, "norm_provenance", None) if percentiles is not None else None
-
-        return {
-            "ok": True,
-            "result": {
-                "ACCE": getattr(combination, "ACCE_raw", None),
-                "AERO": getattr(combination, "AERO_raw", None),
-                "style_primary_id": getattr(style, "primary_style_type_id", None),
-                "LFI": getattr(lfi, "LFI_score", None),
-                "delta": result.get("delta"),
-                "percentile_sources": per_scale_provenance,
-                "validation": result.get("validation"),
-                "override": result.get("override", False),
-            },
-        }
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Gagal memproses submisi batch") from exc
+    service = EngineSessionService(db)
+    result = service.submit_full_batch(session_id, user, payload)
+    return {"ok": True, "result": result}
 
 
 @router.post("/sessions/{session_id}/interactions", response_model=dict)
@@ -246,8 +149,8 @@ def submit_interaction(
     Retained to support existing clients and tests; prefer submit_all.
     """
     user = get_current_user(authorization, db)
-    session = _get_session(db, session_id)
-    _assert_access(user, session)
+    service = EngineSessionService(db)
+    service.ensure_access(session_id, user)
     # Deprecation telemetry
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = f"</engine/sessions/{session_id}/submit_all>; rel=successor-version"
@@ -256,7 +159,7 @@ def submit_interaction(
     if sunset_header:
         response.headers["Sunset"] = sunset_header
     inc_counter("deprecated.engine.interactions")
-    runtime.submit_payload(db, session_id, payload.model_dump(exclude_unset=True))
+    service.submit_interaction(session_id, user, payload.model_dump(exclude_unset=True))
     return {"ok": True}
 
 
@@ -269,7 +172,7 @@ def engine_metrics(
 ):
     user = get_current_user(authorization, db)
     if user.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya mediator yang dapat melihat metrik")
+        raise PermissionDeniedError("Hanya mediator yang dapat melihat metrik")
 
     timings = get_metrics(reset=reset)
     counters = get_counters(reset=reset)
@@ -293,50 +196,9 @@ def finalize_session(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    session = _get_session(db, session_id)
-    _assert_access(user, session)
-    def _payload_builder(res: dict) -> bytes:
-        combination = res.get("combination")
-        lfi = res.get("lfi")
-        if not combination or not lfi:
-            return b""
-        return (
-            f"user:{user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
-            f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
-        ).encode("utf-8")
-
-    result = runtime.finalize_with_audit(
-        db,
-        session_id,
-        actor_email=user.email,
-        action="FINALIZE_SESSION_USER",
-        build_payload=_payload_builder,
-    )
-    combination = result.get("combination")
-    lfi = result.get("lfi")
-    style = result.get("style")
-    validation = result.get("validation")
-    override = result.get("override", False)
-
-    # Audit persisted within runtime transaction
-
-    percentiles = result.get("percentiles")
-    per_scale_provenance = None
-    if percentiles is not None:
-        per_scale_provenance = getattr(percentiles, "norm_provenance", None)
-    return {
-        "ok": True,
-        "result": {
-            "ACCE": combination.ACCE_raw if combination else None,
-            "AERO": combination.AERO_raw if combination else None,
-            "style_primary_id": style.primary_style_type_id if style else None,
-            "LFI": lfi.LFI_score if lfi else None,
-            "delta": result.get("delta"),
-            "percentile_sources": per_scale_provenance,
-            "validation": validation,
-            "override": override,
-        },
-    }
+    service = EngineSessionService(db)
+    result = service.finalize_session(session_id, user)
+    return {"ok": True, "result": result}
 
 
 @router.get("/sessions/{session_id}/report", response_model=dict)
@@ -346,13 +208,8 @@ def engine_report(
     authorization: str | None = Header(default=None),
 ):
     viewer = get_current_user(authorization, db)
-    session = _get_session(db, session_id)
-    _assert_access(viewer, session)
-    viewer_role: Optional[str] = None
-    if viewer.role == "MEDIATOR":
-        viewer_role = "MEDIATOR"
-    data = runtime.build_report(db, session_id, viewer_role)
-    return data
+    service = EngineSessionService(db)
+    return service.build_report(session_id, viewer)
 
 
 @router.post("/sessions/{session_id}/force-finalize", response_model=dict)
@@ -363,58 +220,6 @@ def force_finalize_session(
     authorization: str | None = Header(default=None),
 ):
     mediator = get_current_user(authorization, db)
-    if mediator.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya mediator yang dapat melakukan override")
-    session = _get_session(db, session_id)
-    def _payload_builder_override(res: dict) -> bytes:
-        combination = res.get("combination")
-        lfi = res.get("lfi")
-        validation = res.get("validation") or {}
-        issues = validation.get("issues", []) if isinstance(validation, dict) else []
-        issue_codes = ",".join(sorted({i.get("code", "") for i in issues if isinstance(i, dict) and i.get("code")}))
-        return (
-            f"mediator:{mediator.email};session:{session_id};override:true;"
-            f"reason:{request.reason or '-'};issues:{issue_codes or '-'};"
-            f"ACCE:{getattr(combination,'ACCE_raw',None)};AERO:{getattr(lfi,'LFI_score',None)}"
-        ).encode("utf-8")
-
-    result = runtime.finalize_with_audit(
-        db,
-        session_id,
-        actor_email=mediator.email,
-        action="FORCE_FINALIZE_SESSION",
-        build_payload=_payload_builder_override,
-        skip_validation=True,
-    )
-    combination = result.get("combination")
-    lfi = result.get("lfi")
-    style = result.get("style")
-    validation = result.get("validation")
-
-    issues = validation.get("issues", []) if isinstance(validation, dict) else []
-    issue_codes = ",".join(sorted({issue.get("code", "") for issue in issues if issue.get("code")}))
-    payload = (
-        f"mediator:{mediator.email};session:{session_id};override:true;"
-        f"reason:{request.reason or '-'};issues:{issue_codes or '-'}"
-    ).encode("utf-8")
-    # Audit persisted within runtime transaction
-
-    percentiles = result.get("percentiles")
-    per_scale_provenance = None
-    if percentiles is not None:
-        per_scale_provenance = getattr(percentiles, "norm_provenance", None)
-
-    return {
-        "ok": True,
-        "result": {
-            "ACCE": combination.ACCE_raw if combination else None,
-            "AERO": combination.AERO_raw if combination else None,
-            "style_primary_id": style.primary_style_type_id if style else None,
-            "LFI": lfi.LFI_score if lfi else None,
-            "delta": result.get("delta"),
-            "percentile_sources": per_scale_provenance,
-            "validation": validation,
-            "override": True,
-            "override_reason": request.reason,
-        },
-    }
+    service = EngineSessionService(db)
+    result = service.force_finalize(session_id, mediator, reason=request.reason)
+    return {"ok": True, "result": result}

@@ -2,14 +2,23 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from functools import lru_cache
-from math import sqrt
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import load_config
+from app.assessments.klsi_v4.calculations import (
+    aggregate_mode_scores,
+    calculate_combination_metrics,
+    calculate_style_intensity,
+)
 from app.assessments.klsi_v4.enums import LearningStyleCode
-from app.assessments.klsi_v4.types import ScoreVector, StyleIntensityMetrics
+from app.assessments.klsi_v4.types import (
+    KLSIParameters,
+    ScoreVector,
+    StyleIntensityMetrics,
+    StyleWindow,
+)
 from app.core.errors import InvalidAssessmentData
 from app.engine.constants import ALL_SCALE_CODES, COMBINATION_SCALE_CODES, PRIMARY_MODE_CODES
 from app.engine.norms.factory import build_composite_norm_provider
@@ -41,22 +50,16 @@ from app.data.norms import APPENDIX_TABLES
 
 
 @lru_cache()
-def _cfg() -> Dict[str, Any]:
+def _cfg() -> KLSIParameters:
     return load_config()
 
 
 def context_names() -> List[str]:
-    return list(_cfg()["context_names"])
+    return list(_cfg().context_names)
 
 
-def _style_window(name: str) -> Dict[str, Optional[int]]:
-    window = _cfg()["style_windows"][name]
-    return {
-        "acce_min": window["ACCE"][0],
-        "acce_max": window["ACCE"][1],
-        "aero_min": window["AERO"][0],
-        "aero_max": window["AERO"][1],
-    }
+def _style_window(name: str) -> StyleWindow:
+    return _cfg().window(name)
 
 
 def _within(value: int, lower: Optional[int], upper: Optional[int]) -> bool:
@@ -69,11 +72,10 @@ def _within(value: int, lower: Optional[int], upper: Optional[int]) -> bool:
 
 def _build_style_cuts() -> Dict[str, Any]:
     cuts: Dict[str, Any] = {}
-    for style_name in _cfg()["style_windows"].keys():
-        window = _style_window(style_name)
+    for style_name, window in _cfg().style_windows.items():
 
-        def rule(acc: int, aer: int, w=window) -> bool:
-            return _within(acc, w["acce_min"], w["acce_max"]) and _within(aer, w["aero_min"], w["aero_max"])
+        def rule(acc: int, aer: int, w: StyleWindow = window) -> bool:
+            return _within(acc, w.acce_min, w.acce_max) and _within(aer, w.aero_min, w.aero_max)
 
         cuts[style_name] = rule
     return cuts
@@ -81,7 +83,7 @@ def _build_style_cuts() -> Dict[str, Any]:
 
 STYLE_CUTS = _build_style_cuts()
 STYLE_CODES: Tuple[LearningStyleCode, ...] = tuple(
-    LearningStyleCode(name) for name in _cfg()["style_windows"].keys()
+    LearningStyleCode(name) for name in _cfg().style_windows.keys()
 )
 CONTEXT_NAMES = context_names()
 _NORM_VERSION_DELIM = "|"
@@ -233,22 +235,6 @@ def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
     return ordered
 
 
-def _accumulate_mode_totals(responses: Iterable[UserResponse]) -> ScoreVector:
-    mode_totals = {mode.value: 0 for mode in LearningMode}
-    for response in responses:
-        choice = getattr(response, "choice", None)
-        item = getattr(choice, "item", None) if choice else None
-        if not choice or not item or item.item_type != ItemType.learning_style:
-            continue
-        mode_totals[choice.learning_mode.value] += response.rank_value
-    return ScoreVector(
-        CE=mode_totals["CE"],
-        RO=mode_totals["RO"],
-        AC=mode_totals["AC"],
-        AE=mode_totals["AE"],
-    )
-
-
 def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
     """Sum forced-choice ranks for each learning mode.
 
@@ -261,7 +247,14 @@ def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
     """
     response_repo = UserResponseRepository(db)
     responses = response_repo.list_with_choices(session_id)
-    vector = _accumulate_mode_totals(responses)
+    rank_stream = (
+        (choice.learning_mode.value, response.rank_value)
+        for response in responses
+        if (choice := getattr(response, "choice", None))
+        and (item := getattr(choice, "item", None))
+        and item.item_type == ItemType.learning_style
+    )
+    vector = aggregate_mode_scores(rank_stream)
     scale = ScaleScore(
         session_id=session_id,
         CE_raw=vector.CE,
@@ -274,37 +267,38 @@ def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
 
 
 def compute_combination_scores(db: Session, scale: ScaleScore) -> CombinationScore:
-    medians = _cfg()["balance_medians"]
-    acc = scale.AC_raw - scale.CE_raw
-    aer = scale.AE_raw - scale.RO_raw
-    assimilation_accommodation = (scale.AC_raw + scale.RO_raw) - (scale.AE_raw + scale.CE_raw)
-    converging_diverging = (scale.AC_raw + scale.AE_raw) - (scale.CE_raw + scale.RO_raw)
-    balance_acce = abs(scale.AC_raw - (scale.CE_raw + medians["ACCE"]))
-    balance_aero = abs(scale.AE_raw - (scale.RO_raw + medians["AERO"]))
+    medians = _cfg().balance_medians
+    vector = ScoreVector(
+        CE=scale.CE_raw,
+        RO=scale.RO_raw,
+        AC=scale.AC_raw,
+        AE=scale.AE_raw,
+    )
+    metrics = calculate_combination_metrics(vector, medians)
     combo = CombinationScore(
         session_id=scale.session_id,
-        ACCE_raw=acc,
-        AERO_raw=aer,
-        assimilation_accommodation=assimilation_accommodation,
-        converging_diverging=converging_diverging,
-        balance_acce=balance_acce,
-        balance_aero=balance_aero,
+        ACCE_raw=metrics.ACCE,
+        AERO_raw=metrics.AERO,
+        assimilation_accommodation=metrics.assimilation_accommodation,
+        converging_diverging=metrics.converging_diverging,
+        balance_acce=metrics.balance_acce,
+        balance_aero=metrics.balance_aero,
     )
     db.add(combo)
     return combo
 
 
-def _style_distance(acc: int, aer: int, window: Dict[str, Optional[int]]) -> int:
+def _style_distance(acc: int, aer: int, window: StyleWindow) -> int:
     dx = 0
-    if window["acce_min"] is not None and acc < window["acce_min"]:
-        dx = window["acce_min"] - acc
-    elif window["acce_max"] is not None and acc > window["acce_max"]:
-        dx = acc - window["acce_max"]
+    if window.acce_min is not None and acc < window.acce_min:
+        dx = window.acce_min - acc
+    elif window.acce_max is not None and acc > window.acce_max:
+        dx = acc - window.acce_max
     dy = 0
-    if window["aero_min"] is not None and aer < window["aero_min"]:
-        dy = window["aero_min"] - aer
-    elif window["aero_max"] is not None and aer > window["aero_max"]:
-        dy = aer - window["aero_max"]
+    if window.aero_min is not None and aer < window.aero_min:
+        dy = window.aero_min - aer
+    elif window.aero_max is not None and aer > window.aero_max:
+        dy = aer - window.aero_max
     return dx + dy
 
 
@@ -321,19 +315,19 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     types: list[LearningStyleType] = style_repo.list_learning_style_types()
     if not types:
         raise InvalidAssessmentData("Learning style windows not seeded; please seed learning_style_types")
-    windows: dict[str, dict[str, Optional[int]]] = {}
+    windows: dict[str, StyleWindow] = {}
     for t in types:
-        windows[t.style_name] = {
-            "acce_min": t.ACCE_min,
-            "acce_max": t.ACCE_max,
-            "aero_min": t.AERO_min,
-            "aero_max": t.AERO_max,
-        }
+        windows[t.style_name] = StyleWindow(
+            acce_min=t.ACCE_min,
+            acce_max=t.ACCE_max,
+            aero_min=t.AERO_min,
+            aero_max=t.AERO_max,
+        )
 
     # Determine primary by containment
     primary_name: Optional[str] = None
     for name, w in windows.items():
-        if _within(acc, w["acce_min"], w["acce_max"]) and _within(aer, w["aero_min"], w["aero_max"]):
+        if _within(acc, w.acce_min, w.acce_max) and _within(aer, w.aero_min, w.aero_max):
             primary_name = name
             break
 
@@ -347,9 +341,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     backup_name = next((name for name, dist in ordered_by_distance if name != primary_name), None)
 
     primary_type = style_repo.get_by_name(primary_name) if primary_name else None
-    manhattan = abs(acc) + abs(aer)
-    euclidean = sqrt(acc**2 + aer**2)
-    intensity_metrics = StyleIntensityMetrics(manhattan=manhattan, euclidean=euclidean)
+    intensity_metrics = calculate_style_intensity(acc, aer)
     kite = {}
     if combo.session and combo.session.scale_score:
         kite = {
@@ -364,7 +356,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
         ACCE_raw=acc,
         AERO_raw=aer,
         kite_coordinates=kite,
-        style_intensity_score=int(manhattan),
+    style_intensity_score=int(intensity_metrics.manhattan),
     )
     db.add(user_style)
     if backup_name:
@@ -398,9 +390,10 @@ def _db_norm_lookup(
 
 def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None = None) -> LearningFlexibilityIndex:
     context_repo = LFIContextRepository(db)
+    cfg = _cfg()
     rows = context_repo.list_for_session(session_id)
-    if len(rows) != _cfg()["context_count"]:
-        raise InvalidAssessmentData(f"Expected {_cfg()['context_count']} contexts, found {len(rows)}")
+    if len(rows) != cfg.context_count:
+        raise InvalidAssessmentData(f"Expected {cfg.context_count} contexts, found {len(rows)}")
     allowed = set(context_names())
     if any(row.context_name not in allowed for row in rows):
         raise InvalidAssessmentData("Context name tidak dikenal dalam konfigurasi")
@@ -424,12 +417,12 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
     lfi_result = provider.percentile(group_chain, "LFI", int(round(lfi_value * 100)))
     percentile = lfi_result.percentile
     provenance = lfi_result.provenance
-    tertiles = _cfg()["lfi"]["tertiles"]
+    tertiles = cfg.lfi.tertiles
     level = None
     if percentile is not None:
-        if percentile < tertiles["low"]:
+        if percentile < tertiles.low:
             level = "Low"
-        elif percentile <= tertiles["moderate"]:
+        elif percentile <= tertiles.moderate:
             level = "Moderate"
         else:
             level = "High"

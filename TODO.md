@@ -3,8 +3,8 @@
 - [x] Refactor scoring service to use repositories
 - [x]  Pastikan semua modul menggunakan type hints eksplisit (mypy sudah disertakan) untuk meningkatkan kejelasan dan memungkinkan optimasi linting.
 - [x]  Evaluasi penggunaan dataclass untuk entitas yang bersifat value object (misalnya item skor, profile hasil, record norma).
-- [ ]  Gunakan frozen dataclass untuk struktur immutable seperti definisi norma & parameter KLSI.
-- [ ]  Pisahkan pure computation dari I/O di engine/runtime agar mudah diuji dan diprofil.
+- [x]  Gunakan frozen dataclass untuk struktur immutable seperti definisi norma & parameter KLSI.
+- [x]  Pisahkan pure computation dari I/O di engine/runtime agar mudah diuji dan diprofil.
 - [x]  Tambahkan lapisan abstraksi repository di app/db/database.py agar akses ke SQLite terenkapsulasi.
 - [x]  Implementasikan caching (functools.lru_cache atau cachetools) untuk lookup norma yang sering diakses.
 - [x]  Jika norma/himpunan strategi dimuat sekali, gunakan single assignment + immutability (tuple/dict final) daripada membangun ulang per panggilan.
@@ -16,9 +16,9 @@
 - [x]  Tambahkan histogram/summary (Prometheus style) jika nanti diekspor ke monitoring.
 - [x]  Pastikan [config.py](http://config.py/) memvalidasi environment variables secara EAFP (Easier to Ask Forgiveness than Permission).
 - [x]  Refaktor config parsing ke pydantic BaseSettings untuk validasi kuat.
-- [ ]  Atur layering: routers → services → engine → models → db, hindari crossing langsung engine ke routers.
-- [ ]  Pastikan schemas Pydantic (jika ada) memisahkan input (WriteModel) dan output (ReadModel).
-- [ ]  Implementasikan explicit error classes (sudah ada? tambah yang lebih granular) di level domain (Misal InvalidAssessmentData).
+- [x]  Atur layering: routers → services → engine → models → db, hindari crossing langsung engine ke routers.
+- [x]  Pastikan schemas Pydantic (jika ada) memisahkan input (WriteModel) dan output (ReadModel).
+- [x]  Implementasikan explicit error classes (sudah ada? tambah yang lebih granular) di level domain (Misal InvalidAssessmentData).
 - [x]  Gunakan Enum untuk konstanta tipe gaya belajar.
 - [ ]  Kumpulkan konstanta teks ke modul i18n agar penerjemahan tidak tercecer.
 - [ ]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi.
@@ -48,12 +48,12 @@
 - [ ]  Jika terdapat banyak mapping skala, gunakan lookup table dict ketimbang if chain.
 - [ ]  Pastikan interface di [interfaces.py](http://interfaces.py/) cukup abstrak untuk mocking unit test.
 - [ ]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
-- [ ]  Gunakan re-usable exception translator di routers (ubah domain exception ke HTTP response).
-- [ ]  Pastikan routers tidak melakukan kalkulasi berat – panggil services.
-- [ ]  Perkenalkan layer services (app/services) untuk orkestrasikan engine + db + i18n.
+- [x]  Gunakan re-usable exception translator di routers (ubah domain exception ke HTTP response).
+- [x]  Pastikan routers tidak melakukan kalkulasi berat – panggil services.
+- [x]  Perkenalkan layer services (app/services) untuk orkestrasikan engine + db + i18n.
 - [ ]  Terapkan prinsip “Tell, Don’t Ask”: services memanggil pipeline langsung daripada bocorkan detail.
-- [ ]  Tambahkan validator integritas data (jumlah item jawaban harus tepat).
-- [ ]  Implementasikan fail-fast: jika input salah, hentikan sebelum memulai pipeline mahal.
+- [x]  Tambahkan validator integritas data (jumlah item jawaban harus tepat).
+- [x]  Implementasikan fail-fast: jika input salah, hentikan sebelum memulai pipeline mahal.
 - [x]  Buat modul instrumentation decorator @measure_time/@count_calls di core/metrics.py.
 - [x]  Simpan aggregated metrics (total exec, avg latency).
 - [ ]  Gunakan WeakValueDictionary bila menyimpan objek sementara yang tidak boleh memperpanjang usia.

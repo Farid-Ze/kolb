@@ -7,7 +7,6 @@ from time import perf_counter
 from typing import Callable
 from uuid import uuid4
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.engine.authoring import get_instrument_locale_resource, get_instrument_spec
@@ -27,6 +26,15 @@ from app.services.validation import run_session_validations
 from app.db.database import get_repository_provider
 from app.core.metrics import timeit, measure_time, count_calls
 from app.core.logging import correlation_context, get_logger
+from app.core.errors import (
+    DomainError,
+    ConfigurationError,
+    ConflictError,
+    InstrumentNotFoundError,
+    ValidationError,
+    SessionFinalizedError,
+    SessionNotFoundError,
+)
 
 
 logger = get_logger("kolb.engine.runtime", component="engine")
@@ -47,7 +55,7 @@ class EngineRuntime:
                 "session_not_found",
                 extra={"structured_data": {"session_id": session_id}},
             )
-            raise HTTPException(status_code=404, detail="Session tidak ditemukan")
+            raise SessionNotFoundError()
         return session
 
     def _instrument_id(self, session: AssessmentSession) -> InstrumentId:
@@ -78,7 +86,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(status_code=404, detail="Instrumen tidak ditemukan")
+                raise InstrumentNotFoundError()
 
             inst_id = InstrumentId(instrument.code, instrument.version)
             try:
@@ -94,10 +102,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(
-                    status_code=400,
-                    detail="Instrument plugin belum terdaftar di engine",
-                ) from None
+                raise ConflictError("Instrument plugin belum terdaftar di engine", status_code=400) from None
             try:
                 get_instrument_spec(inst_id.key, inst_id.version)
             except KeyError as exc:
@@ -111,10 +116,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(
-                    status_code=500,
-                    detail="Instrument manifest belum dikonfigurasi",
-                ) from exc
+                raise ConfigurationError("Instrument manifest belum dikonfigurasi") from exc
 
             session = AssessmentSession(
                 user_id=user.id,
@@ -198,7 +200,7 @@ class EngineRuntime:
         with correlation_context(correlation_id):
             try:
                 session = self._resolve_session(db, session_id)
-            except HTTPException as exc:
+            except SessionNotFoundError as exc:
                 logger.warning(
                     "finalize_session_missing",
                     extra={
@@ -221,7 +223,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+                raise SessionFinalizedError()
             validation = ValidationReport.from_mapping(run_session_validations(db, session_id))
             if not validation.ready and not skip_validation:
                 logger.warning(
@@ -234,8 +236,8 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(
-                    status_code=400,
+                raise ValidationError(
+                    "Validasi sesi belum lengkap",
                     detail={
                         "issues": validation.issues_list(),
                         "diagnostics": validation.diagnostics_dict(),
@@ -259,8 +261,8 @@ class EngineRuntime:
                                 }
                             },
                         )
-                        raise HTTPException(
-                            status_code=400,
+                        raise ValidationError(
+                            "Pipeline finalisasi mendeteksi masalah",
                             detail={
                                 "issues": scorer_result.get("issues"),
                                 "diagnostics": scorer_result.get("diagnostics"),
@@ -268,7 +270,7 @@ class EngineRuntime:
                         )
                     session.status = SessionStatus.completed
                     session.end_time = datetime.now(timezone.utc)
-            except HTTPException:
+            except DomainError:
                 raise
             except Exception as exc:  # pragma: no cover - defensive rollback
                 logger.exception(
@@ -281,7 +283,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
+                raise ConfigurationError("Gagal menyelesaikan sesi") from exc
             duration_ms = (perf_counter() - started) * 1000.0
             override = skip_validation and not validation.ready
             payload = build_finalize_payload(scorer_result, validation, override=override)
@@ -322,7 +324,7 @@ class EngineRuntime:
         with correlation_context(correlation_id):
             try:
                 session = self._resolve_session(db, session_id)
-            except HTTPException:
+            except SessionNotFoundError:
                 logger.warning(
                     "finalize_audit_session_missing",
                     extra={
@@ -344,7 +346,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+                raise SessionFinalizedError()
             validation = ValidationReport.from_mapping(run_session_validations(db, session_id))
             if not validation.ready and not skip_validation:
                 logger.warning(
@@ -357,8 +359,8 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(
-                    status_code=400,
+                raise ValidationError(
+                    "Validasi sesi belum lengkap",
                     detail={
                         "issues": validation.issues_list(),
                         "diagnostics": validation.diagnostics_dict(),
@@ -380,8 +382,8 @@ class EngineRuntime:
                             }
                         },
                     )
-                    raise HTTPException(
-                        status_code=400,
+                    raise ValidationError(
+                        "Pipeline finalisasi mendeteksi masalah",
                         detail={
                             "issues": scorer_result.get("issues"),
                             "diagnostics": scorer_result.get("diagnostics"),
@@ -390,7 +392,7 @@ class EngineRuntime:
                 session.status = SessionStatus.completed
                 session.end_time = datetime.now(timezone.utc)
                 db.commit()
-            except HTTPException:
+            except DomainError:
                 db.rollback()
                 raise
             except Exception as exc:  # pragma: no cover
@@ -405,7 +407,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise HTTPException(status_code=500, detail="Gagal menyelesaikan sesi") from exc
+                raise ConfigurationError("Gagal menyelesaikan sesi") from exc
 
             override = skip_validation and not validation.ready
             payload = build_finalize_payload(scorer_result, validation, override=override)
