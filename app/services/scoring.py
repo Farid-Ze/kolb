@@ -28,6 +28,7 @@ from app.db.repositories import (
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.enums import SessionStatus
 from app.models.klsi.learning import CombinationScore, ScaleScore, UserLearningStyle
+from app.i18n.id_messages import SessionErrorMessages
 
 
 __all__ = [
@@ -122,7 +123,7 @@ def finalize_session(db: Session, session_id: int, *, skip_checks: bool = False)
     session_repo = SessionRepository(db)
     session = session_repo.get_by_id(session_id)
     if not session:
-        raise SessionNotFoundError("Sesi tidak ditemukan")
+        raise SessionNotFoundError(SessionErrorMessages.NOT_FOUND)
     assessment_id = session.assessment_id or "KLSI"
     assessment_version = session.assessment_version or "4.0"
     outcome = finalize_assessment(

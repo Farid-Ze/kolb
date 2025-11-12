@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
 
+from app.i18n.id_messages import AuthoringMessages
+
 
 class ComponentResolutionError(RuntimeError):
     pass
@@ -21,13 +23,15 @@ class ComponentRef:
         try:
             module_name, attribute = self.dotted_path.rsplit(".", 1)
         except ValueError as exc:  # pragma: no cover
-            raise ComponentResolutionError(f"Invalid dotted path: {self.dotted_path}") from exc
+            raise ComponentResolutionError(
+                AuthoringMessages.COMPONENT_PATH_INVALID.format(path=self.dotted_path)
+            ) from exc
         module = import_module(module_name)
         try:
             return getattr(module, attribute)
         except AttributeError as exc:
             raise ComponentResolutionError(
-                f"Component '{self.dotted_path}' not found"
+                AuthoringMessages.COMPONENT_NOT_FOUND.format(component=self.dotted_path)
             ) from exc
 
     def ensure_imported(self) -> None:
@@ -76,7 +80,7 @@ class DeliverySpec:
     @classmethod
     def from_dict(cls, payload: Dict[str, Any]) -> "DeliverySpec":
         if not isinstance(payload, dict):  # pragma: no cover
-            raise ValueError("delivery section harus berupa objek")
+            raise ValueError(AuthoringMessages.DELIVERY_OBJECT_REQUIRED)
         forced_choice = bool(payload.get("forced_choice", False))
         sections = list(payload.get("sections", []) or [])
         randomize = bool(payload.get("randomize", False))
@@ -107,12 +111,12 @@ class ResponseModelSpec:
     @classmethod
     def from_dict(cls, payload: Dict[str, Any]) -> "ResponseModelSpec":
         if not isinstance(payload, dict):  # pragma: no cover
-            raise ValueError("response model harus berupa objek")
+            raise ValueError(AuthoringMessages.RESPONSE_MODEL_OBJECT_REQUIRED)
         if "type" not in payload:
-            raise ValueError("response model membutuhkan field 'type'")
+            raise ValueError(AuthoringMessages.RESPONSE_MODEL_TYPE_REQUIRED)
         options = payload.get("options") or {}
         if not isinstance(options, dict):
-            raise ValueError("response model options harus berupa objek")
+            raise ValueError(AuthoringMessages.RESPONSE_MODEL_OPTIONS_OBJECT)
         return cls(model_type=str(payload["type"]), options=dict(options))
 
     def summary(self) -> Dict[str, Any]:
@@ -128,19 +132,21 @@ class LocaleResource:
     @classmethod
     def from_dict(cls, payload: Dict[str, Any], *, base_path: Path) -> "LocaleResource":
         if not isinstance(payload, dict):
-            raise ValueError("setiap locale resource harus berupa objek")
+            raise ValueError(AuthoringMessages.LOCALE_RESOURCE_OBJECT)
         code = str(payload.get("code") or "").strip()
         if not code:
-            raise ValueError("locale resource membutuhkan 'code'")
+            raise ValueError(AuthoringMessages.LOCALE_RESOURCE_CODE_REQUIRED)
         label = payload.get("label")
         file_value = payload.get("file")
         if not file_value:
-            raise ValueError("locale resource membutuhkan 'file'")
+            raise ValueError(AuthoringMessages.LOCALE_RESOURCE_FILE_REQUIRED)
         if not isinstance(file_value, str):
-            raise ValueError("locale resource 'file' harus berupa string")
+            raise ValueError(AuthoringMessages.LOCALE_RESOURCE_FILE_STRING)
         file_path = (base_path / file_value).resolve()
         if not file_path.exists():
-            raise FileNotFoundError(f"File resource locale tidak ditemukan: {file_path}")
+            raise FileNotFoundError(
+                AuthoringMessages.LOCALE_RESOURCE_FILE_NOT_FOUND.format(path=file_path)
+            )
         return cls(code=code, label=str(label) if label else None, file_path=file_path)
 
 
@@ -162,14 +168,14 @@ class InstrumentSpec:
     @classmethod
     def from_dict(cls, payload: Dict[str, Any], *, base_path: Path) -> "InstrumentSpec":
         if not isinstance(payload, dict):  # pragma: no cover
-            raise ValueError("instrument spec harus berupa objek")
+            raise ValueError(AuthoringMessages.INSTRUMENT_SPEC_OBJECT_REQUIRED)
         instrument = payload.get("instrument")
         if not isinstance(instrument, dict):
-            raise ValueError("Bagian 'instrument' wajib ada")
+            raise ValueError(AuthoringMessages.INSTRUMENT_SECTION_REQUIRED)
         code = str(instrument.get("code") or "").strip()
         version = str(instrument.get("version") or "").strip()
         if not code or not version:
-            raise ValueError("Instrument membutuhkan 'code' dan 'version'")
+            raise ValueError(AuthoringMessages.INSTRUMENT_CODE_VERSION_REQUIRED)
         name = str(instrument.get("name") or "").strip()
         description = instrument.get("description")
         default_strategy = instrument.get("default_strategy")
@@ -178,7 +184,7 @@ class InstrumentSpec:
         contexts = list(payload.get("contexts", []) or [])
         response_models_payload = payload.get("response_models", {})
         if not isinstance(response_models_payload, dict):
-            raise ValueError("response_models harus berupa objek")
+            raise ValueError(AuthoringMessages.RESPONSE_MODELS_OBJECT_REQUIRED)
         response_models = {
             key: ResponseModelSpec.from_dict(value)
             for key, value in response_models_payload.items()
@@ -186,7 +192,7 @@ class InstrumentSpec:
 
         registry_payload = payload.get("registry", {})
         if not isinstance(registry_payload, dict):
-            raise ValueError("registry harus berupa objek")
+            raise ValueError(AuthoringMessages.REGISTRY_OBJECT_REQUIRED)
         registry = RegistryBindings(
             definition=_component_ref_or_none(registry_payload, "definition"),
             plugin=_component_ref_or_none(registry_payload, "plugin"),
@@ -198,14 +204,14 @@ class InstrumentSpec:
 
         branching_payload = payload.get("branching") or {}
         if not isinstance(branching_payload, dict):
-            raise ValueError("branching harus berupa objek")
+            raise ValueError(AuthoringMessages.BRANCHING_OBJECT_REQUIRED)
 
         resources_payload = payload.get("resources", {}) or {}
         if not isinstance(resources_payload, dict):
-            raise ValueError("resources harus berupa objek")
+            raise ValueError(AuthoringMessages.RESOURCES_OBJECT_REQUIRED)
         locales_payload = resources_payload.get("locales", []) or []
         if not isinstance(locales_payload, list):
-            raise ValueError("resources.locales harus berupa array")
+            raise ValueError(AuthoringMessages.RESOURCES_LOCALES_ARRAY_REQUIRED)
         locale_resources = {
             locale_spec.code: locale_spec
             for locale_spec in (
@@ -263,7 +269,9 @@ class InstrumentSpec:
         try:
             resource = self.locale_resources[locale]
         except KeyError as exc:
-            raise KeyError(f"Locale resource tidak ditemukan: {locale}") from exc
+            raise KeyError(
+                AuthoringMessages.LOCALE_RESOURCE_LOOKUP_FAILED.format(locale=locale)
+            ) from exc
         with resource.file_path.open("r", encoding="utf-8") as handle:
             if resource.file_path.suffix.lower() in {".yaml", ".yml"}:
                 return yaml.safe_load(handle) or {}
@@ -275,13 +283,17 @@ def _component_ref_or_none(payload: Dict[str, Any], key: str) -> Optional[Compon
     if not value:
         return None
     if not isinstance(value, str):
-        raise ValueError(f"registry.{key} harus berupa string")
+        raise ValueError(
+            AuthoringMessages.REGISTRY_VALUE_STRING_REQUIRED.format(key=key)
+        )
     return ComponentRef(value)
 
 
 def load_instrument_spec(path: Path) -> InstrumentSpec:
     if not path.exists():
-        raise FileNotFoundError(f"Instrument spec tidak ditemukan: {path}")
+        raise FileNotFoundError(
+            AuthoringMessages.INSTRUMENT_SPEC_NOT_FOUND.format(path=path)
+        )
     with path.open("r", encoding="utf-8") as fh:
         payload = yaml.safe_load(fh) or {}
     return InstrumentSpec.from_dict(payload, base_path=path.parent)

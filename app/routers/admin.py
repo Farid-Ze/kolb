@@ -21,6 +21,7 @@ from app.core.config import settings
 from app.services.security import get_current_user
 from app.services import pipelines as pipeline_service
 from app.core.metrics import get_metrics, get_counters
+from app.i18n.id_messages import AdminMessages, AuthorizationMessages
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -34,22 +35,22 @@ def import_norms(
 ):
     user = get_current_user(authorization, db)
     if user.role != 'MEDIATOR':
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh impor norma")
+        raise HTTPException(status_code=403, detail=AuthorizationMessages.MEDIATOR_NORM_IMPORT_ONLY)
     fname = file.filename or ""
     if not fname.lower().endswith('.csv'):
-        raise HTTPException(status_code=400, detail="File harus CSV")
+        raise HTTPException(status_code=400, detail=AdminMessages.FILE_MUST_BE_CSV)
     norm_version = norm_version.strip() or "default"
     if not norm_group or len(norm_group.strip()) == 0:
-        raise HTTPException(status_code=400, detail="norm_group wajib diisi")
+        raise HTTPException(status_code=400, detail=AdminMessages.NORM_GROUP_REQUIRED)
     if len(norm_group) > 150:
-        raise HTTPException(status_code=400, detail="norm_group maksimal 150 karakter")
+        raise HTTPException(status_code=400, detail=AdminMessages.NORM_GROUP_MAX_LENGTH)
     if len(norm_version) > 40:
-        raise HTTPException(status_code=400, detail="norm_version maksimal 40 karakter")
+        raise HTTPException(status_code=400, detail=AdminMessages.NORM_VERSION_MAX_LENGTH)
     content = file.file.read().decode('utf-8')
     reader = csv.DictReader(StringIO(content))
     expected_cols = {"scale_name","raw_score","percentile"}
     if not reader.fieldnames or set(reader.fieldnames) != expected_cols:
-        raise HTTPException(status_code=400, detail="Header CSV harus scale_name,raw_score,percentile")
+        raise HTTPException(status_code=400, detail=AdminMessages.CSV_HEADER_INVALID)
     # Group rows by scale, sort by raw_score, then enforce monotonic increase
     scale_rows: dict[str, list[tuple[int, float]]] = {}
     for row in reader:
@@ -58,7 +59,10 @@ def import_norms(
             raw_score = int(row['raw_score'])
             percentile = float(row['percentile'])
         except Exception:
-            raise HTTPException(status_code=400, detail=f"Format baris tidak valid: {row}") from None
+            raise HTTPException(
+                status_code=400,
+                detail=AdminMessages.ROW_FORMAT_INVALID.format(row=row),
+            ) from None
         scale_rows.setdefault(scale_name, []).append((raw_score, percentile))
 
     rows: list[tuple[str, int, float]] = []
@@ -67,7 +71,13 @@ def import_norms(
         last = None
         for raw_score, percentile in tuples:
             if last is not None and percentile < last:
-                raise HTTPException(status_code=400, detail=f"Percentile tidak monotonic untuk skala {scale_name} pada raw {raw_score}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=AdminMessages.PERCENTILE_NOT_MONOTONIC.format(
+                        scale_name=scale_name,
+                        raw_score=raw_score,
+                    ),
+                )
             last = percentile
             rows.append((scale_name, raw_score, percentile))
     batch_hash = sha256(content.encode('utf-8')).hexdigest()
@@ -104,7 +114,10 @@ def get_norm_cache_stats(
     """Return in-process normative DB lookup cache statistics (Mediator only)."""
     user = get_current_user(authorization, db)
     if user.role != 'MEDIATOR':
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh melihat statistik cache")
+        raise HTTPException(
+            status_code=403,
+            detail=AuthorizationMessages.MEDIATOR_CACHE_STATS_ONLY,
+        )
     provider = build_composite_norm_provider(db)
     stats = {}
     if hasattr(provider, "_db_lookup"):
@@ -124,9 +137,12 @@ def get_external_norm_cache_stats(
     """
     user = get_current_user(authorization, db)
     if user.role != 'MEDIATOR':
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh melihat statistik cache eksternal")
+        raise HTTPException(
+            status_code=403,
+            detail=AuthorizationMessages.MEDIATOR_EXTERNAL_CACHE_STATS_ONLY,
+        )
     if not (settings.external_norms_enabled and settings.external_norms_base_url):
-        return {"enabled": False, "message": "External norms disabled"}
+        return {"enabled": False, "message": AdminMessages.EXTERNAL_NORMS_DISABLED}
     stats = external_cache_stats()
     return {"external_cache": stats}
 
@@ -144,7 +160,10 @@ def get_perf_metrics(
     """
     user = get_current_user(authorization, db)
     if user.role != 'MEDIATOR':
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh melihat metrics")
+        raise HTTPException(
+            status_code=403,
+            detail=AuthorizationMessages.MEDIATOR_METRICS_ONLY,
+        )
     timing = get_metrics(reset=reset)
     counters = get_counters(reset=reset)
     # Toggle visibility for ops
@@ -181,7 +200,10 @@ def list_instrument_pipelines(
 ):
     user = get_current_user(authorization, db)
     if user.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengakses pipeline")
+        raise HTTPException(
+            status_code=403,
+            detail=AuthorizationMessages.MEDIATOR_PIPELINE_ACCESS_ONLY,
+        )
     return pipeline_service.list_pipelines(db, instrument_code, instrument_version)
 
 
@@ -195,7 +217,10 @@ def activate_instrument_pipeline(
 ):
     user = get_current_user(authorization, db)
     if user.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengubah pipeline")
+        raise HTTPException(
+            status_code=403,
+            detail=AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY,
+        )
     return pipeline_service.activate_pipeline(
         db,
         instrument_code,
@@ -222,7 +247,10 @@ def clone_instrument_pipeline(
 ):
     user = get_current_user(authorization, db)
     if user.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengubah pipeline")
+        raise HTTPException(
+            status_code=403,
+            detail=AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY,
+        )
     return pipeline_service.clone_pipeline(
         db,
         instrument_code,
@@ -245,7 +273,10 @@ def delete_instrument_pipeline(
 ):
     user = get_current_user(authorization, db)
     if user.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang boleh mengubah pipeline")
+        raise HTTPException(
+            status_code=403,
+            detail=AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY,
+        )
     return pipeline_service.delete_pipeline(
         db,
         instrument_code,

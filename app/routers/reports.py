@@ -6,6 +6,7 @@ from app.db.repositories import SessionRepository
 from app.models.klsi.user import User
 from app.services.report import build_report
 from app.services.security import get_current_user
+from app.i18n.id_messages import SessionErrorMessages
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -33,7 +34,7 @@ def get_report(
     repo = SessionRepository(db)
     session = repo.get_by_id(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session tidak ditemukan")
+        raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
     
     # Determine viewer role for analytics access control
     viewer_role = None
@@ -43,7 +44,7 @@ def get_report(
             viewer_role = "MEDIATOR"
         # Students can only see their own basic reports
         elif viewer.id != session.user_id:
-            raise HTTPException(status_code=403, detail="Akses ditolak")
+            raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
     
     try:
         data = build_report(db, session_id, viewer_role=viewer_role)

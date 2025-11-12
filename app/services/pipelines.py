@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.repositories import InstrumentRepository, PipelineRepository
 from app.models.klsi.instrument import Instrument
+from app.i18n.id_messages import PipelineMessages
 
 
 def _instrument_or_404(
@@ -17,7 +18,7 @@ def _instrument_or_404(
     instrument_repo = InstrumentRepository(db)
     instrument = instrument_repo.get_by_code(instrument_code, instrument_version)
     if not instrument:
-        raise HTTPException(status_code=404, detail="Instrumen tidak ditemukan")
+        raise HTTPException(status_code=404, detail=PipelineMessages.INSTRUMENT_NOT_FOUND)
     return instrument
 
 
@@ -81,7 +82,7 @@ def activate_pipeline(
     pipeline_repo = PipelineRepository(db)
     pipeline = pipeline_repo.get(pipeline_id, instrument.id)
     if not pipeline:
-        raise HTTPException(status_code=404, detail="Pipeline tidak ditemukan")
+        raise HTTPException(status_code=404, detail=PipelineMessages.PIPELINE_NOT_FOUND)
 
     try:
         pipeline_repo.deactivate_all_except(instrument.id, pipeline.id)
@@ -123,11 +124,11 @@ def clone_pipeline(
     pipeline_repo = PipelineRepository(db)
     source = pipeline_repo.get(pipeline_id, instrument.id, with_nodes=True)
     if not source:
-        raise HTTPException(status_code=404, detail="Pipeline tidak ditemukan")
+        raise HTTPException(status_code=404, detail=PipelineMessages.PIPELINE_NOT_FOUND)
 
     candidate_code = new_pipeline_code or source.pipeline_code
     if pipeline_repo.exists_version(instrument.id, candidate_code, new_version):
-        raise HTTPException(status_code=409, detail="Versi pipeline sudah ada")
+        raise HTTPException(status_code=409, detail=PipelineMessages.VERSION_EXISTS)
 
     try:
         cloned = pipeline_repo.clone(
@@ -176,9 +177,9 @@ def delete_pipeline(
     pipeline_repo = PipelineRepository(db)
     pipeline = pipeline_repo.get(pipeline_id, instrument.id)
     if not pipeline:
-        raise HTTPException(status_code=404, detail="Pipeline tidak ditemukan")
+        raise HTTPException(status_code=404, detail=PipelineMessages.PIPELINE_NOT_FOUND)
     if pipeline.is_active:
-        raise HTTPException(status_code=409, detail="Tidak dapat menghapus pipeline aktif")
+        raise HTTPException(status_code=409, detail=PipelineMessages.CANNOT_DELETE_ACTIVE)
 
     try:
         pipeline_repo.delete(pipeline)

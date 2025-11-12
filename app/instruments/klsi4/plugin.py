@@ -23,20 +23,21 @@ from app.models.klsi.enums import SessionStatus
 from app.core.errors import DomainError, InvalidAssessmentData, SessionNotFoundError
 from app.services.report import build_report
 from app.services.scoring import CONTEXT_NAMES, finalize_session
+from app.i18n.id_messages import KLSI4Messages
 
 
 def _coerce_int(value: object) -> int:
     if isinstance(value, bool):
-        raise TypeError("Boolean value not allowed")
+        raise TypeError(KLSI4Messages.BOOLEAN_NOT_ALLOWED)
     if isinstance(value, int):
         return value
     if isinstance(value, str):
         return int(value)
     if isinstance(value, float):
         if not value.is_integer():
-            raise ValueError("Expected integer-compatible float")
+            raise ValueError(KLSI4Messages.FLOAT_MUST_BE_INTEGER)
         return int(value)
-    raise TypeError("Value must be an integer-compatible type")
+    raise TypeError(KLSI4Messages.INTEGER_COMPATIBLE_REQUIRED)
 
 
 class KLSI4Plugin(
@@ -96,7 +97,7 @@ class KLSI4Plugin(
             case "context":
                 self._submit_context(db, session_id, payload)
             case _:
-                raise HTTPException(status_code=400, detail="Jenis payload tidak dikenal")
+                raise HTTPException(status_code=400, detail=KLSI4Messages.UNKNOWN_PAYLOAD_KIND)
 
     def finalize(self, db: Session, session_id: int, *, skip_checks: bool = False) -> Dict[str, object]:
         session = self._ensure_session(db, session_id)
@@ -132,7 +133,7 @@ class KLSI4Plugin(
             "AERO": (record.AERO_percentile, record.AERO_source),
         }
         if scale not in field_map:
-            raise HTTPException(status_code=400, detail="Skala tidak dikenal untuk KLSI4")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.UNKNOWN_SCALE)
         return field_map[scale]
 
     def build(self, db: Session, session_id: int, viewer_role: str | None = None) -> Dict[str, object]:
@@ -150,36 +151,36 @@ class KLSI4Plugin(
             .first()
         )
         if not session:
-            raise HTTPException(status_code=404, detail="Session tidak ditemukan")
+            raise HTTPException(status_code=404, detail=KLSI4Messages.SESSION_NOT_FOUND)
         return session
 
     def _submit_item(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
         item_id_raw = payload.get("item_id")
         ranks_raw = payload.get("ranks")
         if item_id_raw is None or ranks_raw is None:
-            raise HTTPException(status_code=400, detail="item_id dan ranks wajib diisi")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.ITEM_AND_RANKS_REQUIRED)
         try:
             item_id_int = _coerce_int(item_id_raw)
         except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="item_id harus numerik") from None
+            raise HTTPException(status_code=400, detail=KLSI4Messages.ITEM_ID_NUMERIC) from None
         if not isinstance(ranks_raw, dict):
-            raise HTTPException(status_code=400, detail="ranks harus berupa objek")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.RANKS_MUST_BE_OBJECT)
         normalized: Dict[int, int] = {}
         for choice_id, rank in ranks_raw.items():
             try:
                 cid = _coerce_int(choice_id)
                 rval = _coerce_int(rank)
             except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail="Pilihan dan peringkat harus numerik") from None
+                raise HTTPException(status_code=400, detail=KLSI4Messages.CHOICE_AND_RANK_NUMERIC) from None
             normalized[cid] = rval
         if set(normalized.values()) != {1, 2, 3, 4}:
-            raise HTTPException(status_code=400, detail="Harus mengandung peringkat 1,2,3,4 masing-masing sekali")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.RANKS_MUST_BE_UNIQUE)
         valid_choices = {
             c.id
             for c in db.query(ItemChoice).filter(ItemChoice.item_id == item_id_int).all()
         }
         if valid_choices != set(normalized.keys()):
-            raise HTTPException(status_code=400, detail="Pilihan tidak cocok dengan item")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.CHOICES_MISMATCH)
         # Upsert semantics: allow re-submission; treat as overwrite not rejection.
         db.query(UserResponse).filter(
             UserResponse.session_id == session_id,
@@ -199,15 +200,15 @@ class KLSI4Plugin(
     def _submit_context(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
         context_name = payload.get("context_name")
         if not isinstance(context_name, str):
-            raise HTTPException(status_code=400, detail="context_name wajib string")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_NAME_REQUIRED)
         if context_name not in CONTEXT_NAMES:
-            raise HTTPException(status_code=400, detail="Context name tidak dikenal")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_NAME_UNKNOWN)
         raw_ce = payload.get("CE")
         raw_ro = payload.get("RO")
         raw_ac = payload.get("AC")
         raw_ae = payload.get("AE")
         if raw_ce is None or raw_ro is None or raw_ac is None or raw_ae is None:
-            raise HTTPException(status_code=400, detail="Semua peringkat konteks wajib diisi")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_RANKS_REQUIRED)
         ranks: Dict[str, int] = {}
         try:
             ranks["CE"] = _coerce_int(raw_ce)
@@ -215,9 +216,9 @@ class KLSI4Plugin(
             ranks["AC"] = _coerce_int(raw_ac)
             ranks["AE"] = _coerce_int(raw_ae)
         except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="Semua peringkat konteks harus numerik") from None
+            raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_RANKS_NUMERIC) from None
         if set(ranks.values()) != {1, 2, 3, 4}:
-            raise HTTPException(status_code=400, detail="Context ranks harus kombinasi unik 1..4")
+            raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_RANKS_UNIQUE)
         existing = (
             db.query(LFIContextScore)
             .filter(
@@ -239,7 +240,7 @@ class KLSI4Plugin(
             # Maintain legacy behavior (reject duplicates) for default path/parity tests.
             raise HTTPException(
                 status_code=400,
-                detail="Konteks ini sudah dinilai. Hubungi mediator untuk koreksi.",
+                detail=KLSI4Messages.CONTEXT_ALREADY_SUBMITTED,
             )
         db.add(
             LFIContextScore(

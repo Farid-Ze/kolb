@@ -4,6 +4,8 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.i18n.id_messages import ValidationMessages
+
 __all__ = [
     "RawTotalsWrite",
     "ContextRanksWrite",
@@ -35,7 +37,7 @@ class ContextRanksWrite(BaseModel):
         """Ensure forced-choice permutation of ranks 1..4."""
         ranks = {self.CE, self.RO, self.AC, self.AE}
         if ranks != {1, 2, 3, 4}:
-            raise ValueError("Ranks per context must be unique 1..4")
+            raise ValueError(ValidationMessages.CONTEXT_RANK_UNIQUE)
         return self
 
 
@@ -46,7 +48,7 @@ class ScorePreviewRequest(BaseModel):
     @model_validator(mode="after")
     def _validate_context_count(self) -> "ScorePreviewRequest":
         if len(self.contexts) != 8:
-            raise ValueError("Exactly 8 contexts required")
+            raise ValueError(ValidationMessages.CONTEXT_COUNT_REQUIRED)
         return self
 
 

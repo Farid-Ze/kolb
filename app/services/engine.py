@@ -18,6 +18,7 @@ from app.models.klsi.learning import LFIContextScore
 from app.models.klsi.items import UserResponse
 from app.schemas.session import SessionSubmissionPayload
 from app.services.validation import validate_full_submission_payload
+from app.i18n.id_messages import SessionErrorMessages
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
@@ -69,7 +70,7 @@ class EngineSessionService:
             raise
         except Exception as exc:  # pragma: no cover - defensive guard for DB errors
             self.db.rollback()
-            raise ConfigurationError("Gagal memproses submisi batch") from exc
+            raise ConfigurationError(SessionErrorMessages.BATCH_FAILURE) from exc
 
         result = runtime.finalize_with_audit(
             self.db,
@@ -108,7 +109,7 @@ class EngineSessionService:
         reason: Optional[str] = None,
     ) -> Dict[str, Any]:
         if mediator.role != "MEDIATOR":
-            raise PermissionDeniedError("Hanya mediator yang dapat melakukan override")
+            raise PermissionDeniedError(SessionErrorMessages.MEDIATOR_OVERRIDE_FORBIDDEN)
 
         self._load_authorized_session(session_id, mediator)
 
@@ -144,7 +145,7 @@ class EngineSessionService:
         if not session:
             raise SessionNotFoundError()
         if user.role != "MEDIATOR" and session.user_id != user.id:
-            raise PermissionDeniedError("Akses sesi ditolak")
+            raise PermissionDeniedError(SessionErrorMessages.ACCESS_DENIED)
         return session
 
     def _persist_batch_payload(self, session_id: int, payload: SessionSubmissionPayload) -> None:

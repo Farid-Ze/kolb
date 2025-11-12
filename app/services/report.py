@@ -30,6 +30,22 @@ from app.services.regression import (
     predicted_curve,
 )
 from app.db.repositories import SessionRepository
+from app.i18n.id_messages import (
+    ReportAnalyticsMessages,
+    ReportBandLabels,
+    ReportBalanceMessages,
+    ReportDeepLearningLabels,
+    ReportDevelopmentLabels,
+    ReportEducatorActions,
+    ReportEducatorFocusLabels,
+    ReportEducatorRoleLabels,
+    ReportEducatorHints,
+    ReportFlexNarratives,
+    ReportLearningSpaceTips,
+    ReportMetaLearningTips,
+    ReportMessages,
+    ReportNotesMessages,
+)
 
 
 def _derive_learning_space_suggestions(acce: int | None, aero: int | None,
@@ -44,32 +60,32 @@ def _derive_learning_space_suggestions(acce: int | None, aero: int | None,
     tips: list[str] = []
     if aero is not None:
         if aero >= 12:
-            tips.append("Tambahkan jeda refleksi terstruktur (debrief, jurnal) untuk menyeimbangkan kecenderungan aksi.")
+            tips.append(ReportLearningSpaceTips.AERO_HIGH)
         elif aero <= 0:
-            tips.append("Sisipkan eksperimen aktif berjangka pendek (prototyping, role-play) untuk melatih orientasi aksi.")
+            tips.append(ReportLearningSpaceTips.AERO_LOW)
     if acce is not None:
         if acce >= 15:
-            tips.append("Perkaya pengalaman konkret (lab, simulasi, studi lapangan) agar konsep teruji dalam realitas.")
+            tips.append(ReportLearningSpaceTips.ACCE_HIGH)
         elif acce <= 5:
-            tips.append("Rangkum pengalaman ke dalam kerangka konseptual (peta konsep, model) untuk memperkuat abstraksi.")
+            tips.append(ReportLearningSpaceTips.ACCE_LOW)
     if acc_assm is not None:
         # With Assimilation - Accommodation (AC+RO) - (AE+CE):
         # positive → lebih asimilatif; negative → lebih akomodatif
         if acc_assm >= 10:
-            tips.append("Waspadai over-asimilasi; dorong keterlibatan eksternal dengan stakeholders/klien (orientasi akomodasi).")
+            tips.append(ReportLearningSpaceTips.ACC_ASSM_HIGH)
         elif acc_assm <= -10:
-            tips.append("Seimbangkan eksplorasi dengan konsolidasi analitis (review literatur, analisis data, penetapan kriteria).")
+            tips.append(ReportLearningSpaceTips.ACC_ASSM_LOW)
     if conv_div is not None:
         if conv_div >= 10:
-            tips.append("Cegah penutupan terlalu dini; fasilitasi sesi divergen (brainstorm tanpa evaluasi, multiple options).")
+            tips.append(ReportLearningSpaceTips.CONV_DIV_HIGH)
         elif conv_div <= -10:
-            tips.append("Dorong konvergensi: gunakan matriks keputusan, kriteria eksplisit, dan time-boxing untuk memilih opsi.")
+            tips.append(ReportLearningSpaceTips.CONV_DIV_LOW)
     if intensity is not None and intensity >= 20:
-        tips.append("Intensitas gaya tinggi: rancang aktivitas yang memaksa menyentuh keempat kuadran siklus belajar.")
+        tips.append(ReportLearningSpaceTips.HIGH_INTENSITY)
     if lfi is not None and lfi < 0.5:
-        tips.append("Fleksibilitas rendah: desain urutan sesi mengelilingi siklus (CE→RO→AC→AE) dengan dukungan dan tantangan seimbang.")
+        tips.append(ReportLearningSpaceTips.LOW_FLEXIBILITY)
     if not tips:
-        tips.append("Pertahankan keseimbangan aksi–refleksi dan pengalaman–konsep; sediakan ruang aman namun menantang untuk percakapan bermakna.")
+        tips.append(ReportMessages.FLEXIBILITY_NOTE_DEFAULT)
     return tips
 
 
@@ -90,20 +106,20 @@ def _classify_development(acce: int | None, aero: int | None, acc_assm: int | No
     # Integration: intensity not extreme (< 28) AND high flexibility (>= 0.70) OR both axes moderate (< 15)
     stage: str
     if intensity < 12 and lfi < 0.45:
-        stage = "Acquisition"
+        stage = ReportDevelopmentLabels.ACQUISITION
     elif intensity >= 12 and lfi < 0.70 and (abs_acc >= 15 or abs_aer >= 12):
-        stage = "Specialization"
+        stage = ReportDevelopmentLabels.SPECIALIZATION
     else:
-        stage = "Integration"
+        stage = ReportDevelopmentLabels.INTEGRATION
 
     # Deep learning level based on number of modes effectively engaged.
     # Use indices: if both ACCE and AERO near zero plus high LFI => integrative.
     if lfi >= 0.70 and abs_acc <= 10 and abs_aer <= 8:
-        deep_level = "Integrative"
+        deep_level = ReportDeepLearningLabels.INTEGRATIVE
     elif lfi >= 0.55 and (abs_acc <= 15 and abs_aer <= 12):
-        deep_level = "Interpretative"
+        deep_level = ReportDeepLearningLabels.INTERPRETATIVE
     else:
-        deep_level = "Registrative"
+        deep_level = ReportDeepLearningLabels.REGISTRATIVE
 
     rationale_parts = []
     rationale_parts.append(f"intensity={intensity}")
@@ -112,9 +128,7 @@ def _classify_development(acce: int | None, aero: int | None, acc_assm: int | No
     rationale_parts.append(f"Acc-Assm={acc_assm}, Conv-Div={conv_div}")
     rationale = "; ".join(rationale_parts)
 
-    disclaimer = (
-        "Klasifikasi tahap perkembangan ini bersifat heuristik (bukan diagnosis). Didasarkan pada pola dialektika, fleksibilitas, dan intensitas gaya; gunakan sebagai pemicu refleksi, bukan label tetap."
-    )
+    disclaimer = ReportMessages.DEVELOPMENT_DISCLAIMER
     return {
         "spiral_stage": stage,
         "deep_learning_level": deep_level,
@@ -140,27 +154,27 @@ def _derive_meta_learning(ac: int | None, ce: int | None, ae: int | None, ro: in
     modes = {"CE": ce, "RO": ro, "AC": ac, "AE": ae}
     weakest = min(modes.items(), key=lambda kv: kv[1])[0]
     if lfi < 0.55:
-        tips.append("Rancang siklus belajar sadar (CE→RO→AC→AE) mingguan dan catat wawasan/aksi (tracking kemajuan, bukan nilai sesaat).")
+        tips.append(ReportMetaLearningTips.LFI_LOW)
     if abs(acce) >= 15:
         if acce > 0:
-            tips.append("Mindfulness untuk membuka pengalaman konkret (CE) sebelum pemodelan; tambah proyek lapangan singkat.")
+            tips.append(ReportMetaLearningTips.ACCE_POSITIVE)
         else:
-            tips.append("Ringkas pengalaman ke kerangka (AC): peta konsep, model 2x2; lakukan review konsep setelah refleksi.")
+            tips.append(ReportMetaLearningTips.ACCE_NEGATIVE)
     if abs(aero) >= 12:
         if aero > 0:
-            tips.append("Tambahkan jeda refleksi 10–15 menit pasca-aksi (journaling/debrief pasangan) untuk mengkonsolidasikan pelajaran.")
+            tips.append(ReportMetaLearningTips.AERO_POSITIVE)
         else:
-            tips.append("Lakukan eksperimen kecil berjangka pendek (time-boxed) untuk mengaktifkan AE dan mendapatkan umpan balik nyata.")
+            tips.append(ReportMetaLearningTips.AERO_NEGATIVE)
     if weakest == "CE":
-        tips.append("Latih kehadiran inderawi & empati (napas tenang 2 menit, perhatikan 5 indera) sebelum diskusi.")
+        tips.append(ReportMetaLearningTips.WEAKEST_CE)
     elif weakest == "RO":
-        tips.append("Buat jurnal refleksi terstruktur (apa? so what? now what?) minimal 2x per minggu.")
+        tips.append(ReportMetaLearningTips.WEAKEST_RO)
     elif weakest == "AC":
-        tips.append("Bangun model/hipotesis singkat dan uji; gunakan matriks keputusan atau kerangka teori 1 halaman.")
+        tips.append(ReportMetaLearningTips.WEAKEST_AC)
     elif weakest == "AE":
-        tips.append("Tetapkan goal kecil + umpan balik cepat (deliberate practice): coba–ukur–perbaiki dalam sprint 1–2 hari.")
+        tips.append(ReportMetaLearningTips.WEAKEST_AE)
     # Learning identity cues
-    tips.append("Pantau self-talk: ganti 'tidak bisa' dengan 'belum bisa—akan dilatih'; rangkum 3 keberhasilan mingguan untuk menyeimbangkan fokus.")
+    tips.append(ReportMetaLearningTips.SELF_TALK)
     return tips
 
 
@@ -173,10 +187,26 @@ def _educator_role_suggestions(primary_style: str | None, acce: int | None, aero
     recs: list[dict] = []
     # Defaults — full cycle once if nothing else is known
     seq = [
-        {"role": "Facilitator", "focus": "CE+RO", "actions": ["aktivasi pengalaman", "dialog reflektif"]},
-        {"role": "Expert", "focus": "RO+AC", "actions": ["pemetaan konsep", "model/teori"]},
-        {"role": "Evaluator", "focus": "AC+AE", "actions": ["tugas kinerja", "umpan balik terhadap kriteria"]},
-        {"role": "Coach", "focus": "CE+AE", "actions": ["rencana aksi personal", "prototipe"]},
+        {
+            "role": ReportEducatorRoleLabels.FACILITATOR,
+            "focus": ReportEducatorFocusLabels.FACILITATOR,
+            "actions": list(ReportEducatorActions.FACILITATOR),
+        },
+        {
+            "role": ReportEducatorRoleLabels.EXPERT,
+            "focus": ReportEducatorFocusLabels.EXPERT,
+            "actions": list(ReportEducatorActions.EXPERT),
+        },
+        {
+            "role": ReportEducatorRoleLabels.EVALUATOR,
+            "focus": ReportEducatorFocusLabels.EVALUATOR,
+            "actions": list(ReportEducatorActions.EVALUATOR),
+        },
+        {
+            "role": ReportEducatorRoleLabels.COACH,
+            "focus": ReportEducatorFocusLabels.COACH,
+            "actions": list(ReportEducatorActions.COACH),
+        },
     ]
     # Adjust sequence based on polarity
     if acce is not None and acce >= 15:
@@ -202,13 +232,13 @@ def _educator_role_suggestions(primary_style: str | None, acce: int | None, aero
     # Add a hint aligned with primary style if present
     hint = None
     if primary_style in {"Imagining","Experiencing"}:
-        hint = "Pastikan langkah konvergensi (Evaluator/Coach) time-boxed agar tidak 'terbuka' terlalu lama."
+        hint = ReportEducatorHints.IMAGINING_OR_EXPERIENCING
     elif primary_style in {"Thinking","Deciding","Analyzing"}:
-        hint = "Pastikan tahap divergen (Facilitator/Expert) cukup lama sebelum penutupan."
+        hint = ReportEducatorHints.THINKING_DECIDING_ANALYZING
     elif primary_style in {"Initiating","Acting"}:
-        hint = "Tambahkan debrief reflektif setelah setiap percobaan untuk menguatkan transfer."
+        hint = ReportEducatorHints.INITIATING_OR_ACTING
     elif primary_style == "Balancing":
-        hint = "Gunakan dua spiral singkat untuk mengeksplorasi dua pendekatan berbeda."
+        hint = ReportEducatorHints.BALANCING
     recs = [{"step": i+1, **r} for i, r in enumerate(order)]
     if hint:
         recs.append({"note": hint})
@@ -218,30 +248,19 @@ def _educator_role_suggestions(primary_style: str | None, acce: int | None, aero
 def _generate_flexibility_narrative(lfi_score: float, pattern: str, style_freq: dict) -> str:
     """Generate interpretive narrative about flexibility pattern (Mark vs Jason style)."""
     if pattern == "high":
-        return (
-            f"Profil fleksibilitas tinggi (LFI={lfi_score:.2f}): "
-            f"Pembelajar ini menunjukkan kemampuan adaptif yang kuat, menggunakan {len(style_freq)} "
-            f"gaya berbeda melintasi konteks pembelajaran. Seperti 'Mark' dalam studi kasus (persentil 98), "
-            f"individu ini nyaman beroperasi di semua empat kuadran ruang pembelajaran—menggabungkan "
-            f"pengalaman konkret, refleksi, konseptualisasi abstrak, dan eksperimen aktif sesuai tuntutan situasi. "
-            f"Fleksibilitas ini mendukung perkembangan integratif yang lebih tinggi dan kemampuan beradaptasi "
-            f"dengan beragam tantangan pembelajaran sepanjang hidup."
+        return ReportFlexNarratives.HIGH.format(
+            score=lfi_score,
+            style_count=len(style_freq)
         )
     elif pattern == "moderate":
-        return (
-            f"Profil fleksibilitas moderat (LFI={lfi_score:.2f}): "
-            f"Pembelajar ini menggunakan {len(style_freq)} gaya pembelajaran berbeda, menunjukkan kemampuan "
-            f"adaptasi yang wajar namun dengan beberapa preferensi yang lebih kuat. Terdapat peluang untuk "
-            f"memperluas repertoar gaya, khususnya dengan lebih banyak berlatih di kuadran yang kurang digunakan."
+        return ReportFlexNarratives.MODERATE.format(
+            score=lfi_score,
+            style_count=len(style_freq)
         )
     else:  # low
-        return (
-            f"Profil fleksibilitas rendah (LFI={lfi_score:.2f}): "
-            f"Pembelajar ini cenderung mengandalkan {len(style_freq)} gaya yang terbatas melintasi konteks. "
-            f"Seperti 'Jason' dalam studi kasus (persentil 4), pola ini dapat menciptakan tekanan ketika situasi "
-            f"menuntut gaya yang kurang dikembangkan—terutama jika ada penekanan berlebihan pada refleksi/asimilasi "
-            f"tanpa penyeimbang aksi/akomodasi yang memadai. Pengembangan strategis di kuadran yang kurang digunakan "
-            f"dapat meningkatkan kemampuan adaptasi dan mengurangi stres dalam peran kepemimpinan atau tugas berorientasi aksi."
+        return ReportFlexNarratives.LOW.format(
+            score=lfi_score,
+            style_count=len(style_freq)
         )
 
 
@@ -250,7 +269,7 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
     session_repo = SessionRepository(db)
     s = session_repo.get_with_details(session_id)
     if not s:
-        raise ValueError("Session not found")
+        raise ValueError(ReportMessages.SESSION_NOT_FOUND)
 
     scale = s.scale_score
     combo = s.combination_score
@@ -294,9 +313,11 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
         if len(context_scores) != 8:
             # Include validation error in report for transparency
             enhanced_analytics = {
-                "validation_error": f"Expected exactly 8 LFI contexts, found {len(context_scores)}",
+                "validation_error": ReportMessages.ENHANCED_CONTEXT_ERROR.format(
+                    found=len(context_scores)
+                ),
                 "context_count": len(context_scores),
-                "message": "Enhanced LFI analytics unavailable. User must complete all 8 context rankings.",
+                "message": ReportMessages.ENHANCED_CONTEXT_MESSAGE,
             }
         elif scale and combo and lfi:
             # Build contexts list for analysis
@@ -365,15 +386,10 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
                 "heatmap": heatmap,
                 "integrative_development": {
                     "predicted_score": integrative_dev_score,
-                    "interpretation": (
-                        f"Skor Perkembangan Integratif diprediksi: {integrative_dev_score:.1f} "
-                        f"(M=19.4, SD=3.5, rentang tipikal 13-26). "
-                        f"LFI (β=0.25**) adalah prediktor terkuat dari perkembangan integratif, "
-                        f"menunjukkan bahwa pembelajar fleksibel menunjukkan pemikiran integratif tingkat tinggi. "
-                        f"Ini mengonfirmasi Hypothesis 6: fleksibilitas belajar secara positif terkait dengan tahapan "
-                        f"perkembangan dewasa yang lebih tinggi (ego development, self-direction, integrative complexity)."
+                    "interpretation": ReportMessages.INTEGRATIVE_DEV_INTERPRETATION.format(
+                        score=integrative_dev_score
                     ),
-                    "model_info": "Hierarchical Regression Model 1 (N=169, R²=0.13, Adj. R²=0.10)"
+                    "model_info": ReportMessages.INTEGRATIVE_MODEL_INFO,
                 },
                 "flexibility_narrative": _generate_flexibility_narrative(
                     lfi.LFI_score,
@@ -392,8 +408,16 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
         bands = None
         if acc_raw is not None and aer_raw is not None:
             bands = {
-                "ACCE": ("Low" if acc_raw <= 5 else ("Mid" if acc_raw <= 14 else "High")),
-                "AERO": ("Low" if aer_raw <= 0 else ("Mid" if aer_raw <= 11 else "High")),
+                "ACCE": (
+                    ReportBandLabels.LOW
+                    if acc_raw <= 5
+                    else (ReportBandLabels.MID if acc_raw <= 14 else ReportBandLabels.HIGH)
+                ),
+                "AERO": (
+                    ReportBandLabels.LOW
+                    if aer_raw <= 0
+                    else (ReportBandLabels.MID if aer_raw <= 11 else ReportBandLabels.HIGH)
+                ),
             }
 
         balance_block: dict[str, Any] | None = None
@@ -402,21 +426,29 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             balance_aero = getattr(combo, "balance_aero", None)
             balance_levels = {
                 "ACCE": (
-                    "High"
+                    ReportBandLabels.HIGH
                     if (balance_acce is not None and balance_acce <= 3)
-                    else ("Moderate" if (balance_acce is not None and balance_acce <= 8) else "Low")
+                    else (
+                        ReportBandLabels.MODERATE
+                        if (balance_acce is not None and balance_acce <= 8)
+                        else ReportBandLabels.LOW
+                    )
                 ),
                 "AERO": (
-                    "High"
+                    ReportBandLabels.HIGH
                     if (balance_aero is not None and balance_aero <= 2)
-                    else ("Moderate" if (balance_aero is not None and balance_aero <= 8) else "Low")
+                    else (
+                        ReportBandLabels.MODERATE
+                        if (balance_aero is not None and balance_aero <= 8)
+                        else ReportBandLabels.LOW
+                    )
                 ),
             }
             balance_block = {
                 "ACCE": max(0.0, min(100.0, round((1 - ((balance_acce or 0) / 45.0)) * 100, 1))),
                 "AERO": max(0.0, min(100.0, round((1 - ((balance_aero or 0) / 42.0)) * 100, 1))),
                 "levels": balance_levels,
-                "note": "BALANCE percentiles bersifat turunan teoritis dari jarak ke pusat normatif (ACCE≈9, AERO≈6); ini bukan persentil normatif populasi.",
+                "note": ReportBalanceMessages.NOTE,
             }
 
         percentiles = {
@@ -474,7 +506,7 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
         "session_designs": recommendations,
         "analytics": {
             "predicted_lfi_curve": predicted_curve(age=None, gender=None, education=None, specialization=None) if combo else None,
-            "acc_assm_peak_note": "Kurva fleksibilitas belajar (LFI) terhadap indeks akomodasi-asimilasi menunjukkan bentuk U-terbalik: meningkat menuju titik seimbang kemudian menurun tajam pada ekstrem yang sangat asimilatif (internalisasi tinggi tanpa penyeimbang eksternal).",
+            "acc_assm_peak_note": ReportAnalyticsMessages.ACC_ASSM_PEAK_NOTE,
         },
         "learning_space": {
             "suggestions": _derive_learning_space_suggestions(
@@ -511,10 +543,10 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
         },
         "enhanced_analytics": enhanced_analytics,  # MEDIATOR-only comprehensive diagnostics
         "notes": {
-            "psychometric_terms": "Istilah seperti ACCE (AC−CE), AERO (AE−RO), Kendall’s W dan percentile dibiarkan dalam bahasa Inggris; ringkasan disampaikan dalam Bahasa Indonesia.",
-            "acc_assm_definition": "Assim−Acc = (AC + RO) − (AE + CE). Nilai positif = preferensi lebih asimilatif; nilai negatif = lebih akomodatif.",
-            "conv_div_definition": "Conv-Div = (AC + AE) − (CE + RO). Nilai positif = preferensi konvergen (penutupan pada satu opsi terbaik); nilai negatif = preferensi divergen (membuka alternatif).",
-            "balance_definition": "BALANCE_ACCE = |ACCE − 9|, BALANCE_AERO = |AERO − 6|. Semakin kecil semakin seimbang; persentil BALANCE dihitung dengan penskalaan teoretis (bukan norma populasi).",
-            "interpretation_summary": "Fleksibilitas rendah terutama muncul ketika proses asimilasi (AC+RO) tidak diimbangi orientasi akomodasi (AE+CE).",
+            "psychometric_terms": ReportNotesMessages.PSYCHOMETRIC_TERMS,
+            "acc_assm_definition": ReportNotesMessages.ACC_ASSM_DEFINITION,
+            "conv_div_definition": ReportNotesMessages.CONV_DIV_DEFINITION,
+            "balance_definition": ReportNotesMessages.BALANCE_DEFINITION,
+            "interpretation_summary": ReportNotesMessages.INTERPRETATION_SUMMARY,
         }
     }

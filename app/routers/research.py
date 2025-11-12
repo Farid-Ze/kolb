@@ -20,13 +20,14 @@ from app.schemas.research import (
     ValidityCreate,
 )
 from app.services.security import get_current_user
+from app.i18n.id_messages import AuthorizationMessages, ResearchMessages
 
 router = APIRouter(prefix="/research", tags=["research"])
 
 
 def _require_mediator(user: User) -> None:
     if user.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang diperbolehkan")
+        raise HTTPException(status_code=403, detail=AuthorizationMessages.MEDIATOR_REQUIRED)
 
 
 @router.post("/studies", response_model=ResearchStudyOut)
@@ -64,7 +65,7 @@ def get_study(study_id: int, db: Session = Depends(get_db)):
     study_repo = ResearchStudyRepository(db)
     study = study_repo.get(study_id)
     if not study:
-        raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+        raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
     return study
 
 
@@ -81,7 +82,7 @@ def update_study(
     try:
         study = study_repo.get(study_id)
         if not study:
-            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
         data = payload.model_dump(exclude_unset=True)
         for key, value in data.items():
             setattr(study, key, value)
@@ -108,13 +109,13 @@ def delete_study(
     try:
         study = study_repo.get(study_id)
         if not study:
-            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
         rel_count = reliability_repo.count_by_study(study_id)
         val_count = validity_repo.count_by_study(study_id)
         if rel_count > 0 or val_count > 0:
             raise HTTPException(
                 status_code=409,
-                detail="Hapus bukti reliabilitas/validitas terlebih dahulu",
+                detail=ResearchMessages.REMOVE_EVIDENCE_FIRST,
             )
         study_repo.delete(study)
         db.commit()
@@ -141,7 +142,7 @@ def add_reliability(
     try:
         study = study_repo.get(study_id)
         if not study:
-            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
         row = reliability_repo.add(study_id, **payload.model_dump())
         db.commit()
         db.refresh(row)
@@ -168,7 +169,7 @@ def add_validity(
     try:
         study = study_repo.get(study_id)
         if not study:
-            raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
         row = validity_repo.add(study_id, **payload.model_dump())
         db.commit()
         db.refresh(row)

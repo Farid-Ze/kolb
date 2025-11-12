@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.repositories import UserRepository
+from app.i18n.id_messages import SecurityMessages
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -94,15 +95,15 @@ def decode_access_token(token: str) -> dict:
         
         # Explicit validation of required claims
         if "sub" not in payload:
-            raise ValueError("Token missing 'sub' claim (user identifier)")
+            raise ValueError(SecurityMessages.TOKEN_MISSING_SUB)
         
         return payload
         
     except JWTError as e:
         # Map jose errors to ValueError for consistent exception handling
-        raise ValueError(f"Invalid JWT token: {str(e)}")
+        raise ValueError(SecurityMessages.INVALID_JWT_TOKEN.format(detail=str(e)))
     except Exception as e:
-        raise ValueError(f"Token validation failed: {str(e)}")
+        raise ValueError(SecurityMessages.TOKEN_VALIDATION_FAILED.format(detail=str(e)))
 
 
 def get_current_user(authorization: str | None = Header(default=None), db: Session | None = None):
@@ -129,11 +130,11 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
         - Ensures user exists in database
     """
     if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+        raise HTTPException(status_code=401, detail=SecurityMessages.MISSING_AUTH_HEADER)
     
     parts = authorization.split(" ")
     if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid Authorization header format. Expected: Bearer <token>")
+        raise HTTPException(status_code=401, detail=SecurityMessages.INVALID_AUTH_HEADER)
     
     token = parts[1]
     
@@ -143,14 +144,14 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except (KeyError, TypeError):
-        raise HTTPException(status_code=401, detail="Invalid token payload")
+        raise HTTPException(status_code=401, detail=SecurityMessages.INVALID_TOKEN_PAYLOAD)
     
     if not db:
-        raise HTTPException(status_code=500, detail="Database session not provided")
+        raise HTTPException(status_code=500, detail=SecurityMessages.DB_SESSION_REQUIRED)
 
     user_repo = UserRepository(db)
     user = user_repo.get(user_id)
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail=SecurityMessages.USER_NOT_FOUND)
     
     return user

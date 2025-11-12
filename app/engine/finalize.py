@@ -18,6 +18,7 @@ from app.models.klsi.audit import AuditLog
 from app.services.regression import analyze_lfi_contexts
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
+from app.i18n.id_messages import RegressionMessages, SessionErrorMessages
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
@@ -76,7 +77,7 @@ def finalize_assessment(
     with db.begin_nested():
         session = session_repo.get_with_instrument(session_id)
         if not session:
-            raise ValueError(f"Session {session_id} tidak ditemukan")
+            raise ValueError(SessionErrorMessages.NOT_FOUND_WITH_ID.format(session_id=session_id))
 
         assessment = get_definition(assessment_id, assessment_version)
 
@@ -100,7 +101,7 @@ def finalize_assessment(
                     "issues": [
                         {
                             "code": "INCOMPLETE_ITEMS",
-                            "message": "12 item gaya belajar belum terpenuhi",
+                            "message": SessionErrorMessages.INCOMPLETE_ITEMS,
                             "fatal": True,
                         }
                     ],
@@ -317,7 +318,7 @@ def finalize_assessment(
                 contexts_for_style: dict[str, list[str]] = {}
                 for entry in analysis.get("context_styles", []):
                     sname = entry.get("style")
-                    if not sname or sname == "Unclassified":
+                    if not sname or sname == RegressionMessages.UNCLASSIFIED_STYLE:
                         continue
                     contexts_for_style.setdefault(sname, []).append(entry.get("context"))
                 style_freq: dict[str, int] = analysis.get("style_frequency", {}) or {}

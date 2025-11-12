@@ -41,6 +41,7 @@ from app.models.klsi.learning import (
 )
 from app.models.klsi.norms import PercentileScore
 from app.models.klsi.user import User
+from app.i18n.id_messages import LogicMessages, ReportBandLabels
 
 if TYPE_CHECKING:
     from app.models.klsi.items import UserResponse
@@ -114,21 +115,32 @@ def _describe_provenance(tag: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 
 def validate_lfi_context_ranks(context_scores: List[Dict[str, int]]) -> None:
-    modes = [mode.value for mode in LearningMode]
-    expected = {1, 2, 3, 4}
+    mode_labels = [mode.value for mode in LearningMode]
+    expected_modes = set(mode_labels)
+    expected_ranks = {1, 2, 3, 4}
     for idx, ctx in enumerate(context_scores, start=1):
-        if set(ctx.keys()) != set(modes):
+        keys = sorted(ctx.keys())
+        if set(keys) != expected_modes:
             raise InvalidAssessmentData(
-                f"Context {idx} must contain ranks for exactly {modes}. Got keys: {sorted(ctx.keys())}"
+                LogicMessages.LFI_CONTEXT_KEYS.format(
+                    index=idx,
+                    modes=", ".join(mode_labels),
+                    found=", ".join(keys),
+                )
             )
         ranks = list(ctx.values())
+        ranks_repr = ", ".join(str(rank) for rank in ranks)
         if not all(isinstance(rank, int) for rank in ranks):
-            raise InvalidAssessmentData(f"Context {idx} has non-integer rank(s): {ranks}")
-        if not all(1 <= rank <= 4 for rank in ranks):
-            raise InvalidAssessmentData(f"Context {idx} ranks must be within 1..4. Got: {ranks}")
-        if set(ranks) != expected:
             raise InvalidAssessmentData(
-                f"Context {idx} must be a permutation of [1,2,3,4]. Got: {ranks}"
+                LogicMessages.LFI_CONTEXT_NON_INTEGER.format(index=idx, ranks=ranks_repr)
+            )
+        if not all(1 <= rank <= 4 for rank in ranks):
+            raise InvalidAssessmentData(
+                LogicMessages.LFI_CONTEXT_RANGE.format(index=idx, ranks=ranks_repr)
+            )
+        if set(ranks) != expected_ranks:
+            raise InvalidAssessmentData(
+                LogicMessages.LFI_CONTEXT_PERMUTATION.format(index=idx, ranks=ranks_repr)
             )
 
 
@@ -314,7 +326,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     style_repo = StyleRepository(db)
     types: list[LearningStyleType] = style_repo.list_learning_style_types()
     if not types:
-        raise InvalidAssessmentData("Learning style windows not seeded; please seed learning_style_types")
+        raise InvalidAssessmentData(LogicMessages.LEARNING_STYLE_WINDOWS_MISSING)
     windows: dict[str, StyleWindow] = {}
     for t in types:
         windows[t.style_name] = StyleWindow(
@@ -356,7 +368,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
         ACCE_raw=acc,
         AERO_raw=aer,
         kite_coordinates=kite,
-    style_intensity_score=int(intensity_metrics.manhattan),
+        style_intensity_score=int(intensity_metrics.manhattan),
     )
     db.add(user_style)
     if backup_name:
@@ -392,13 +404,26 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
     context_repo = LFIContextRepository(db)
     cfg = _cfg()
     rows = context_repo.list_for_session(session_id)
-    if len(rows) != cfg.context_count:
-        raise InvalidAssessmentData(f"Expected {cfg.context_count} contexts, found {len(rows)}")
+    context_count = len(rows)
+    if context_count != cfg.context_count:
+        raise InvalidAssessmentData(
+            LogicMessages.LFI_CONTEXT_COUNT_MISMATCH.format(
+                expected=cfg.context_count,
+                found=context_count,
+            )
+        )
     allowed = set(context_names())
-    if any(row.context_name not in allowed for row in rows):
-        raise InvalidAssessmentData("Context name tidak dikenal dalam konfigurasi")
+    unknown_names = sorted(
+        {row.context_name for row in rows if row.context_name not in allowed}
+    )
+    if unknown_names:
+        raise InvalidAssessmentData(
+            LogicMessages.LFI_CONTEXT_NAME_UNKNOWN.format(
+                contexts=", ".join(unknown_names)
+            )
+        )
     if len({row.context_name for row in rows}) != len(rows):
-        raise InvalidAssessmentData("Duplicate context names detected for session")
+        raise InvalidAssessmentData(LogicMessages.LFI_CONTEXT_DUPLICATE)
     payload = []
     for row in rows:
         payload.append(
@@ -421,11 +446,11 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
     level = None
     if percentile is not None:
         if percentile < tertiles.low:
-            level = "Low"
+            level = ReportBandLabels.LOW
         elif percentile <= tertiles.moderate:
-            level = "Moderate"
+            level = ReportBandLabels.MODERATE
         else:
-            level = "High"
+            level = ReportBandLabels.HIGH
     entity = LearningFlexibilityIndex(
         session_id=session_id,
         W_coefficient=W,

@@ -18,6 +18,7 @@ from app.core.metrics import inc_counter
 from app.models.klsi.items import UserResponse
 from app.models.klsi.learning import LFIContextScore
 from app.models.klsi.enums import SessionStatus
+from app.i18n.id_messages import SessionErrorMessages
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -58,7 +59,7 @@ def get_items(session_id: int, db: Session = Depends(get_db)):
 def submit_item(session_id: int, item_id: int, ranks: dict, response: Response, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
     # Optional runtime deprecation: return 410 Gone when DISABLE_LEGACY_SUBMISSION=1
     if settings.disable_legacy_submission and settings.environment not in ("dev", "development", "test"):
-        raise HTTPException(status_code=410, detail="Endpoint deprecated. Gunakan /sessions/{session_id}/submit_all_responses.")
+        raise HTTPException(status_code=410, detail=SessionErrorMessages.LEGACY_ENDPOINT_DEPRECATED)
     # Telemetry & deprecation header
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = "</sessions/{session_id}/submit_all_responses>; rel=successor-version"
@@ -70,7 +71,7 @@ def submit_item(session_id: int, item_id: int, ranks: dict, response: Response, 
     repo = SessionRepository(db)
     sess = repo.get_for_user(session_id, user.id)
     if not sess or sess.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Akses sesi ditolak")
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     payload = {
         "kind": "item",
         "item_id": item_id,
@@ -93,7 +94,7 @@ def submit_context(
     authorization: str | None = Header(default=None),
 ):
     if settings.disable_legacy_submission and settings.environment not in ("dev", "development", "test"):
-        raise HTTPException(status_code=410, detail="Endpoint deprecated. Gunakan /sessions/{session_id}/submit_all_responses.")
+        raise HTTPException(status_code=410, detail=SessionErrorMessages.LEGACY_ENDPOINT_DEPRECATED)
     # Telemetry & deprecation header
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = "</sessions/{session_id}/submit_all_responses>; rel=successor-version"
@@ -105,7 +106,7 @@ def submit_context(
     repo = SessionRepository(db)
     sess = repo.get_for_user(session_id, user.id)
     if not sess or sess.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Akses sesi ditolak")
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     payload = {
         "kind": "context",
         "context_name": context_name,
@@ -133,9 +134,9 @@ def submit_all_responses(
     repo = SessionRepository(db)
     sess = repo.get_for_user(session_id, user.id)
     if not sess or sess.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Akses sesi ditolak")
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     if sess.status == SessionStatus.completed:
-        raise HTTPException(status_code=409, detail="Sesi sudah selesai")
+        raise HTTPException(status_code=409, detail=SessionErrorMessages.ALREADY_COMPLETED)
 
     try:
         # Single transaction: insert all ranks then finalize
@@ -204,7 +205,7 @@ def submit_all_responses(
     except Exception as exc:
         # In case of constraint violations or other errors, rollback any pending txn
         db.rollback()
-        raise HTTPException(status_code=500, detail="Gagal memproses submisi batch") from exc
+        raise HTTPException(status_code=500, detail=SessionErrorMessages.BATCH_FAILURE) from exc
 
 @router.post("/{session_id}/finalize", response_model=dict)
 def finalize(session_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
@@ -212,7 +213,7 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
     repo = SessionRepository(db)
     sess = repo.get_for_user(session_id, user.id)
     if not sess or sess.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Akses sesi ditolak")
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     # Explicit guard: require all 8 LFI contexts present before finalize,
     # even if engine validation would catch it. Gives clearer 400 with detail.
     validation_snapshot = run_session_validations(db, session_id)
@@ -273,9 +274,9 @@ def session_validation(session_id: int, db: Session = Depends(get_db), authoriza
     repo = SessionRepository(db)
     sess = repo.get_by_id(session_id)
     if not sess:
-        raise HTTPException(status_code=404, detail="Sesi tidak ditemukan")
+        raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
     if viewer and viewer.role != 'MEDIATOR' and viewer.id != sess.user_id:
-        raise HTTPException(status_code=403, detail="Akses ditolak")
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
     return run_session_validations(db, session_id)
 
 @router.post("/{session_id}/force_finalize", response_model=dict)
@@ -287,11 +288,11 @@ def force_finalize(
 ):
     mediator = get_current_user(authorization, db)
     if mediator.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail="Hanya mediator yang dapat melakukan override")
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.MEDIATOR_OVERRIDE_FORBIDDEN)
     repo = SessionRepository(db)
     sess = repo.get_by_id(session_id)
     if not sess:
-        raise HTTPException(status_code=404, detail="Sesi tidak ditemukan")
+        raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
 
     def _payload_builder_override(res: dict) -> bytes:
         validation = res.get("validation") or {}

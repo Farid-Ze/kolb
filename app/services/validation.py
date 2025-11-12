@@ -14,6 +14,11 @@ from app.db.repositories import (
     UserResponseRepository,
 )
 from app.schemas.session import SessionSubmissionPayload
+from app.i18n.id_messages import (
+    SessionErrorMessages,
+    ValidationMessages,
+    BatchPayloadMessages,
+)
 
 
 def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
@@ -109,7 +114,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
             "issues": [
                 {
                     "code": "SESSION_NOT_FOUND",
-                    "message": "Sesi tidak ditemukan",
+                    "message": SessionErrorMessages.NOT_FOUND,
                     "fatal": True,
                 }
             ],
@@ -120,7 +125,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
         issues.append(
             {
                 "code": "ITEMS_INCOMPLETE",
-                "message": "Masih ada item gaya belajar yang belum memiliki peringkat lengkap 1..4.",
+                "message": ValidationMessages.ITEMS_INCOMPLETE,
                 "item_ids": core["missing_item_ids"],
                 "fatal": True,
             }
@@ -129,7 +134,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
         issues.append(
             {
                 "code": "ITEM_RANK_GAPS",
-                "message": "Beberapa item memiliki peringkat yang tidak lengkap atau duplikat.",
+                "message": ValidationMessages.ITEM_RANK_GAPS,
                 "details": core["items_with_missing_ranks"],
                 "fatal": True,
             }
@@ -138,7 +143,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
         issues.append(
             {
                 "code": "ITEM_RANK_CONFLICT",
-                "message": "Terdapat ranking duplikat pada item forced-choice.",
+                "message": ValidationMessages.ITEM_RANK_CONFLICT,
                 "item_ids": core["items_with_rank_conflict"],
                 "fatal": True,
             }
@@ -151,7 +156,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
         issues.append(
             {
                 "code": "LFI_CONTEXT_COUNT",
-                "message": f"Konteks LFI harus lengkap {len(CONTEXT_NAMES)} entri.",
+                "message": ValidationMessages.LFI_CONTEXT_COUNT.format(expected=len(CONTEXT_NAMES)),
                 "found": len(contexts),
                 "fatal": True,
             }
@@ -164,7 +169,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
             issues.append(
                 {
                     "code": "LFI_CONTEXT_UNKNOWN",
-                    "message": "Ada nama konteks LFI yang tidak dikenal.",
+                    "message": ValidationMessages.LFI_CONTEXT_UNKNOWN,
                     "contexts": unknown,
                     "fatal": True,
                 }
@@ -173,7 +178,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
             issues.append(
                 {
                     "code": "LFI_CONTEXT_DUPLICATE",
-                    "message": "Terdapat konteks LFI yang diisi lebih dari sekali.",
+                    "message": ValidationMessages.LFI_CONTEXT_DUPLICATE,
                     "fatal": True,
                 }
             )
@@ -218,14 +223,14 @@ def validate_full_submission_payload(db: Session, payload: SessionSubmissionPayl
     missing = expected_ids - provided_ids
     if missing:
         raise InvalidAssessmentData(
-            "Payload batch tidak memuat seluruh item gaya belajar yang wajib diisi",
+            BatchPayloadMessages.MISSING_ITEMS,
             detail={"missing_item_ids": sorted(missing)},
         )
 
     extra = provided_ids - expected_ids
     if extra:
         raise InvalidAssessmentData(
-            "Payload batch mengandung item yang tidak dikenal",
+            BatchPayloadMessages.UNKNOWN_ITEMS,
             detail={"unknown_item_ids": sorted(extra)},
         )
 
@@ -234,7 +239,7 @@ def validate_full_submission_payload(db: Session, payload: SessionSubmissionPayl
     unknown_contexts = provided_contexts - allowed_contexts
     if unknown_contexts:
         raise InvalidAssessmentData(
-            "Payload batch mengandung nama konteks LFI yang tidak dikenali",
+            BatchPayloadMessages.UNKNOWN_CONTEXTS,
             detail={"unknown_contexts": sorted(unknown_contexts)},
         )
 

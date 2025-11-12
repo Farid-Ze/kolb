@@ -25,6 +25,7 @@ from app.core.metrics import (
     inc_counter,
 )
 from app.services.engine import EngineSessionService
+from app.i18n.id_messages import AuthorizationMessages, EngineMessages
 
 def _format_sunset(value: datetime | None) -> str | None:
     if value is None:
@@ -75,7 +76,7 @@ def get_instrument_manifest(
     try:
         spec = get_instrument_spec(instrument_code, instrument_version)
     except KeyError as exc:
-        raise InstrumentNotFoundError("Instrument manifest tidak ditemukan") from exc
+        raise InstrumentNotFoundError(EngineMessages.MANIFEST_NOT_FOUND) from exc
     return {"instrument": spec.manifest()}
 
 
@@ -91,7 +92,7 @@ def get_instrument_locale_resource_endpoint(
     try:
         payload = get_instrument_locale_resource(instrument_code, instrument_version, locale)
     except KeyError as exc:
-        raise InstrumentNotFoundError("Resource locale tidak ditemukan") from exc
+        raise InstrumentNotFoundError(EngineMessages.LOCALE_RESOURCE_NOT_FOUND) from exc
     return {"locale": locale, "resources": payload}
 
 
@@ -172,7 +173,7 @@ def engine_metrics(
 ):
     user = get_current_user(authorization, db)
     if user.role != "MEDIATOR":
-        raise PermissionDeniedError("Hanya mediator yang dapat melihat metrik")
+        raise PermissionDeniedError(AuthorizationMessages.MEDIATOR_METRICS_ONLY)
 
     timings = get_metrics(reset=reset)
     counters = get_counters(reset=reset)

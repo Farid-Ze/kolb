@@ -20,6 +20,7 @@ from app.assessments.klsi_v4.logic import (
     STYLE_CUTS as _KLSI_STYLE_CUTS,
 )
 from app.engine.constants import PRIMARY_MODE_CODES
+from app.i18n.id_messages import RegressionFlexPatterns, RegressionMessages
 
 
 CONTEXT_NAMES: List[str] = list(_KLSI_CONTEXT_NAMES)
@@ -69,7 +70,7 @@ def _regression_cfg() -> Mapping[str, Any]:
     cfg = load_config()
     block = cfg.regression
     if not block:
-        raise RegressionConfigError("Missing 'regression' section in KLSI config.")
+        raise RegressionConfigError(RegressionMessages.MISSING_REGRESSION_SECTION)
     return block
 
 
@@ -77,7 +78,7 @@ def _regression_cfg() -> Mapping[str, Any]:
 def _lfi_cfg() -> Dict[str, Any]:
     block = _regression_cfg().get("lfi")
     if not block:
-        raise RegressionConfigError("Missing 'regression.lfi' section in KLSI config.")
+        raise RegressionConfigError(RegressionMessages.MISSING_LFI_SECTION)
     return block
 
 
@@ -85,9 +86,7 @@ def _lfi_cfg() -> Dict[str, Any]:
 def _integrative_cfg() -> Dict[str, Any]:
     block = _regression_cfg().get("integrative_development")
     if not block:
-        raise RegressionConfigError(
-            "Missing 'regression.integrative_development' section in KLSI config."
-        )
+        raise RegressionConfigError(RegressionMessages.MISSING_INTEGRATIVE_SECTION)
     return block
 
 
@@ -98,7 +97,10 @@ def _normalize_predictor(name: str, data: Dict[str, Any]) -> Dict[str, Any]:
     except KeyError as exc:  # pragma: no cover - defensive safeguard
         missing = exc.args[0]
         raise RegressionConfigError(
-            f"Predictor '{name}' is missing required key '{missing}'."
+            RegressionMessages.LFI_PREDICTOR_KEY_MISSING.format(
+                name=name,
+                missing=missing,
+            )
         ) from exc
     normalized = {
         "mean": mean,
@@ -114,7 +116,7 @@ def _normalize_predictor(name: str, data: Dict[str, Any]) -> Dict[str, Any]:
 def _lfi_predictors() -> Dict[str, Dict[str, Any]]:
     raw = _lfi_cfg().get("predictors")
     if not raw:
-        raise RegressionConfigError("Missing predictors in 'regression.lfi' configuration.")
+        raise RegressionConfigError(RegressionMessages.MISSING_LFI_PREDICTORS)
     return {name: _normalize_predictor(name, payload) for name, payload in raw.items()}
 
 
@@ -128,7 +130,7 @@ def _lfi_params() -> Dict[str, Any]:
     except KeyError as exc:  # pragma: no cover - defensive safeguard
         missing = exc.args[0]
         raise RegressionConfigError(
-            f"Missing LFI regression parameter '{missing}'."
+            RegressionMessages.LFI_PARAM_MISSING.format(missing=missing)
         ) from exc
 
     means = {name: stats["mean"] for name, stats in predictors.items()}
@@ -173,7 +175,7 @@ def _integrative_params() -> Dict[str, Any]:
     except KeyError as exc:  # pragma: no cover - defensive safeguard
         missing = exc.args[0]
         raise RegressionConfigError(
-            f"Missing Integrative Development parameter '{missing}'."
+            RegressionMessages.INTEGRATIVE_PARAM_MISSING.format(missing=missing)
         ) from exc
     betas = {name: float(value) for name, value in cfg.get("betas", {}).items()}
     return {"mean": mean, "sd": sd, "betas": betas}
@@ -350,7 +352,12 @@ def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:
         }
     """
     if len(contexts) != len(CONTEXT_NAMES):
-        raise ValueError(f"Expected {len(CONTEXT_NAMES)} contexts, got {len(contexts)}")
+        raise ValueError(
+            RegressionMessages.CONTEXT_COUNT_ERROR.format(
+                expected=len(CONTEXT_NAMES),
+                received=len(contexts),
+            )
+        )
 
     context_styles: List[ContextStyleSummary] = []
     style_freq: Dict[LearningStyleCode, int] = {}
@@ -388,7 +395,7 @@ def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:
         context_styles.append(
             ContextStyleSummary(
                 context=context_name,
-                style=(style_code.value if style_code else "Unclassified"),
+                style=(style_code.value if style_code else RegressionMessages.UNCLASSIFIED_STYLE),
                 ACCE=acce,
                 AERO=aero,
                 CE=ce_val,
@@ -401,11 +408,11 @@ def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:
     # Determine flexibility pattern based on style diversity
     unique_styles = len(style_freq)
     if unique_styles >= 6:
-        pattern = "high"  # Like Mark - uses 6+ different styles
+        pattern = RegressionFlexPatterns.HIGH  # Like Mark - uses 6+ different styles
     elif unique_styles >= 4:
-        pattern = "moderate"
+        pattern = RegressionFlexPatterns.MODERATE
     else:
-        pattern = "low"  # Like Jason - stuck in 1-3 styles
+        pattern = RegressionFlexPatterns.LOW  # Like Jason - stuck in 1-3 styles
     
     # Build mode usage detail
     mode_usage: Dict[str, ModeUsageSummary] = {}
@@ -446,11 +453,11 @@ def generate_lfi_heatmap(lfi_score: float, context_styles: List[Dict[str, Any]])
     """
     # Determine LFI band
     if lfi_score >= 0.75:
-        band = "high"
+        band = RegressionFlexPatterns.HIGH
     elif lfi_score >= 0.60:
-        band = "medium"
+        band = RegressionFlexPatterns.MEDIUM
     else:
-        band = "low"
+        band = RegressionFlexPatterns.LOW
     
     # Count style occurrences
     style_matrix = {code.value: 0 for code in STYLE_CODES}

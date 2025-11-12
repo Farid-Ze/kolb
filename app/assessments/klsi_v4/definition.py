@@ -26,6 +26,7 @@ from app.engine.interfaces import (
 from app.engine.registry import register
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.learning import CombinationScore, UserLearningStyle
+from app.i18n.id_messages import DefinitionMessages
 
 __all__ = [
     "LFIContextRule",
@@ -61,7 +62,10 @@ class LFIContextRule:
             return [
                 ValidationIssue(
                     self.code,
-                    f"Butuh {len(CONTEXT_NAMES)} konteks LFI, baru {count}",
+                    DefinitionMessages.LFI_CONTEXT_COUNT.format(
+                        expected=len(CONTEXT_NAMES),
+                        found=count,
+                    ),
                     fatal=True,
                 )
             ]

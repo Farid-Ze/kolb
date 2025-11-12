@@ -23,12 +23,13 @@ from app.schemas.team import (
 )
 from app.services.rollup import compute_team_rollup
 from app.services.security import get_current_user
+from app.i18n.id_messages import AuthorizationMessages, TeamMessages
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
 def _require_mediator(user: User):
     if user.role != 'MEDIATOR':
-        raise HTTPException(status_code=403, detail="Hanya MEDIATOR yang diperbolehkan")
+        raise HTTPException(status_code=403, detail=AuthorizationMessages.MEDIATOR_REQUIRED)
 
 
 @router.post("/", response_model=TeamOut)
@@ -43,7 +44,7 @@ def create_team(
     try:
         existing = repo.find_by_name(payload.name)
         if existing:
-            raise HTTPException(status_code=409, detail="Nama tim sudah digunakan")
+            raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
         team = repo.create(payload.name, payload.kelas, payload.description)
         db.commit()
         db.refresh(team)
@@ -69,7 +70,7 @@ def get_team(team_id: int, db: Session = Depends(get_db)):
     repo = TeamRepository(db)
     team = repo.get(team_id)
     if not team:
-        raise HTTPException(status_code=404, detail="Tim tidak ditemukan")
+        raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
     return team
 
 
@@ -86,11 +87,11 @@ def update_team(
     try:
         team = repo.get(team_id)
         if not team:
-            raise HTTPException(status_code=404, detail="Tim tidak ditemukan")
+            raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
         if payload.name and payload.name != team.name:
             existing = repo.find_by_name(payload.name)
             if existing and existing.id != team_id:
-                raise HTTPException(status_code=409, detail="Nama tim sudah digunakan")
+                raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
             team.name = payload.name
         if payload.kelas is not None:
             team.kelas = payload.kelas
@@ -119,11 +120,11 @@ def delete_team(
     try:
         team = team_repo.get(team_id)
         if not team:
-            raise HTTPException(status_code=404, detail="Tim tidak ditemukan")
+            raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
         members_count = member_repo.count_by_team(team_id)
         rollup_count = rollup_repo.count_by_team(team_id)
         if members_count > 0 or rollup_count > 0:
-            raise HTTPException(status_code=409, detail="Hapus anggota/rollup terlebih dahulu")
+            raise HTTPException(status_code=409, detail=TeamMessages.REMOVE_DEPENDENCIES_FIRST)
         team_repo.delete(team)
         db.commit()
     except Exception:
@@ -151,7 +152,7 @@ def add_member(
     repo = TeamMemberRepository(db)
     try:
         if repo.exists(team_id, payload.user_id):
-            raise HTTPException(status_code=409, detail="Pengguna sudah menjadi anggota tim")
+            raise HTTPException(status_code=409, detail=TeamMessages.MEMBER_EXISTS)
         tm = repo.add(team_id, payload.user_id, payload.role_in_team)
         db.commit()
         db.refresh(tm)
@@ -174,7 +175,7 @@ def remove_member(
     try:
         tm = repo.get(team_id, member_id)
         if not tm:
-            raise HTTPException(status_code=404, detail="Anggota tidak ditemukan")
+            raise HTTPException(status_code=404, detail=TeamMessages.MEMBER_NOT_FOUND)
         repo.delete(tm)
         db.commit()
     except Exception:
@@ -203,7 +204,7 @@ def run_rollup(
         try:
             d = date.fromisoformat(for_date)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Format tanggal harus YYYY-MM-DD") from None
+            raise HTTPException(status_code=400, detail=TeamMessages.INVALID_DATE_FORMAT) from None
     try:
         roll = compute_team_rollup(db, team_id=team_id, for_date=d)
         db.commit()

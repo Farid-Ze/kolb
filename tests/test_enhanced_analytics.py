@@ -1,6 +1,7 @@
 """Tests for enhanced LFI analytics (contextual profiles, heatmaps, integrative development)."""
 import pytest
 
+from app.i18n.id_messages import RegressionMessages
 from app.services.regression import (
     analyze_lfi_contexts,
     generate_lfi_heatmap,
@@ -151,8 +152,13 @@ def test_generate_lfi_heatmap_low_lfi():
 
 def test_contextual_profile_validates_input():
     """Test that analyze_lfi_contexts requires exactly 8 contexts."""
-    with pytest.raises(ValueError, match="Expected 8 contexts"):
-        analyze_lfi_contexts([{"CE": 20, "RO": 20, "AC": 20, "AE": 20}])  # only 1 context
+    contexts = [{"CE": 20, "RO": 20, "AC": 20, "AE": 20}]  # only 1 context
+    with pytest.raises(ValueError) as exc:
+        analyze_lfi_contexts(contexts)
+    assert str(exc.value) == RegressionMessages.CONTEXT_COUNT_ERROR.format(
+        expected=8,
+        received=len(contexts),
+    )
 
 
 def test_integrative_development_reasonable_range():
