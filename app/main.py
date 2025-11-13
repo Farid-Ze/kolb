@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 import importlib
 
 from fastapi import FastAPI, Response
@@ -6,6 +7,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.metrics import get_metrics, get_counters
 from app.db.database import Base, engine, transactional_session
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
@@ -23,6 +25,9 @@ from app.routers.engine import router as engine_router
 
 configure_logging()
 logger = get_logger("kolb.app.main", component="app")
+
+# Store application startup time for health endpoint
+_app_start_time = datetime.now(timezone.utc)
 
 
 @asynccontextmanager
@@ -72,7 +77,42 @@ app.include_router(research_router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Enhanced health endpoint showing application status and metrics.
+    
+    Returns:
+        - status: Application health status
+        - version: Application version from config
+        - uptime_seconds: Time since application startup
+        - mode: Current environment mode (development/production)
+        - total_requests: Aggregate request count from metrics
+        
+    This endpoint provides observability into the running application state.
+    """
+    now = datetime.now(timezone.utc)
+    uptime = (now - _app_start_time).total_seconds()
+    
+    # Get aggregate metrics
+    counters = get_counters()
+    metrics = get_metrics()
+    
+    # Calculate total requests from counter metrics
+    total_requests = sum(
+        count for label, count in counters.items()
+        if "request" in label.lower() or "session" in label.lower()
+    )
+    
+    return {
+        "status": "healthy",
+        "version": "1.0.0",  # TODO: Load from package metadata
+        "started_at": _app_start_time.isoformat(),
+        "uptime_seconds": round(uptime, 2),
+        "environment": settings.environment if hasattr(settings, 'environment') else "development",
+        "total_requests": int(total_requests) if total_requests else 0,
+        "metrics_summary": {
+            "tracked_operations": len(metrics),
+            "tracked_counters": len(counters),
+        }
+    }
 
 
 @app.get("/", include_in_schema=False)
