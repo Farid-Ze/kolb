@@ -47,7 +47,7 @@
 - [ ]  Gunakan Pydantic model untuk input instrument (jawaban pengguna) – memudahkan validasi.
 - [ ]  Jika terdapat banyak mapping skala, gunakan lookup table dict ketimbang if chain.
 - [ ]  Pastikan interface di [interfaces.py](http://interfaces.py/) cukup abstrak untuk mocking unit test.
-- [ ]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
+- [x]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
 - [x]  Gunakan re-usable exception translator di routers (ubah domain exception ke HTTP response).
 - [x]  Pastikan routers tidak melakukan kalkulasi berat – panggil services.
 - [x]  Perkenalkan layer services (app/services) untuk orkestrasikan engine + db + i18n.
@@ -70,7 +70,7 @@
 - [x]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
 - [ ]  Gunakan dataclass untuk konfigurasi runtime pipeline.
 - [x]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
-- [ ]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
+- [x]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
 - [ ]  Pastikan parallelism (jika dipakai) menggunakan concurrent.futures untuk CPU-bound (mungkin scoring) atau asyncio untuk I/O.
 - [ ]  Jika heavy numeric compute, pertimbangkan numpy arrays untuk vector operations.
 - [ ]  Profil hot spots dengan cProfile + snakeviz sebelum refaktor besar.
