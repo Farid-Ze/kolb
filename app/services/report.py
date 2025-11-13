@@ -444,6 +444,9 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
                     )
                 ),
             }
+            # Balance pseudo-percentiles: heuristic distance metrics, NOT normative population percentiles
+            # Formula: P_BAL = 100 × (1 - distance/max_distance) clamped to [0,100]
+            # These measure proximity to normative centers (ACCE≈9, AERO≈6) and are theoretical constructs
             balance_block = {
                 "ACCE": max(0.0, min(100.0, round((1 - ((balance_acce or 0) / 45.0)) * 100, 1))),
                 "AERO": max(0.0, min(100.0, round((1 - ((balance_aero or 0) / 42.0)) * 100, 1))),
