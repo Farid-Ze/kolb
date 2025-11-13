@@ -24,7 +24,7 @@ importlib.import_module("app.instruments.klsi4")
 from app.routers.engine import router as engine_router
 
 
-configure_logging()
+configure_logging(environment=settings.environment)
 logger = get_logger("kolb.app.main", component="app")
 
 # Store application startup time for health endpoint

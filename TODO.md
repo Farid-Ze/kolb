@@ -24,7 +24,7 @@
 - [ ]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi.
 - [x]  Evaluasi apakah app/models/klsi.py terlalu monolitik (24385 bytes ukuran besar) – pecah menjadi submodul: scoring, norms, reports, validation.
 - [ ]  Identifikasi fungsi > 50–70 baris di [klsi.py](http://klsi.py/) untuk dipecah (Fluent Python menganjurkan fungsi kecil yang jelas).
-- [ ]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
+- [x]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
 - [x]  Gunakan **all** di paket untuk menandai API publik.
 - [ ]  Terapkan strategi lazy loading untuk data norma besar.
 - [ ]  Pastikan klsi.db akses pakai connection pooling sederhana (sqlite: check same-thread/uri flags).
@@ -69,7 +69,7 @@
 - [ ]  Gunakan f-string untuk formatting.
 - [ ]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
 - [ ]  Gunakan dataclass untuk konfigurasi runtime pipeline.
-- [ ]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
+- [x]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
 - [ ]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
 - [ ]  Pastikan parallelism (jika dipakai) menggunakan concurrent.futures untuk CPU-bound (mungkin scoring) atau asyncio untuk I/O.
 - [ ]  Jika heavy numeric compute, pertimbangkan numpy arrays untuk vector operations.
@@ -84,13 +84,13 @@
 - [ ]  Pastikan thread safety jika metrics disimpan di global – gunakan threading.Lock atau gunakan atomic types.
 - [ ]  Jika load concurrency tinggi, pertimbangkan uvloop (jika FastAPI/asyncio).
 - [x]  Bangun health endpoint: menampilkan versi, waktu start, total requests.
-- [ ]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
+- [x]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
 - [ ]  Sediakan toggle untuk mematikan expensive debug instrumentation di production.
 - [ ]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
 - [ ]  Pastikan i18n modul memuat file JSON/YAML sekali – gunakan caching.
 - [ ]  Validasi ketersediaan locale fallback agar tidak error runtime.
 - [ ]  Gunakan re.compile sekali untuk regex sering dipakai (kalau ada).
-- [ ]  Pastikan pemisahan domain score formula ke fungsi pure testable.
+- [x]  Pastikan pemisahan domain score formula ke fungsi pure testable.
 - [ ]  Berikan margin komentar yang menjelaskan persamaan psikometrik agar maintainers paham.
 - [ ]  Pastikan rounding & scaling konsisten (centralize di module formatting).
 - [ ]  Gunakan decimal atau Fraction jika presisi penting, hindari float bias.
