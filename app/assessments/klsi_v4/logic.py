@@ -319,10 +319,18 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
 
     This removes reliance on in-code STYLE_CUTS lambdas to avoid drift.
     Windows are read from learning_style_types (ACCE_min/max, AERO_min/max).
+    
+    Design Decision: DB windows are the single source of truth for style classification.
+    Changes to windows in the database are reflected immediately without code deployment.
+    STYLE_CUTS remains as a helper/validator only and is NOT used for primary assignment.
+    
+    This prevents drift between configuration and implementation, ensuring that window
+    adjustments (e.g., from updated research or regional adaptations) are applied
+    consistently across all scoring pipelines.
     """
     acc, aer = combo.ACCE_raw, combo.AERO_raw
 
-    # Load windows from DB
+    # Load windows from DB (single source of truth for style boundaries)
     style_repo = StyleRepository(db)
     types: list[LearningStyleType] = style_repo.list_learning_style_types()
     if not types:
