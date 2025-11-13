@@ -1,0 +1,36 @@
+# Markdownlint configuration
+# See https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Default state for all rules
+default: true
+
+# MD013 - Line length
+MD013:
+  # Number of characters
+  line_length: 120
+  # Strict length checking
+  strict: false
+  # Exclude headings from line length check
+  heading_line_length: 120
+  # Exclude code blocks
+  code_block_line_length: 120
+  # Exclude tables
+  tables: false
+
+# MD033 - Inline HTML
+MD033:
+  # Allow specific HTML elements
+  allowed_elements: ['br', 'details', 'summary', 'img', 'a']
+
+# MD041 - First line in file should be a top level heading
+MD041: false
+
+# MD046 - Code block style
+MD046:
+  # Preferred style: fenced
+  style: fenced
+
+# MD024 - Multiple headings with the same content
+MD024:
+  # Only flag sibling headings
+  siblings_only: true
