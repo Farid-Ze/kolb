@@ -147,7 +147,7 @@
 - [ ]  Pre-sort data jika beberapa algoritma memerlukan pencarian binary.
 - [ ]  Jika scoring melibatkan penjumlahan kategori, gunakan collections.Counter.
 - [ ]  Gunakan dataclass untuk menyimpan intermediate ScoreState menggantikan dict raw.
-- [ ]  Tambahkan validator integritas (sum raw skor = total expected).
+- [x]  Tambahkan validator integritas (sum raw skor = total expected).
 - [ ]  Gunakan memoization untuk konversi skala ke label (berulang).
 - [ ]  Pastikan runtime jelas memisahkan fase: ingest → validate → compute → normalize → output.
 - [ ]  Tulis README arsitektur modul engine (diagram).
