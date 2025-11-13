@@ -2,13 +2,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import importlib
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Depends
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import get_metrics, get_counters
-from app.db.database import Base, engine, transactional_session
+from app.db.database import Base, engine, transactional_session, get_db
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.exceptions import register_exception_handlers
@@ -76,17 +77,24 @@ app.include_router(research_router)
  
 
 @app.get("/health")
-def health():
+def health(db: Session = Depends(get_db)):
     """Enhanced health endpoint showing application status and metrics.
     
+    Checks:
+        - Application uptime and version
+        - Database connectivity
+        - Request metrics summary
+        
     Returns:
-        - status: Application health status
+        - status: Application health status (healthy/degraded/unhealthy)
         - version: Application version from config
         - uptime_seconds: Time since application startup
         - mode: Current environment mode (development/production)
         - total_requests: Aggregate request count from metrics
+        - database: Database connectivity status
         
-    This endpoint provides observability into the running application state.
+    This endpoint provides observability into the running application state
+    and is suitable for load balancer health checks.
     """
     now = datetime.now(timezone.utc)
     uptime = (now - _app_start_time).total_seconds()
@@ -101,13 +109,28 @@ def health():
         if "request" in label.lower() or "session" in label.lower()
     )
     
+    # Check database connectivity
+    db_status = "unknown"
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "connected"
+        overall_status = "healthy"
+    except Exception as e:
+        logger.error("health_check_db_failed", extra={"error": str(e)})
+        db_status = "disconnected"
+        overall_status = "unhealthy"
+    
     return {
-        "status": "healthy",
+        "status": overall_status,
         "version": "1.0.0",  # TODO: Load from package metadata
         "started_at": _app_start_time.isoformat(),
         "uptime_seconds": round(uptime, 2),
         "environment": settings.environment if hasattr(settings, 'environment') else "development",
         "total_requests": int(total_requests) if total_requests else 0,
+        "database": {
+            "status": db_status,
+            "engine": "postgresql" if "postgresql" in str(settings.database_url) else "sqlite"
+        },
         "metrics_summary": {
             "tracked_operations": len(metrics),
             "tracked_counters": len(counters),

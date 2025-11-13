@@ -32,7 +32,7 @@
 - [ ]  Tambahkan integrasi transaction context manager agar batch operasi aman.
 - [ ]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
 - [ ]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
-- [ ]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
+- [x]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
 - [ ]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables.
 - [ ]  Ganti indeks manual dictionary dengan operator mapping + dataclass agar mudah refactor.
 - [ ]  Pastikan [runtime.py](http://runtime.py/) memisahkan concerns: scheduling, state tracking, error handling.
@@ -83,7 +83,7 @@
 - [ ]  Hindari pemakaian global state kecuali untuk readonly constant.
 - [ ]  Pastikan thread safety jika metrics disimpan di global – gunakan threading.Lock atau gunakan atomic types.
 - [ ]  Jika load concurrency tinggi, pertimbangkan uvloop (jika FastAPI/asyncio).
-- [ ]  Bangun health endpoint: menampilkan versi, waktu start, total requests.
+- [x]  Bangun health endpoint: menampilkan versi, waktu start, total requests.
 - [ ]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
 - [ ]  Sediakan toggle untuk mematikan expensive debug instrumentation di production.
 - [ ]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
@@ -119,7 +119,7 @@
 - [ ]  Gunakan exponential backoff kalau nanti ada eksternal API (future).
 - [ ]  Pastikan test mencakup equivalence classes (skor sangat tinggi, rendah, borderline).
 - [ ]  Gunakan hypothesis (property-based testing) untuk formula psikometrik.
-- [ ]  Validasi bahwa no division by zero di formula; centralize safe_div(a, b).
+- [x]  Validasi bahwa no division by zero di formula; centralize safe_div(a, b).
 - [ ]  Pastikan normative adjustments tersusun di modul terpisah agar mudah ganti dataset.
 - [ ]  Gunakan caching TTL untuk data yang bisa berubah berkala (configurable).
 - [ ]  Pastikan adaptasi gaya belajar (mapping ke label) tidak di-hardcode berulang di banyak tempat.
