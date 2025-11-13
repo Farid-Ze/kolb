@@ -58,7 +58,7 @@
 - [x]  Simpan aggregated metrics (total exec, avg latency).
 - [ ]  Gunakan WeakValueDictionary bila menyimpan objek sementara yang tidak boleh memperpanjang usia.
 - [ ]  Jika ada caching gaya per demographic, gunakan key tuple (age, region, gender) secara konsisten.
-- [ ]  Dokumentasikan skema DB (klsi.db) di README termasuk indeks penting.
+- [x]  Dokumentasikan skema DB (klsi.db) di README termasuk indeks penting.
 - [ ]  Tambahkan indeks pada kolom sering di-query (jika tabel skor / respon).
 - [ ]  Hindari SELECT * – ambil kolom spesifik untuk memotong transfer data.
 - [ ]  Jika ada normalisasi memerlukan statistik populasi, precompute saat startup.
@@ -66,8 +66,8 @@
 - [ ]  Terapkan EAFP: coba akses field; jika KeyError tangani – hindari banyak if key in.
 - [ ]  Gunakan comprehension & generator expresion idiomatik untuk clarity.
 - [ ]  Hindari list(map(...)) ketika comprehension lebih jelas.
-- [ ]  Gunakan f-string untuk formatting.
-- [ ]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
+- [x]  Gunakan f-string untuk formatting.
+- [x]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
 - [ ]  Gunakan dataclass untuk konfigurasi runtime pipeline.
 - [x]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
 - [ ]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
@@ -155,7 +155,7 @@
 - [ ]  Aktifkan ruff rule yang mencakup performance (misal no needless comprehension).
 - [ ]  Gunakan black/ruff konsisten agar diffs kecil saat refactor struktural.
 - [ ]  Pastikan import grouping mengikuti PEP8 (stdlib, third-party, local).
-- [ ]  Ganti magic string nama strategi ke Enum StrategyName.
+- [x]  Ganti magic string nama strategi ke Enum StrategyName.
 - [ ]  Pastikan [registry.py](http://registry.py/) melempar error deskriptif kalau strategi tidak ditemukan.
 - [ ]  Tambahkan fallback default strategy aman.
 - [ ]  Gunakan caching layered: memory → (nanti) external (Redis) jika skala membesar.
