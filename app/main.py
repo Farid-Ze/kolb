@@ -11,6 +11,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.metrics import get_metrics, get_counters
 from app.db.database import Base, engine, transactional_session, get_db
 from app.i18n import preload_i18n_resources
+from app.core.sentinels import UNKNOWN
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.exceptions import register_exception_handlers
@@ -139,7 +140,7 @@ def health(db: Session = Depends(get_db)):
     )
     
     # Check database connectivity
-    db_status = "unknown"
+    db_status = UNKNOWN
     try:
         db.execute(text("SELECT 1"))
         db_status = "connected"
@@ -148,7 +149,6 @@ def health(db: Session = Depends(get_db)):
         logger.error("health_check_db_failed", extra={"error": str(e)})
         db_status = "disconnected"
         overall_status = "unhealthy"
-    
     return {
         "status": overall_status,
         "version": "1.0.0",  # TODO: Load from package metadata

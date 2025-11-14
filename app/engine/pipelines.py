@@ -107,6 +107,7 @@ _stage_lfi.__name__ = "compute_lfi"
 
 __all__ = [
     "PipelineStage",
+    "StageDefinition",
     "PipelineDefinition",
     "PipelineFactory",
     "RuntimePipelineConfig",
@@ -115,14 +116,53 @@ __all__ = [
     "get_klsi_pipeline_definition",
     "resolve_klsi_pipeline_from_nodes",
     "execute_pipeline_streaming",
+    "KLSI_STAGE_DEFINITIONS",
     "KLSI_PIPELINE_STAGE_KEYS",
     "KLSI_PIPELINE_CONFIG",
 ]
-KLSI_PIPELINE_STAGE_KEYS: tuple[str, ...] = (
-    "RAW_SCALES",
-    "COMBINATIONS",
-    "STYLE_ASSIGNMENT",
-    "LFI",
+
+
+class PipelineStage(Protocol):
+    """Protocol for pipeline stage callables returning context fragments."""
+
+    def __call__(self, db: Session, session_id: int) -> dict[str, Any]:
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class StageDefinition:
+    """Declarative metadata describing a pipeline stage."""
+
+    key: str
+    handler: PipelineStage
+    description: str = ""
+
+
+KLSI_STAGE_DEFINITIONS: tuple[StageDefinition, ...] = (
+    StageDefinition(
+        key="RAW_SCALES",
+        handler=_stage_raw_scales,
+        description="Compute raw Kolb mode totals.",
+    ),
+    StageDefinition(
+        key="COMBINATIONS",
+        handler=_stage_combinations,
+        description="Derive ACCE/AERO dialectics and balance metrics.",
+    ),
+    StageDefinition(
+        key="STYLE_ASSIGNMENT",
+        handler=_stage_style_assignment,
+        description="Assign primary learning style from dialectic coordinates.",
+    ),
+    StageDefinition(
+        key="LFI",
+        handler=_stage_lfi,
+        description="Compute Learning Flexibility Index (LFI) stats.",
+    ),
+)
+
+KLSI_PIPELINE_STAGE_KEYS: tuple[str, ...] = tuple(
+    definition.key for definition in KLSI_STAGE_DEFINITIONS
 )
 
 
@@ -161,15 +201,6 @@ KLSI_PIPELINE_CONFIG = RuntimePipelineConfig(
         "raw scales → combinations → style assignment → LFI"
     ),
 )
-
-
-
-class PipelineStage(Protocol):
-    """Protocol for pipeline stage callables returning context fragments."""
-
-    def __call__(self, db: Session, session_id: int) -> dict[str, Any]:
-        ...
-
 
 @dataclass(frozen=True, slots=True)
 class PipelineDefinition:
@@ -316,13 +347,7 @@ def _get_klsi_stage_mapping() -> dict[str, PipelineStage]:
     declarative pipeline node keys (as stored in ``ScoringPipelineNode``)
     and the concrete callable implementations in KLSI logic.
     """
-
-    return {
-        "RAW_SCALES": _stage_raw_scales,
-        "COMBINATIONS": _stage_combinations,
-        "STYLE_ASSIGNMENT": _stage_style_assignment,
-        "LFI": _stage_lfi,
-    }
+    return {definition.key: definition.handler for definition in KLSI_STAGE_DEFINITIONS}
 
 
 @dataclass(frozen=True, slots=True)

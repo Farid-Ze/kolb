@@ -6,6 +6,7 @@ import threading
 
 import httpx
 
+from app.core.sentinels import UNKNOWN
 from app.data.norms import APPENDIX_TABLES, lookup_lfi
 from app.engine.norms.provider import NormProvider
 from app.engine.norms.value_objects import PercentileResult
@@ -78,7 +79,7 @@ class AppendixNormProvider:
                 lfi_value = raw / 100 if isinstance(raw, (int, float)) else raw
                 value = lookup_lfi(lfi_value)
                 return PercentileResult(value, "Appendix:LFI", False)
-            return PercentileResult(None, "Appendix:None", False)
+            return PercentileResult(None, UNKNOWN.capitalize(), False)
 
 
 class ExternalNormProvider:
@@ -187,7 +188,7 @@ class ExternalNormProvider:
                     return PercentileResult(value, label, False)
                 # If no value, opportunistically schedule a background refresh
                 self._schedule_background_fetch(group_token, scale, raw)
-        return PercentileResult(None, "External:None", False)
+        return PercentileResult(None, UNKNOWN.capitalize(), False)
 
     def _schedule_background_fetch(self, group_token: str, scale: str, raw: int | float) -> None:
         key = (group_token, scale, int(raw))

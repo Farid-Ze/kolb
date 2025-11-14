@@ -410,6 +410,16 @@ class EngineRegistry:
             current = self._entries.get(key, RegistryEntry())
             self._entries[key] = updater(current)
 
+    def _available_tokens(self) -> tuple[str, ...]:
+        with self._lock:
+            return tuple(sorted(token.token() for token in self._entries.keys()))
+
+    def _describe_available(self) -> str:
+        tokens = self._available_tokens()
+        if not tokens:
+            return "none registered"
+        return ", ".join(tokens)
+
     def register_plugin(self, plugin: InstrumentPlugin) -> None:
         key = self._resolve_key(plugin.id())
 
@@ -435,30 +445,55 @@ class EngineRegistry:
         try:
             return self._entries[key]
         except KeyError as exc:
-            raise RegistryError(f"Instrument components not registered: {key.token()}") from exc
+            raise RegistryError(
+                (
+                    f"Instrument components not registered: {key.token()}. "
+                    f"Registered instruments: {self._describe_available()}"
+                )
+            ) from exc
 
     def plugin(self, inst: InstrumentId) -> InstrumentPlugin:
         entry = self._entry(inst)
         if entry.plugin is None:
-            raise RegistryError(f"Instrument plugin not registered: {inst.key}:{inst.version}")
+            raise RegistryError(
+                (
+                    f"Instrument plugin not registered: {inst.key}:{inst.version}. "
+                    "Call register_plugin(...) during startup before requesting runtime components."
+                )
+            )
         return entry.plugin
 
     def scorer(self, inst: InstrumentId) -> EngineScorer:
         entry = self._entry(inst)
         if entry.scorer is None:
-            raise RegistryError(f"Scorer not registered: {inst.key}:{inst.version}")
+            raise RegistryError(
+                (
+                    f"Scoring strategy not registered: {inst.key}:{inst.version}. "
+                    "Ensure EngineRegistry.register_scorer() is invoked for this instrument."
+                )
+            )
         return entry.scorer
 
     def norm_provider(self, inst: InstrumentId) -> EngineNormProvider:
         entry = self._entry(inst)
         if entry.norm_provider is None:
-            raise RegistryError(f"Norm provider not registered: {inst.key}:{inst.version}")
+            raise RegistryError(
+                (
+                    f"Norm provider not registered: {inst.key}:{inst.version}. "
+                    "Ensure register_norms() is called or provide a CompositeNormProvider."
+                )
+            )
         return entry.norm_provider
 
     def report_builder(self, inst: InstrumentId) -> EngineReportBuilder:
         entry = self._entry(inst)
         if entry.report_builder is None:
-            raise RegistryError(f"Report builder not registered: {inst.key}:{inst.version}")
+            raise RegistryError(
+                (
+                    f"Report builder not registered: {inst.key}:{inst.version}. "
+                    "Register a report builder via register_report() for this instrument."
+                )
+            )
         return entry.report_builder
 
     def snapshot(self) -> Mapping[RegistryKey, RegistryEntry]:

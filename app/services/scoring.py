@@ -65,6 +65,7 @@ def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
 
 
 def compute_combination_scores(db: Session, scale: ScaleScore) -> CombinationScore:
+    """Compute dialectics/balance per KLSI 4.0 Guide pp.45-48."""
     return logic_compute_combination_scores(db, scale)
 
 
@@ -109,11 +110,18 @@ def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore):
                 ("AERO", combo.AERO_raw),
             ]
             provider.prime(group_chain, required)
-            return logic_apply_percentiles(db, session_id, scale, combo, norm_provider=provider)
+            return logic_apply_percentiles(
+                db,
+                session_id,
+                scale,
+                combo,
+                norm_provider=provider,
+                group_chain=group_chain,
+            )
         except Exception:
             # On any unexpected failure, fall back safely
             pass
-    return logic_apply_percentiles(db, session_id, scale, combo)
+    return logic_apply_percentiles(db, session_id, scale, combo, group_chain=group_chain)
 
 
 def resolve_norm_groups(db: Session, session_id: int):

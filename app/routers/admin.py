@@ -17,6 +17,7 @@ from app.engine.norms.factory import (
     get_external_provider,
     preload_cache_stats,
 )
+from app.assessments.klsi_v4.logic import clear_percentile_cache
 from app.core.config import settings
 from app.services.security import get_current_user
 from app.services import pipelines as pipeline_service
@@ -94,6 +95,7 @@ def import_norms(
         provider = build_composite_norm_provider(db)
         if hasattr(provider, "_db_lookup"):
             clear_norm_db_cache(getattr(provider, "_db_lookup"))
+            clear_percentile_cache()
     except Exception:
         # Non-fatal; cache will naturally evict eventually if invalidation fails
         pass

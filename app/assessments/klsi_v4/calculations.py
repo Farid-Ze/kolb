@@ -82,15 +82,15 @@ def calculate_combination_metrics(scale: ScoreVector, medians: BalanceMedians) -
         - KLSI 4.0 Guide, Figure 4 (Learning Style Grid)
         - KLSI 4.0 Guide, Appendix 1 (Score Distributions)
     """
-    acce = scale.AC - scale.CE
-    aero = scale.AE - scale.RO
+    acce = scale.AC - scale.CE  # Kolb LSI 4.0 Guide, p.45 (AC vs CE dialectic)
+    aero = scale.AE - scale.RO  # Kolb LSI 4.0 Guide, p.45 (AE vs RO dialectic)
     return CombinationMetrics(
         ACCE=acce,
         AERO=aero,
-        assimilation_accommodation=(scale.AC + scale.RO) - (scale.AE + scale.CE),
-        converging_diverging=(scale.AC + scale.AE) - (scale.CE + scale.RO),
-        balance_acce=abs(scale.AC - (scale.CE + medians.acce)),
-        balance_aero=abs(scale.AE - (scale.RO + medians.aero)),
+        assimilation_accommodation=(scale.AC + scale.RO) - (scale.AE + scale.CE),  # Kolb Guide, p.46
+        converging_diverging=(scale.AC + scale.AE) - (scale.CE + scale.RO),  # Kolb Guide, p.46
+        balance_acce=abs(scale.AC - (scale.CE + medians.acce)),  # Kolb Guide, p.48 (balance to ACCE median)
+        balance_aero=abs(scale.AE - (scale.RO + medians.aero)),  # Kolb Guide, p.48 (balance to AERO median)
     )
 
 

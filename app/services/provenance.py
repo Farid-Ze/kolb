@@ -4,6 +4,7 @@ from typing import Dict, Iterable, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.sentinels import UNKNOWN
 from app.engine.constants import ALL_SCALE_CODES
 from app.models.klsi.learning import CombinationScore, ScaleProvenance, ScaleScore
 from app.models.klsi.norms import PercentileScore
@@ -28,7 +29,7 @@ def _normalize_provenance(tag: str) -> tuple[str, Optional[str]]:
         return "database", group
     if tag.startswith("Appendix:"):
         return "appendix", tag.split(":", 1)[1]
-    return "unknown", None
+    return UNKNOWN, None
 
 
 def upsert_scale_provenance(

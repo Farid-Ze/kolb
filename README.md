@@ -190,6 +190,19 @@ alembic upgrade head
 
 Import norma lakukan via endpoint admin (`POST /admin/norms/import`) dengan CSV sesuai contoh pada `docs/examples/norm_import.sample.csv`.
 
+### 13.1 Helper Session untuk Skrip
+Gunakan `get_session()` ketika menulis skrip/cron job yang perlu akses database tanpa membawa dependensi FastAPI:
+
+```python
+from app.db.database import get_session
+
+with get_session() as db:
+    # jalankan query/seed ringan
+    ...
+```
+
+Context manager ini menutup koneksi secara otomatis sehingga tidak terjadi kebocoran sesi di job jangka panjang.
+
 ## 14. Referensi
 - Kolb, D. A. (1984). Experiential Learning.
 - Kolb, A. Y., & Kolb, D. A. (2013). KLSI 4.0 Guide (Appendix 1, 7; Figures 4–5).

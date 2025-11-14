@@ -188,6 +188,14 @@ def get_db():
 
 
 @contextmanager
+def get_session() -> Iterator[Session]:
+    """Yield a short-lived session for scripts/jobs, closing it automatically."""
+
+    with database_gateway.session() as session:
+        yield session
+
+
+@contextmanager
 def transactional_session() -> Iterator[Session]:
     """Context manager that manages commit/rollback for explicit transactions."""
 
@@ -303,6 +311,7 @@ __all__ = [
     "engine",
     "SessionLocal",
     "get_db",
+    "get_session",
     "transactional_session",
     "hyperatomic_session",
     "norm_session_scope",

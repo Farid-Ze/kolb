@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
+from threading import RLock
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, cast
 
+from cachetools import LRUCache
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import load_config
@@ -20,6 +22,7 @@ from app.assessments.klsi_v4.types import (
     StyleWindow,
 )
 from app.core.errors import InvalidAssessmentData
+from app.core.sentinels import UNKNOWN
 from app.engine.constants import ALL_SCALE_CODES, COMBINATION_SCALE_CODES, PRIMARY_MODE_CODES
 from app.engine.norms.factory import build_composite_norm_provider
 from app.engine.norms.provider import NormProvider
@@ -42,12 +45,18 @@ from app.models.klsi.learning import (
 from app.models.klsi.norms import PercentileScore
 from app.models.klsi.user import User
 from app.i18n.id_messages import LogicMessages, ReportBandLabels
+from app.core.config import settings
 
 if TYPE_CHECKING:
     from app.models.klsi.items import UserResponse
 from app.services.provenance import upsert_scale_provenance
 
 from app.data.norms import APPENDIX_TABLES
+
+
+_PERCENTILE_CACHE_SIZE = max(0, int(getattr(settings, "norm_percentile_cache_size", 8192) or 0))
+_PERCENTILE_CACHE: LRUCache | None = LRUCache(maxsize=_PERCENTILE_CACHE_SIZE) if _PERCENTILE_CACHE_SIZE else None
+_PERCENTILE_CACHE_LOCK = RLock()
 
 
 @lru_cache()
@@ -57,6 +66,47 @@ def _cfg() -> KLSIParameters:
 
 def context_names() -> List[str]:
     return list(_cfg().context_names)
+
+
+def _normalize_group_chain(chain: Sequence[str]) -> tuple[str, ...]:
+    return tuple(chain)
+
+
+def clear_percentile_cache() -> None:
+    if _PERCENTILE_CACHE is None:
+        return
+    with _PERCENTILE_CACHE_LOCK:
+        _PERCENTILE_CACHE.clear()
+
+
+def _lookup_percentile_cached(
+    provider: NormProvider,
+    group_chain: Sequence[str],
+    scale_name: str,
+    raw: int | float,
+) -> tuple[Optional[float], str, bool]:
+    """Return percentile lookup with LRU caching on (chain, scale, raw).
+
+    The cache is optional (disabled when max size == 0) and is cleared after
+    norm imports to avoid stale data. This sits above the DB-level cache to
+    deduplicate repeated percentile requests that share identical precedence
+    chains (e.g., multiple sessions within the same demographic bucket).
+    """
+
+    normalized_chain = _normalize_group_chain(group_chain)
+    if _PERCENTILE_CACHE is None:
+        result = provider.percentile(list(normalized_chain), scale_name, raw)
+        return result.percentile, result.provenance, result.truncated
+    key = (normalized_chain, scale_name, int(raw))
+    with _PERCENTILE_CACHE_LOCK:
+        cached = _PERCENTILE_CACHE.get(key)
+        if cached is not None:
+            return cached
+    result = provider.percentile(list(normalized_chain), scale_name, raw)
+    packed = (result.percentile, result.provenance, result.truncated)
+    with _PERCENTILE_CACHE_LOCK:
+        _PERCENTILE_CACHE[key] = packed
+    return packed
 
 
 def _style_window(name: str) -> StyleWindow:
@@ -72,6 +122,7 @@ def _within(value: int, lower: Optional[int], upper: Optional[int]) -> bool:
 
 
 def _build_style_cuts() -> Dict[str, Any]:
+    """Helper lambdas that mirror the 3×3 grid boundaries (Guide p.50)."""
     cuts: Dict[str, Any] = {}
     for style_name, window in _cfg().style_windows.items():
 
@@ -111,7 +162,7 @@ def _describe_provenance(tag: str) -> Tuple[str, Optional[str], Optional[str]]:
     if tag.startswith("Appendix:"):
         appendix_group = tag.split(":", 1)[1]
         return "appendix", appendix_group, None
-    return "unknown", None, None
+    return UNKNOWN, None, None
 
 
 def validate_lfi_context_ranks(context_scores: List[Dict[str, int]]) -> None:
@@ -250,12 +301,12 @@ def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
 def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
     """Sum forced-choice ranks for each learning mode.
 
-    The KLSI 4.0 manual specifies that participants assign the value ``4``
-    to the statement that best describes them within an item and ``1`` to
-    the statement that least describes them. Summing the rank values keeps
-    that directionality so higher totals reflect stronger relative
-    preference for the associated learning mode, aligning with the
-    normative tables in Appendix 1 (range 12–48).
+    The KLSI 4.0 manual (Guide p.44 & Appendix 1) specifies that participants
+    assign the value ``4`` to the statement that best describes them within
+    an item and ``1`` to the statement that least describes them. Summing
+    the rank values keeps that directionality so higher totals reflect
+    stronger relative preference for the associated learning mode, aligning
+    with the normative tables in Appendix 1 (range 12–48).
     """
     response_repo = UserResponseRepository(db)
     responses = response_repo.list_with_choices(session_id)
@@ -446,10 +497,9 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
     W = compute_kendalls_w(payload)
     lfi_value = 1 - W
     provider = norm_provider or build_composite_norm_provider(db)
-    group_chain = resolve_norm_groups(db, session_id)
-    lfi_result = provider.percentile(group_chain, "LFI", int(round(lfi_value * 100)))
-    percentile = lfi_result.percentile
-    provenance = lfi_result.provenance
+    group_chain = _normalize_group_chain(resolve_norm_groups(db, session_id))
+    raw_lfi = int(round(lfi_value * 100))
+    percentile, provenance, _ = _lookup_percentile_cached(provider, group_chain, "LFI", raw_lfi)
     tertiles = cfg.lfi.tertiles
     level = None
     if percentile is not None:
@@ -477,9 +527,10 @@ def apply_percentiles(
     scale: ScaleScore,
     combo: CombinationScore,
     norm_provider: NormProvider | None = None,
+    group_chain: Sequence[str] | None = None,
 ) -> PercentileScore:
     provider = norm_provider or build_composite_norm_provider(db)
-    group_chain = resolve_norm_groups(db, session_id)
+    group_chain = _normalize_group_chain(group_chain or resolve_norm_groups(db, session_id))
 
     appendix_tables = APPENDIX_TABLES
     range_bounds = {
@@ -488,9 +539,7 @@ def apply_percentiles(
     }
 
     def resolve(scale_name: str, raw: int | float) -> tuple[Optional[float], str, bool]:
-        # Provider already chains DB → Appendix → External; preserve truncation
-        result = provider.percentile(group_chain, scale_name, raw)
-        pct, prov, truncated_flag = result.percentile, result.provenance, result.truncated
+        pct, prov, truncated_flag = _lookup_percentile_cached(provider, group_chain, scale_name, raw)
         # As a guard, compute truncation flag if provider didn't set it for appendix tables
         if pct is not None and prov.startswith("Appendix:") and not truncated_flag:
             table = appendix_tables.get(scale_name)

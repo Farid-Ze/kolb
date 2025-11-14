@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     )
     norms_lazy_loader_chunk_size: int = Field(default=250, ge=1)
     norms_lazy_loader_cache_entries: int = Field(default=2048, ge=1)
+    norm_percentile_cache_size: int = Field(
+        default=8192,
+        ge=0,
+        description="Max in-process entries for percentile lookup cache",
+    )
 
     runtime_components_enabled: bool = Field(
         default=False,

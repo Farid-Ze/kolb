@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import wraps
 from time import perf_counter
+from math import sqrt
 from typing import Any, Callable, Dict, Mapping, Sequence, TypeVar, cast
 _F = TypeVar("_F", bound=Callable[..., Any])
 
@@ -36,13 +37,43 @@ class _MetricsRegistry:
         with self._lock:
             entry = self._timings.setdefault(
                 label,
-                {"count": 0.0, "total_ms": 0.0, "max_ms": 0.0, "avg_ms": 0.0},
+                {
+                    "count": 0.0,
+                    "total_ms": 0.0,
+                    "max_ms": 0.0,
+                    "avg_ms": 0.0,
+                    "variance_ms": 0.0,
+                    "stddev_ms": 0.0,
+                    "_mean_ms": 0.0,
+                    "_m2": 0.0,
+                },
             )
+            entry.setdefault("variance_ms", 0.0)
+            entry.setdefault("stddev_ms", 0.0)
+            entry.setdefault("_mean_ms", 0.0)
+            entry.setdefault("_m2", 0.0)
+
             entry["count"] += 1.0
             entry["total_ms"] += float(elapsed_ms)
-            if elapsed_ms > entry["max_ms"]:
-                entry["max_ms"] = float(elapsed_ms)
-            entry["avg_ms"] = entry["total_ms"] / entry["count"] if entry["count"] else 0.0
+            current_value = float(elapsed_ms)
+            if current_value > entry["max_ms"]:
+                entry["max_ms"] = current_value
+
+            prev_mean = float(entry.get("_mean_ms", 0.0))
+            count = entry["count"]
+            delta = current_value - prev_mean
+            new_mean = prev_mean + (delta / count)
+            entry["_mean_ms"] = new_mean
+            delta2 = current_value - new_mean
+            entry["_m2"] = float(entry.get("_m2", 0.0)) + delta * delta2
+
+            if count > 1.0:
+                variance = entry["_m2"] / (count - 1.0)
+            else:
+                variance = 0.0
+            entry["variance_ms"] = variance
+            entry["stddev_ms"] = sqrt(variance) if variance > 0.0 else 0.0
+            entry["avg_ms"] = new_mean
 
     def observe_histogram(
         self,
@@ -68,7 +99,10 @@ class _MetricsRegistry:
 
     def snapshot(self, reset: bool = False) -> Dict[str, Dict[str, float]]:
         with self._lock:
-            data = {k: dict(v) for k, v in self._timings.items()}
+            data = {
+                label: {key: value for key, value in record.items() if not key.startswith("_")}
+                for label, record in self._timings.items()
+            }
             if reset:
                 self._timings.clear()
             return data

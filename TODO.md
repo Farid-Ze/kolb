@@ -22,6 +22,7 @@
 - [x]  Gunakan Enum untuk konstanta tipe gaya belajar.
 - [x]  Kumpulkan konstanta teks ke modul i18n agar penerjemahan tidak tercecer.
 - [ ]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi.
+	- Catatan 2025-11-14: rencanakan endpoint batch (teams/research) yang mengambil seluruh jawaban kelas, memuatnya ke numpy array berbentuk (n_responden, 4 mode), lalu menjalankan calculate_combination_metrics secara vectorized sebelum dipetakan kembali ke ORM.
 - [x]  Evaluasi apakah app/models/klsi.py terlalu monolitik (24385 bytes ukuran besar) – pecah menjadi submodul: scoring, norms, reports, validation.
 - [ ]  Identifikasi fungsi > 50–70 baris di [klsi.py](http://klsi.py/) untuk dipecah (Fluent Python menganjurkan fungsi kecil yang jelas).
 - [x]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
@@ -29,11 +30,11 @@
 - [x]  Terapkan strategi lazy loading untuk data norma besar.
 - [x]  Pastikan klsi.db akses pakai connection pooling sederhana (sqlite: check same-thread/uri flags).
 - [ ]  Hindari membuka koneksi baru setiap query – gunakan satu engine (SQLAlchemy) bila berkembang.
-- [ ]  Tambahkan integrasi transaction context manager agar batch operasi aman.
+- [x]  Tambahkan integrasi transaction context manager agar batch operasi aman (duplikat; sudah dipenuhi oleh konteks manajer di app/db/database.py).
 - [ ]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
 - [x]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
 - [x]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
-- [ ]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables.
+- [x]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables (StageDefinition registry + KLSI_STAGE_DEFINITIONS).
 - [ ]  Ganti indeks manual dictionary dengan operator mapping + dataclass agar mudah refactor.
 - [ ]  Pastikan [runtime.py](http://runtime.py/) memisahkan concerns: scheduling, state tracking, error handling.
 - [x]  Gunakan logging terstruktur (JSON) agar mudah analisa performa.
@@ -59,7 +60,8 @@
 - [ ]  Gunakan WeakValueDictionary bila menyimpan objek sementara yang tidak boleh memperpanjang usia.
 - [ ]  Jika ada caching gaya per demographic, gunakan key tuple (age, region, gender) secara konsisten.
 - [x]  Dokumentasikan skema DB (klsi.db) di README termasuk indeks penting.
-- [ ]  Tambahkan indeks pada kolom sering di-query (jika tabel skor / respon).
+- [x]  Tambahkan indeks pada kolom sering di-query (jika tabel skor / respon).
+	- Catatan 2025-11-14: Migrasi 0018_perf_indexes (user_responses, lfi_context_scores), 0020_add_session_lookup_indexes (percentile_scores plus related tables), dan 15984cc3761d_add_team_members_team_index (team_members.team_id) memastikan jalur laporan dan finalize memakai indeks eksplisit.
 - [ ]  Hindari SELECT * – ambil kolom spesifik untuk memotong transfer data.
 - [ ]  Jika ada normalisasi memerlukan statistik populasi, precompute saat startup.
 - [x]  Pastikan penggunaan try/except yang sempit – jangan tangkap Exception broad.
@@ -87,8 +89,8 @@
 - [x]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
 - [x]  Sediakan toggle untuk mematikan expensive debug instrumentation di production.
 - [ ]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
-- [ ]  Pastikan i18n modul memuat file JSON/YAML sekali – gunakan caching.
-- [ ]  Validasi ketersediaan locale fallback agar tidak error runtime.
+- [x]  Pastikan i18n modul memuat file JSON/YAML sekali – gunakan caching (preload_i18n_resources + JSON/YAML fixtures + tests/test_i18n_preload.py).
+- [x]  Validasi ketersediaan locale fallback agar tidak error runtime (i18n fallback chains + en/id fixtures + tests/test_i18n_preload.py).
 - [ ]  Gunakan re.compile sekali untuk regex sering dipakai (kalau ada).
 - [x]  Pastikan pemisahan domain score formula ke fungsi pure testable.
 - [ ]  Berikan margin komentar yang menjelaskan persamaan psikometrik agar maintainers paham.
@@ -106,7 +108,7 @@
 - [ ]  Pastikan error di satu step pipeline tidak menyebabkan silent failure; gunakan structured error.
 - [ ]  Implementasikan rollback jika persist gagal setelah compute (transaksi).
 - [ ]  Gunakan context manager untuk runtime session.
-- [ ]  Pastikan [database.py](http://database.py/) memiliki get_session() yang yield, tutup otomatis.
+- [x]  Pastikan [database.py](http://database.py/) memiliki get_session() yang yield, tutup otomatis.
 - [ ]  Hindari commit per operasi kecil – batch commit untuk sekumpulan record.
 - [x]  Tambahkan precondition asserts untuk internal invariant (Fluent Python menganjurkan clarity).
 - [x]  Gunakan typing.Literal untuk parameter yang hanya beberapa pilihan.
@@ -131,7 +133,7 @@
 - [ ]  Gunakan generics typing (TypeVar) pada util generic.
 - [ ]  Hindari pass di except – log minimal cause.
 - [ ]  Pastikan [metrics.py](http://metrics.py/) memisahkan data structure (model) vs collector logic.
-- [ ]  Gunakan aggregator incremental (Welford algorithm) untuk rata-rata dan variance real-time.
+- [x]  Gunakan aggregator incremental (Welford algorithm) untuk rata-rata dan variance real-time (app/core/metrics.py kini menghitung variance_ms & stddev_ms dengan Welford incremental stats + snapshot tests).
 - [ ]  Pastikan pipeline dapat diinterupsi secara bersih (raise ControlledAbort).
 - [x]  Tambahkan guard agar runtime tidak memproses dataset kosong (return early).
 - [ ]  Gunakan dictionary unpack (**kwargs) hati-hati – eksplisit parameter lebih mudah lacak.
@@ -156,8 +158,8 @@
 - [ ]  Gunakan black/ruff konsisten agar diffs kecil saat refactor struktural.
 - [x]  Pastikan import grouping mengikuti PEP8 (stdlib, third-party, local).
 - [x]  Ganti magic string nama strategi ke Enum StrategyName.
-- [ ]  Pastikan [registry.py](http://registry.py/) melempar error deskriptif kalau strategi tidak ditemukan.
-- [ ]  Tambahkan fallback default strategy aman.
+- [x]  Pastikan [registry.py](http://registry.py/) melempar error deskriptif kalau strategi tidak ditemukan.
+- [x]  Tambahkan fallback default strategy aman.
 - [ ]  Gunakan caching layered: memory → (nanti) external (Redis) jika skala membesar.
 - [ ]  Tambahkan safety rate limit untuk operasi heavy (avoid runaway).
 - [ ]  Gunakan psutil (opsional) untuk memonitor memory jika pipeline memproses batch besar.

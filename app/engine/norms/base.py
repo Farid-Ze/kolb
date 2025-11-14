@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
+from app.core.sentinels import UNKNOWN
 from app.data.norms import APPENDIX_TABLES, AppendixTable, lookup_lfi
 
 _NORM_VERSION_DELIM = "|"
@@ -59,7 +60,7 @@ class InMemoryNormRepository:
         if scale == "LFI":
             value = lookup_lfi(raw / 100 if isinstance(raw, (int, float)) else raw)
             return value, "Appendix:LFI", False
-        return None, "Unknown", False
+        return None, UNKNOWN.capitalize(), False
 
     @staticmethod
     def _is_truncated(raw: int, table: AppendixTable) -> bool:
