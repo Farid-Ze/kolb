@@ -9,7 +9,7 @@ from app.db.repositories.base import Repository
 from app.models.klsi.learning import BackupLearningStyle, LearningStyleType
 
 
-@dataclass
+@dataclass(slots=True)
 class StyleRepository(Repository[Session]):
     """Repository helpers for learning style metadata and contextual backups."""
 

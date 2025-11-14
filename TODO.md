@@ -20,7 +20,7 @@
 - [x]  Pastikan schemas Pydantic (jika ada) memisahkan input (WriteModel) dan output (ReadModel).
 - [x]  Implementasikan explicit error classes (sudah ada? tambah yang lebih granular) di level domain (Misal InvalidAssessmentData).
 - [x]  Gunakan Enum untuk konstanta tipe gaya belajar.
-- [ ]  Kumpulkan konstanta teks ke modul i18n agar penerjemahan tidak tercecer.
+- [x]  Kumpulkan konstanta teks ke modul i18n agar penerjemahan tidak tercecer.
 - [ ]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi.
 - [x]  Evaluasi apakah app/models/klsi.py terlalu monolitik (24385 bytes ukuran besar) – pecah menjadi submodul: scoring, norms, reports, validation.
 - [ ]  Identifikasi fungsi > 50–70 baris di [klsi.py](http://klsi.py/) untuk dipecah (Fluent Python menganjurkan fungsi kecil yang jelas).
@@ -31,16 +31,16 @@
 - [ ]  Hindari membuka koneksi baru setiap query – gunakan satu engine (SQLAlchemy) bila berkembang.
 - [ ]  Tambahkan integrasi transaction context manager agar batch operasi aman.
 - [ ]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
-- [ ]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
+- [x]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
 - [x]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
 - [ ]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables.
 - [ ]  Ganti indeks manual dictionary dengan operator mapping + dataclass agar mudah refactor.
 - [ ]  Pastikan [runtime.py](http://runtime.py/) memisahkan concerns: scheduling, state tracking, error handling.
-- [ ]  Gunakan logging terstruktur (JSON) agar mudah analisa performa.
-- [ ]  Tambahkan correlation id (uuid) per eksekusi assessment di log.
-- [ ]  Definisikan level log: DEBUG untuk detail scoring, INFO untuk hasil, WARNING untuk outlier.
+- [x]  Gunakan logging terstruktur (JSON) agar mudah analisa performa.
+- [x]  Tambahkan correlation id (uuid) per eksekusi assessment di log.
+- [x]  Definisikan level log: DEBUG untuk detail scoring, INFO untuk hasil, WARNING untuk outlier.
 - [ ]  Hindari logging di dalam tight loops kecuali dikondisikan.
-- [ ]  Gunakan monotonic time (time.perf_counter) untuk akurasi profil alih-alih time.time.
+- [x]  Gunakan monotonic time (time.perf_counter) untuk akurasi profil alih-alih time.time.
 - [ ]  Simpan metrics last run di core/metrics.py (misal dictionary global thread-safe) untuk endpoint status.
 - [ ]  Terapkan strategi precomputation untuk bobot per gaya belajar.
 - [ ]  Kaji apakah normalization selalu memanggil fungsi expensive – cache hasil per responden jika pola sama.

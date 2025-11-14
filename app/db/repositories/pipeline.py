@@ -9,7 +9,7 @@ from app.db.repositories.base import Repository
 from app.models.klsi.instrument import Instrument, ScoringPipeline, ScoringPipelineNode
 
 
-@dataclass
+@dataclass(slots=True)
 class InstrumentRepository(Repository[Session]):
     """Repository for accessing instrument metadata."""
 
@@ -22,7 +22,7 @@ class InstrumentRepository(Repository[Session]):
         return query.first()
 
 
-@dataclass
+@dataclass(slots=True)
 class PipelineRepository(Repository[Session]):
     """Repository for scoring pipeline operations."""
 

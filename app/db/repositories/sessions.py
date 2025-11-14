@@ -13,7 +13,7 @@ from app.models.klsi.enums import SessionStatus
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(slots=True)
 class SessionRepository(Repository[Session]):
     """Repository for assessment session access patterns."""
 

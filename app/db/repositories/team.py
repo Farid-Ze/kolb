@@ -18,7 +18,7 @@ from app.models.klsi.learning import (
 from app.models.klsi.team import Team, TeamAssessmentRollup, TeamMember
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamSessionRow:
     session_id: int
     session_date: Optional[date]
@@ -26,7 +26,7 @@ class TeamSessionRow:
     style_name: Optional[str]
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamRepository(Repository[Session]):
     """Repository for team CRUD operations."""
 
@@ -67,7 +67,7 @@ class TeamRepository(Repository[Session]):
         self.db.delete(team)
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamMemberRepository(Repository[Session]):
     """Repository for team membership operations."""
 
@@ -111,7 +111,7 @@ class TeamMemberRepository(Repository[Session]):
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamRollupRepository(Repository[Session]):
     """Repository for team rollup analytics."""
 
@@ -165,7 +165,7 @@ class TeamRollupRepository(Repository[Session]):
         return roll
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamAnalyticsRepository(Repository[Session]):
     """Repository exposing analytics-oriented queries for teams."""
 
