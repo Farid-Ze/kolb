@@ -26,7 +26,7 @@ class TeamSessionRow:
     style_name: Optional[str]
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, repr=True)
 class TeamRepository(Repository[Session]):
     """Repository for team CRUD operations."""
 
@@ -67,7 +67,7 @@ class TeamRepository(Repository[Session]):
         self.db.delete(team)
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, repr=True)
 class TeamMemberRepository(Repository[Session]):
     """Repository for team membership operations."""
 
@@ -111,7 +111,7 @@ class TeamMemberRepository(Repository[Session]):
         )
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, repr=True)
 class TeamRollupRepository(Repository[Session]):
     """Repository for team rollup analytics."""
 
@@ -165,7 +165,7 @@ class TeamRollupRepository(Repository[Session]):
         return roll
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, repr=True)
 class TeamAnalyticsRepository(Repository[Session]):
     """Repository exposing analytics-oriented queries for teams."""
 

@@ -19,7 +19,7 @@ class NormativeConversionRow:
     percentile: float
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, repr=True)
 class NormativeConversionRepository(Repository[Session]):
     """Repository for normative conversion lookups."""
 

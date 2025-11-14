@@ -114,7 +114,7 @@
 - [ ]  Tandai modul yang intensif CPU agar dapat dipertimbangkan multiprocessing (jika benar-benar berat).
 - [ ]  Pastikan i/o file besar (norms) dibaca streaming jika ukuran masif.
 - [ ]  Gunakan functools.singledispatch untuk variasi tipe input scoring.
-- [ ]  Tambahkan **repr** ringkas di dataclass untuk debugging cepat.
+- [x]  Tambahkan **repr** ringkas di dataclass untuk debugging cepat.
 - [ ]  Buat util profiling wrapper yang log durasi > threshold (slow operation warning).
 - [ ]  Gunakan exponential backoff kalau nanti ada eksternal API (future).
 - [ ]  Pastikan test mencakup equivalence classes (skor sangat tinggi, rendah, borderline).
@@ -127,7 +127,7 @@
 - [ ]  Buat modul interop untuk export JSON/CSV agar format rapi & konsisten.
 - [ ]  Pastikan schema output testable (snapshot testing).
 - [ ]  Gunakan classmethod alternative constructor mempermudah pembuatan object dari DB row.
-- [ ]  Pastikan error path mencantumkan id responden untuk trace.
+- [x]  Pastikan error path mencantumkan id responden untuk trace.
 - [ ]  Gunakan generics typing (TypeVar) pada util generic.
 - [ ]  Hindari pass di except – log minimal cause.
 - [ ]  Pastikan [metrics.py](http://metrics.py/) memisahkan data structure (model) vs collector logic.
@@ -164,7 +164,7 @@
 - [ ]  Pastikan error path tidak swallow Traceback – log stack untuk debugging.
 - [ ]  Gunakan assert untuk in-house invariants (non-user facing) + ubah ke if raise jika butuh runtime safety.
 - [ ]  Dokumentasikan kompleksitas per fungsi kritis (komentar O(n)).
-- [ ]  Gunakan named logger (logging.getLogger("kolb.engine")) daripada root logger.
+- [x]  Gunakan named logger (logging.getLogger("kolb.engine")) daripada root logger.
 - [ ]  Centralize random seed (jika perlu) untuk reproducibility.
 - [ ]  Hindari dynamic attribute injection (setattr) kecuali benar-benar perlu.
 - [ ]  Berikan upgrade path: modul migrations untuk perubahan schema database.
