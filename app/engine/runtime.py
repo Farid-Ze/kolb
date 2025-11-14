@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from hashlib import sha256
 from time import perf_counter
-from typing import Callable
+from typing import Any, Callable
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -275,6 +275,7 @@ class EngineRuntime:
                 )
 
             scorer = self._registry.scorer(self._instrument_id(session))
+            scorer_result: dict[str, Any] = {"ok": False}
             started = perf_counter()
             try:
                 # Atomic transaction: finalize artifacts + status update together
@@ -314,6 +315,16 @@ class EngineRuntime:
                         }
                     },
                 )
+                scorer_result = {
+                    "ok": False,
+                    "issues": [
+                        {
+                            "code": "ENGINE_RUNTIME_ERROR",
+                            "detail": str(exc),
+                        }
+                    ],
+                    "diagnostics": {"exception": str(exc)},
+                }
             duration_ms = (perf_counter() - started) * 1000.0
             override = skip_validation and not validation.ready
             payload = build_finalize_payload(scorer_result, validation, override=override)
@@ -398,6 +409,7 @@ class EngineRuntime:
                 )
 
             scorer = self._registry.scorer(self._instrument_id(session))
+            scorer_result: dict[str, Any] = {"ok": False}
             started = perf_counter()
             try:
                 scorer_result = scorer.finalize(db, session_id, skip_checks=skip_validation)
@@ -438,6 +450,16 @@ class EngineRuntime:
                         }
                     },
                 )
+                scorer_result = {
+                    "ok": False,
+                    "issues": [
+                        {
+                            "code": "ENGINE_RUNTIME_ERROR",
+                            "detail": str(exc),
+                        }
+                    ],
+                    "diagnostics": {"exception": str(exc)},
+                }
 
             override = skip_validation and not validation.ready
             payload = build_finalize_payload(scorer_result, validation, override=override)

@@ -8,11 +8,27 @@ This test validates:
 4. Mixed-provenance and near-boundary diagnostics work correctly
 """
 
+from typing import Any, Protocol, runtime_checkable, cast
+
 from sqlalchemy.orm import Session
 from app.models.klsi.learning import LearningStyleType
 from app.services.seeds import seed_learning_styles, STYLE_WINDOWS
 from app.i18n.id_messages import ReportBalanceMessages
 from app.engine.norms.factory import clear_norm_db_cache, _make_cached_db_lookup
+
+
+@runtime_checkable
+class CacheAwareCallable(Protocol):
+    """Protocol exposing functools.lru_cache-style helpers."""
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - structural only
+        ...
+
+    def cache_info(self) -> Any:  # pragma: no cover - structural only
+        ...
+
+    def clear_cache(self) -> None:  # pragma: no cover - structural only
+        ...
 
 
 def test_learning_style_types_seeded_with_windows(session: Session):
@@ -139,7 +155,7 @@ def test_style_cuts_are_helpers_only():
 def test_norm_cache_integration(session: Session):
     """Verify that norm cache can be created and invalidated properly."""
     # Create a cached DB lookup
-    db_lookup = _make_cached_db_lookup(session)
+    db_lookup = cast(CacheAwareCallable, _make_cached_db_lookup(session))
     
     # Verify it has cache methods
     assert hasattr(db_lookup, 'clear_cache'), "Should have clear_cache method"

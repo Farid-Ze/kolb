@@ -156,4 +156,5 @@ def finalize_session(db: Session, session_id: int, *, skip_checks: bool = False)
         "percentiles": ctx["percentiles"]["entity"],
         "delta": ctx.get("delta"),
         "artifacts": artifacts,
+        "validation": outcome.get("validation"),
     }

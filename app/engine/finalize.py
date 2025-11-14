@@ -107,30 +107,6 @@ def finalize_assessment(
             # Always ensure ipsative core validation runs (engine-agnostic guard).
             completeness = check_session_complete(db, session_id)
             validation_result.structural["item_completeness"] = completeness
-                    pipeline_tokens = _parse_pipeline_version(getattr(session, "pipeline_version", None))
-                    if pipeline_tokens and session.instrument_id:
-                        pipeline_code, pipeline_version = pipeline_tokens
-                        pipeline = pipeline_repo.get_by_code_version(
-                            session.instrument_id,
-                            pipeline_code,
-                            pipeline_version,
-                            with_nodes=True,
-                        )
-                    if pipeline_tokens and (not pipeline or not getattr(pipeline, "nodes", None)):
-                        merged = dict(validation_result.provenance)
-                        merged["pipeline_warning"] = EngineMessages.PIPELINE_NO_NODES
-                        validation_result.provenance = merged
-                    elif pipeline and getattr(pipeline, "nodes", None):
-                        try:
-                            definition = resolve_klsi_pipeline_from_nodes(list(pipeline.nodes))
-                            # Execute core scoring stages; percentiles and longitudinal
-                            # analytics remain part of the strategy implementation.
-                            definition.execute(db, session_id)
-                        except ValueError as exc:
-                            merged = dict(validation_result.provenance)
-                            merged["pipeline_warning"] = EngineMessages.PIPELINE_UNSUPPORTED_NODE_KEY
-                            merged["pipeline_error"] = str(exc)
-                            validation_result.provenance = merged
         ctx = ScoringContext()
         artifact_snapshots: dict[str, dict] = {}
 
@@ -157,15 +133,20 @@ def finalize_assessment(
             # existing behavior of strategy.finalize while making the
             # orchestration declarative and engine-driven.
             pipeline = None
-            if session.pipeline_id:
-                pipeline = pipeline_repo.get(
-                    session.pipeline_id,
-                    session.instrument_id,  # type: ignore[arg-type]
+            pipeline_tokens = _parse_pipeline_version(getattr(session, "pipeline_version", None))
+            if pipeline_tokens and session.instrument_id:
+                pipeline_code, pipeline_version = pipeline_tokens
+                pipeline = pipeline_repo.get_by_code_version(
+                    session.instrument_id,
+                    pipeline_code,
+                    pipeline_version,
                     with_nodes=True,
                 )
 
-            if session.pipeline_id and (not pipeline or not getattr(pipeline, "nodes", None)):
-                validation_result.provenance["pipeline_warning"] = EngineMessages.PIPELINE_NO_NODES
+            if pipeline_tokens and (not pipeline or not getattr(pipeline, "nodes", None)):
+                merged = dict(validation_result.provenance)
+                merged["pipeline_warning"] = EngineMessages.PIPELINE_NO_NODES
+                validation_result.provenance = merged
             elif pipeline and getattr(pipeline, "nodes", None):
                 try:
                     definition = resolve_klsi_pipeline_from_nodes(list(pipeline.nodes))
@@ -173,8 +154,10 @@ def finalize_assessment(
                     # analytics remain part of the strategy implementation.
                     definition.execute(db, session_id)
                 except ValueError as exc:
-                    validation_result.provenance["pipeline_warning"] = EngineMessages.PIPELINE_UNSUPPORTED_NODE_KEY
-                    validation_result.provenance["pipeline_error"] = str(exc)
+                    merged = dict(validation_result.provenance)
+                    merged["pipeline_warning"] = EngineMessages.PIPELINE_UNSUPPORTED_NODE_KEY
+                    merged["pipeline_error"] = str(exc)
+                    validation_result.provenance = merged
             payload = strategy.finalize(db, session_id)
             scale = payload["scale"]
             combo = payload["combo"]
@@ -267,8 +250,9 @@ def finalize_assessment(
             for step in assessment.steps:
                 for dep in getattr(step, "depends_on", []):
                     if dep not in artifact_snapshots and dep not in ctx:
-                        from app.i18n.id_messages import EngineMessages
-                        raise RuntimeError(EngineMessages.DEPENDENCY_NOT_AVAILABLE.format(dep=dep, step=step.name))
+                        raise RuntimeError(
+                            EngineMessages.DEPENDENCY_NOT_AVAILABLE.format(dep=dep, step=step.name)
+                        )
                 step.run(db, session_id, ctx)
                 db.flush()
                 if step.name in ctx and isinstance(ctx[step.name], dict):

@@ -67,7 +67,7 @@ def upgrade() -> None:
     # ---- normative_conversion_table ----
     with op.batch_alter_table("normative_conversion_table") as batch_op:
         batch_op.add_column(sa.Column("norm_version", sa.String(length=40), nullable=False, server_default=_DEFAULT_VERSION))
-    op.execute(
+    bind.execute(
         sa.text(
             "UPDATE normative_conversion_table SET norm_version = :version WHERE norm_version IS NULL"
         ),

@@ -1,5 +1,7 @@
 """Tests for registry improvements."""
 
+from typing import Any, MutableMapping, cast
+
 import pytest
 from app.engine.strategy_registry import (
     register_strategy,
@@ -9,19 +11,16 @@ from app.engine.strategy_registry import (
     snapshot_strategies,
 )
 from app.engine.strategies.base import ScoringStrategy
+from sqlalchemy.orm import Session
 
 
 class MockStrategy(ScoringStrategy):
     """Mock strategy for testing."""
-    
+
     def __init__(self, code: str):
-        self._code = code
-    
-    @property
-    def code(self) -> str:
-        return self._code
-    
-    def finalize(self, db, session_id, *, skip_checks=False):
+        self.code = code
+
+    def finalize(self, db: Session, session_id: int, *, skip_checks: bool = False) -> dict[str, bool]:  # type: ignore[override]
         return {"ok": True}
 
 
@@ -59,8 +58,9 @@ def test_snapshot_strategies():
     assert snapshot["TEST_SNAPSHOT"] is mock
     
     # Snapshot should be read-only (MappingProxyType)
+    immutable_snapshot = cast(MutableMapping[str, Any], snapshot)
     with pytest.raises(TypeError):
-        snapshot["NEW_KEY"] = mock
+        immutable_snapshot["NEW_KEY"] = mock
 
 
 def test_default_strategy_fallback():

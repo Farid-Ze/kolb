@@ -1,5 +1,7 @@
 """Tests for database connection pooling configuration."""
 
+from typing import Callable, cast
+
 import pytest
 from app.core.config import settings
 from app.db.database import engine
@@ -9,9 +11,11 @@ def test_connection_pool_configured():
     """Test that connection pool settings are applied."""
     # Check that pool settings are configured
     pool = engine.pool
-    
-    # Verify pool size is set
-    assert pool.size() >= 0  # Pool is created
+
+    size_fn = getattr(pool, "size", None)
+    assert callable(size_fn), "Pool should expose size()"
+    size_callable = cast(Callable[[], int], size_fn)
+    assert size_callable() >= 0  # Pool is created
     
     # Settings should be loaded from config
     assert settings.db_pool_size >= 1

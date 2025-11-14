@@ -20,6 +20,7 @@ from app.engine.runtime import EngineRuntime
 from app.services.scoring import finalize_session
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 from app.db.repositories.pipeline import PipelineRepository
+from app.i18n.id_messages import EngineMessages
 
 
 def _db_session():
@@ -148,9 +149,6 @@ def test_finalize_delegates_to_registered_strategy():
         assert instrument is not None
         pipelines = pipeline_repo.list_with_nodes(instrument.id)
         assert pipelines, "Expected at least one pipeline for KLSI instrument"
-        active = next((p for p in pipelines if p.is_active), pipelines[0])
-        session.pipeline_id = active.id
-        db.flush()
 
         class TrackingStrategy(KLSI4Strategy):
             def __init__(self) -> None:
@@ -253,7 +251,14 @@ def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
             nodes = []
 
         class DummyRepo(PipelineRepository):
-            def get(self, pipeline_id, instrument_id, *, with_nodes: bool = False):  # type: ignore[override]
+            def get_by_code_version(  # type: ignore[override]
+                self,
+                instrument_id,
+                pipeline_code,
+                pipeline_version,
+                *,
+                with_nodes: bool = False,
+            ):
                 return DummyPipeline()
 
         # Patch PipelineRepository used inside finalize_assessment
@@ -261,12 +266,9 @@ def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
 
         result = finalize_session(db, session.id)
         assert result["ok"] is True
-        # diagnostics are exposed via validation_result.provenance under "pipeline_warning"
         diagnostics = result.get("validation", {}) or result.get("diagnostics", {})
-        # Depending on how finalize_session exposes ValidationResult, this may be nested;
-        # we only assert that a pipeline warning key exists somewhere in the top-level result.
-        joined = json.dumps(result, default=str)
-        assert "PIPELINE_NO_NODES" in joined
+        provenance = diagnostics.get("provenance") or {}
+        assert provenance.get("pipeline_warning") == EngineMessages.PIPELINE_NO_NODES
     finally:
         db.close()
 

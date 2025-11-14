@@ -1,11 +1,16 @@
 """Tests for streaming pipeline execution."""
 
+from typing import cast
+
 import pytest
 from sqlalchemy.orm import Session
 from app.engine.pipelines import (
     PipelineDefinition,
     execute_pipeline_streaming,
 )
+
+
+_DUMMY_SESSION = cast(Session, None)
 
 
 class MockStage:
@@ -36,7 +41,7 @@ def test_pipeline_execute_streaming():
         stages=(stage1, stage2)
     )
     
-    results = list(pipeline.execute_streaming(db=None, session_id=1))
+    results = list(pipeline.execute_streaming(db=_DUMMY_SESSION, session_id=1))
     
     # Should yield 2 results
     assert len(results) == 2
@@ -64,7 +69,7 @@ def test_pipeline_execute_streaming_error():
     
     results = []
     with pytest.raises(ValueError):
-        for result in pipeline.execute_streaming(db=None, session_id=1):
+        for result in pipeline.execute_streaming(db=_DUMMY_SESSION, session_id=1):
             results.append(result)
     
     # Should have stage1 success and failing_stage error
@@ -85,7 +90,7 @@ def test_execute_pipeline_streaming_multiple_sessions():
     )
     
     session_ids = [101, 102, 103]
-    results = list(execute_pipeline_streaming(pipeline, None, session_ids))
+    results = list(execute_pipeline_streaming(pipeline, _DUMMY_SESSION, session_ids))
     
     # Should process all sessions
     assert len(results) == 3
@@ -118,7 +123,7 @@ def test_execute_pipeline_streaming_memory_efficiency():
     
     # Process one at a time (generator doesn't store all)
     processed = 0
-    for session_id, result in execute_pipeline_streaming(pipeline, None, session_ids):
+    for session_id, result in execute_pipeline_streaming(pipeline, _DUMMY_SESSION, session_ids):
         assert result["ok"]
         assert result["data"] == "x" * 1000
         processed += 1
@@ -145,7 +150,7 @@ def test_execute_pipeline_streaming_with_errors():
     )
     
     session_ids = [101, 102, 103]
-    results = list(execute_pipeline_streaming(pipeline, None, session_ids))
+    results = list(execute_pipeline_streaming(pipeline, _DUMMY_SESSION, session_ids))
     
     # All sessions attempted
     assert len(results) == 3

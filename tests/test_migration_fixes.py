@@ -7,9 +7,9 @@ This test validates:
 3. Migration 0020 guards PostgreSQL-specific postgresql_include parameter
 """
 
-import sys
-import os
 from pathlib import Path
+
+import pytest
 
 
 def test_env_py_has_sys_path_injection():

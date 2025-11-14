@@ -1,8 +1,13 @@
 """Tests for lazy norm loader functionality."""
 
+from typing import cast
+
 import pytest
 from sqlalchemy.orm import Session
 from app.engine.norms.lazy_loader import LazyNormLoader, NormDataSource
+
+
+_DUMMY_SESSION = cast(Session, None)
 
 
 class MockNormSource:
@@ -37,12 +42,12 @@ def test_lazy_loader_basic_lookup():
     loader = LazyNormLoader(source, chunk_size=50, max_cache_entries=10)
     
     # First lookup - should trigger load
-    result = loader.lookup(None, "Total", "CE", 28)
+    result = loader.lookup(_DUMMY_SESSION, "Total", "CE", 28)
     assert result == 70.0  # 28 * 2.5
     assert source.fetch_count == 1
     
     # Second lookup - should hit cache
-    result2 = loader.lookup(None, "Total", "CE", 30)
+    result2 = loader.lookup(_DUMMY_SESSION, "Total", "CE", 30)
     assert result2 == 75.0  # 30 * 2.5
     assert source.fetch_count == 1  # No additional fetch
     
@@ -59,10 +64,10 @@ def test_lazy_loader_cache_miss():
     loader = LazyNormLoader(source, chunk_size=50, max_cache_entries=10)
     
     # Lookup in CE scale
-    loader.lookup(None, "Total", "CE", 28)
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 28)
     
     # Lookup in RO scale - different cache entry
-    result = loader.lookup(None, "Total", "RO", 28)
+    result = loader.lookup(_DUMMY_SESSION, "Total", "RO", 28)
     assert result == 56.0  # 28 * 2.0
     assert source.fetch_count == 2  # Two different chunks loaded
 
@@ -74,11 +79,11 @@ def test_lazy_loader_cache_eviction():
     
     # Fill cache with 2 entries
     loader.lookup(None, "Total", "CE", 28)
-    loader.lookup(None, "Total", "RO", 28)
+    loader.lookup(_DUMMY_SESSION, "Total", "RO", 28)
     
     # Add third entry - should evict oldest (CE)
     source._data[("Total", "AC")] = [(i, float(i * 3.0)) for i in range(12, 49)]
-    loader.lookup(None, "Total", "AC", 28)
+    loader.lookup(_DUMMY_SESSION, "Total", "AC", 28)
     
     assert loader.get_stats()["cache_size"] == 2
     assert source.fetch_count == 3
@@ -90,7 +95,7 @@ def test_lazy_loader_not_found():
     loader = LazyNormLoader(source, chunk_size=50, max_cache_entries=10)
     
     # Lookup score outside range
-    result = loader.lookup(None, "Total", "CE", 999)
+    result = loader.lookup(_DUMMY_SESSION, "Total", "CE", 999)
     assert result is None
 
 
@@ -99,7 +104,7 @@ def test_lazy_loader_clear_cache():
     source = MockNormSource()
     loader = LazyNormLoader(source, chunk_size=50, max_cache_entries=10)
     
-    loader.lookup(None, "Total", "CE", 28)
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 28)
     assert loader.get_stats()["cache_size"] == 1
     
     loader.clear_cache()
@@ -115,11 +120,11 @@ def test_lazy_loader_hit_rate():
     loader = LazyNormLoader(source, chunk_size=50, max_cache_entries=10)
     
     # 1 miss (initial load)
-    loader.lookup(None, "Total", "CE", 28)
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 28)
     # 3 hits (same chunk)
-    loader.lookup(None, "Total", "CE", 29)
-    loader.lookup(None, "Total", "CE", 30)
-    loader.lookup(None, "Total", "CE", 31)
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 29)
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 30)
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 31)
     
     stats = loader.get_stats()
     assert stats["hits"] == 3

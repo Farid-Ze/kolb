@@ -114,7 +114,10 @@ def upgrade() -> None:
             created_at=now,
         )
         pipeline_result = connection.execute(insert_pipeline)
-        pipeline_id = pipeline_result.inserted_primary_key[0]
+        inserted_pk = pipeline_result.inserted_primary_key
+        if not inserted_pk:
+            raise RuntimeError("Failed to insert default scoring pipeline")
+        pipeline_id = inserted_pk[0]
 
         nodes = [
             {

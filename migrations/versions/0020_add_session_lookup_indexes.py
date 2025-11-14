@@ -40,15 +40,16 @@ def upgrade() -> None:
     # Index on percentile_scores.session_id
     # Unique constraint already exists, but explicit index improves portability
     # Use postgresql_include only on PostgreSQL (not supported on SQLite)
-    index_kwargs = {"unique": True}
+    include_columns: list[str] | None = None
     if dialect == "postgresql":
-        index_kwargs["postgresql_include"] = ["norm_group_used"]  # Include for index-only scans
-    
+        include_columns = ["norm_group_used"]  # Include for index-only scans
+
     op.create_index(
         "ix_percentile_scores_session_id",
         "percentile_scores",
         ["session_id"],
-        **index_kwargs,
+        unique=True,
+        postgresql_include=include_columns,
     )
     
     # Index on combination_scores.session_id

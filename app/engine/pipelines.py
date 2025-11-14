@@ -1,15 +1,108 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.klsi.instrument import ScoringPipeline
+from app.models.klsi.learning import CombinationScore, ScaleScore
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
+    from app.models.klsi.instrument import ScoringPipelineNode
+
+
+def _require_scale_score(db: Session, session_id: int) -> ScaleScore:
+    scale = (
+        db.query(ScaleScore)
+        .filter(ScaleScore.session_id == session_id)
+        .one_or_none()
+    )
+    if not scale:
+        raise ValueError(f"ScaleScore missing for session_id={session_id}")
+    return scale
+
+
+def _require_combination_score(db: Session, session_id: int) -> CombinationScore:
+    combo = (
+        db.query(CombinationScore)
+        .filter(CombinationScore.session_id == session_id)
+        .one_or_none()
+    )
+    if not combo:
+        raise ValueError(f"CombinationScore missing for session_id={session_id}")
+    return combo
+
+
+def _stage_raw_scales(db: Session, session_id: int) -> dict[str, Any]:
+    from app.assessments.klsi_v4.logic import compute_raw_scale_scores
+
+    scale = compute_raw_scale_scores(db, session_id)
+    return {
+        "raw_modes": {
+            "CE": scale.CE_raw,
+            "RO": scale.RO_raw,
+            "AC": scale.AC_raw,
+            "AE": scale.AE_raw,
+            "entity": scale,
+        }
+    }
+
+
+def _stage_combinations(db: Session, session_id: int) -> dict[str, Any]:
+    from app.assessments.klsi_v4.logic import compute_combination_scores
+
+    scale = _require_scale_score(db, session_id)
+    combo = compute_combination_scores(db, scale)
+    return {
+        "combination": {
+            "ACCE": combo.ACCE_raw,
+            "AERO": combo.AERO_raw,
+            "assimilation_accommodation": combo.assimilation_accommodation,
+            "converging_diverging": combo.converging_diverging,
+            "balance_acce": combo.balance_acce,
+            "balance_aero": combo.balance_aero,
+            "entity": combo,
+        }
+    }
+
+
+def _stage_style_assignment(db: Session, session_id: int) -> dict[str, Any]:
+    from app.assessments.klsi_v4.logic import assign_learning_style
+
+    combo = _require_combination_score(db, session_id)
+    style, intensity = assign_learning_style(db, combo)
+    return {
+        "style": {
+            "primary_style_type_id": style.primary_style_type_id,
+            "ACCE": style.ACCE_raw,
+            "AERO": style.AERO_raw,
+            "intensity": intensity.as_dict(),
+            "intensity_metrics": intensity,
+            "entity": style,
+        }
+    }
+
+
+def _stage_lfi(db: Session, session_id: int) -> dict[str, Any]:
+    from app.assessments.klsi_v4.logic import compute_lfi
+
+    lfi = compute_lfi(db, session_id)
+    return {
+        "lfi": {
+            "score": lfi.LFI_score,
+            "W": lfi.W_coefficient,
+            "entity": lfi,
+        }
+    }
+
+
+_stage_raw_scales.__name__ = "compute_raw_scale_scores"
+_stage_combinations.__name__ = "compute_combination_scores"
+_stage_style_assignment.__name__ = "assign_learning_style"
+_stage_lfi.__name__ = "compute_lfi"
 
 
 __all__ = [
@@ -24,21 +117,9 @@ __all__ = [
 
 
 class PipelineStage(Protocol):
-    """Protocol for pipeline stage callables.
-    
-    Each stage is a callable that takes db and session_id and returns a result dict.
-    """
-    
+    """Protocol for pipeline stage callables returning context fragments."""
+
     def __call__(self, db: Session, session_id: int) -> dict[str, Any]:
-        """Execute pipeline stage.
-        
-        Args:
-            db: Database session.
-            session_id: Assessment session ID.
-            
-        Returns:
-            Result dictionary with stage outcomes.
-        """
         ...
 
 
@@ -188,19 +269,11 @@ def _get_klsi_stage_mapping() -> dict[str, PipelineStage]:
     and the concrete callable implementations in KLSI logic.
     """
 
-    # Lazy import to avoid circular dependencies at module import time
-    from app.assessments.klsi_v4.logic import (
-        assign_learning_style,
-        compute_combination_scores,
-        compute_lfi,
-        compute_raw_scale_scores,
-    )
-
     return {
-        "RAW_SCALES": compute_raw_scale_scores,
-        "COMBINATIONS": compute_combination_scores,
-        "STYLE_ASSIGNMENT": assign_learning_style,
-        "LFI": compute_lfi,
+        "RAW_SCALES": _stage_raw_scales,
+        "COMBINATIONS": _stage_combinations,
+        "STYLE_ASSIGNMENT": _stage_style_assignment,
+        "LFI": _stage_lfi,
     }
 
 

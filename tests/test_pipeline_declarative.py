@@ -1,8 +1,13 @@
 """Tests for declarative pipeline functionality."""
 
+from typing import cast
+
 import pytest
 from sqlalchemy.orm import Session
-from app.engine.pipelines import PipelineDefinition, PipelineStage
+from app.engine.pipelines import PipelineDefinition
+
+
+_DUMMY_SESSION = cast(Session, None)
 
 
 class MockStage:
@@ -52,7 +57,7 @@ def test_pipeline_execution_sequential():
     )
     
     # Mock db and session_id
-    result = pipeline.execute(db=None, session_id=123)
+    result = pipeline.execute(db=_DUMMY_SESSION, session_id=123)
     
     # Both stages should have been called
     assert stage1.called
@@ -81,7 +86,7 @@ def test_pipeline_execution_error_handling():
     )
     
     with pytest.raises(ValueError):
-        pipeline.execute(db=None, session_id=123)
+        pipeline.execute(db=_DUMMY_SESSION, session_id=123)
 
 
 def test_pipeline_immutability():
@@ -96,7 +101,7 @@ def test_pipeline_immutability():
     
     # Should not be able to modify frozen dataclass
     with pytest.raises(AttributeError):
-        pipeline.code = "MODIFIED"
+        setattr(pipeline, "code", "MODIFIED")
 
 
 def test_get_klsi_pipeline_definition():

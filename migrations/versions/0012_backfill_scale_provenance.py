@@ -6,6 +6,7 @@ Create Date: 2025-11-10
 """
 from __future__ import annotations
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from alembic import op
@@ -33,7 +34,7 @@ def downgrade() -> None:
     bind = op.get_bind()
     session = Session(bind=bind)
     try:
-        session.execute("DELETE FROM scale_provenance")
+        session.execute(text("DELETE FROM scale_provenance"))
         session.commit()
     finally:
         session.close()
