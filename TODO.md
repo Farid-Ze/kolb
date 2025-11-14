@@ -21,8 +21,9 @@
 - [x]  Implementasikan explicit error classes (sudah ada? tambah yang lebih granular) di level domain (Misal InvalidAssessmentData).
 - [x]  Gunakan Enum untuk konstanta tipe gaya belajar.
 - [x]  Kumpulkan konstanta teks ke modul i18n agar penerjemahan tidak tercecer.
-- [ ]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi.
+- [x]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi (app/services/batch_scores.py + tests/test_batch_scores.py).
 	- Catatan 2025-11-14: rencanakan endpoint batch (teams/research) yang mengambil seluruh jawaban kelas, memuatnya ke numpy array berbentuk (n_responden, 4 mode), lalu menjalankan calculate_combination_metrics secara vectorized sebelum dipetakan kembali ke ORM.
+	- Rencana 2025-11-14 2: batching service `app/services/batch_scores.py` memanggil util numpy `vectorized_combination_metrics(modes: np.ndarray) -> np.ndarray` yang menghasilkan kolom ACCE/AERO/balance sekaligus; hasil kemudian dipetakan ke ORM via dataclass adaptor sebelum persist/report. Endpoint `/teams/{id}/batch-scores` dan `/research/batches` akan memakai jalur ini untuk menghindari loop Python per responden.
 - [x]  Evaluasi apakah app/models/klsi.py terlalu monolitik (24385 bytes ukuran besar) – pecah menjadi submodul: scoring, norms, reports, validation.
 - [ ]  Identifikasi fungsi > 50–70 baris di [klsi.py](http://klsi.py/) untuk dipecah (Fluent Python menganjurkan fungsi kecil yang jelas).
 - [x]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
@@ -31,7 +32,7 @@
 - [x]  Pastikan klsi.db akses pakai connection pooling sederhana (sqlite: check same-thread/uri flags).
 - [ ]  Hindari membuka koneksi baru setiap query – gunakan satu engine (SQLAlchemy) bila berkembang.
 - [x]  Tambahkan integrasi transaction context manager agar batch operasi aman (duplikat; sudah dipenuhi oleh konteks manajer di app/db/database.py).
-- [ ]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
+- [x]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
 - [x]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
 - [x]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
 - [x]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables (StageDefinition registry + KLSI_STAGE_DEFINITIONS).
@@ -47,7 +48,7 @@
 - [ ]  Kaji apakah normalization selalu memanggil fungsi expensive – cache hasil per responden jika pola sama.
 - [x]  Gunakan Pydantic model untuk input instrument (jawaban pengguna) – memudahkan validasi.
 - [ ]  Jika terdapat banyak mapping skala, gunakan lookup table dict ketimbang if chain.
-- [ ]  Pastikan interface di [interfaces.py](http://interfaces.py/) cukup abstrak untuk mocking unit test.
+- [x]  Pastikan interface di [interfaces.py](http://interfaces.py/) cukup abstrak untuk mocking unit test.
 - [x]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
 - [x]  Gunakan re-usable exception translator di routers (ubah domain exception ke HTTP response).
 - [x]  Pastikan routers tidak melakukan kalkulasi berat – panggil services.
@@ -88,7 +89,7 @@
 - [x]  Bangun health endpoint: menampilkan versi, waktu start, total requests.
 - [x]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
 - [x]  Sediakan toggle untuk mematikan expensive debug instrumentation di production.
-- [ ]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
+- [x]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
 - [x]  Pastikan i18n modul memuat file JSON/YAML sekali – gunakan caching (preload_i18n_resources + JSON/YAML fixtures + tests/test_i18n_preload.py).
 - [x]  Validasi ketersediaan locale fallback agar tidak error runtime (i18n fallback chains + en/id fixtures + tests/test_i18n_preload.py).
 - [ ]  Gunakan re.compile sekali untuk regex sering dipakai (kalau ada).
@@ -98,7 +99,7 @@
 - [ ]  Gunakan decimal atau Fraction jika presisi penting, hindari float bias.
 - [ ]  Evaluasi penggunaan slots dataclass untuk penghematan memori di entitas sering dibuat.
 - [ ]  Ubah list-of-dict menjadi dict-of-dataclass untuk akses attribute lebih jelas.
-- [ ]  Tambahkan sentinel objek untuk status khusus daripada string “UNKNOWN”.
+- [x]  Tambahkan sentinel objek untuk status khusus daripada string “UNKNOWN” (app/core/sentinels.py adopted across provenance + norm providers).
 - [ ]  Hilangkan side-effect di **init** model (tidak boleh query DB).
 - [ ]  Pastikan finalization pipeline ([finalize.py](http://finalize.py/)) dipisahkan jadi langkah-langkah kecil (compose).
 - [ ]  Gunakan kompartmentalisasi: pipeline = [validate, transform, compute, persist, render].

@@ -251,4 +251,4 @@ class CompositeNormProvider:
             result = provider.percentile(group_chain, scale, raw)
             if result.percentile is not None:
                 return result
-        return PercentileResult(None, "Unknown", False)
+        return PercentileResult(None, UNKNOWN.capitalize(), False)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Protocol, Sequence
+from typing import Any, Dict, List, Optional, Protocol, Sequence, runtime_checkable
 
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ class ScoringContext(dict):
     """Mutable state container passed across scoring steps."""
 
 
+@runtime_checkable
 class ScoringStep(Protocol):
     """Executable node that performs a deterministic scoring transformation."""
 
@@ -20,6 +21,7 @@ class ScoringStep(Protocol):
         """Execute the step and mutate *ctx* or persist database rows."""
 
 
+@runtime_checkable
 class NormRepository(Protocol):
     """Lookup interface for normative conversions."""
 
@@ -30,6 +32,7 @@ class NormRepository(Protocol):
         ...
 
 
+@runtime_checkable
 class AssessmentDefinition(Protocol):
     """Declarative description of an assessment pipeline."""
 
@@ -61,6 +64,7 @@ class ValidationIssue:
         return {"code": self.code, "message": self.message, "fatal": self.fatal}
 
 
+@runtime_checkable
 class ValidationRule(Protocol):
     code: str
 
@@ -68,6 +72,7 @@ class ValidationRule(Protocol):
         ...
 
 
+@runtime_checkable
 class ReportComposer(Protocol):
     def build(
         self, db: Session, session_id: int, viewer_role: Optional[str], locale: str = "id"
@@ -103,6 +108,7 @@ class DeliveryConfig:
     expected_contexts: Optional[int] = None
 
 
+@runtime_checkable
 class InstrumentPlugin(Protocol):
     def id(self) -> InstrumentId:
         ...
@@ -117,6 +123,7 @@ class InstrumentPlugin(Protocol):
         ...
 
 
+@runtime_checkable
 class EngineScorer(Protocol):
     def finalize(
         self,
@@ -128,6 +135,7 @@ class EngineScorer(Protocol):
         ...
 
 
+@runtime_checkable
 class EngineNormProvider(Protocol):
     def percentile(
         self, db: Session, session_id: int, scale: str, raw: int | float
@@ -135,6 +143,7 @@ class EngineNormProvider(Protocol):
         ...
 
 
+@runtime_checkable
 class EngineReportBuilder(Protocol):
     def build(self, db: Session, session_id: int, viewer_role: Optional[str] = None) -> Dict[str, Any]:
         ...

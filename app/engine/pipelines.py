@@ -202,6 +202,14 @@ KLSI_PIPELINE_CONFIG = RuntimePipelineConfig(
     ),
 )
 
+def _merge_stage_payload(target: dict[str, Any], payload: Mapping[str, Any]) -> None:
+    """Merge a stage payload into the target results without overwriting."""
+
+    for key, value in payload.items():
+        if key not in target:
+            target[key] = value
+
+
 @dataclass(frozen=True, slots=True)
 class PipelineDefinition:
     """Declarative definition of a scoring pipeline.
@@ -260,10 +268,7 @@ class PipelineDefinition:
             try:
                 stage_result = stage(db, session_id)
                 if isinstance(stage_result, dict):
-                    # Merge stage results, preserving previous results
-                    for key, value in stage_result.items():
-                        if key not in results:
-                            results[key] = value
+                    _merge_stage_payload(results, stage_result)
                 results["stages_completed"].append(stage_name)
             except Exception as exc:
                 results["ok"] = False
@@ -307,37 +312,44 @@ class PipelineDefinition:
                 raise
 
 
+def _run_pipeline_for_session_streaming(
+    pipeline: PipelineDefinition,
+    db: Session,
+    session_id: int,
+) -> dict[str, Any]:
+    """Execute *pipeline* for a single session via stage generator."""
+
+    results: dict[str, Any] = {"ok": True, "stages_completed": []}
+    failed_stage: str | None = None
+    try:
+        for stage_name, payload in pipeline.execute_streaming(db=db, session_id=session_id):
+            failed_stage = stage_name
+            if isinstance(payload, Mapping):
+                _merge_stage_payload(results, payload)
+            results["stages_completed"].append(stage_name)
+    except Exception as exc:  # pragma: no cover - exercised via integration tests
+        results["ok"] = False
+        results["error"] = str(exc)
+        if failed_stage:
+            results["failed_stage"] = failed_stage
+    return results
+
+
 def execute_pipeline_streaming(
     pipeline: PipelineDefinition,
     db: Session,
     session_ids: list[int],
 ):
-    """Execute pipeline for multiple sessions using generator pattern.
-    
-    Processes sessions one at a time to minimize memory footprint when
-    batch processing large numbers of assessments.
-    
-    Args:
-        pipeline: Pipeline definition to execute.
-        db: Database session.
-        session_ids: List of session IDs to process.
-        
-    Yields:
-        Tuple of (session_id, result_dict) for each processed session.
-        
-    Example:
-        >>> pipeline = get_klsi_pipeline_definition()
-        >>> session_ids = [101, 102, 103]
-        >>> for session_id, result in execute_pipeline_streaming(pipeline, db, session_ids):
-        ...     if result["ok"]:
-        ...         print(f"Session {session_id}: Success")
+    """Execute pipeline for multiple sessions using streaming generators.
+
+    Each session leverages :meth:`PipelineDefinition.execute_streaming` to
+    iterate stage-by-stage, avoiding accumulation of intermediate artifacts
+    in memory. The caller still receives a consolidated result per session,
+    but each is produced incrementally before moving to the next session.
     """
+
     for session_id in session_ids:
-        try:
-            result = pipeline.execute(db, session_id)
-            yield (session_id, result)
-        except Exception as exc:
-            yield (session_id, {"ok": False, "error": str(exc)})
+        yield (session_id, _run_pipeline_for_session_streaming(pipeline, db, session_id))
 
 
 def _get_klsi_stage_mapping() -> dict[str, PipelineStage]:

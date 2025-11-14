@@ -337,6 +337,11 @@ def compute_combination_scores(db: Session, scale: ScaleScore) -> CombinationSco
         AC=scale.AC_raw,
         AE=scale.AE_raw,
     )
+    # Guide §2.1 defines ACCE = AC − CE and AERO = AE − RO with the
+    # balance scores measuring absolute distance from normative medians
+    # (AC≈CE+9, AE≈RO+6). ``calculate_combination_metrics`` applies those
+    # exact dialectic and balance equations so downstream reports stay in sync
+    # with Appendix 1 tables.
     metrics = calculate_combination_metrics(vector, medians)
     combo = CombinationScore(
         session_id=scale.session_id,
@@ -494,6 +499,10 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
             }
         )
     validate_lfi_context_ranks(payload)
+    # Psychometrics Spec §3: LFI = 1 − W where W is Kendall's coefficient
+    # computed over the 8 forced-choice contexts (m) and four modes (n=4).
+    # ``compute_kendalls_w`` already clamps W to [0,1] so the derived LFI
+    # stays in [0,1] before scaling to percentiles.
     W = compute_kendalls_w(payload)
     lfi_value = 1 - W
     provider = norm_provider or build_composite_norm_provider(db)
