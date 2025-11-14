@@ -63,7 +63,7 @@
 - [ ]  Hindari SELECT * – ambil kolom spesifik untuk memotong transfer data.
 - [ ]  Jika ada normalisasi memerlukan statistik populasi, precompute saat startup.
 - [x]  Pastikan penggunaan try/except yang sempit – jangan tangkap Exception broad.
-- [ ]  Terapkan EAFP: coba akses field; jika KeyError tangani – hindari banyak if key in.
+- [x]  Terapkan EAFP: coba akses field; jika KeyError tangani – hindari banyak if key in.
 - [ ]  Gunakan comprehension & generator expresion idiomatik untuk clarity.
 - [ ]  Hindari list(map(...)) ketika comprehension lebih jelas.
 - [x]  Gunakan f-string untuk formatting.
@@ -115,7 +115,7 @@
 - [ ]  Pastikan i/o file besar (norms) dibaca streaming jika ukuran masif.
 - [ ]  Gunakan functools.singledispatch untuk variasi tipe input scoring.
 - [x]  Tambahkan **repr** ringkas di dataclass untuk debugging cepat.
-- [ ]  Buat util profiling wrapper yang log durasi > threshold (slow operation warning).
+- [x]  Buat util profiling wrapper yang log durasi > threshold (slow operation warning).
 - [ ]  Gunakan exponential backoff kalau nanti ada eksternal API (future).
 - [ ]  Pastikan test mencakup equivalence classes (skor sangat tinggi, rendah, borderline).
 - [ ]  Gunakan hypothesis (property-based testing) untuk formula psikometrik.
@@ -154,7 +154,7 @@
 - [ ]  Tambahkan pre-commit hook (ruff + mypy + tests) untuk jamin kualitas.
 - [ ]  Aktifkan ruff rule yang mencakup performance (misal no needless comprehension).
 - [ ]  Gunakan black/ruff konsisten agar diffs kecil saat refactor struktural.
-- [ ]  Pastikan import grouping mengikuti PEP8 (stdlib, third-party, local).
+- [x]  Pastikan import grouping mengikuti PEP8 (stdlib, third-party, local).
 - [x]  Ganti magic string nama strategi ke Enum StrategyName.
 - [ ]  Pastikan [registry.py](http://registry.py/) melempar error deskriptif kalau strategi tidak ditemukan.
 - [ ]  Tambahkan fallback default strategy aman.
