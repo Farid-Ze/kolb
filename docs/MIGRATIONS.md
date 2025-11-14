@@ -16,8 +16,10 @@ Alembic requires the following environment variables to be set:
 
 2. **JWT_SECRET_KEY**: Secret key for JWT authentication
    - Required by `app.core.config` during module initialization
-   - Any value works for migration purposes
+   - Must be at least 8 characters long
+   - Any value ≥8 chars works for migration purposes
    - Example: `alembic-migrate-secret`
+   - **Note**: While `env.py` provides a default, migration files that import from `app` at module level are loaded before `env.py` runs, so you must set this environment variable explicitly
 
 3. **DATABASE_URL** (optional): Database connection string
    - Defaults to `sqlite:///./klsi.db` if not set
@@ -187,7 +189,16 @@ export PYTHONPATH=/path/to/kolb  # Use absolute path to project root
 
 **Solution**:
 ```bash
-export JWT_SECRET_KEY=any-value-here
+export JWT_SECRET_KEY=your-secret-key  # Must be at least 8 characters
+```
+
+### ValidationError: String should have at least 8 characters
+
+**Cause**: JWT_SECRET_KEY is too short (less than 8 characters).
+
+**Solution**:
+```bash
+export JWT_SECRET_KEY=test-secret-key  # Use 8+ characters
 ```
 
 ### sqlite3.OperationalError: no such table
