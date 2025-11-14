@@ -20,7 +20,7 @@
 - [x]  Pastikan schemas Pydantic (jika ada) memisahkan input (WriteModel) dan output (ReadModel).
 - [x]  Implementasikan explicit error classes (sudah ada? tambah yang lebih granular) di level domain (Misal InvalidAssessmentData).
 - [x]  Gunakan Enum untuk konstanta tipe gaya belajar.
-- [ ]  Kumpulkan konstanta teks ke modul i18n agar penerjemahan tidak tercecer.
+- [x]  Kumpulkan konstanta teks ke modul i18n agar penerjemahan tidak tercecer.
 - [ ]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi.
 - [x]  Evaluasi apakah app/models/klsi.py terlalu monolitik (24385 bytes ukuran besar) – pecah menjadi submodul: scoring, norms, reports, validation.
 - [ ]  Identifikasi fungsi > 50–70 baris di [klsi.py](http://klsi.py/) untuk dipecah (Fluent Python menganjurkan fungsi kecil yang jelas).
@@ -31,23 +31,23 @@
 - [ ]  Hindari membuka koneksi baru setiap query – gunakan satu engine (SQLAlchemy) bila berkembang.
 - [ ]  Tambahkan integrasi transaction context manager agar batch operasi aman.
 - [ ]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
-- [ ]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
+- [x]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
 - [x]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
 - [ ]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables.
 - [ ]  Ganti indeks manual dictionary dengan operator mapping + dataclass agar mudah refactor.
 - [ ]  Pastikan [runtime.py](http://runtime.py/) memisahkan concerns: scheduling, state tracking, error handling.
-- [ ]  Gunakan logging terstruktur (JSON) agar mudah analisa performa.
-- [ ]  Tambahkan correlation id (uuid) per eksekusi assessment di log.
-- [ ]  Definisikan level log: DEBUG untuk detail scoring, INFO untuk hasil, WARNING untuk outlier.
-- [ ]  Hindari logging di dalam tight loops kecuali dikondisikan.
-- [ ]  Gunakan monotonic time (time.perf_counter) untuk akurasi profil alih-alih time.time.
+- [x]  Gunakan logging terstruktur (JSON) agar mudah analisa performa.
+- [x]  Tambahkan correlation id (uuid) per eksekusi assessment di log.
+- [x]  Definisikan level log: DEBUG untuk detail scoring, INFO untuk hasil, WARNING untuk outlier.
+- [x]  Hindari logging di dalam tight loops kecuali dikondisikan.
+- [x]  Gunakan monotonic time (time.perf_counter) untuk akurasi profil alih-alih time.time.
 - [ ]  Simpan metrics last run di core/metrics.py (misal dictionary global thread-safe) untuk endpoint status.
 - [ ]  Terapkan strategi precomputation untuk bobot per gaya belajar.
 - [ ]  Kaji apakah normalization selalu memanggil fungsi expensive – cache hasil per responden jika pola sama.
 - [ ]  Gunakan Pydantic model untuk input instrument (jawaban pengguna) – memudahkan validasi.
 - [ ]  Jika terdapat banyak mapping skala, gunakan lookup table dict ketimbang if chain.
 - [ ]  Pastikan interface di [interfaces.py](http://interfaces.py/) cukup abstrak untuk mocking unit test.
-- [ ]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
+- [x]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
 - [x]  Gunakan re-usable exception translator di routers (ubah domain exception ke HTTP response).
 - [x]  Pastikan routers tidak melakukan kalkulasi berat – panggil services.
 - [x]  Perkenalkan layer services (app/services) untuk orkestrasikan engine + db + i18n.
@@ -58,19 +58,19 @@
 - [x]  Simpan aggregated metrics (total exec, avg latency).
 - [ ]  Gunakan WeakValueDictionary bila menyimpan objek sementara yang tidak boleh memperpanjang usia.
 - [ ]  Jika ada caching gaya per demographic, gunakan key tuple (age, region, gender) secara konsisten.
-- [ ]  Dokumentasikan skema DB (klsi.db) di README termasuk indeks penting.
+- [x]  Dokumentasikan skema DB (klsi.db) di README termasuk indeks penting.
 - [ ]  Tambahkan indeks pada kolom sering di-query (jika tabel skor / respon).
 - [ ]  Hindari SELECT * – ambil kolom spesifik untuk memotong transfer data.
 - [ ]  Jika ada normalisasi memerlukan statistik populasi, precompute saat startup.
-- [ ]  Pastikan penggunaan try/except yang sempit – jangan tangkap Exception broad.
-- [ ]  Terapkan EAFP: coba akses field; jika KeyError tangani – hindari banyak if key in.
+- [x]  Pastikan penggunaan try/except yang sempit – jangan tangkap Exception broad.
+- [x]  Terapkan EAFP: coba akses field; jika KeyError tangani – hindari banyak if key in.
 - [ ]  Gunakan comprehension & generator expresion idiomatik untuk clarity.
 - [ ]  Hindari list(map(...)) ketika comprehension lebih jelas.
-- [ ]  Gunakan f-string untuk formatting.
-- [ ]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
+- [x]  Gunakan f-string untuk formatting.
+- [x]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
 - [ ]  Gunakan dataclass untuk konfigurasi runtime pipeline.
 - [x]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
-- [ ]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
+- [x]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
 - [ ]  Pastikan parallelism (jika dipakai) menggunakan concurrent.futures untuk CPU-bound (mungkin scoring) atau asyncio untuk I/O.
 - [ ]  Jika heavy numeric compute, pertimbangkan numpy arrays untuk vector operations.
 - [ ]  Profil hot spots dengan cProfile + snakeviz sebelum refaktor besar.
@@ -108,14 +108,14 @@
 - [ ]  Gunakan context manager untuk runtime session.
 - [ ]  Pastikan [database.py](http://database.py/) memiliki get_session() yang yield, tutup otomatis.
 - [ ]  Hindari commit per operasi kecil – batch commit untuk sekumpulan record.
-- [ ]  Tambahkan precondition asserts untuk internal invariant (Fluent Python menganjurkan clarity).
-- [ ]  Gunakan typing.Literal untuk parameter yang hanya beberapa pilihan.
+- [x]  Tambahkan precondition asserts untuk internal invariant (Fluent Python menganjurkan clarity).
+- [x]  Gunakan typing.Literal untuk parameter yang hanya beberapa pilihan.
 - [ ]  Evaluasi apakah sebagian besar object bisa direpresentasi sebagai immutable mapping (MappingProxyType).
 - [ ]  Tandai modul yang intensif CPU agar dapat dipertimbangkan multiprocessing (jika benar-benar berat).
 - [ ]  Pastikan i/o file besar (norms) dibaca streaming jika ukuran masif.
 - [ ]  Gunakan functools.singledispatch untuk variasi tipe input scoring.
-- [ ]  Tambahkan **repr** ringkas di dataclass untuk debugging cepat.
-- [ ]  Buat util profiling wrapper yang log durasi > threshold (slow operation warning).
+- [x]  Tambahkan **repr** ringkas di dataclass untuk debugging cepat.
+- [x]  Buat util profiling wrapper yang log durasi > threshold (slow operation warning).
 - [ ]  Gunakan exponential backoff kalau nanti ada eksternal API (future).
 - [ ]  Pastikan test mencakup equivalence classes (skor sangat tinggi, rendah, borderline).
 - [ ]  Gunakan hypothesis (property-based testing) untuk formula psikometrik.
@@ -127,13 +127,13 @@
 - [ ]  Buat modul interop untuk export JSON/CSV agar format rapi & konsisten.
 - [ ]  Pastikan schema output testable (snapshot testing).
 - [ ]  Gunakan classmethod alternative constructor mempermudah pembuatan object dari DB row.
-- [ ]  Pastikan error path mencantumkan id responden untuk trace.
+- [x]  Pastikan error path mencantumkan id responden untuk trace.
 - [ ]  Gunakan generics typing (TypeVar) pada util generic.
 - [ ]  Hindari pass di except – log minimal cause.
 - [ ]  Pastikan [metrics.py](http://metrics.py/) memisahkan data structure (model) vs collector logic.
 - [ ]  Gunakan aggregator incremental (Welford algorithm) untuk rata-rata dan variance real-time.
 - [ ]  Pastikan pipeline dapat diinterupsi secara bersih (raise ControlledAbort).
-- [ ]  Tambahkan guard agar runtime tidak memproses dataset kosong (return early).
+- [x]  Tambahkan guard agar runtime tidak memproses dataset kosong (return early).
 - [ ]  Gunakan dictionary unpack (**kwargs) hati-hati – eksplisit parameter lebih mudah lacak.
 - [ ]  Pastikan serializer (jika ada) tidak men-serialize object berat (drop transient fields).
 - [ ]  Gunakan zoneinfo untuk waktu daripada naive datetime.
@@ -154,8 +154,8 @@
 - [ ]  Tambahkan pre-commit hook (ruff + mypy + tests) untuk jamin kualitas.
 - [ ]  Aktifkan ruff rule yang mencakup performance (misal no needless comprehension).
 - [ ]  Gunakan black/ruff konsisten agar diffs kecil saat refactor struktural.
-- [ ]  Pastikan import grouping mengikuti PEP8 (stdlib, third-party, local).
-- [ ]  Ganti magic string nama strategi ke Enum StrategyName.
+- [x]  Pastikan import grouping mengikuti PEP8 (stdlib, third-party, local).
+- [x]  Ganti magic string nama strategi ke Enum StrategyName.
 - [ ]  Pastikan [registry.py](http://registry.py/) melempar error deskriptif kalau strategi tidak ditemukan.
 - [ ]  Tambahkan fallback default strategy aman.
 - [ ]  Gunakan caching layered: memory → (nanti) external (Redis) jika skala membesar.
@@ -164,7 +164,7 @@
 - [ ]  Pastikan error path tidak swallow Traceback – log stack untuk debugging.
 - [ ]  Gunakan assert untuk in-house invariants (non-user facing) + ubah ke if raise jika butuh runtime safety.
 - [ ]  Dokumentasikan kompleksitas per fungsi kritis (komentar O(n)).
-- [ ]  Gunakan named logger (logging.getLogger("kolb.engine")) daripada root logger.
+- [x]  Gunakan named logger (logging.getLogger("kolb.engine")) daripada root logger.
 - [ ]  Centralize random seed (jika perlu) untuk reproducibility.
 - [ ]  Hindari dynamic attribute injection (setattr) kecuali benar-benar perlu.
 - [ ]  Berikan upgrade path: modul migrations untuk perubahan schema database.

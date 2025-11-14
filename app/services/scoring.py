@@ -55,7 +55,12 @@ def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
     expect larger summed totals to indicate a stronger relative preference
     for that learning mode. We mirror that convention here by summing the
     rank values directly for each mode.
+    
+    Preconditions:
+        - session_id must exist in database
+        - session must have responses for all 12 items
     """
+    assert session_id > 0, "session_id must be positive"
     return logic_compute_raw_scale_scores(db, session_id)
 
 

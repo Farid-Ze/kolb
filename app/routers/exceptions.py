@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.core.errors import DomainError
+from app.core.logging import _CORRELATION_ID
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -24,4 +25,8 @@ def register_exception_handlers(app: FastAPI) -> None:
             "error": exc.error_code,
             "detail": detail_payload,
         }
+        # Include correlation ID for request tracing
+        correlation_id = _CORRELATION_ID.get()
+        if correlation_id:
+            payload["correlation_id"] = correlation_id
         return JSONResponse(status_code=getattr(exc, "status_code", 400), content=payload)
