@@ -106,12 +106,28 @@ Catatan: Percentile harus non-decreasing terhadap `raw_score` per `(norm_group, 
 # Install deps
 pip install -r requirements.txt
 
+# Set environment variables untuk Alembic
+$Env:PYTHONPATH = (Get-Location).Path
+$Env:JWT_SECRET_KEY = "your-secret-key-here"
+
 # Terapkan migrasi skema (disarankan untuk dev & prod)
 alembic upgrade head
 
 # Jalankan server
 uvicorn app.main:app --reload
 ```
+
+**Catatan untuk Alembic**: Alembic memerlukan environment variables berikut:
+- `PYTHONPATH`: Path ke root direktori project (untuk import `app` modules)
+- `JWT_SECRET_KEY`: Secret key untuk JWT (nilai apa saja untuk keperluan migrasi)
+
+Untuk Linux/Mac:
+```bash
+export PYTHONPATH=$(pwd)
+export JWT_SECRET_KEY=your-secret-key-here
+alembic upgrade head
+```
+
 Swagger: http://localhost:8000/docs
 ## 11.1 Contoh Alur Engine (Disarankan; Sessions legacy dihapus)
 
@@ -155,9 +171,20 @@ Rekomendasi:
 - Prod/CI: set ke 0 dan jalankan Alembic
 
 ```powershell
-# Contoh prod/CI
+# Contoh prod/CI (PowerShell)
 $Env:RUN_STARTUP_DDL = 0
 $Env:RUN_STARTUP_SEED = 0
+$Env:PYTHONPATH = (Get-Location).Path
+$Env:JWT_SECRET_KEY = "production-secret-key"
+alembic upgrade head
+```
+
+```bash
+# Contoh prod/CI (Linux/Mac)
+export RUN_STARTUP_DDL=0
+export RUN_STARTUP_SEED=0
+export PYTHONPATH=$(pwd)
+export JWT_SECRET_KEY=production-secret-key
 alembic upgrade head
 ```
 

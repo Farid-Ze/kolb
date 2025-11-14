@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ __all__ = [
     "resolve_active_pipeline_version",
     "assign_pipeline_version",
     "get_klsi_pipeline_definition",
+    "resolve_klsi_pipeline_from_nodes",
     "execute_pipeline_streaming",
 ]
 
@@ -179,6 +180,30 @@ def execute_pipeline_streaming(
             yield (session_id, {"ok": False, "error": str(exc)})
 
 
+def _get_klsi_stage_mapping() -> dict[str, PipelineStage]:
+    """Return canonical mapping of KLSI pipeline node keys to stages.
+
+    This helper is the single source of truth for mapping between
+    declarative pipeline node keys (as stored in ``ScoringPipelineNode``)
+    and the concrete callable implementations in KLSI logic.
+    """
+
+    # Lazy import to avoid circular dependencies at module import time
+    from app.assessments.klsi_v4.logic import (
+        assign_learning_style,
+        compute_combination_scores,
+        compute_lfi,
+        compute_raw_scale_scores,
+    )
+
+    return {
+        "RAW_SCALES": compute_raw_scale_scores,
+        "COMBINATIONS": compute_combination_scores,
+        "STYLE_ASSIGNMENT": assign_learning_style,
+        "LFI": compute_lfi,
+    }
+
+
 def _compose_version(pipeline: ScoringPipeline) -> str:
     return f"{pipeline.pipeline_code}:{pipeline.version}"[:40]
 
@@ -236,41 +261,88 @@ def assign_pipeline_version(
 def get_klsi_pipeline_definition() -> PipelineDefinition:
     """Get the declarative pipeline definition for KLSI 4.0.
     
-    This function lazily imports the KLSI stages to avoid circular dependencies.
-    The pipeline stages are defined in assessment-specific logic modules.
-    
     Returns:
         Declarative pipeline definition with ordered stages.
-        
+
     Pipeline stages:
         1. compute_raw_scale_scores: Sum raw ranks per learning mode
         2. compute_combination_scores: Compute dialectic (ACCE, AERO) and balance scores
         3. assign_learning_style: Assign primary learning style from 3×3 grid
         4. compute_lfi: Compute Learning Flexibility Index (Kendall's W)
-        5. apply_percentiles: Convert raw scores to percentiles via norm tables
     """
-    # Lazy import to avoid circular dependencies
-    from app.assessments.klsi_v4.logic import (
-        assign_learning_style,
-        compute_combination_scores,
-        compute_lfi,
-        compute_raw_scale_scores,
-    )
-    
-    # Note: apply_percentiles is handled separately in finalize logic
-    # as it requires norm provider access
-    
+
+    mapping = _get_klsi_stage_mapping()
+    ordered_keys = ["RAW_SCALES", "COMBINATIONS", "STYLE_ASSIGNMENT", "LFI"]
+    stages: list[PipelineStage] = [mapping[key] for key in ordered_keys]
+
     return PipelineDefinition(
         code="KLSI_STANDARD",
         version="4.0",
-        stages=(
-            compute_raw_scale_scores,
-            compute_combination_scores,
-            assign_learning_style,
-            compute_lfi,
-        ),
+        stages=tuple(stages),
         description=(
             "Standard KLSI 4.0 scoring pipeline: "
             "raw scales → combinations → style assignment → LFI"
+        ),
+    )
+
+
+def resolve_klsi_pipeline_from_nodes(
+    nodes: list["ScoringPipelineNode"],
+) -> PipelineDefinition:
+    """Resolve a KLSI pipeline definition from DB nodes.
+
+    This function maps persisted pipeline nodes to the same ordered
+    callable stages used by ``get_klsi_pipeline_definition``. It is
+    intentionally conservative: unknown or unsupported node keys will
+    raise ``ValueError`` rather than being ignored.
+
+    Expected node_key values (ordered by ``execution_order``):
+
+    - "RAW_SCALES"        → compute_raw_scale_scores
+    - "COMBINATIONS"      → compute_combination_scores
+    - "STYLE_ASSIGNMENT"  → assign_learning_style
+    - "LFI"               → compute_lfi
+
+    Percentiles are handled separately as part of norm resolution and
+    are not currently modeled as a DB node.
+    """
+
+    # We type locally to avoid importing the full model at top level
+    from app.models.klsi.instrument import ScoringPipelineNode  # type: ignore
+
+    key_to_stage = _get_klsi_stage_mapping()
+
+    if not nodes:
+        raise ValueError("Pipeline has no nodes defined")
+
+    # Ensure deterministic order from the DB-provided execution order
+    ordered_nodes: list[ScoringPipelineNode] = sorted(
+        nodes,
+        key=lambda n: getattr(n, "execution_order", 0),
+    )
+
+    stages: list[PipelineStage] = []
+    for node in ordered_nodes:
+        key = getattr(node, "node_key", None)
+        if not key:
+            raise ValueError("Pipeline node missing node_key")
+        try:
+            stage = key_to_stage[key]
+        except KeyError as exc:  # pragma: no cover - defensive branch
+            raise ValueError(f"Unsupported pipeline node_key: {key}") from exc
+        stages.append(stage)  # type: ignore[arg-type]
+
+    # Compose a synthetic code/version label from the first node's pipeline
+    pipeline = ordered_nodes[0].pipeline
+    code = getattr(pipeline, "pipeline_code", "KLSI_STANDARD")
+    version = getattr(pipeline, "version", "4.0")
+
+    return PipelineDefinition(
+        code=code,
+        version=version,
+        stages=tuple(stages),
+        description=(
+            "KLSI pipeline derived from ScoringPipelineNode sequence "
+            f"for {code}:{version}"
         ),
     )

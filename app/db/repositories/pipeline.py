@@ -44,6 +44,23 @@ class PipelineRepository(Repository[Session]):
             query = query.options(joinedload(ScoringPipeline.nodes))
         return query.first()
 
+    def get_by_code_version(
+        self,
+        instrument_id: int,
+        pipeline_code: str,
+        version: str,
+        *,
+        with_nodes: bool = False,
+    ) -> Optional[ScoringPipeline]:
+        query = self.db.query(ScoringPipeline).filter(
+            ScoringPipeline.instrument_id == instrument_id,
+            ScoringPipeline.pipeline_code == pipeline_code,
+            ScoringPipeline.version == version,
+        )
+        if with_nodes:
+            query = query.options(joinedload(ScoringPipeline.nodes))
+        return query.first()
+
     def exists_version(self, instrument_id: int, pipeline_code: str, version: str) -> bool:
         return (
             self.db.query(ScoringPipeline)

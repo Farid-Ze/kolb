@@ -63,19 +63,22 @@ def get_strategy(code: str, *, use_default: bool = True) -> ScoringStrategy:
     with _lock:
         if code in _STRATEGIES:
             return _STRATEGIES[code]
-        
+
         # Try default fallback if enabled
         if use_default and _DEFAULT_STRATEGY_CODE and _DEFAULT_STRATEGY_CODE in _STRATEGIES:
             logger.warning(
                 f"Strategy '{code}' not found, falling back to default '{_DEFAULT_STRATEGY_CODE}'"
             )
             return _STRATEGIES[_DEFAULT_STRATEGY_CODE]
-        
+
         # No strategy found and no default available
         available = list(_STRATEGIES.keys()) if _STRATEGIES else ["none"]
+        default_info = (
+            f" default='{_DEFAULT_STRATEGY_CODE}'" if _DEFAULT_STRATEGY_CODE else ""
+        )
         raise KeyError(
             f"{StrategyMessages.STRATEGY_NOT_REGISTERED.format(code=code)}. "
-            f"Available strategies: {', '.join(available)}"
+            f"Available strategies: {', '.join(available)};" f"{default_info}"
         )
 
 

@@ -10,15 +10,15 @@ from sqlalchemy.orm import Session
 import app.engine.strategies  # noqa: F401  # ensure strategy registrations execute
 
 from app.engine.interfaces import ScoringContext
-from app.engine.pipelines import assign_pipeline_version
+from app.engine.pipelines import assign_pipeline_version, resolve_klsi_pipeline_from_nodes
 from app.engine.registry import get as get_definition
 from app.engine.strategy_registry import get_strategy
-from app.db.repositories import SessionRepository, StyleRepository
+from app.db.repositories import SessionRepository, StyleRepository, PipelineRepository
 from app.models.klsi.audit import AuditLog
 from app.services.regression import analyze_lfi_contexts
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
-from app.i18n.id_messages import RegressionMessages, SessionErrorMessages
+from app.i18n.id_messages import EngineMessages, RegressionMessages, SessionErrorMessages
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
@@ -60,6 +60,17 @@ def _strategy_candidates(session: "AssessmentSession", fallback_key: str | None)
     return _unique(ordered)
 
 
+def _parse_pipeline_version(pipeline_version: str | None) -> tuple[str, str] | None:
+    """Split stored pipeline version token into (code, version)."""
+
+    if not pipeline_version or ":" not in pipeline_version:
+        return None
+    code, _, version = pipeline_version.partition(":")
+    if not code or not version:
+        return None
+    return code, version
+
+
 def finalize_assessment(
     db: Session,
     session_id: int,
@@ -71,6 +82,7 @@ def finalize_assessment(
 ) -> dict:
     session_repo = SessionRepository(db)
     style_repo = StyleRepository(db)
+    pipeline_repo = PipelineRepository(db)
     # Ensure atomicity: perform all writes within a nested transaction (SAVEPOINT)
     # so that any exception rolls back partial artifacts, while letting the outer
     # request/response life cycle control the final commit.
@@ -89,25 +101,36 @@ def finalize_assessment(
                 issues.extend(rule.validate(db, session_id))
             if issues:
                 fatal = [i for i in issues if i.fatal]
-                if fatal:
+                if strategy:
                     return {"ok": False, "issues": [i.as_dict() for i in issues]}
 
             # Always ensure ipsative core validation runs (engine-agnostic guard).
             completeness = check_session_complete(db, session_id)
             validation_result.structural["item_completeness"] = completeness
-            if not completeness.get("ready_to_complete"):
-                return {
-                    "ok": False,
-                    "issues": [
-                        {
-                            "code": "INCOMPLETE_ITEMS",
-                            "message": SessionErrorMessages.INCOMPLETE_ITEMS,
-                            "fatal": True,
-                        }
-                    ],
-                    "diagnostics": completeness,
-                }
-
+                    pipeline_tokens = _parse_pipeline_version(getattr(session, "pipeline_version", None))
+                    if pipeline_tokens and session.instrument_id:
+                        pipeline_code, pipeline_version = pipeline_tokens
+                        pipeline = pipeline_repo.get_by_code_version(
+                            session.instrument_id,
+                            pipeline_code,
+                            pipeline_version,
+                            with_nodes=True,
+                        )
+                    if pipeline_tokens and (not pipeline or not getattr(pipeline, "nodes", None)):
+                        merged = dict(validation_result.provenance)
+                        merged["pipeline_warning"] = EngineMessages.PIPELINE_NO_NODES
+                        validation_result.provenance = merged
+                    elif pipeline and getattr(pipeline, "nodes", None):
+                        try:
+                            definition = resolve_klsi_pipeline_from_nodes(list(pipeline.nodes))
+                            # Execute core scoring stages; percentiles and longitudinal
+                            # analytics remain part of the strategy implementation.
+                            definition.execute(db, session_id)
+                        except ValueError as exc:
+                            merged = dict(validation_result.provenance)
+                            merged["pipeline_warning"] = EngineMessages.PIPELINE_UNSUPPORTED_NODE_KEY
+                            merged["pipeline_error"] = str(exc)
+                            validation_result.provenance = merged
         ctx = ScoringContext()
         artifact_snapshots: dict[str, dict] = {}
 
@@ -129,6 +152,29 @@ def finalize_assessment(
                 continue
 
         if strategy:
+            # If a strategy is available, prefer declarative pipeline execution
+            # based on the active scoring pipeline nodes. This preserves the
+            # existing behavior of strategy.finalize while making the
+            # orchestration declarative and engine-driven.
+            pipeline = None
+            if session.pipeline_id:
+                pipeline = pipeline_repo.get(
+                    session.pipeline_id,
+                    session.instrument_id,  # type: ignore[arg-type]
+                    with_nodes=True,
+                )
+
+            if session.pipeline_id and (not pipeline or not getattr(pipeline, "nodes", None)):
+                validation_result.provenance["pipeline_warning"] = EngineMessages.PIPELINE_NO_NODES
+            elif pipeline and getattr(pipeline, "nodes", None):
+                try:
+                    definition = resolve_klsi_pipeline_from_nodes(list(pipeline.nodes))
+                    # Execute core scoring stages; percentiles and longitudinal
+                    # analytics remain part of the strategy implementation.
+                    definition.execute(db, session_id)
+                except ValueError as exc:
+                    validation_result.provenance["pipeline_warning"] = EngineMessages.PIPELINE_UNSUPPORTED_NODE_KEY
+                    validation_result.provenance["pipeline_error"] = str(exc)
             payload = strategy.finalize(db, session_id)
             scale = payload["scale"]
             combo = payload["combo"]
@@ -253,12 +299,16 @@ def finalize_assessment(
         # Populate provenance + anomaly diagnostics if present
         if "percentiles" in ctx:
             pct_ctx = ctx["percentiles"]
-            validation_result.provenance = {
-                "used_fallback_any": pct_ctx.get("used_fallback_any"),
-                "raw_outside_norm_range": pct_ctx.get("raw_outside_norm_range"),
-                "truncated_scales": pct_ctx.get("truncated"),
-                "norm_group_used": pct_ctx.get("norm_group_used"),
-            }
+            provenance = dict(validation_result.provenance)
+            provenance.update(
+                {
+                    "used_fallback_any": pct_ctx.get("used_fallback_any"),
+                    "raw_outside_norm_range": pct_ctx.get("raw_outside_norm_range"),
+                    "truncated_scales": pct_ctx.get("truncated"),
+                    "norm_group_used": pct_ctx.get("norm_group_used"),
+                }
+            )
+            validation_result.provenance = provenance
             # Anomalies: any truncated scale, mixed provenance
             if pct_ctx.get("raw_outside_norm_range"):
                 validation_result.anomalies.append("RAW_OUTSIDE_NORM_RANGE")

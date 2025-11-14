@@ -136,6 +136,8 @@ class EngineMessages:
     PLUGIN_NOT_REGISTERED: str = "Instrument plugin belum terdaftar di engine"
     FINALIZE_FAILED: str = "Gagal menyelesaikan sesi"
     DEPENDENCY_NOT_AVAILABLE: str = "Dependency '{dep}' belum tersedia untuk step '{step}'"
+    PIPELINE_NO_NODES: str = "Pipeline tidak memiliki node yang dapat dieksekusi"
+    PIPELINE_UNSUPPORTED_NODE_KEY: str = "Pipeline mengandung node_key yang tidak didukung"
 
 
 class AuthoringMessages:

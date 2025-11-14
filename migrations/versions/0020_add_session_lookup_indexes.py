@@ -33,14 +33,22 @@ def upgrade() -> None:
     but explicit indexes improve query planning and are portable
     across database backends.
     """
+    # Get database dialect to check if we're using PostgreSQL
+    bind = op.get_bind()
+    dialect = bind.dialect.name
+    
     # Index on percentile_scores.session_id
     # Unique constraint already exists, but explicit index improves portability
+    # Use postgresql_include only on PostgreSQL (not supported on SQLite)
+    index_kwargs = {"unique": True}
+    if dialect == "postgresql":
+        index_kwargs["postgresql_include"] = ["norm_group_used"]  # Include for index-only scans
+    
     op.create_index(
         "ix_percentile_scores_session_id",
         "percentile_scores",
         ["session_id"],
-        unique=True,
-        postgresql_include=["norm_group_used"],  # Include for index-only scans
+        **index_kwargs,
     )
     
     # Index on combination_scores.session_id

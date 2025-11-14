@@ -104,40 +104,40 @@ def seed_instruments(db: Session) -> None:
 
         nodes = [
             (
-                "compute_raw_scale_scores",
+                "RAW_SCALES",
                 "service_call",
                 1,
                 {
                     "callable": "app.assessments.klsi_v4.logic.compute_raw_scale_scores",
                     "artifact_key": "raw_modes",
                 },
-                "compute_combination_scores",
+                "COMBINATIONS",
                 False,
             ),
             (
-                "compute_combination_scores",
+                "COMBINATIONS",
                 "service_call",
                 2,
                 {
                     "callable": "app.assessments.klsi_v4.logic.compute_combination_scores",
                     "artifact_key": "combination",
                 },
-                "assign_learning_style",
+                "STYLE_ASSIGNMENT",
                 False,
             ),
             (
-                "assign_learning_style",
+                "STYLE_ASSIGNMENT",
                 "service_call",
                 3,
                 {
                     "callable": "app.assessments.klsi_v4.logic.assign_learning_style",
                     "artifact_key": "style",
                 },
-                "compute_lfi",
+                "LFI",
                 False,
             ),
             (
-                "compute_lfi",
+                "LFI",
                 "service_call",
                 4,
                 {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import json
 
 import app.engine.registry as assessment_registry
 import app.engine.strategy_registry as strategy_registry
@@ -18,6 +19,7 @@ from app.engine.strategies.klsi4 import KLSI4Strategy
 from app.engine.runtime import EngineRuntime
 from app.services.scoring import finalize_session
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
+from app.db.repositories.pipeline import PipelineRepository
 
 
 def _db_session():
@@ -135,6 +137,21 @@ def test_finalize_delegates_to_registered_strategy():
     try:
         session = _seed_complete_session(db)
 
+        # Ensure there is an active pipeline with nodes so that the
+        # declarative resolver path in finalize_assessment is exercised.
+        pipeline_repo = PipelineRepository(db)
+        instrument = (
+            db.query(Instrument)
+            .filter(Instrument.code == "KLSI", Instrument.version == "4.0")
+            .first()
+        )
+        assert instrument is not None
+        pipelines = pipeline_repo.list_with_nodes(instrument.id)
+        assert pipelines, "Expected at least one pipeline for KLSI instrument"
+        active = next((p for p in pipelines if p.is_active), pipelines[0])
+        session.pipeline_id = active.id
+        db.flush()
+
         class TrackingStrategy(KLSI4Strategy):
             def __init__(self) -> None:
                 super().__init__()
@@ -222,6 +239,34 @@ def test_finalize_assigns_pipeline_version():
         )
         assert refetched is not None
         assert refetched.pipeline_version == "KLSI4.0:v1"
+    finally:
+        db.close()
+
+
+def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
+    db = _db_session()
+    try:
+        session = _seed_complete_session(db)
+
+        class DummyPipeline:
+            id = 1
+            nodes = []
+
+        class DummyRepo(PipelineRepository):
+            def get(self, pipeline_id, instrument_id, *, with_nodes: bool = False):  # type: ignore[override]
+                return DummyPipeline()
+
+        # Patch PipelineRepository used inside finalize_assessment
+        monkeypatch.setattr("app.engine.finalize.PipelineRepository", DummyRepo)
+
+        result = finalize_session(db, session.id)
+        assert result["ok"] is True
+        # diagnostics are exposed via validation_result.provenance under "pipeline_warning"
+        diagnostics = result.get("validation", {}) or result.get("diagnostics", {})
+        # Depending on how finalize_session exposes ValidationResult, this may be nested;
+        # we only assert that a pipeline warning key exists somewhere in the top-level result.
+        joined = json.dumps(result, default=str)
+        assert "PIPELINE_NO_NODES" in joined
     finally:
         db.close()
 
