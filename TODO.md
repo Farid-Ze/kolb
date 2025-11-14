@@ -39,7 +39,7 @@
 - [x]  Gunakan logging terstruktur (JSON) agar mudah analisa performa.
 - [x]  Tambahkan correlation id (uuid) per eksekusi assessment di log.
 - [x]  Definisikan level log: DEBUG untuk detail scoring, INFO untuk hasil, WARNING untuk outlier.
-- [ ]  Hindari logging di dalam tight loops kecuali dikondisikan.
+- [x]  Hindari logging di dalam tight loops kecuali dikondisikan.
 - [x]  Gunakan monotonic time (time.perf_counter) untuk akurasi profil alih-alih time.time.
 - [ ]  Simpan metrics last run di core/metrics.py (misal dictionary global thread-safe) untuk endpoint status.
 - [ ]  Terapkan strategi precomputation untuk bobot per gaya belajar.
@@ -62,7 +62,7 @@
 - [ ]  Tambahkan indeks pada kolom sering di-query (jika tabel skor / respon).
 - [ ]  Hindari SELECT * – ambil kolom spesifik untuk memotong transfer data.
 - [ ]  Jika ada normalisasi memerlukan statistik populasi, precompute saat startup.
-- [ ]  Pastikan penggunaan try/except yang sempit – jangan tangkap Exception broad.
+- [x]  Pastikan penggunaan try/except yang sempit – jangan tangkap Exception broad.
 - [ ]  Terapkan EAFP: coba akses field; jika KeyError tangani – hindari banyak if key in.
 - [ ]  Gunakan comprehension & generator expresion idiomatik untuk clarity.
 - [ ]  Hindari list(map(...)) ketika comprehension lebih jelas.
@@ -108,7 +108,7 @@
 - [ ]  Gunakan context manager untuk runtime session.
 - [ ]  Pastikan [database.py](http://database.py/) memiliki get_session() yang yield, tutup otomatis.
 - [ ]  Hindari commit per operasi kecil – batch commit untuk sekumpulan record.
-- [ ]  Tambahkan precondition asserts untuk internal invariant (Fluent Python menganjurkan clarity).
+- [x]  Tambahkan precondition asserts untuk internal invariant (Fluent Python menganjurkan clarity).
 - [ ]  Gunakan typing.Literal untuk parameter yang hanya beberapa pilihan.
 - [ ]  Evaluasi apakah sebagian besar object bisa direpresentasi sebagai immutable mapping (MappingProxyType).
 - [ ]  Tandai modul yang intensif CPU agar dapat dipertimbangkan multiprocessing (jika benar-benar berat).

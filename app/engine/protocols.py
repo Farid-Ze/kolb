@@ -16,7 +16,7 @@ Use these protocols when:
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Protocol, runtime_checkable
+from typing import Any, Literal, Mapping, Protocol, runtime_checkable
 
 __all__ = [
     "ScoringStrategy",
@@ -80,14 +80,14 @@ class NormProvider(Protocol):
     def get_percentile(
         self,
         norm_group: str,
-        scale_name: str,
+        scale_name: Literal["CE", "RO", "AC", "AE", "ACCE", "AERO", "LFI"],
         raw_score: int | float,
     ) -> float | None:
         """Retrieve percentile for given raw score.
         
         Args:
             norm_group: Demographic segment (e.g., "Total", "COUNTRY:Indonesia").
-            scale_name: Scale identifier (e.g., "CE", "ACCE", "LFI").
+            scale_name: Scale identifier - must be one of the valid KLSI scale names.
             raw_score: Raw score value to convert.
             
         Returns:
