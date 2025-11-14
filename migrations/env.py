@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -18,6 +20,14 @@ if config.config_file_name is not None:
 if not config.get_main_option("sqlalchemy.url"):
     db_url = os.getenv("DATABASE_URL", "sqlite:///./klsi.db")
     config.set_main_option("sqlalchemy.url", db_url)
+
+# Add project root to sys.path for app imports
+project_root = Path(__file__).resolve().parents[1]
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# Set default JWT_SECRET_KEY for migration context
+os.environ.setdefault("JWT_SECRET_KEY", "alembic-migrate-secret")
 
 from app.db.database import Base  # noqa: E402
 
