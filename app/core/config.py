@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     norms_preload_max_entries: int = Field(default=400_000, ge=0)
     cached_norm_provider_enabled: bool = Field(default=True)
 
+    i18n_preload_enabled: bool = Field(default=True, description="Preload i18n resources at startup to avoid disk I/O per request")
+
     disable_legacy_submission: bool = Field(default=False)
     disable_legacy_router: bool = Field(default=False)
     legacy_sunset: Optional[datetime] = Field(default=None)

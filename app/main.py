@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import get_metrics, get_counters
 from app.db.database import Base, engine, transactional_session, get_db
+from app.i18n import preload_i18n_resources
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.exceptions import register_exception_handlers
@@ -59,6 +60,13 @@ async def lifespan(app: FastAPI):
             seed_instruments(db)
             seed_learning_styles(db)
             seed_assessment_items(db)
+    if settings.i18n_preload_enabled:
+        logger.info("startup_preload_i18n", extra={"structured_data": {"i18n_preload_enabled": True}})
+        stats = preload_i18n_resources()
+        logger.info(
+            "i18n_preload_complete",
+            extra={"structured_data": stats}
+        )
     yield
     # Shutdown: nothing
 

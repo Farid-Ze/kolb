@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, JSON, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -18,7 +18,9 @@ class PercentileScore(Base):
     __tablename__ = "percentile_scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("assessment_sessions.id"), unique=True, index=True
+    )
     norm_group_used: Mapped[str] = mapped_column(String(50))
     CE_percentile: Mapped[float] = mapped_column(Float)
     RO_percentile: Mapped[float] = mapped_column(Float)

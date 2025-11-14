@@ -55,6 +55,7 @@ __all__ = [
     "get",
     "EngineRegistry",
     "engine_registry",
+    "register_plugin",
 ]
 
 
@@ -267,7 +268,10 @@ class AssessmentRegistry:
         cls_name = getattr(cls, "id", None)
         cls_version = getattr(cls, "version", None)
         name = cls_name if isinstance(cls_name, str) else getattr(assessment, "id", None)
-        version = cls_version if isinstance(cls_version, str) else getattr(assessment, "version", None)
+        version = (
+            cls_version if isinstance(cls_version, str)
+            else getattr(assessment, "version", None)
+        )
         if name is None or version is None:  # pragma: no cover - defensive guard
             raise RegistryError("Assessment definition must define 'id' and 'version'")
         assessment.id = name  # sync instance attributes for downstream consumers
@@ -520,3 +524,28 @@ class EngineRegistry:
 
 
 engine_registry = EngineRegistry()
+
+
+def register_plugin(plugin: InstrumentPlugin) -> RegistryKey:
+    """Convenience function to register a plugin in the global engine registry.
+    
+    This is the recommended way to register plugins at module import time.
+    
+    Args:
+        plugin: The instrument plugin to register.
+        
+    Returns:
+        The RegistryKey under which the plugin was registered.
+        
+    Example:
+        >>> from app.engine.registry import register_plugin
+        >>> from app.engine.interfaces import InstrumentPlugin
+        >>> 
+        >>> class MyPlugin(InstrumentPlugin):
+        ...     def id(self): return InstrumentId("TEST", "1.0")
+        ...     # ... other methods
+        >>> 
+        >>> register_plugin(MyPlugin())
+    """
+    engine_registry.register_plugin(plugin)
+    return RegistryKey.from_id(plugin.id())

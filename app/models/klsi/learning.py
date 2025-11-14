@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
-    DateTime,
     Float,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     UniqueConstraint,
 )
@@ -52,7 +50,9 @@ class CombinationScore(Base):
     __tablename__ = "combination_scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("assessment_sessions.id"), unique=True, index=True
+    )
     ACCE_raw: Mapped[int] = mapped_column(Integer)
     AERO_raw: Mapped[int] = mapped_column(Integer)
     assimilation_accommodation: Mapped[int] = mapped_column(Integer)
@@ -85,7 +85,9 @@ class UserLearningStyle(Base):
     __tablename__ = "user_learning_styles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("assessment_sessions.id"), unique=True, index=True
+    )
     primary_style_type_id: Mapped[int] = mapped_column(ForeignKey("learning_style_types.id"))
     ACCE_raw: Mapped[int] = mapped_column(Integer)
     AERO_raw: Mapped[int] = mapped_column(Integer)
@@ -181,6 +183,7 @@ class ScaleProvenance(Base):
 
     __table_args__ = (
         UniqueConstraint("session_id", "scale_code", name="uq_scale_provenance_session_scale"),
+        Index("ix_scale_provenance_session_scale", "session_id", "scale_code"),
     )
 
 
