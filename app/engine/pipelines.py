@@ -18,6 +18,7 @@ __all__ = [
     "resolve_active_pipeline_version",
     "assign_pipeline_version",
     "get_klsi_pipeline_definition",
+    "execute_pipeline_streaming",
 ]
 
 
@@ -110,6 +111,72 @@ class PipelineDefinition:
                 raise
         
         return results
+    
+    def execute_streaming(self, db: Session, session_id: int):
+        """Execute pipeline stages as a generator for memory efficiency.
+        
+        Yields stage results one at a time instead of accumulating them.
+        Useful for pipelines processing large datasets or when incremental
+        progress reporting is needed.
+        
+        Args:
+            db: Database session.
+            session_id: Assessment session ID.
+            
+        Yields:
+            Tuple of (stage_name, stage_result) for each completed stage.
+            
+        Raises:
+            Exception: If any stage fails.
+            
+        Example:
+            >>> pipeline = get_klsi_pipeline_definition()
+            >>> for stage_name, result in pipeline.execute_streaming(db, session_id):
+            ...     print(f"Completed: {stage_name}")
+            ...     # Process result incrementally
+        """
+        for stage in self.stages:
+            stage_name = getattr(stage, "__name__", str(stage))
+            try:
+                stage_result = stage(db, session_id)
+                yield (stage_name, stage_result)
+            except Exception as exc:
+                # Yield error information before re-raising
+                yield (stage_name, {"error": str(exc), "ok": False})
+                raise
+
+
+def execute_pipeline_streaming(
+    pipeline: PipelineDefinition,
+    db: Session,
+    session_ids: list[int],
+):
+    """Execute pipeline for multiple sessions using generator pattern.
+    
+    Processes sessions one at a time to minimize memory footprint when
+    batch processing large numbers of assessments.
+    
+    Args:
+        pipeline: Pipeline definition to execute.
+        db: Database session.
+        session_ids: List of session IDs to process.
+        
+    Yields:
+        Tuple of (session_id, result_dict) for each processed session.
+        
+    Example:
+        >>> pipeline = get_klsi_pipeline_definition()
+        >>> session_ids = [101, 102, 103]
+        >>> for session_id, result in execute_pipeline_streaming(pipeline, db, session_ids):
+        ...     if result["ok"]:
+        ...         print(f"Session {session_id}: Success")
+    """
+    for session_id in session_ids:
+        try:
+            result = pipeline.execute(db, session_id)
+            yield (session_id, result)
+        except Exception as exc:
+            yield (session_id, {"ok": False, "error": str(exc)})
 
 
 def _compose_version(pipeline: ScoringPipeline) -> str:
