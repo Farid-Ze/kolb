@@ -134,4 +134,3 @@ def downgrade() -> None:
     op.drop_table("instrument_scales")
     op.drop_index("ix_instruments_code", table_name="instruments")
     op.drop_table("instruments")
-*** End of File
