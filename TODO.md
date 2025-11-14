@@ -24,7 +24,7 @@
 - [ ]  Pastikan normalisasi angka skor memakai vectorized operation (numpy) bila volume tinggi.
 - [x]  Evaluasi apakah app/models/klsi.py terlalu monolitik (24385 bytes ukuran besar) – pecah menjadi submodul: scoring, norms, reports, validation.
 - [ ]  Identifikasi fungsi > 50–70 baris di [klsi.py](http://klsi.py/) untuk dipecah (Fluent Python menganjurkan fungsi kecil yang jelas).
-- [ ]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
+- [x]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
 - [x]  Gunakan **all** di paket untuk menandai API publik.
 - [ ]  Terapkan strategi lazy loading untuk data norma besar.
 - [ ]  Pastikan klsi.db akses pakai connection pooling sederhana (sqlite: check same-thread/uri flags).
@@ -32,7 +32,7 @@
 - [ ]  Tambahkan integrasi transaction context manager agar batch operasi aman.
 - [ ]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
 - [ ]  Pertimbangkan penggunaan @dataclass(slots=True) untuk mengurangi overhead atribut (Python 3.10+).
-- [ ]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
+- [x]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
 - [ ]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables.
 - [ ]  Ganti indeks manual dictionary dengan operator mapping + dataclass agar mudah refactor.
 - [ ]  Pastikan [runtime.py](http://runtime.py/) memisahkan concerns: scheduling, state tracking, error handling.
@@ -69,7 +69,7 @@
 - [ ]  Gunakan f-string untuk formatting.
 - [ ]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
 - [ ]  Gunakan dataclass untuk konfigurasi runtime pipeline.
-- [ ]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
+- [x]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
 - [ ]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
 - [ ]  Pastikan parallelism (jika dipakai) menggunakan concurrent.futures untuk CPU-bound (mungkin scoring) atau asyncio untuk I/O.
 - [ ]  Jika heavy numeric compute, pertimbangkan numpy arrays untuk vector operations.
@@ -83,14 +83,14 @@
 - [ ]  Hindari pemakaian global state kecuali untuk readonly constant.
 - [ ]  Pastikan thread safety jika metrics disimpan di global – gunakan threading.Lock atau gunakan atomic types.
 - [ ]  Jika load concurrency tinggi, pertimbangkan uvloop (jika FastAPI/asyncio).
-- [ ]  Bangun health endpoint: menampilkan versi, waktu start, total requests.
-- [ ]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
+- [x]  Bangun health endpoint: menampilkan versi, waktu start, total requests.
+- [x]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
 - [ ]  Sediakan toggle untuk mematikan expensive debug instrumentation di production.
 - [ ]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
 - [ ]  Pastikan i18n modul memuat file JSON/YAML sekali – gunakan caching.
 - [ ]  Validasi ketersediaan locale fallback agar tidak error runtime.
 - [ ]  Gunakan re.compile sekali untuk regex sering dipakai (kalau ada).
-- [ ]  Pastikan pemisahan domain score formula ke fungsi pure testable.
+- [x]  Pastikan pemisahan domain score formula ke fungsi pure testable.
 - [ ]  Berikan margin komentar yang menjelaskan persamaan psikometrik agar maintainers paham.
 - [ ]  Pastikan rounding & scaling konsisten (centralize di module formatting).
 - [ ]  Gunakan decimal atau Fraction jika presisi penting, hindari float bias.
@@ -119,7 +119,7 @@
 - [ ]  Gunakan exponential backoff kalau nanti ada eksternal API (future).
 - [ ]  Pastikan test mencakup equivalence classes (skor sangat tinggi, rendah, borderline).
 - [ ]  Gunakan hypothesis (property-based testing) untuk formula psikometrik.
-- [ ]  Validasi bahwa no division by zero di formula; centralize safe_div(a, b).
+- [x]  Validasi bahwa no division by zero di formula; centralize safe_div(a, b).
 - [ ]  Pastikan normative adjustments tersusun di modul terpisah agar mudah ganti dataset.
 - [ ]  Gunakan caching TTL untuk data yang bisa berubah berkala (configurable).
 - [ ]  Pastikan adaptasi gaya belajar (mapping ke label) tidak di-hardcode berulang di banyak tempat.
@@ -147,7 +147,7 @@
 - [ ]  Pre-sort data jika beberapa algoritma memerlukan pencarian binary.
 - [ ]  Jika scoring melibatkan penjumlahan kategori, gunakan collections.Counter.
 - [ ]  Gunakan dataclass untuk menyimpan intermediate ScoreState menggantikan dict raw.
-- [ ]  Tambahkan validator integritas (sum raw skor = total expected).
+- [x]  Tambahkan validator integritas (sum raw skor = total expected).
 - [ ]  Gunakan memoization untuk konversi skala ke label (berulang).
 - [ ]  Pastikan runtime jelas memisahkan fase: ingest → validate → compute → normalize → output.
 - [ ]  Tulis README arsitektur modul engine (diagram).

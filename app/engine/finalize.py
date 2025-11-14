@@ -221,7 +221,8 @@ def finalize_assessment(
             for step in assessment.steps:
                 for dep in getattr(step, "depends_on", []):
                     if dep not in artifact_snapshots and dep not in ctx:
-                        raise RuntimeError(f"Dependency '{dep}' belum tersedia untuk step '{step.name}'")
+                        from app.i18n.id_messages import EngineMessages
+                        raise RuntimeError(EngineMessages.DEPENDENCY_NOT_AVAILABLE.format(dep=dep, step=step.name))
                 step.run(db, session_id, ctx)
                 db.flush()
                 if step.name in ctx and isinstance(ctx[step.name], dict):

@@ -55,17 +55,41 @@ class StructuredAdapter(logging.LoggerAdapter):
 _STRUCTURED_ATTR = "_structured_configured"
 
 
-def configure_logging(*, level: int = logging.INFO) -> None:
-    """Configure root logger with JSON formatter once (idempotent)."""
-
+def configure_logging(*, level: int = logging.INFO, environment: str = "dev") -> None:
+    """Configure root logger with JSON formatter once (idempotent).
+    
+    Args:
+        level: Base logging level (default: INFO).
+        environment: Runtime environment ('dev', 'test', 'staging', 'prod').
+                     In 'dev' mode, DEBUG level is enabled for detailed output.
+                     In 'prod' mode, INFO level with reduced verbosity.
+    
+    The logger is configured with:
+    - JSON structured output for easy parsing
+    - Correlation ID tracking across requests
+    - Environment-aware log levels
+    - Idempotent initialization (safe to call multiple times)
+    """
     root = logging.getLogger()
     if bool(getattr(root, _STRUCTURED_ATTR, False)):
         return
+    
+    # Environment-based log level tuning
+    if environment in ("dev", "test"):
+        # Development: verbose DEBUG for detailed diagnostics
+        effective_level = logging.DEBUG if level == logging.INFO else level
+    elif environment == "prod":
+        # Production: INFO minimum for stability
+        effective_level = max(level, logging.INFO)
+    else:
+        # Staging or unknown: use provided level
+        effective_level = level
+    
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
     root.handlers.clear()
     root.addHandler(handler)
-    root.setLevel(level)
+    root.setLevel(effective_level)
     setattr(root, _STRUCTURED_ATTR, True)
 
 

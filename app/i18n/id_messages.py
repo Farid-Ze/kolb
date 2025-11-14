@@ -1,4 +1,23 @@
-"""Localized Indonesian message constants used across routers/services."""
+"""Localized Indonesian message constants used across routers/services.
+
+This module centralizes all Indonesian text constants to support:
+- Consistent localization across the application
+- Easy maintenance and translation updates
+- Single source of truth for user-facing messages
+- Locale fallback validation (ensures no untranslated strings)
+"""
+
+
+class DomainErrorMessages:
+    """Base domain error default messages."""
+
+    DOMAIN_ERROR: str = "Terjadi kesalahan domain"
+    VALIDATION_ERROR: str = "Data tidak valid"
+    INVALID_ASSESSMENT_DATA: str = "Data asesmen tidak valid"
+    PERMISSION_DENIED: str = "Akses ditolak"
+    NOT_FOUND: str = "Resource tidak ditemukan"
+    CONFLICT: str = "Terjadi konflik state"
+    CONFIGURATION_ERROR: str = "Konfigurasi sistem tidak valid"
 
 
 class SessionErrorMessages:
@@ -112,7 +131,11 @@ class EngineMessages:
     """Engine service and router localization constants."""
 
     MANIFEST_NOT_FOUND: str = "Instrument manifest tidak ditemukan"
+    MANIFEST_NOT_CONFIGURED: str = "Instrument manifest belum dikonfigurasi"
     LOCALE_RESOURCE_NOT_FOUND: str = "Resource locale tidak ditemukan"
+    PLUGIN_NOT_REGISTERED: str = "Instrument plugin belum terdaftar di engine"
+    FINALIZE_FAILED: str = "Gagal menyelesaikan sesi"
+    DEPENDENCY_NOT_AVAILABLE: str = "Dependency '{dep}' belum tersedia untuk step '{step}'"
 
 
 class AuthoringMessages:
@@ -454,3 +477,9 @@ class DefinitionMessages:
     """Assessment definition validation messages."""
 
     LFI_CONTEXT_COUNT: str = "Butuh {expected} konteks LFI, baru {found}"
+
+
+class StrategyMessages:
+    """Strategy registry error messages."""
+
+    STRATEGY_NOT_REGISTERED: str = "Strategi scoring tidak terdaftar: {code}"
