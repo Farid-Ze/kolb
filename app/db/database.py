@@ -7,8 +7,12 @@ from typing import TYPE_CHECKING, Iterator
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
+import logging
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 from app.core.metrics import (
     inc_counter,
     observe_histogram,
@@ -81,10 +85,11 @@ class DatabaseGateway:
             session.commit()
             committed = True
             inc_counter("db.transaction.commits")
-        except Exception:
+        except SQLAlchemyError as e:
             session.rollback()
             rolled_back = True
             inc_counter("db.transaction.rollbacks")
+            logger.error("transaction_rollback", extra={"error": str(e)})
             raise
         finally:
             elapsed_ms = (perf_counter() - started) * 1000.0

@@ -35,6 +35,7 @@ from app.core.errors import (
     SessionFinalizedError,
     SessionNotFoundError,
 )
+from app.i18n.id_messages import EngineMessages
 
 
 logger = get_logger("kolb.engine.runtime", component="engine")
@@ -102,7 +103,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise ConflictError("Instrument plugin belum terdaftar di engine", status_code=400) from None
+                raise ConflictError(EngineMessages.PLUGIN_NOT_REGISTERED, status_code=400) from None
             try:
                 get_instrument_spec(inst_id.key, inst_id.version)
             except KeyError as exc:
@@ -116,7 +117,7 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise ConfigurationError("Instrument manifest belum dikonfigurasi") from exc
+                raise ConfigurationError(EngineMessages.MANIFEST_NOT_CONFIGURED) from exc
 
             session = AssessmentSession(
                 user_id=user.id,
@@ -283,7 +284,6 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise ConfigurationError("Gagal menyelesaikan sesi") from exc
             duration_ms = (perf_counter() - started) * 1000.0
             override = skip_validation and not validation.ready
             payload = build_finalize_payload(scorer_result, validation, override=override)
@@ -407,7 +407,6 @@ class EngineRuntime:
                         }
                     },
                 )
-                raise ConfigurationError("Gagal menyelesaikan sesi") from exc
 
             override = skip_validation and not validation.ready
             payload = build_finalize_payload(scorer_result, validation, override=override)

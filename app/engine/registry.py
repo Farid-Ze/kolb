@@ -1,5 +1,33 @@
 from __future__ import annotations
 
+"""Assessment and instrument plugin registry.
+
+This module provides thread-safe registries for:
+1. Assessment definitions (versioned assessment configurations)
+2. Instrument plugins and their collaborators (scorers, norm providers, report builders)
+
+The registries support:
+- Thread-safe operations via RLock
+- Immutable data structures for safety
+- Plugin discovery via importlib.metadata entry points
+- Legacy dict-like interface for backward compatibility
+
+Key Classes:
+    RegistryKey: Composite key for (name, version) pairs
+    RegistryEntry: Immutable container for instrument components
+    AssessmentRegistry: Registry for assessment definitions
+    EngineRegistry: Registry for instrument plugins and collaborators
+
+Module-level instances:
+    assessment_registry: Global registry for assessments
+    engine_registry: Global registry for instrument plugins
+
+Usage:
+    >>> from app.engine.registry import engine_registry
+    >>> registry.register_plugin(my_plugin)
+    >>> plugin = registry.plugin(InstrumentId("KLSI", "4.0"))
+"""
+
 import inspect
 import logging
 from collections.abc import MutableMapping
@@ -34,27 +62,76 @@ logger = logging.getLogger(__name__)
 
 
 class RegistryError(KeyError):
-    """Raised when attempting to access an unregistered engine component."""
+    """Raised when attempting to access an unregistered engine component.
+    
+    This exception is raised when attempting to retrieve a component that has not
+    been registered with the engine registry. It extends KeyError to maintain
+    compatibility with dict-like lookup patterns.
+    """
 
 
 @dataclass(frozen=True, slots=True)
 class RegistryKey:
-    """Hashable key used across assessment and instrument registries."""
+    """Hashable key used across assessment and instrument registries.
+    
+    Provides a composite key structure for versioned assessment instruments.
+    The frozen and slots attributes ensure immutability and memory efficiency.
+    
+    Attributes:
+        name: The instrument or assessment name (e.g., "KLSI").
+        version: The version string (e.g., "4.0").
+        
+    Example:
+        >>> key = RegistryKey("KLSI", "4.0")
+        >>> key.token()
+        'KLSI:4.0'
+    """
 
     name: str
     version: str
 
     @classmethod
     def from_id(cls, inst: InstrumentId) -> "RegistryKey":
+        """Create a RegistryKey from an InstrumentId.
+        
+        Args:
+            inst: The instrument ID to convert.
+            
+        Returns:
+            A new RegistryKey instance.
+        """
         return cls(inst.key, inst.version)
 
     def token(self) -> str:
+        """Generate a string token in the format 'name:version'.
+        
+        Returns:
+            A colon-separated string representation of the key.
+        """
         return f"{self.name}:{self.version}"
 
 
 @dataclass(frozen=True, slots=True)
 class RegistryEntry:
-    """Immutable container holding instrument-specific engine components."""
+    """Immutable container holding instrument-specific engine components.
+    
+    This dataclass aggregates all pluggable components needed to process
+    an assessment instrument: plugin, scorer, norm provider, and report builder.
+    
+    The frozen and slots attributes ensure immutability and memory efficiency.
+    Components can be updated using the with_* methods which return new instances.
+    
+    Attributes:
+        plugin: The instrument plugin implementing delivery and validation.
+        scorer: The scoring strategy for computing results.
+        norm_provider: Provider for normative conversion data.
+        report_builder: Builder for generating assessment reports.
+        
+    Example:
+        >>> entry = RegistryEntry()
+        >>> entry = entry.with_plugin(my_plugin)
+        >>> entry = entry.with_scorer(my_scorer)
+    """
 
     plugin: InstrumentPlugin | None = None
     scorer: EngineScorer | None = None
@@ -62,15 +139,47 @@ class RegistryEntry:
     report_builder: EngineReportBuilder | None = None
 
     def with_plugin(self, plugin: InstrumentPlugin) -> "RegistryEntry":
+        """Return a new entry with the plugin updated.
+        
+        Args:
+            plugin: The instrument plugin to set.
+            
+        Returns:
+            A new RegistryEntry with the plugin updated.
+        """
         return replace(self, plugin=plugin)
 
     def with_scorer(self, scorer: EngineScorer) -> "RegistryEntry":
+        """Return a new entry with the scorer updated.
+        
+        Args:
+            scorer: The scoring strategy to set.
+            
+        Returns:
+            A new RegistryEntry with the scorer updated.
+        """
         return replace(self, scorer=scorer)
 
     def with_norm_provider(self, provider: EngineNormProvider) -> "RegistryEntry":
+        """Return a new entry with the norm provider updated.
+        
+        Args:
+            provider: The norm provider to set.
+            
+        Returns:
+            A new RegistryEntry with the norm provider updated.
+        """
         return replace(self, norm_provider=provider)
 
     def with_report_builder(self, builder: EngineReportBuilder) -> "RegistryEntry":
+        """Return a new entry with the report builder updated.
+        
+        Args:
+            builder: The report builder to set.
+            
+        Returns:
+            A new RegistryEntry with the report builder updated.
+        """
         return replace(self, report_builder=builder)
 
 
@@ -118,14 +227,42 @@ class _TokenMapping(MutableMapping[str, AssessmentDefinition]):
 
 
 class AssessmentRegistry:
-    """Thread-safe registry tracking assessment definitions by key."""
+    """Thread-safe registry tracking assessment definitions by key.
+    
+    This registry manages assessment definitions indexed by (name, version) pairs.
+    All operations are thread-safe through the use of RLock.
+    
+    The registry supports both modern RegistryKey-based access and legacy
+    string token access for backward compatibility.
+    
+    Example:
+        >>> registry = AssessmentRegistry()
+        >>> key = registry.register(my_assessment)
+        >>> assessment = registry.get("KLSI", "4.0")
+    """
 
     def __init__(self) -> None:
+        """Initialize an empty assessment registry."""
         self._entries: Dict[RegistryKey, AssessmentDefinition] = {}
         self._lock = RLock()
         self._legacy_view = _TokenMapping(self)
 
     def register(self, assessment: AssessmentDefinition) -> RegistryKey:
+        """Register an assessment definition.
+        
+        Extracts the assessment ID and version from the definition and stores it
+        in the registry. The ID and version can be either class attributes or
+        instance attributes.
+        
+        Args:
+            assessment: The assessment definition to register.
+            
+        Returns:
+            The RegistryKey under which the assessment was registered.
+            
+        Raises:
+            RegistryError: If the assessment lacks 'id' or 'version' attributes.
+        """
         cls = type(assessment)
         cls_name = getattr(cls, "id", None)
         cls_version = getattr(cls, "version", None)
@@ -141,6 +278,18 @@ class AssessmentRegistry:
         return key
 
     def get(self, assessment_id: str, version: str) -> AssessmentDefinition:
+        """Retrieve an assessment definition by ID and version.
+        
+        Args:
+            assessment_id: The assessment identifier.
+            version: The version string.
+            
+        Returns:
+            The registered assessment definition.
+            
+        Raises:
+            RegistryError: If no assessment is registered with the given key.
+        """
         key = RegistryKey(assessment_id, version)
         with self._lock:
             try:
@@ -149,22 +298,43 @@ class AssessmentRegistry:
                 raise RegistryError(f"Assessment definition not registered: {key.token()}") from exc
 
     def snapshot(self) -> Mapping[RegistryKey, AssessmentDefinition]:
+        """Return an immutable snapshot of all registered assessments.
+        
+        Returns:
+            A read-only mapping of registry keys to assessment definitions.
+        """
         with self._lock:
             return MappingProxyType(dict(self._entries))
 
     def clear(self) -> None:
+        """Remove all registered assessments.
+        
+        This is primarily used in testing to reset the registry state.
+        """
         with self._lock:
             self._entries.clear()
 
     def remove(self, assessment_id: str, version: str) -> bool:
+        """Remove an assessment from the registry.
+        
+        Args:
+            assessment_id: The assessment identifier.
+            version: The version string.
+            
+        Returns:
+            True if the assessment was removed, False if it wasn't registered.
+        """
         key = RegistryKey(assessment_id, version)
         with self._lock:
             return self._entries.pop(key, None) is not None
 
     @property
     def _registry(self) -> MutableMapping[str, AssessmentDefinition]:
-        """Legacy dict-like view keyed by `<name>:<version>` tokens."""
-
+        """Legacy dict-like view keyed by `<name>:<version>` tokens.
+        
+        Provided for backward compatibility with code expecting a dict-like interface.
+        New code should use the register() and get() methods directly.
+        """
         return self._legacy_view
 
 
@@ -175,17 +345,56 @@ _registry = assessment_registry._registry
 
 
 def register(assessment: AssessmentDefinition) -> None:
+    """Register an assessment definition in the global registry.
+    
+    This is a convenience function that delegates to the global assessment_registry.
+    
+    Args:
+        assessment: The assessment definition to register.
+    """
     assessment_registry.register(assessment)
 
 
 def get(assessment_id: str, version: str) -> AssessmentDefinition:
+    """Retrieve an assessment definition from the global registry.
+    
+    This is a convenience function that delegates to the global assessment_registry.
+    
+    Args:
+        assessment_id: The assessment identifier.
+        version: The version string.
+        
+    Returns:
+        The registered assessment definition.
+        
+    Raises:
+        RegistryError: If no assessment is registered with the given key.
+    """
     return assessment_registry.get(assessment_id, version)
 
 
 class EngineRegistry:
-    """Thread-safe registry for instrument plugins and their collaborators."""
+    """Thread-safe registry for instrument plugins and their collaborators.
+    
+    This registry manages the pluggable components needed to execute assessment
+    instruments: plugins (delivery & validation), scorers (computation), norm
+    providers (normative conversions), and report builders (result formatting).
+    
+    All operations are thread-safe through the use of RLock. Components are stored
+    in immutable RegistryEntry instances to prevent unintended mutations.
+    
+    The registry supports plugin discovery via importlib.metadata entry points,
+    allowing external packages to register instruments dynamically.
+    
+    Example:
+        >>> registry = EngineRegistry()
+        >>> registry.register_plugin(my_plugin)
+        >>> registry.register_scorer(my_plugin.id(), my_scorer)
+        >>> plugin = registry.plugin(InstrumentId("KLSI", "4.0"))
+    """
 
     def __init__(self) -> None:
+        """Initialize an empty engine registry."""
         self._entries: Dict[RegistryKey, RegistryEntry] = {}
         self._lock = RLock()
 

@@ -1,0 +1,21 @@
+# Bandit configuration for security checks
+# See https://bandit.readthedocs.io/en/latest/config.html
+
+[bandit]
+# B101: Test for use of assert
+# B601: Test for shell injection within Paramiko
+# B602: Test for use of shell=True
+# B603: Test for use of subprocess without shell equals true
+# B607: Test for starting a process with a partial executable path
+
+# Exclude test directories
+exclude_dirs = ['/tests', '/migrations', '/.venv', '/venv']
+
+# Tests to skip
+skips = ['B101']
+
+# Severity level (LOW, MEDIUM, HIGH)
+level = MEDIUM
+
+# Confidence level (LOW, MEDIUM, HIGH)
+confidence = MEDIUM
