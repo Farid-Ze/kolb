@@ -52,7 +52,7 @@ def test_finalize_is_atomic_on_failure():
     original = _STRATEGIES.get("KLSI4.0")
     try:
         # Register a faulty strategy under the KLSI key to force an exception
-        register_strategy(FaultyStrategy())
+        register_strategy(FaultyStrategy(), allow_replace=True)
 
         sess = _new_session(db)
 

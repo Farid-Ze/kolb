@@ -3,12 +3,15 @@
 from typing import Any, MutableMapping, cast
 
 import pytest
+from app.engine import strategy_registry as registry_module
 from app.engine.strategy_registry import (
     register_strategy,
     get_strategy,
     get_default_strategy,
     list_strategies,
     snapshot_strategies,
+    load_strategies_from_plugins,
+    _STRATEGIES,
 )
 from app.engine.strategies.base import ScoringStrategy
 from sqlalchemy.orm import Session
@@ -90,3 +93,37 @@ def test_strategy_not_found_error_message():
     error_message = str(exc_info.value)
     # Should mention available strategies
     assert "Available strategies" in error_message or "tidak terdaftar" in error_message
+
+
+class DummyEntryPoint:
+    def __init__(self, factory):
+        self.name = "dummy"
+        self._factory = factory
+
+    def load(self):
+        return self._factory
+
+
+def test_load_strategies_from_plugins(monkeypatch):
+    """Strategies exposed via entry points should be registered automatically."""
+    plugin_strategy = MockStrategy("PLUGIN_STRATEGY")
+
+    def fake_iter(group: str):  # pragma: no cover - monkeypatched lambda
+        assert group == "kolb.strategies"
+        return [DummyEntryPoint(lambda: plugin_strategy)]
+
+    monkeypatch.setattr(registry_module, "_iter_strategy_entrypoints", fake_iter)
+    loaded = load_strategies_from_plugins(force=True)
+    assert loaded == 1
+    assert get_strategy("PLUGIN_STRATEGY") is plugin_strategy
+
+
+def test_register_strategy_duplicate_errors():
+    """Duplicate codes without explicit override should raise ValueError."""
+    code = "DUPLICATE_TEST"
+    _STRATEGIES.pop(code, None)
+
+    register_strategy(MockStrategy(code))
+    with pytest.raises(ValueError):
+        register_strategy(MockStrategy(code))
+    _STRATEGIES.pop(code, None)
