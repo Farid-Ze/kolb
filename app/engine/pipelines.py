@@ -109,18 +109,57 @@ __all__ = [
     "PipelineStage",
     "PipelineDefinition",
     "PipelineFactory",
+    "RuntimePipelineConfig",
     "resolve_active_pipeline_version",
     "assign_pipeline_version",
     "get_klsi_pipeline_definition",
     "resolve_klsi_pipeline_from_nodes",
     "execute_pipeline_streaming",
     "KLSI_PIPELINE_STAGE_KEYS",
+    "KLSI_PIPELINE_CONFIG",
 ]
 KLSI_PIPELINE_STAGE_KEYS: tuple[str, ...] = (
     "RAW_SCALES",
     "COMBINATIONS",
     "STYLE_ASSIGNMENT",
     "LFI",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimePipelineConfig:
+    """Declarative configuration for runtime pipeline assembly.
+
+    This dataclass stores the canonical ordering of stage keys along with
+    identifying metadata. It builds ``PipelineDefinition`` instances via
+    ``PipelineFactory`` to keep stage lookups centralized and testable.
+    """
+
+    code: str
+    version: str
+    stage_keys: tuple[str, ...]
+    description: str = ""
+    stage_mapping: Mapping[str, PipelineStage] | None = None
+
+    def build(self, factory: PipelineFactory | None = None) -> PipelineDefinition:
+        stage_map = self.stage_mapping or _get_klsi_stage_mapping()
+        pipeline_factory = factory or PipelineFactory(stage_map)
+        return pipeline_factory.build(
+            code=self.code,
+            version=self.version,
+            stage_keys=self.stage_keys,
+            description=self.description,
+        )
+
+
+KLSI_PIPELINE_CONFIG = RuntimePipelineConfig(
+    code="KLSI_STANDARD",
+    version="4.0",
+    stage_keys=KLSI_PIPELINE_STAGE_KEYS,
+    description=(
+        "Standard KLSI 4.0 scoring pipeline: "
+        "raw scales → combinations → style assignment → LFI"
+    ),
 )
 
 
@@ -383,15 +422,7 @@ def get_klsi_pipeline_definition() -> PipelineDefinition:
     """
 
     factory = PipelineFactory(_get_klsi_stage_mapping())
-    return factory.build(
-        code="KLSI_STANDARD",
-        version="4.0",
-        stage_keys=KLSI_PIPELINE_STAGE_KEYS,
-        description=(
-            "Standard KLSI 4.0 scoring pipeline: "
-            "raw scales → combinations → style assignment → LFI"
-        ),
-    )
+    return KLSI_PIPELINE_CONFIG.build(factory)
 
 
 def resolve_klsi_pipeline_from_nodes(

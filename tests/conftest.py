@@ -33,6 +33,6 @@ def client(db_setup):
     return TestClient(app)
 
 @pytest.fixture()
-def session():
+def session(db_setup):
     with SessionLocal() as db:
         yield db

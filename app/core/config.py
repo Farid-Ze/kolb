@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     norms_preload_row_threshold: int = Field(default=200_000, ge=0)
     norms_preload_max_entries: int = Field(default=400_000, ge=0)
     cached_norm_provider_enabled: bool = Field(default=True)
+    norms_lazy_loader_enabled: bool = Field(
+        default=False,
+        description="Enable repository-backed lazy loading for large norm tables",
+    )
+    norms_lazy_loader_chunk_size: int = Field(default=250, ge=1)
+    norms_lazy_loader_cache_entries: int = Field(default=2048, ge=1)
 
     runtime_components_enabled: bool = Field(
         default=False,

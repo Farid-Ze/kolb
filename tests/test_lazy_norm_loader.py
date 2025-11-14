@@ -145,3 +145,13 @@ def test_lazy_loader_reports_bytes_and_timestamp():
     stats = loader.get_stats()
     assert stats["bytes_loaded"] > 0
     assert stats["last_chunk_loaded_at"] is not None
+
+
+def test_lazy_loader_fetches_additional_chunks_until_found():
+    source = MockNormSource()
+    loader = LazyNormLoader(source, chunk_size=2, max_cache_entries=10)
+
+    value = loader.lookup(_DUMMY_SESSION, "Total", "CE", 16)
+    assert value == 40.0
+    # chunk_size=2, expect multiple fetches before the score is found
+    assert source.fetch_count >= 3

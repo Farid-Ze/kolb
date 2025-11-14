@@ -13,6 +13,7 @@ from app.engine.norms.composite import (
     ExternalNormProvider,
 )
 from app.engine.norms.provider import NormProvider
+from app.engine.norms.lazy_loader import LazyNormLoader, NormDataSource
 from app.core.config import settings
 from app.db.repositories import NormativeConversionRepository
 from sqlalchemy import text
@@ -64,6 +65,10 @@ _PRELOAD_STATS: Dict[str, int | bool] = {
     "versions": 0,
     "scales": 0,
 }
+
+
+_NORM_VERSION_DELIM = "|"
+_DEFAULT_VERSION = "default"
 
 
 def _reset_preloaded_norms() -> None:
@@ -230,6 +235,8 @@ def build_composite_norm_provider(db: Session):
     _maybe_build_preloaded_map(db)
     if _PRELOADED is not None:
         db_lookup = _make_preloaded_db_lookup(db)
+    elif settings.norms_lazy_loader_enabled:
+        db_lookup = _make_lazy_db_lookup(db)
     else:
         db_lookup = _make_cached_db_lookup(db)
     providers: List[NormProvider] = [DatabaseNormProvider(db_lookup)]
@@ -247,6 +254,80 @@ def build_composite_norm_provider(db: Session):
     except Exception:
         composite._external_provider = None
     return composite
+
+
+def _split_group_token(token: str) -> tuple[str, str]:
+    if _NORM_VERSION_DELIM in token:
+        base, version = token.split(_NORM_VERSION_DELIM, 1)
+        return base, version or _DEFAULT_VERSION
+    return token, _DEFAULT_VERSION
+
+
+def _make_lazy_db_lookup(db: Session):
+    repo = NormativeConversionRepository(db)
+    source = _RepositoryNormDataSource(repo)
+    loader = LazyNormLoader(
+        source,
+        chunk_size=int(settings.norms_lazy_loader_chunk_size),
+        max_cache_entries=int(settings.norms_lazy_loader_cache_entries),
+    )
+
+    def _lookup(group_token: str, scale_name: str, raw: int | float):
+        base_group, requested_version = _split_group_token(group_token)
+        versions = [requested_version]
+        if requested_version != _DEFAULT_VERSION:
+            versions.append(_DEFAULT_VERSION)
+        for version in versions:
+            token = f"{base_group}{_NORM_VERSION_DELIM}{version}" if version else base_group
+            value = loader.lookup(db, token, scale_name, int(raw))
+            if value is not None:
+                return (value, version)
+        return None
+
+    def _cache_info():
+        stats = loader.get_stats()
+        return _LazyCacheInfo(
+            hits=int(stats.get("hits", 0)),
+            misses=int(stats.get("misses", 0)),
+            maxsize=settings.norms_lazy_loader_cache_entries,
+            currsize=int(stats.get("cache_size", 0)),
+        )
+
+    setattr(_lookup, "clear_cache", loader.clear_cache)
+    setattr(_lookup, "cache_info", _cache_info)
+    setattr(_lookup, "lazy_loader", loader)
+    return _lookup
+
+
+class _LazyCacheInfo:
+    def __init__(self, *, hits: int, misses: int, maxsize: int, currsize: int):
+        self.hits = hits
+        self.misses = misses
+        self.maxsize = maxsize
+        self.currsize = currsize
+
+
+class _RepositoryNormDataSource(NormDataSource):
+    def __init__(self, repo: NormativeConversionRepository):
+        self._repo = repo
+
+    def fetch_chunk(
+        self,
+        db: Session,
+        norm_group: str,
+        scale_name: str,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[tuple[int, float]]:
+        base_group, version = _split_group_token(norm_group)
+        rows = self._repo.fetch_scale_chunk(
+            base_group,
+            version or _DEFAULT_VERSION,
+            scale_name,
+            offset=offset,
+            limit=limit,
+        )
+        return [(row.raw_score, row.percentile) for row in rows]
 
 # Singleton external provider to persist TTL cache across requests
 _EXTERNAL_PROVIDER: ExternalNormProvider | None = None

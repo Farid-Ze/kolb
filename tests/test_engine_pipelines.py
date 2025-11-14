@@ -5,8 +5,10 @@ from typing import TYPE_CHECKING, Sequence, cast
 
 import pytest
 from app.engine.pipelines import (
+    KLSI_PIPELINE_CONFIG,
     KLSI_PIPELINE_STAGE_KEYS,
     PipelineFactory,
+    RuntimePipelineConfig,
     get_klsi_pipeline_definition,
     resolve_klsi_pipeline_from_nodes,
 )
@@ -86,3 +88,36 @@ def test_klsi_stage_keys_are_ordered():
         "STYLE_ASSIGNMENT",
         "LFI",
     )
+
+
+def test_pipeline_config_builds_definition():
+    definition = KLSI_PIPELINE_CONFIG.build()
+    assert definition.code == "KLSI_STANDARD"
+    assert definition.version == "4.0"
+    assert _stage_names(definition.stages) == [
+        "compute_raw_scale_scores",
+        "compute_combination_scores",
+        "assign_learning_style",
+        "compute_lfi",
+    ]
+
+
+def test_pipeline_config_respects_custom_stage_mapping():
+    def _dummy_stage(db, session_id):  # pragma: no cover - lambda style ok
+        return {"ok": True}
+
+    config = RuntimePipelineConfig(
+        code="TEST",
+        version="0",
+        stage_keys=("CUSTOM",),
+        stage_mapping={"CUSTOM": _dummy_stage},
+    )
+
+    definition = config.build()
+    assert definition.stages == (_dummy_stage,)
+
+
+def test_pipeline_config_raises_for_unknown_stage_key():
+    config = RuntimePipelineConfig(code="X", version="1", stage_keys=("UNKNOWN",))
+    with pytest.raises(ValueError):
+        config.build()

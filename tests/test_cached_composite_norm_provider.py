@@ -1,5 +1,8 @@
 from typing import Any, cast
 from app.engine.norms.cached_composite import CachedCompositeNormProvider
+from app.engine.norms.factory import build_composite_norm_provider
+from app.engine.norms import factory as norms_factory
+from app.core.config import settings
 from app.models.klsi.norms import NormativeConversionTable
 
 # NOTE: Uses existing session fixture (named 'session') provided by conftest.py
@@ -93,3 +96,22 @@ def test_cached_composite_batch_and_cache(session):
 
     # Clean up monkeypatch
     session_any.execute = original_execute
+
+
+def test_build_composite_uses_lazy_loader_when_enabled(session, monkeypatch):
+    norms_factory._reset_preloaded_norms()
+    monkeypatch.setattr(settings, "norms_preload_enabled", False)
+    monkeypatch.setattr(settings, "norms_lazy_loader_enabled", True)
+    monkeypatch.setattr(settings, "norms_lazy_loader_chunk_size", 2)
+    monkeypatch.setattr(settings, "norms_lazy_loader_cache_entries", 4)
+
+    _insert_norm_rows(session, "Total")
+
+    provider = build_composite_norm_provider(session)
+    result = provider.percentile(["Total|default"], "CE", 12)
+    assert result.percentile == 5.0
+
+    lookup = getattr(provider, "_db_lookup")
+    assert hasattr(lookup, "lazy_loader")
+    stats = lookup.lazy_loader.get_stats()
+    assert stats["chunks_loaded"] >= 1

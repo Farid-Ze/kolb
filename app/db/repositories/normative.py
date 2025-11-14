@@ -191,3 +191,41 @@ class NormativeConversionRepository(Repository[Session]):
             )
             for row in rows
         ]
+
+    def fetch_scale_chunk(
+        self,
+        norm_group: str,
+        version: str,
+        scale_name: str,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> List[NormativeConversionRow]:
+        """Fetch an ordered chunk of rows for a norm group/version/scale."""
+
+        stmt = (
+            select(
+                NormativeConversionTable.norm_group,
+                NormativeConversionTable.norm_version,
+                NormativeConversionTable.scale_name,
+                NormativeConversionTable.raw_score,
+                NormativeConversionTable.percentile,
+            )
+            .where(NormativeConversionTable.norm_group == norm_group)
+            .where(NormativeConversionTable.norm_version == version)
+            .where(NormativeConversionTable.scale_name == scale_name)
+            .order_by(NormativeConversionTable.raw_score.asc())
+            .offset(max(0, offset))
+            .limit(max(1, limit))
+        )
+        rows = self.db.execute(stmt).all()
+        return [
+            NormativeConversionRow(
+                norm_group=str(row[0]),
+                norm_version=str(row[1]) if row[1] is not None else None,
+                scale_name=str(row[2]),
+                raw_score=int(row[3]),
+                percentile=float(row[4]),
+            )
+            for row in rows
+        ]

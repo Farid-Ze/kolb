@@ -26,7 +26,7 @@
 - [ ]  Identifikasi fungsi > 50–70 baris di [klsi.py](http://klsi.py/) untuk dipecah (Fluent Python menganjurkan fungsi kecil yang jelas).
 - [x]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
 - [x]  Gunakan **all** di paket untuk menandai API publik.
-- [ ]  Terapkan strategi lazy loading untuk data norma besar.
+- [x]  Terapkan strategi lazy loading untuk data norma besar.
 - [ ]  Pastikan klsi.db akses pakai connection pooling sederhana (sqlite: check same-thread/uri flags).
 - [ ]  Hindari membuka koneksi baru setiap query – gunakan satu engine (SQLAlchemy) bila berkembang.
 - [ ]  Tambahkan integrasi transaction context manager agar batch operasi aman.
@@ -68,7 +68,7 @@
 - [ ]  Hindari list(map(...)) ketika comprehension lebih jelas.
 - [x]  Gunakan f-string untuk formatting.
 - [x]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
-- [ ]  Gunakan dataclass untuk konfigurasi runtime pipeline.
+- [x]  Gunakan dataclass untuk konfigurasi runtime pipeline.
 - [x]  Buat modul [constants.py](http://constants.py/) untuk mengurangi magic numbers.
 - [x]  Definisikan NamedTuple untuk hasil immutable ringan (misal ScoreVector).
 - [ ]  Pastikan parallelism (jika dipakai) menggunakan concurrent.futures untuk CPU-bound (mungkin scoring) atau asyncio untuk I/O.
