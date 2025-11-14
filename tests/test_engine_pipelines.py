@@ -3,7 +3,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Sequence, cast
 
-from app.engine.pipelines import get_klsi_pipeline_definition, resolve_klsi_pipeline_from_nodes
+import pytest
+from app.engine.pipelines import (
+    KLSI_PIPELINE_STAGE_KEYS,
+    PipelineFactory,
+    get_klsi_pipeline_definition,
+    resolve_klsi_pipeline_from_nodes,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.engine.pipelines import PipelineStage
@@ -60,9 +66,23 @@ def test_resolve_klsi_pipeline_from_nodes_raises_on_unknown_key():
     ]
     nodes = cast("list[ScoringPipelineNode]", raw_nodes)
 
-    import pytest
-
     with pytest.raises(ValueError) as excinfo:
         resolve_klsi_pipeline_from_nodes(nodes)
 
     assert "Unsupported pipeline node_key" in str(excinfo.value)
+
+
+def test_pipeline_factory_rejects_unknown_stage():
+    factory = PipelineFactory({"RAW_SCALES": lambda db, session_id: {}})  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError):
+        factory.build(code="X", version="1", stage_keys=("UNKNOWN",))
+
+
+def test_klsi_stage_keys_are_ordered():
+    assert KLSI_PIPELINE_STAGE_KEYS == (
+        "RAW_SCALES",
+        "COMBINATIONS",
+        "STYLE_ASSIGNMENT",
+        "LFI",
+    )

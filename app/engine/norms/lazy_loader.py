@@ -7,8 +7,11 @@ and startup time when dealing with large norm tables.
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
+from datetime import datetime, timezone
 from threading import RLock
 from typing import Protocol
+from sys import getsizeof
 
 from sqlalchemy.orm import Session
 
@@ -86,6 +89,10 @@ class LazyNormLoader:
         self._hits = 0
         self._misses = 0
         self._chunks_loaded = 0
+        self._evictions = 0
+        self._bytes_loaded = 0
+        self._eviction_reasons: dict[str, int] = defaultdict(int)
+        self._last_chunk_loaded_at: str | None = None
     
     def lookup(
         self,
@@ -121,6 +128,8 @@ class LazyNormLoader:
                 # Remove first entry (oldest in insertion order)
                 oldest_key = next(iter(self._cache))
                 del self._cache[oldest_key]
+                self._evictions += 1
+                self._eviction_reasons["capacity"] += 1
                 logger.debug(f"Evicted norm cache entry: {oldest_key}")
             
             # Load chunk from source
@@ -132,6 +141,8 @@ class LazyNormLoader:
             lookup_dict = {raw: pct for raw, pct in chunk_data}
             self._cache[cache_key] = lookup_dict
             self._chunks_loaded += 1
+            self._bytes_loaded += self._estimate_chunk_bytes(chunk_data)
+            self._last_chunk_loaded_at = datetime.now(timezone.utc).isoformat()
             
             logger.debug(
                 f"Loaded norm chunk: group={norm_group}, scale={scale_name}, "
@@ -139,6 +150,12 @@ class LazyNormLoader:
             )
             
             return lookup_dict.get(raw_score)
+
+    def _estimate_chunk_bytes(self, chunk: list[tuple[int, float]]) -> int:
+        size = getsizeof(chunk)
+        for row in chunk:
+            size += getsizeof(row)
+        return size
     
     def get_stats(self) -> dict[str, int | float]:
         """Get cache statistics.
@@ -156,6 +173,10 @@ class LazyNormLoader:
                 "hit_rate": hit_rate,
                 "chunks_loaded": self._chunks_loaded,
                 "cache_size": len(self._cache),
+                "evictions": self._evictions,
+                "eviction_reasons": dict(self._eviction_reasons),
+                "bytes_loaded": self._bytes_loaded,
+                "last_chunk_loaded_at": self._last_chunk_loaded_at,
             }
     
     def clear_cache(self) -> None:
@@ -165,3 +186,7 @@ class LazyNormLoader:
             self._hits = 0
             self._misses = 0
             self._chunks_loaded = 0
+            self._evictions = 0
+            self._bytes_loaded = 0
+            self._eviction_reasons.clear()
+            self._last_chunk_loaded_at = None

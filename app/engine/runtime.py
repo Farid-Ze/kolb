@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.errors import (
     ConfigurationError,
     ConflictError,
@@ -38,6 +39,56 @@ from app.models.klsi.user import User
 from app.services.validation import run_session_validations
 
 logger = get_logger("kolb.engine.runtime", component="engine")
+
+
+class RuntimeScheduler:
+    """Thin wrapper responsible for resolving sessions via repositories."""
+
+    def __init__(self, repo_provider_factory=get_repository_provider):
+        self._repo_provider_factory = repo_provider_factory
+
+    def resolve_session(self, db: Session, session_id: int) -> AssessmentSession | None:
+        repo_provider = self._repo_provider_factory(db)
+        repo = repo_provider.sessions
+        return repo.get_by_id(session_id)
+
+
+class RuntimeStateTracker:
+    """Tracks elapsed wall time for runtime phases."""
+
+    def __init__(self, label: str):
+        self.label = label
+        self._started = perf_counter()
+
+    def duration_ms(self) -> float:
+        return (perf_counter() - self._started) * 1000.0
+
+
+class RuntimeErrorReporter:
+    """Centralizes structured logging for runtime errors."""
+
+    def __init__(self, logger_instance):
+        self._logger = logger_instance
+
+    def report(
+        self,
+        *,
+        event: str,
+        session_id: int,
+        user_id: int | None,
+        exc: Exception,
+        correlation_id: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        structured = {
+            "session_id": session_id,
+            "user_id": user_id,
+            "error": str(exc),
+            "correlation_id": correlation_id,
+        }
+        if metadata:
+            structured.update(metadata)
+        self._logger.exception(event, extra={"structured_data": structured})
 
 
 class EngineRuntime:
@@ -73,13 +124,26 @@ class EngineRuntime:
     - Engine→Services boundary stays sync for now (YAGNI principle)
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        components_enabled: bool | None = None,
+        scheduler: RuntimeScheduler | None = None,
+        error_reporter: RuntimeErrorReporter | None = None,
+    ) -> None:
         self._registry = engine_registry
+        self._components_enabled = (
+            settings.runtime_components_enabled if components_enabled is None else components_enabled
+        )
+        self._scheduler = scheduler or RuntimeScheduler(get_repository_provider)
+        self._error_reporter = error_reporter or RuntimeErrorReporter(logger)
 
     def _resolve_session(self, db: Session, session_id: int) -> AssessmentSession:
-        repo_provider = get_repository_provider(db)
-        repo = repo_provider.sessions
-        session = repo.get_by_id(session_id)
+        if self._components_enabled:
+            session = self._scheduler.resolve_session(db, session_id)
+        else:
+            repo_provider = get_repository_provider(db)
+            session = repo_provider.sessions.get_by_id(session_id)
         if not session:
             logger.warning(
                 "session_not_found",
@@ -87,6 +151,46 @@ class EngineRuntime:
             )
             raise SessionNotFoundError()
         return session
+
+    def _build_state_tracker(self, label: str) -> RuntimeStateTracker | None:
+        if self._components_enabled:
+            return RuntimeStateTracker(label)
+        return None
+
+    def _measure_duration(self, started: float, tracker: RuntimeStateTracker | None) -> float:
+        if tracker:
+            return tracker.duration_ms()
+        return (perf_counter() - started) * 1000.0
+
+    def _log_runtime_error(
+        self,
+        *,
+        event: str,
+        session_id: int,
+        user_id: int | None,
+        exc: Exception,
+        correlation_id: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        if self._components_enabled:
+            self._error_reporter.report(
+                event=event,
+                session_id=session_id,
+                user_id=user_id,
+                exc=exc,
+                correlation_id=correlation_id,
+                metadata=metadata,
+            )
+            return
+        structured = {
+            "session_id": session_id,
+            "user_id": user_id,
+            "error": str(exc),
+            "correlation_id": correlation_id,
+        }
+        if metadata:
+            structured.update(metadata)
+        logger.exception(event, extra={"structured_data": structured})
 
     def _instrument_id(self, session: AssessmentSession) -> InstrumentId:
         if session.instrument:
@@ -228,6 +332,7 @@ class EngineRuntime:
     ) -> dict:
         correlation_id = str(uuid4())
         with correlation_context(correlation_id):
+            tracker = self._build_state_tracker("engine.finalize")
             try:
                 session = self._resolve_session(db, session_id)
             except SessionNotFoundError as exc:
@@ -304,16 +409,12 @@ class EngineRuntime:
             except DomainError:
                 raise
             except Exception as exc:  # pragma: no cover - defensive rollback
-                logger.exception(
-                    "finalize_runtime_error",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "user_id": session.user_id,
-                            "error": str(exc),
-                            "correlation_id": correlation_id,
-                        }
-                    },
+                self._log_runtime_error(
+                    event="finalize_runtime_error",
+                    session_id=session_id,
+                    user_id=session.user_id,
+                    exc=exc,
+                    correlation_id=correlation_id,
                 )
                 scorer_result = {
                     "ok": False,
@@ -325,7 +426,7 @@ class EngineRuntime:
                     ],
                     "diagnostics": {"exception": str(exc)},
                 }
-            duration_ms = (perf_counter() - started) * 1000.0
+            duration_ms = self._measure_duration(started, tracker)
             override = skip_validation and not validation.ready
             payload = build_finalize_payload(scorer_result, validation, override=override)
             result = payload.as_dict()
@@ -363,6 +464,7 @@ class EngineRuntime:
         """
         correlation_id = str(uuid4())
         with correlation_context(correlation_id):
+            tracker = self._build_state_tracker("engine.finalize_with_audit")
             try:
                 session = self._resolve_session(db, session_id)
             except SessionNotFoundError:
@@ -439,16 +541,13 @@ class EngineRuntime:
                 raise
             except Exception as exc:  # pragma: no cover
                 db.rollback()
-                logger.exception(
-                    "finalize_audit_runtime_error",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "user_id": session.user_id,
-                            "error": str(exc),
-                            "correlation_id": correlation_id,
-                        }
-                    },
+                self._log_runtime_error(
+                    event="finalize_audit_runtime_error",
+                    session_id=session_id,
+                    user_id=session.user_id,
+                    exc=exc,
+                    correlation_id=correlation_id,
+                    metadata={"actor_email": actor_email, "action": action},
                 )
                 scorer_result = {
                     "ok": False,
@@ -505,7 +604,7 @@ class EngineRuntime:
                     # Non-fatal: keep result success even if audit write fails
                     pass
 
-            duration_ms = (perf_counter() - started) * 1000.0
+            duration_ms = self._measure_duration(started, tracker)
             result = payload_dict
             logger.info(
                 "finalize_audit_success",

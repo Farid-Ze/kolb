@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Protocol, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -108,12 +108,21 @@ _stage_lfi.__name__ = "compute_lfi"
 __all__ = [
     "PipelineStage",
     "PipelineDefinition",
+    "PipelineFactory",
     "resolve_active_pipeline_version",
     "assign_pipeline_version",
     "get_klsi_pipeline_definition",
     "resolve_klsi_pipeline_from_nodes",
     "execute_pipeline_streaming",
+    "KLSI_PIPELINE_STAGE_KEYS",
 ]
+KLSI_PIPELINE_STAGE_KEYS: tuple[str, ...] = (
+    "RAW_SCALES",
+    "COMBINATIONS",
+    "STYLE_ASSIGNMENT",
+    "LFI",
+)
+
 
 
 class PipelineStage(Protocol):
@@ -277,6 +286,35 @@ def _get_klsi_stage_mapping() -> dict[str, PipelineStage]:
     }
 
 
+@dataclass(frozen=True, slots=True)
+class PipelineFactory:
+    """Factory that composes pipeline definitions from stage keys."""
+
+    stage_mapping: Mapping[str, PipelineStage] = field(default_factory=_get_klsi_stage_mapping)
+
+    def build(
+        self,
+        *,
+        code: str,
+        version: str,
+        stage_keys: Sequence[str],
+        description: str = "",
+    ) -> PipelineDefinition:
+        stages: list[PipelineStage] = []
+        for key in stage_keys:
+            try:
+                stages.append(self.stage_mapping[key])
+            except KeyError as exc:
+                raise ValueError(f"Unknown pipeline stage key: {key}") from exc
+
+        return PipelineDefinition(
+            code=code,
+            version=version,
+            stages=tuple(stages),
+            description=description,
+        )
+
+
 def _compose_version(pipeline: ScoringPipeline) -> str:
     return f"{pipeline.pipeline_code}:{pipeline.version}"[:40]
 
@@ -344,14 +382,11 @@ def get_klsi_pipeline_definition() -> PipelineDefinition:
         4. compute_lfi: Compute Learning Flexibility Index (Kendall's W)
     """
 
-    mapping = _get_klsi_stage_mapping()
-    ordered_keys = ["RAW_SCALES", "COMBINATIONS", "STYLE_ASSIGNMENT", "LFI"]
-    stages: list[PipelineStage] = [mapping[key] for key in ordered_keys]
-
-    return PipelineDefinition(
+    factory = PipelineFactory(_get_klsi_stage_mapping())
+    return factory.build(
         code="KLSI_STANDARD",
         version="4.0",
-        stages=tuple(stages),
+        stage_keys=KLSI_PIPELINE_STAGE_KEYS,
         description=(
             "Standard KLSI 4.0 scoring pipeline: "
             "raw scales → combinations → style assignment → LFI"

@@ -3,8 +3,9 @@
 from typing import Callable, cast
 
 import pytest
+from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.db.database import engine
+from app.db.database import engine, norm_session_scope
 
 
 def test_connection_pool_configured():
@@ -47,3 +48,9 @@ def test_connection_pool_metrics():
     except AttributeError:
         # Some pool types don't have status(), that's ok
         pass
+
+
+def test_norm_session_scope_uses_pool():
+    with norm_session_scope() as session:
+        assert isinstance(session, Session)
+        assert session.bind is engine

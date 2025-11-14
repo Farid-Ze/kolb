@@ -85,8 +85,11 @@ def test_lazy_loader_cache_eviction():
     source._data[("Total", "AC")] = [(i, float(i * 3.0)) for i in range(12, 49)]
     loader.lookup(_DUMMY_SESSION, "Total", "AC", 28)
     
-    assert loader.get_stats()["cache_size"] == 2
+    stats = loader.get_stats()
+    assert stats["cache_size"] == 2
     assert source.fetch_count == 3
+    assert stats["evictions"] == 1
+    assert stats["eviction_reasons"]["capacity"] == 1
 
 
 def test_lazy_loader_not_found():
@@ -112,6 +115,8 @@ def test_lazy_loader_clear_cache():
     assert stats["cache_size"] == 0
     assert stats["hits"] == 0
     assert stats["misses"] == 0
+    assert stats["bytes_loaded"] == 0
+    assert stats["evictions"] == 0
 
 
 def test_lazy_loader_hit_rate():
@@ -130,3 +135,13 @@ def test_lazy_loader_hit_rate():
     assert stats["hits"] == 3
     assert stats["misses"] == 1
     assert stats["hit_rate"] == 75.0  # 3/4 * 100
+
+
+def test_lazy_loader_reports_bytes_and_timestamp():
+    source = MockNormSource()
+    loader = LazyNormLoader(source, chunk_size=50, max_cache_entries=10)
+
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 28)
+    stats = loader.get_stats()
+    assert stats["bytes_loaded"] > 0
+    assert stats["last_chunk_loaded_at"] is not None

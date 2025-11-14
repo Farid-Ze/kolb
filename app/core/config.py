@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     norms_preload_max_entries: int = Field(default=400_000, ge=0)
     cached_norm_provider_enabled: bool = Field(default=True)
 
+    runtime_components_enabled: bool = Field(
+        default=False,
+        description="Enable modular runtime scheduler/state/error components",
+    )
+
     i18n_preload_enabled: bool = Field(default=True, description="Preload i18n resources at startup to avoid disk I/O per request")
 
     # Database connection pooling settings

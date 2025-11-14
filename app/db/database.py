@@ -149,6 +149,28 @@ def hyperatomic_session() -> Iterator[Session]:
         yield session
 
 
+@contextmanager
+def norm_session_scope() -> Iterator[Session]:
+    """Dedicated pooled session scope for norm-heavy workloads with metrics."""
+
+    session: Session = SessionLocal()
+    started = perf_counter()
+    inc_counter("db.norm_session.opens")
+    try:
+        yield session
+    finally:
+        elapsed_ms = (perf_counter() - started) * 1000.0
+        metrics_registry.record("db.norm_session.duration", elapsed_ms)
+        observe_histogram(
+            "db.norm_session.duration",
+            elapsed_ms,
+            buckets=SESSION_DURATION_BUCKETS,
+        )
+        record_last_run("db.norm_session.duration", elapsed_ms)
+        inc_counter("db.norm_session.closes")
+        session.close()
+
+
 @dataclass(frozen=True, slots=True)
 class AssessmentRepositoryGroup:
     items: "AssessmentItemRepository"
@@ -225,6 +247,7 @@ __all__ = [
     "get_db",
     "transactional_session",
     "hyperatomic_session",
+    "norm_session_scope",
     "RepositoryProvider",
     "get_repository_provider",
     "repository_scope",
