@@ -41,7 +41,7 @@
 - [x]  Definisikan level log: DEBUG untuk detail scoring, INFO untuk hasil, WARNING untuk outlier.
 - [x]  Hindari logging di dalam tight loops kecuali dikondisikan.
 - [x]  Gunakan monotonic time (time.perf_counter) untuk akurasi profil alih-alih time.time.
-- [ ]  Simpan metrics last run di core/metrics.py (misal dictionary global thread-safe) untuk endpoint status.
+- [x]  Simpan metrics last run di core/metrics.py (misal dictionary global thread-safe) untuk endpoint status.
 - [ ]  Terapkan strategi precomputation untuk bobot per gaya belajar.
 - [ ]  Kaji apakah normalization selalu memanggil fungsi expensive – cache hasil per responden jika pola sama.
 - [ ]  Gunakan Pydantic model untuk input instrument (jawaban pengguna) – memudahkan validasi.
