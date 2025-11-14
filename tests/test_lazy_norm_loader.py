@@ -78,7 +78,7 @@ def test_lazy_loader_cache_eviction():
     loader = LazyNormLoader(source, chunk_size=50, max_cache_entries=2)
     
     # Fill cache with 2 entries
-    loader.lookup(None, "Total", "CE", 28)
+    loader.lookup(_DUMMY_SESSION, "Total", "CE", 28)
     loader.lookup(_DUMMY_SESSION, "Total", "RO", 28)
     
     # Add third entry - should evict oldest (CE)

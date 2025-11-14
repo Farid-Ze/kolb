@@ -12,6 +12,12 @@ import math
 from app.data.norms import lookup_lfi, LFI_PERCENTILES
 
 
+def _require_lfi_percentile(lfi_value: float) -> float:
+    result = lookup_lfi(lfi_value)
+    assert result is not None, f"Should find percentile for LFI {lfi_value}"
+    return result
+
+
 class TestLFIPercentileApproaches:
     """Compare empirical (existing) vs. normal approximation percentile methods."""
     
@@ -42,7 +48,7 @@ class TestLFIPercentileApproaches:
         ]
         
         for lfi_value, expected_percentile in test_cases:
-            result = lookup_lfi(lfi_value)
+            result = _require_lfi_percentile(lfi_value)
             assert result == expected_percentile, (
                 f"LFI={lfi_value} should map to {expected_percentile}th percentile "
                 f"(Appendix 7), got {result}"
@@ -53,7 +59,7 @@ class TestLFIPercentileApproaches:
         lfi_value = 0.975
         
         # Existing implementation: Empirical lookup from Appendix 7
-        empirical_percentile = lookup_lfi(lfi_value)
+        empirical_percentile = _require_lfi_percentile(lfi_value)
         
         # Alternative approach: Normal approximation (Total group: mean=0.73, sd=0.17)
         normal_percentile = self.percentile_normal_approx(
@@ -85,7 +91,7 @@ class TestLFIPercentileApproaches:
         
         # Case 1: Very low LFI (near 0)
         low_lfi = 0.07
-        empirical_low = lookup_lfi(low_lfi)
+        empirical_low = _require_lfi_percentile(low_lfi)
         normal_low = self.percentile_normal_approx(low_lfi, mean=0.73, sd=0.17)
         
         print(f"\nLow LFI = {low_lfi}")
@@ -100,7 +106,7 @@ class TestLFIPercentileApproaches:
         
         # Case 2: Very high LFI (near 1.0)
         high_lfi = 1.00
-        empirical_high = lookup_lfi(high_lfi)
+        empirical_high = _require_lfi_percentile(high_lfi)
         normal_high = self.percentile_normal_approx(high_lfi, mean=0.73, sd=0.17)
         
         print(f"\nHigh LFI = {high_lfi}")
@@ -121,11 +127,7 @@ class TestLFIPercentileApproaches:
         
         # Test intermediate value not in table (should find nearest)
         lfi_intermediate = 0.74  # Not in table, between 0.73 and 0.75
-        result = lookup_lfi(lfi_intermediate)
-        
-        # Should return nearest match (0.74 → closest is 0.73 or 0.75)
-        assert result is not None
-        assert isinstance(result, float)
+        result = _require_lfi_percentile(lfi_intermediate)
         
         # Verify it's between the two neighboring values
         perc_73 = LFI_PERCENTILES[0.73]  # 47.3
@@ -147,7 +149,7 @@ class TestLFIPercentileApproaches:
         # In Appendix 7, 50th percentile is at LFI ≈ 0.75 (not 0.73 mean!)
         
         median_lfi = 0.75
-        empirical_median = lookup_lfi(median_lfi)
+        empirical_median = _require_lfi_percentile(median_lfi)
         normal_at_075 = self.percentile_normal_approx(0.75, mean=0.73, sd=0.17)
         
         print(f"\nMedian LFI = {median_lfi}")
@@ -197,8 +199,7 @@ class TestLFIPercentilePractical:
         ]
         
         for lfi, expected_perc, expected_level in test_cases:
-            percentile = lookup_lfi(lfi)
-            assert percentile is not None, f"Should find percentile for LFI {lfi}"
+            percentile = _require_lfi_percentile(lfi)
             
             # Assign level based on tertiles
             if percentile < 33.34:
@@ -216,8 +217,7 @@ class TestLFIPercentilePractical:
     def test_worked_example_interpretation(self):
         """Interpret the worked example (LFI=0.975) using existing implementation."""
         lfi = 0.975
-        percentile = lookup_lfi(lfi)
-        assert percentile is not None, "Should find percentile for LFI 0.975"
+        percentile = _require_lfi_percentile(lfi)
         
         # Determine flexibility level
         if percentile < 33.34:
