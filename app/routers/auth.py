@@ -12,6 +12,8 @@ from app.i18n.id_messages import AuthMessages
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_KELAS_PATTERN = re.compile(r"IF-\d+")
+
 
 @router.post("/register", response_model=UserOut)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
@@ -26,7 +28,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     if role == Role.MAHASISWA:
         if not payload.nim or len(payload.nim) != 8 or not payload.nim.isdigit():
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_NIM)
-        if not payload.kelas or not re.fullmatch(r"IF-\d+", payload.kelas):
+        if not payload.kelas or not _KELAS_PATTERN.fullmatch(payload.kelas):
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_CLASS_FORMAT)
         if not payload.tahun_masuk or payload.tahun_masuk < 1990 or payload.tahun_masuk > 2100:
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_ENROLLMENT_YEAR)

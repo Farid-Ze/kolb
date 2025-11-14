@@ -19,6 +19,7 @@ from app.assessments.klsi_v4.logic import (
     STYLE_CODES as _KLSI_STYLE_CODES,
     STYLE_CUTS as _KLSI_STYLE_CUTS,
 )
+from app.core.formatting import format_decimal
 from app.engine.constants import PRIMARY_MODE_CODES
 from app.i18n.id_messages import RegressionFlexPatterns, RegressionMessages
 
@@ -323,7 +324,8 @@ def predict_integrative_development(
     )
 
     y = params["mean"] + z_y * params["sd"]
-    return round(y, 2)
+    formatted = format_decimal(y, decimals=2)
+    return 0.0 if formatted is None else formatted
 
 
 def analyze_lfi_contexts(contexts: List[Dict[str, int]]) -> Dict[str, Any]:

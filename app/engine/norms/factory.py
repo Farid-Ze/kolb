@@ -15,8 +15,12 @@ from app.engine.norms.composite import (
 from app.engine.norms.provider import NormProvider
 from app.engine.norms.lazy_loader import LazyNormLoader, NormDataSource
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.db.repositories import NormativeConversionRepository
 from sqlalchemy import text
+
+
+logger = get_logger("kolb.engine.norms", component="engine")
 
 
 def _make_cached_db_lookup(db: Session):
@@ -184,13 +188,19 @@ def clear_norm_db_cache(db_lookup) -> None:
         clear_cache = getattr(db_lookup, "clear_cache", None)
         if callable(clear_cache):
             clear_cache()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.exception(
+            "norm_db_cache_clear_failed",
+            extra={"structured_data": {"source": "db_lookup", "error": str(exc)}},
+        )
     # Also invalidate preloaded map if present
     try:
         _reset_preloaded_norms()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.exception(
+            "norm_preload_reset_failed",
+            extra={"structured_data": {"source": "preload", "error": str(exc)}},
+        )
 
 
 def norm_cache_stats(db_lookup) -> dict:

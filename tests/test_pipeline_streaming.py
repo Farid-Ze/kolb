@@ -4,6 +4,8 @@ from typing import cast
 
 import pytest
 from sqlalchemy.orm import Session
+
+from app.engine.exceptions import ControlledAbort
 from app.engine.pipelines import (
     PipelineDefinition,
     execute_pipeline_streaming,
@@ -164,3 +166,30 @@ def test_execute_pipeline_streaming_with_errors():
     
     # Third succeeds (continues after error)
     assert results[2][1]["ok"]
+
+
+def test_execute_pipeline_streaming_handles_controlled_abort():
+    """ControlledAbort should mark session aborted without halting the batch."""
+
+    def abort_stage(db: Session, session_id: int):
+        raise ControlledAbort("maintenance", payload={"session_id": session_id})
+
+    abort_stage.__name__ = "abort_stage"
+    stage1 = MockStage("stage1", {"ok": True})
+
+    pipeline = PipelineDefinition(
+        code="ABORT",
+        version="1.0",
+        stages=(stage1, abort_stage),
+    )
+
+    results = list(execute_pipeline_streaming(pipeline, _DUMMY_SESSION, [777]))
+
+    assert len(results) == 1
+    session_id, payload = results[0]
+    assert session_id == 777
+    assert payload["aborted"] is True
+    assert payload["failed_stage"] == "abort_stage"
+    assert payload["abort_reason"] == "maintenance"
+    assert payload["abort_payload"] == {"session_id": 777}
+    assert payload["stages_completed"] == ["stage1"]

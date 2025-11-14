@@ -21,6 +21,8 @@ import logging
 import time
 from typing import Any, Callable, TypeVar
 
+from app.core.formatting import format_decimal
+
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -66,7 +68,7 @@ def slow_operation_logger(
                         "slow_operation_detected",
                         extra={
                             "operation": op_name,
-                            "duration_seconds": round(duration, 3),
+                            "duration_seconds": format_decimal(duration, decimals=3),
                             "threshold_seconds": threshold_seconds,
                             "args_count": len(args),
                             "kwargs_keys": list(kwargs.keys()),

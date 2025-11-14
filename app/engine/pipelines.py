@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.klsi.instrument import ScoringPipeline
 from app.models.klsi.learning import CombinationScore, ScaleScore
+from app.engine.exceptions import ControlledAbort
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
@@ -111,6 +112,7 @@ __all__ = [
     "PipelineDefinition",
     "PipelineFactory",
     "RuntimePipelineConfig",
+    "compose_pipeline",
     "resolve_active_pipeline_version",
     "assign_pipeline_version",
     "get_klsi_pipeline_definition",
@@ -136,6 +138,31 @@ class StageDefinition:
     key: str
     handler: PipelineStage
     description: str = ""
+
+
+def compose_pipeline(
+    stages: Sequence[PipelineStage | StageDefinition],
+    *,
+    code: str = "CUSTOM",
+    version: str = "1.0",
+    description: str = "",
+) -> PipelineDefinition:
+    """Compose a :class:`PipelineDefinition` from stage callables or definitions."""
+
+    if not stages:
+        raise ValueError("stages must not be empty")
+    resolved: list[PipelineStage] = []
+    for stage in stages:
+        if isinstance(stage, StageDefinition):
+            resolved.append(stage.handler)
+        else:
+            resolved.append(stage)
+    return PipelineDefinition(
+        code=code,
+        version=version,
+        stages=tuple(resolved),
+        description=description,
+    )
 
 
 KLSI_STAGE_DEFINITIONS: tuple[StageDefinition, ...] = (
@@ -210,6 +237,16 @@ def _merge_stage_payload(target: dict[str, Any], payload: Mapping[str, Any]) -> 
             target[key] = value
 
 
+def _mark_aborted(results: dict[str, Any], stage_name: str, abort: ControlledAbort) -> None:
+    results["ok"] = False
+    results["aborted"] = True
+    results["failed_stage"] = stage_name
+    if abort.reason:
+        results["abort_reason"] = abort.reason
+    if abort.payload:
+        results["abort_payload"] = abort.payload
+
+
 @dataclass(frozen=True, slots=True)
 class PipelineDefinition:
     """Declarative definition of a scoring pipeline.
@@ -270,6 +307,9 @@ class PipelineDefinition:
                 if isinstance(stage_result, dict):
                     _merge_stage_payload(results, stage_result)
                 results["stages_completed"].append(stage_name)
+            except ControlledAbort as abort:
+                _mark_aborted(results, stage_name, abort)
+                raise abort.with_partial(results)
             except Exception as exc:
                 results["ok"] = False
                 results["failed_stage"] = stage_name
@@ -306,6 +346,16 @@ class PipelineDefinition:
             try:
                 stage_result = stage(db, session_id)
                 yield (stage_name, stage_result)
+            except ControlledAbort as abort:
+                yield (
+                    stage_name,
+                    {
+                        "aborted": True,
+                        "abort_reason": abort.reason,
+                        "abort_payload": abort.payload or None,
+                    },
+                )
+                raise
             except Exception as exc:
                 # Yield error information before re-raising
                 yield (stage_name, {"error": str(exc), "ok": False})
@@ -325,8 +375,18 @@ def _run_pipeline_for_session_streaming(
         for stage_name, payload in pipeline.execute_streaming(db=db, session_id=session_id):
             failed_stage = stage_name
             if isinstance(payload, Mapping):
+                if payload.get("aborted"):
+                    abort = ControlledAbort(
+                        payload.get("abort_reason", ""),
+                        payload=payload.get("abort_payload") or {},
+                    )
+                    _mark_aborted(results, stage_name, abort)
+                    return results
                 _merge_stage_payload(results, payload)
             results["stages_completed"].append(stage_name)
+    except ControlledAbort as abort:  # pragma: no cover - handled via metadata path
+        stage_label = failed_stage or "<unknown>"
+        _mark_aborted(results, stage_label, abort)
     except Exception as exc:  # pragma: no cover - exercised via integration tests
         results["ok"] = False
         results["error"] = str(exc)

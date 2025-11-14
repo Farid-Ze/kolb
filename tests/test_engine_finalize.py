@@ -159,6 +159,7 @@ def test_finalize_delegates_to_registered_strategy():
                 self.invoked = True
                 return super().finalize(db, session_id)
 
+        strategy_registry._STRATEGIES.pop("KLSI4.0", None)
         tracker = TrackingStrategy()
         strategy_registry.register_strategy(tracker)
 

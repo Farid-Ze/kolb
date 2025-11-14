@@ -2,14 +2,15 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import importlib
 
-from fastapi import FastAPI, Response, Depends
+from fastapi import Depends, FastAPI, Response
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.formatting import format_decimal
 from app.core.logging import configure_logging, get_logger
-from app.core.metrics import get_metrics, get_counters
-from app.db.database import Base, engine, transactional_session, get_db
+from app.core.metrics import get_counters, get_metrics
+from app.db.database import Base, engine, get_db, transactional_session
 from app.i18n import preload_i18n_resources
 from app.core.sentinels import UNKNOWN
 from app.routers.admin import router as admin_router
@@ -153,7 +154,7 @@ def health(db: Session = Depends(get_db)):
         "status": overall_status,
         "version": "1.0.0",  # TODO: Load from package metadata
         "started_at": _app_start_time.isoformat(),
-        "uptime_seconds": round(uptime, 2),
+        "uptime_seconds": format_decimal(uptime, decimals=2),
         "environment": settings.environment if hasattr(settings, 'environment') else "development",
         "total_requests": int(total_requests) if total_requests else 0,
         "database": {

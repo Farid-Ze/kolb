@@ -4,11 +4,17 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Sequence, cast
 
 import pytest
+from sqlalchemy.orm import Session
+
+from app.engine.exceptions import ControlledAbort
 from app.engine.pipelines import (
     KLSI_PIPELINE_CONFIG,
     KLSI_PIPELINE_STAGE_KEYS,
+    StageDefinition,
+    PipelineDefinition,
     PipelineFactory,
     RuntimePipelineConfig,
+    compose_pipeline,
     get_klsi_pipeline_definition,
     resolve_klsi_pipeline_from_nodes,
 )
@@ -25,6 +31,9 @@ class DummyPipeline:
     def __init__(self, code: str = "KLSI4.0", version: str = "v1") -> None:
         self.pipeline_code = code
         self.version = version
+
+
+_DUMMY_SESSION = cast(Session, None)
 
 
 def test_get_klsi_pipeline_definition_uses_canonical_order():
@@ -121,3 +130,55 @@ def test_pipeline_config_raises_for_unknown_stage_key():
     config = RuntimePipelineConfig(code="X", version="1", stage_keys=("UNKNOWN",))
     with pytest.raises(ValueError):
         config.build()
+
+
+def test_compose_pipeline_accepts_callables_and_definitions():
+    def stage_one(db: Session, session_id: int):
+        return {"stage": 1}
+
+    def stage_two(db: Session, session_id: int):
+        return {"stage": 2}
+
+    composed = compose_pipeline(
+        [stage_one, StageDefinition(key="TWO", handler=stage_two)],
+        code="X",
+        version="9",
+        description="test",
+    )
+
+    assert composed.code == "X"
+    assert composed.version == "9"
+    assert composed.description == "test"
+    assert _stage_names(composed.stages) == ["stage_one", "stage_two"]
+
+
+def test_compose_pipeline_rejects_empty_input():
+    with pytest.raises(ValueError):
+        compose_pipeline([])
+
+
+def test_pipeline_execute_propagates_controlled_abort_with_partial_results():
+    def stage_ok(db: Session, session_id: int) -> dict[str, bool]:
+        return {"raw": True}
+
+    def stage_abort(db: Session, session_id: int):
+        raise ControlledAbort("quota", payload={"session_id": session_id})
+
+    stage_ok.__name__ = "stage_ok"
+    stage_abort.__name__ = "abort_stage"
+
+    pipeline = PipelineDefinition(
+        code="TEST",
+        version="1",
+        stages=(stage_ok, stage_abort),
+    )
+
+    with pytest.raises(ControlledAbort) as excinfo:
+        pipeline.execute(_DUMMY_SESSION, 55)
+
+    exc = excinfo.value
+    assert exc.reason == "quota"
+    assert exc.payload == {"session_id": 55}
+    assert exc.partial_results is not None
+    assert exc.partial_results.get("aborted") is True
+    assert exc.partial_results.get("failed_stage") == "abort_stage"

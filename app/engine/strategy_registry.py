@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 from dataclasses import dataclass, field
 from importlib import metadata
@@ -9,8 +10,21 @@ from threading import RLock
 from types import MappingProxyType
 from typing import Callable, Dict, Iterable, Mapping, Protocol, cast
 
-from app.engine.strategies.base import ScoringStrategy
+from typing import TYPE_CHECKING
+from typing import Protocol
+
 from app.i18n.id_messages import StrategyMessages
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from app.engine.strategies.base import ScoringStrategy as _ScoringStrategy
+else:
+
+    class _ScoringStrategy(Protocol):
+        code: str
+
+        def finalize(self, db, session_id): ...  # pragma: no cover - typing stub
+
+ScoringStrategy = _ScoringStrategy
 
 __all__ = [
     "StrategyRegistry",
@@ -20,6 +34,7 @@ __all__ = [
     "list_strategies",
     "snapshot_strategies",
     "load_strategies_from_plugins",
+    "ensure_default_strategies_loaded",
 ]
 
 logger = logging.getLogger(__name__)
@@ -149,6 +164,20 @@ class StrategyRegistry:
 
 _REGISTRY = StrategyRegistry()
 _STRATEGIES: Dict[str, ScoringStrategy] = _REGISTRY._strategies  # Back-compat for tests
+_DEFAULTS_LOADED = False
+
+
+def ensure_default_strategies_loaded() -> None:
+    """Lazily import default strategy registrations when needed."""
+
+    global _DEFAULTS_LOADED
+    if _DEFAULTS_LOADED or _STRATEGIES:
+        return
+    try:
+        importlib.import_module("app.engine.strategies")
+        _DEFAULTS_LOADED = True
+    except ImportError as exc:  # pragma: no cover - defensive guard
+        logger.warning("Failed to import default strategies: %s", exc)
 
 
 def register_strategy(

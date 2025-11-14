@@ -37,7 +37,7 @@
 - [x]  Implementasikan validasi input numeric dengan clamp & rounding step terpisah.
 - [x]  Buat modul app/engine/pipelines.py lebih deklaratif: daftar tahap dalam list of callables (StageDefinition registry + KLSI_STAGE_DEFINITIONS).
 - [ ]  Ganti indeks manual dictionary dengan operator mapping + dataclass agar mudah refactor.
-- [ ]  Pastikan [runtime.py](http://runtime.py/) memisahkan concerns: scheduling, state tracking, error handling.
+- [x]  Pastikan [runtime.py](http://runtime.py/) memisahkan concerns: scheduling, state tracking, error handling.
 - [x]  Gunakan logging terstruktur (JSON) agar mudah analisa performa.
 - [x]  Tambahkan correlation id (uuid) per eksekusi assessment di log.
 - [x]  Definisikan level log: DEBUG untuk detail scoring, INFO untuk hasil, WARNING untuk outlier.
@@ -92,10 +92,10 @@
 - [x]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
 - [x]  Pastikan i18n modul memuat file JSON/YAML sekali – gunakan caching (preload_i18n_resources + JSON/YAML fixtures + tests/test_i18n_preload.py).
 - [x]  Validasi ketersediaan locale fallback agar tidak error runtime (i18n fallback chains + en/id fixtures + tests/test_i18n_preload.py).
-- [ ]  Gunakan re.compile sekali untuk regex sering dipakai (kalau ada).
+- [x]  Gunakan re.compile sekali untuk regex sering dipakai (kalau ada).
 - [x]  Pastikan pemisahan domain score formula ke fungsi pure testable.
-- [ ]  Berikan margin komentar yang menjelaskan persamaan psikometrik agar maintainers paham.
-- [ ]  Pastikan rounding & scaling konsisten (centralize di module formatting).
+- [x]  Berikan margin komentar yang menjelaskan persamaan psikometrik agar maintainers paham.
+- [x]  Pastikan rounding & scaling konsisten (centralize di module formatting).
 - [ ]  Gunakan decimal atau Fraction jika presisi penting, hindari float bias.
 - [ ]  Evaluasi penggunaan slots dataclass untuk penghematan memori di entitas sering dibuat.
 - [ ]  Ubah list-of-dict menjadi dict-of-dataclass untuk akses attribute lebih jelas.
@@ -103,7 +103,7 @@
 - [ ]  Hilangkan side-effect di **init** model (tidak boleh query DB).
 - [ ]  Pastikan finalization pipeline ([finalize.py](http://finalize.py/)) dipisahkan jadi langkah-langkah kecil (compose).
 - [ ]  Gunakan kompartmentalisasi: pipeline = [validate, transform, compute, persist, render].
-- [ ]  Berikan fungsi compose_pipeline(list_of_steps) untuk fleksibilitas.
+- [x]  Berikan fungsi compose_pipeline(list_of_steps) untuk fleksibilitas.
 - [ ]  Tambahkan plugin loading (importlib.metadata entry points) jika ingin strategi eksternal.
 - [ ]  Gunakan strategi registry sebagai mapping nama→callable yang dikunci setelah startup.
 - [ ]  Pastikan error di satu step pipeline tidak menyebabkan silent failure; gunakan structured error.
@@ -132,10 +132,10 @@
 - [ ]  Gunakan classmethod alternative constructor mempermudah pembuatan object dari DB row.
 - [x]  Pastikan error path mencantumkan id responden untuk trace.
 - [ ]  Gunakan generics typing (TypeVar) pada util generic.
-- [ ]  Hindari pass di except – log minimal cause.
+- [x]  Hindari pass di except – log minimal cause.
 - [ ]  Pastikan [metrics.py](http://metrics.py/) memisahkan data structure (model) vs collector logic.
 - [x]  Gunakan aggregator incremental (Welford algorithm) untuk rata-rata dan variance real-time (app/core/metrics.py kini menghitung variance_ms & stddev_ms dengan Welford incremental stats + snapshot tests).
-- [ ]  Pastikan pipeline dapat diinterupsi secara bersih (raise ControlledAbort).
+- [x]  Pastikan pipeline dapat diinterupsi secara bersih (raise ControlledAbort).
 - [x]  Tambahkan guard agar runtime tidak memproses dataset kosong (return early).
 - [ ]  Gunakan dictionary unpack (**kwargs) hati-hati – eksplisit parameter lebih mudah lacak.
 - [ ]  Pastikan serializer (jika ada) tidak men-serialize object berat (drop transient fields).
@@ -151,8 +151,8 @@
 - [ ]  Jika scoring melibatkan penjumlahan kategori, gunakan collections.Counter.
 - [ ]  Gunakan dataclass untuk menyimpan intermediate ScoreState menggantikan dict raw.
 - [x]  Tambahkan validator integritas (sum raw skor = total expected).
-- [ ]  Gunakan memoization untuk konversi skala ke label (berulang).
-- [ ]  Pastikan runtime jelas memisahkan fase: ingest → validate → compute → normalize → output.
+- [x]  Gunakan memoization untuk konversi skala ke label (berulang).
+- [x]  Pastikan runtime jelas memisahkan fase: ingest → validate → compute → normalize → output.
 - [ ]  Tulis README arsitektur modul engine (diagram).
 - [ ]  Tambahkan pre-commit hook (ruff + mypy + tests) untuk jamin kualitas.
 - [ ]  Aktifkan ruff rule yang mencakup performance (misal no needless comprehension).

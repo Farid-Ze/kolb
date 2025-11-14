@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from hashlib import sha256
@@ -26,7 +27,13 @@ from app.engine.authoring import get_instrument_locale_resource, get_instrument_
 from app.engine.interfaces import InstrumentId
 from app.engine.pipelines import assign_pipeline_version
 from app.engine.registry import engine_registry
+from app.engine.runtime_components import (
+    RuntimeErrorReporter,
+    RuntimeScheduler,
+    RuntimeStateTracker,
+)
 from app.engine.runtime_logic import (
+    FinalizePayload,
     ValidationReport,
     build_finalize_payload,
     compose_delivery_payload,
@@ -41,54 +48,32 @@ from app.services.validation import run_session_validations
 logger = get_logger("kolb.engine.runtime", component="engine")
 
 
-class RuntimeScheduler:
-    """Thin wrapper responsible for resolving sessions via repositories."""
+@dataclass(slots=True)
+class FinalizeContext:
+    """Shared context for finalize pipelines.
 
-    def __init__(self, repo_provider_factory=get_repository_provider):
-        self._repo_provider_factory = repo_provider_factory
+    Breaking the runtime into explicit dataclasses makes the ingest/validate/
+    compute/normalize/output phases easier to follow and test independently.
+    """
 
-    def resolve_session(self, db: Session, session_id: int) -> AssessmentSession | None:
-        repo_provider = self._repo_provider_factory(db)
-        repo = repo_provider.sessions
-        return repo.get_by_id(session_id)
-
-
-class RuntimeStateTracker:
-    """Tracks elapsed wall time for runtime phases."""
-
-    def __init__(self, label: str):
-        self.label = label
-        self._started = perf_counter()
-
-    def duration_ms(self) -> float:
-        return (perf_counter() - self._started) * 1000.0
+    db: Session
+    session_id: int
+    skip_validation: bool
+    tracker: RuntimeStateTracker | None
+    correlation_id: str
 
 
-class RuntimeErrorReporter:
-    """Centralizes structured logging for runtime errors."""
+@dataclass(slots=True)
+class FinalizeArtifacts:
+    """Artifacts produced by the finalize pipeline phases."""
 
-    def __init__(self, logger_instance):
-        self._logger = logger_instance
-
-    def report(
-        self,
-        *,
-        event: str,
-        session_id: int,
-        user_id: int | None,
-        exc: Exception,
-        correlation_id: str,
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
-        structured = {
-            "session_id": session_id,
-            "user_id": user_id,
-            "error": str(exc),
-            "correlation_id": correlation_id,
-        }
-        if metadata:
-            structured.update(metadata)
-        self._logger.exception(event, extra={"structured_data": structured})
+    session: AssessmentSession
+    validation: ValidationReport
+    scorer_result: dict[str, Any]
+    payload: FinalizePayload
+    override: bool
+    duration_ms: float
+    correlation_id: str
 
 
 class EngineRuntime:
@@ -191,6 +176,279 @@ class EngineRuntime:
         if metadata:
             structured.update(metadata)
         logger.exception(event, extra={"structured_data": structured})
+
+    def _phase_ingest(
+        self,
+        context: FinalizeContext,
+        *,
+        missing_event: str,
+        completed_event: str,
+    ) -> AssessmentSession:
+        try:
+            session = self._resolve_session(context.db, context.session_id)
+        except SessionNotFoundError as exc:
+            logger.warning(
+                missing_event,
+                extra={
+                    "structured_data": {
+                        "session_id": context.session_id,
+                        "status_code": exc.status_code,
+                        "correlation_id": context.correlation_id,
+                    }
+                },
+            )
+            raise
+        if session.status == SessionStatus.completed:
+            logger.info(
+                completed_event,
+                extra={
+                    "structured_data": {
+                        "session_id": session.id,
+                        "user_id": session.user_id,
+                        "correlation_id": context.correlation_id,
+                    }
+                },
+            )
+            raise SessionFinalizedError()
+        return session
+
+    def _phase_validate(
+        self,
+        context: FinalizeContext,
+        session: AssessmentSession,
+        *,
+        failure_event: str,
+    ) -> ValidationReport:
+        validation = ValidationReport.from_mapping(run_session_validations(context.db, session.id))
+        if not validation.ready and not context.skip_validation:
+            logger.warning(
+                failure_event,
+                extra={
+                    "structured_data": {
+                        "session_id": session.id,
+                        "issues": validation.issues_list(),
+                        "correlation_id": context.correlation_id,
+                    }
+                },
+            )
+            raise ValidationError(
+                "Validasi sesi belum lengkap",
+                detail={
+                    "issues": validation.issues_list(),
+                    "diagnostics": validation.diagnostics_dict(),
+                },
+            )
+        return validation
+
+    def _phase_compute(
+        self,
+        context: FinalizeContext,
+        session: AssessmentSession,
+        *,
+        transactional: bool,
+        scorer_issue_event: str,
+        runtime_error_event: str,
+        runtime_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        scorer = self._registry.scorer(self._instrument_id(session))
+        result: dict[str, Any] = {"ok": False}
+
+        def _ensure_ok(payload: dict[str, Any]) -> None:
+            if payload.get("ok"):
+                return
+            logger.warning(
+                scorer_issue_event,
+                extra={
+                    "structured_data": {
+                        "session_id": session.id,
+                        "issues": payload.get("issues"),
+                        "correlation_id": context.correlation_id,
+                    }
+                },
+            )
+            raise ValidationError(
+                "Pipeline finalisasi mendeteksi masalah",
+                detail={
+                    "issues": payload.get("issues"),
+                    "diagnostics": payload.get("diagnostics"),
+                },
+            )
+
+        try:
+            if transactional:
+                with context.db.begin():
+                    result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                    _ensure_ok(result)
+                    session.status = SessionStatus.completed
+                    session.end_time = datetime.now(timezone.utc)
+            else:
+                result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                _ensure_ok(result)
+                session.status = SessionStatus.completed
+                session.end_time = datetime.now(timezone.utc)
+                context.db.commit()
+        except DomainError:
+            if not transactional:
+                context.db.rollback()
+            raise
+        except Exception as exc:  # pragma: no cover - defensive rollback
+            if not transactional:
+                context.db.rollback()
+            self._log_runtime_error(
+                event=runtime_error_event,
+                session_id=session.id,
+                user_id=session.user_id,
+                exc=exc,
+                correlation_id=context.correlation_id,
+                metadata=runtime_metadata,
+            )
+            result = self._build_engine_error_payload(exc)
+        return result
+
+    def _phase_normalize(
+        self,
+        context: FinalizeContext,
+        validation: ValidationReport,
+        scorer_result: dict[str, Any],
+    ) -> tuple[FinalizePayload, bool]:
+        override = context.skip_validation and not validation.ready
+        payload = build_finalize_payload(scorer_result, validation, override=override)
+        return payload, override
+
+    def _phase_output(
+        self,
+        artifacts: FinalizeArtifacts,
+        payload_dict: dict[str, Any],
+        *,
+        log_event: str,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        structured = {
+            "session_id": artifacts.session.id,
+            "user_id": artifacts.session.user_id,
+            "duration_ms": artifacts.duration_ms,
+            "override": artifacts.override,
+            "correlation_id": artifacts.correlation_id,
+        }
+        if extra:
+            structured.update(extra)
+        logger.info(log_event, extra={"structured_data": structured})
+        return payload_dict
+
+    def _execute_finalize_pipeline(
+        self,
+        context: FinalizeContext,
+        *,
+        transactional: bool,
+        missing_event: str,
+        completed_event: str,
+        validation_event: str,
+        scorer_issue_event: str,
+        runtime_error_event: str,
+        runtime_metadata: dict[str, Any] | None = None,
+    ) -> FinalizeArtifacts:
+        started = perf_counter()
+        session = self._phase_ingest(
+            context,
+            missing_event=missing_event,
+            completed_event=completed_event,
+        )
+        validation = self._phase_validate(
+            context,
+            session,
+            failure_event=validation_event,
+        )
+        scorer_result = self._phase_compute(
+            context,
+            session,
+            transactional=transactional,
+            scorer_issue_event=scorer_issue_event,
+            runtime_error_event=runtime_error_event,
+            runtime_metadata=runtime_metadata,
+        )
+        payload, override = self._phase_normalize(context, validation, scorer_result)
+        duration_ms = self._measure_duration(started, context.tracker)
+        return FinalizeArtifacts(
+            session=session,
+            validation=validation,
+            scorer_result=scorer_result,
+            payload=payload,
+            override=override,
+            duration_ms=duration_ms,
+            correlation_id=context.correlation_id,
+        )
+
+    def _build_engine_error_payload(self, exc: Exception) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "issues": [
+                {
+                    "code": "ENGINE_RUNTIME_ERROR",
+                    "detail": str(exc),
+                }
+            ],
+            "diagnostics": {"exception": str(exc)},
+        }
+
+    def _build_audit_payload_bytes(
+        self,
+        builder: Callable[[dict], bytes] | None,
+        payload_dict: dict,
+        *,
+        session_id: int,
+        correlation_id: str,
+    ) -> bytes | None:
+        if not callable(builder):
+            return None
+        try:
+            return builder(payload_dict)
+        except Exception:
+            logger.warning(
+                "audit_payload_builder_failed",
+                extra={
+                    "structured_data": {
+                        "session_id": session_id,
+                        "correlation_id": correlation_id,
+                    }
+                },
+            )
+            return None
+
+    def _write_audit_log(
+        self,
+        db: Session,
+        *,
+        payload_bytes: bytes | None,
+        actor_email: str,
+        action: str,
+        session_id: int,
+        correlation_id: str,
+    ) -> None:
+        if not payload_bytes:
+            return
+        try:
+            db.add(
+                AuditLog(
+                    actor=actor_email,
+                    action=action,
+                    payload_hash=sha256(payload_bytes).hexdigest(),
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.warning(
+                "audit_write_failed",
+                extra={
+                    "structured_data": {
+                        "session_id": session_id,
+                        "correlation_id": correlation_id,
+                    }
+                },
+            )
+            # Non-fatal: keep result success even if audit write fails
+
 
     def _instrument_id(self, session: AssessmentSession) -> InstrumentId:
         if session.instrument:
@@ -333,116 +591,24 @@ class EngineRuntime:
         correlation_id = str(uuid4())
         with correlation_context(correlation_id):
             tracker = self._build_state_tracker("engine.finalize")
-            try:
-                session = self._resolve_session(db, session_id)
-            except SessionNotFoundError as exc:
-                logger.warning(
-                    "finalize_session_missing",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "status_code": exc.status_code,
-                            "correlation_id": correlation_id,
-                        }
-                    },
-                )
-                raise
-            if session.status == SessionStatus.completed:
-                logger.info(
-                    "finalize_already_completed",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "user_id": session.user_id,
-                            "correlation_id": correlation_id,
-                        }
-                    },
-                )
-                raise SessionFinalizedError()
-            validation = ValidationReport.from_mapping(run_session_validations(db, session_id))
-            if not validation.ready and not skip_validation:
-                logger.warning(
-                    "finalize_validation_failed",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "issues": validation.issues_list(),
-                            "correlation_id": correlation_id,
-                        }
-                    },
-                )
-                raise ValidationError(
-                    "Validasi sesi belum lengkap",
-                    detail={
-                        "issues": validation.issues_list(),
-                        "diagnostics": validation.diagnostics_dict(),
-                    },
-                )
-
-            scorer = self._registry.scorer(self._instrument_id(session))
-            scorer_result: dict[str, Any] = {"ok": False}
-            started = perf_counter()
-            try:
-                # Atomic transaction: finalize artifacts + status update together
-                with db.begin():
-                    scorer_result = scorer.finalize(db, session_id, skip_checks=skip_validation)
-                    if not scorer_result.get("ok"):
-                        logger.warning(
-                            "finalize_scorer_reported_issue",
-                            extra={
-                                "structured_data": {
-                                    "session_id": session_id,
-                                    "issues": scorer_result.get("issues"),
-                                    "correlation_id": correlation_id,
-                                }
-                            },
-                        )
-                        raise ValidationError(
-                            "Pipeline finalisasi mendeteksi masalah",
-                            detail={
-                                "issues": scorer_result.get("issues"),
-                                "diagnostics": scorer_result.get("diagnostics"),
-                            },
-                        )
-                    session.status = SessionStatus.completed
-                    session.end_time = datetime.now(timezone.utc)
-            except DomainError:
-                raise
-            except Exception as exc:  # pragma: no cover - defensive rollback
-                self._log_runtime_error(
-                    event="finalize_runtime_error",
-                    session_id=session_id,
-                    user_id=session.user_id,
-                    exc=exc,
-                    correlation_id=correlation_id,
-                )
-                scorer_result = {
-                    "ok": False,
-                    "issues": [
-                        {
-                            "code": "ENGINE_RUNTIME_ERROR",
-                            "detail": str(exc),
-                        }
-                    ],
-                    "diagnostics": {"exception": str(exc)},
-                }
-            duration_ms = self._measure_duration(started, tracker)
-            override = skip_validation and not validation.ready
-            payload = build_finalize_payload(scorer_result, validation, override=override)
-            result = payload.as_dict()
-            logger.info(
-                "finalize_success",
-                extra={
-                    "structured_data": {
-                        "session_id": session_id,
-                        "user_id": session.user_id,
-                        "duration_ms": duration_ms,
-                        "override": override,
-                        "correlation_id": correlation_id,
-                    }
-                },
+            context = FinalizeContext(
+                db=db,
+                session_id=session_id,
+                skip_validation=skip_validation,
+                tracker=tracker,
+                correlation_id=correlation_id,
             )
-            return result
+            artifacts = self._execute_finalize_pipeline(
+                context,
+                transactional=True,
+                missing_event="finalize_session_missing",
+                completed_event="finalize_already_completed",
+                validation_event="finalize_validation_failed",
+                scorer_issue_event="finalize_scorer_reported_issue",
+                runtime_error_event="finalize_runtime_error",
+            )
+            payload_dict = artifacts.payload.as_dict()
+            return self._phase_output(artifacts, payload_dict, log_event="finalize_success")
 
     @count_calls("engine.finalize_with_audit.calls")
     @measure_time("engine.finalize_with_audit", histogram=True)
@@ -465,161 +631,46 @@ class EngineRuntime:
         correlation_id = str(uuid4())
         with correlation_context(correlation_id):
             tracker = self._build_state_tracker("engine.finalize_with_audit")
-            try:
-                session = self._resolve_session(db, session_id)
-            except SessionNotFoundError:
-                logger.warning(
-                    "finalize_audit_session_missing",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "correlation_id": correlation_id,
-                        }
-                    },
-                )
-                raise
-            if session.status == SessionStatus.completed:
-                logger.info(
-                    "finalize_audit_already_completed",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "user_id": session.user_id,
-                            "correlation_id": correlation_id,
-                        }
-                    },
-                )
-                raise SessionFinalizedError()
-            validation = ValidationReport.from_mapping(run_session_validations(db, session_id))
-            if not validation.ready and not skip_validation:
-                logger.warning(
-                    "finalize_audit_validation_failed",
-                    extra={
-                        "structured_data": {
-                            "session_id": session_id,
-                            "issues": validation.issues_list(),
-                            "correlation_id": correlation_id,
-                        }
-                    },
-                )
-                raise ValidationError(
-                    "Validasi sesi belum lengkap",
-                    detail={
-                        "issues": validation.issues_list(),
-                        "diagnostics": validation.diagnostics_dict(),
-                    },
-                )
-
-            scorer = self._registry.scorer(self._instrument_id(session))
-            scorer_result: dict[str, Any] = {"ok": False}
-            started = perf_counter()
-            try:
-                scorer_result = scorer.finalize(db, session_id, skip_checks=skip_validation)
-                if not scorer_result.get("ok"):
-                    logger.warning(
-                        "finalize_audit_scorer_issue",
-                        extra={
-                            "structured_data": {
-                                "session_id": session_id,
-                                "issues": scorer_result.get("issues"),
-                                "correlation_id": correlation_id,
-                            }
-                        },
-                    )
-                    raise ValidationError(
-                        "Pipeline finalisasi mendeteksi masalah",
-                        detail={
-                            "issues": scorer_result.get("issues"),
-                            "diagnostics": scorer_result.get("diagnostics"),
-                        },
-                    )
-                session.status = SessionStatus.completed
-                session.end_time = datetime.now(timezone.utc)
-                db.commit()
-            except DomainError:
-                db.rollback()
-                raise
-            except Exception as exc:  # pragma: no cover
-                db.rollback()
-                self._log_runtime_error(
-                    event="finalize_audit_runtime_error",
-                    session_id=session_id,
-                    user_id=session.user_id,
-                    exc=exc,
-                    correlation_id=correlation_id,
-                    metadata={"actor_email": actor_email, "action": action},
-                )
-                scorer_result = {
-                    "ok": False,
-                    "issues": [
-                        {
-                            "code": "ENGINE_RUNTIME_ERROR",
-                            "detail": str(exc),
-                        }
-                    ],
-                    "diagnostics": {"exception": str(exc)},
-                }
-
-            override = skip_validation and not validation.ready
-            payload = build_finalize_payload(scorer_result, validation, override=override)
-            payload_dict = payload.as_dict()
-
-            # Persist audit in a follow-up small transaction to preserve prior parity
-            payload_bytes = None
-            if callable(build_payload):
-                try:
-                    payload_bytes = build_payload(payload_dict)
-                except Exception:
-                    logger.warning(
-                        "audit_payload_builder_failed",
-                        extra={
-                            "structured_data": {
-                                "session_id": session_id,
-                                "correlation_id": correlation_id,
-                            }
-                        },
-                    )
-            if payload_bytes:
-                try:
-                    db.add(
-                        AuditLog(
-                            actor=actor_email,
-                            action=action,
-                            payload_hash=sha256(payload_bytes).hexdigest(),
-                            created_at=datetime.now(timezone.utc),
-                        )
-                    )
-                    db.commit()
-                except Exception:
-                    db.rollback()
-                    logger.warning(
-                        "audit_write_failed",
-                        extra={
-                            "structured_data": {
-                                "session_id": session_id,
-                                "correlation_id": correlation_id,
-                            }
-                        },
-                    )
-                    # Non-fatal: keep result success even if audit write fails
-                    pass
-
-            duration_ms = self._measure_duration(started, tracker)
-            result = payload_dict
-            logger.info(
-                "finalize_audit_success",
-                extra={
-                    "structured_data": {
-                        "session_id": session_id,
-                        "user_id": session.user_id,
-                        "duration_ms": duration_ms,
-                        "override": override,
-                        "actor": actor_email,
-                        "correlation_id": correlation_id,
-                    }
-                },
+            context = FinalizeContext(
+                db=db,
+                session_id=session_id,
+                skip_validation=skip_validation,
+                tracker=tracker,
+                correlation_id=correlation_id,
             )
-            return result
+            artifacts = self._execute_finalize_pipeline(
+                context,
+                transactional=False,
+                missing_event="finalize_audit_session_missing",
+                completed_event="finalize_audit_already_completed",
+                validation_event="finalize_audit_validation_failed",
+                scorer_issue_event="finalize_audit_scorer_issue",
+                runtime_error_event="finalize_audit_runtime_error",
+                runtime_metadata={"actor_email": actor_email, "action": action},
+            )
+
+            payload_dict = artifacts.payload.as_dict()
+            payload_bytes = self._build_audit_payload_bytes(
+                build_payload,
+                payload_dict,
+                session_id=session_id,
+                correlation_id=correlation_id,
+            )
+            self._write_audit_log(
+                db,
+                payload_bytes=payload_bytes,
+                actor_email=actor_email,
+                action=action,
+                session_id=session_id,
+                correlation_id=correlation_id,
+            )
+
+            return self._phase_output(
+                artifacts,
+                payload_dict,
+                log_event="finalize_audit_success",
+                extra={"actor": actor_email, "action": action},
+            )
 
     def build_report(self, db: Session, session_id: int, viewer_role: str | None) -> dict:
         session = self._resolve_session(db, session_id)

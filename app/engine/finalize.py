@@ -7,12 +7,10 @@ from typing import Iterable, Sequence, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
-import app.engine.strategies  # noqa: F401  # ensure strategy registrations execute
-
 from app.engine.interfaces import ScoringContext
 from app.engine.pipelines import assign_pipeline_version, resolve_klsi_pipeline_from_nodes
 from app.engine.registry import get as get_definition
-from app.engine.strategy_registry import get_strategy
+from app.engine.strategy_registry import ensure_default_strategies_loaded, get_strategy
 from app.db.repositories import SessionRepository, StyleRepository, PipelineRepository
 from app.models.klsi.audit import AuditLog
 from app.services.regression import analyze_lfi_contexts
@@ -110,6 +108,7 @@ def finalize_assessment(
         ctx = ScoringContext()
         artifact_snapshots: dict[str, dict] = {}
 
+        ensure_default_strategies_loaded()
         strategy = None
         fallback_key = (
             f"{assessment_id}{assessment_version}".upper()

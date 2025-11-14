@@ -5,7 +5,6 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from app.assessments.klsi_v4 import definition  # noqa: F401 - ensure registration side effects
-import app.engine.strategies  # noqa: F401 - register scoring strategies
 from app.assessments.klsi_v4.logic import (
     CONTEXT_NAMES,
     STYLE_CUTS,
@@ -19,6 +18,7 @@ from app.assessments.klsi_v4.logic import (
     validate_lfi_context_ranks,
 )
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.core.errors import SessionNotFoundError
 from app.engine.finalize import finalize_assessment
 from app.db.repositories import (
@@ -29,6 +29,9 @@ from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.enums import SessionStatus
 from app.models.klsi.learning import CombinationScore, ScaleScore, UserLearningStyle
 from app.i18n.id_messages import SessionErrorMessages
+
+
+logger = get_logger("kolb.services.scoring", component="services")
 
 
 __all__ = [
@@ -118,9 +121,17 @@ def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore):
                 norm_provider=provider,
                 group_chain=group_chain,
             )
-        except Exception:
-            # On any unexpected failure, fall back safely
-            pass
+        except Exception as exc:
+            logger.exception(
+                "cached_norm_provider_failed",
+                extra={
+                    "structured_data": {
+                        "session_id": session_id,
+                        "group_chain": group_chain,
+                        "reason": str(exc),
+                    }
+                },
+            )
     return logic_apply_percentiles(db, session_id, scale, combo, group_chain=group_chain)
 
 

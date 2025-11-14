@@ -19,12 +19,14 @@ from app.engine.norms.factory import (
 )
 from app.assessments.klsi_v4.logic import clear_percentile_cache
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.services.security import get_current_user
 from app.services import pipelines as pipeline_service
 from app.core.metrics import get_metrics, get_counters
 from app.i18n.id_messages import AdminMessages, AuthorizationMessages
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = get_logger("kolb.routers.admin", component="router")
 
 @router.post("/norms/import")
 def import_norms(
@@ -96,9 +98,17 @@ def import_norms(
         if hasattr(provider, "_db_lookup"):
             clear_norm_db_cache(getattr(provider, "_db_lookup"))
             clear_percentile_cache()
-    except Exception:
-        # Non-fatal; cache will naturally evict eventually if invalidation fails
-        pass
+    except Exception as exc:
+        logger.exception(
+            "norm_cache_invalidation_failed",
+            extra={
+                "structured_data": {
+                    "norm_group": norm_group,
+                    "norm_version": norm_version,
+                    "user_id": user.id,
+                }
+            },
+        )
     return {
         "norm_group": norm_group,
         "norm_version": norm_version,

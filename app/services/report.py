@@ -2,13 +2,13 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.formatting import distance_to_percent
 from app.data.session_designs import recommend_for_primary
 from app.i18n.id_styles import (
     EDUCATOR_RECO_ID,
     LFI_LABEL_ID,
     STYLE_BRIEF_ID,
     STYLE_DETAIL_ID,
-    STYLE_LABELS_ID,
 )
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.learning import (
@@ -29,6 +29,7 @@ from app.services.regression import (
     predict_integrative_development,
     predicted_curve,
 )
+from app.services.style_labels import get_style_label
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import (
     ReportAnalyticsMessages,
@@ -448,8 +449,8 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             # Formula: P_BAL = 100 × (1 - distance/max_distance) clamped to [0,100]
             # These measure proximity to normative centers (ACCE≈9, AERO≈6) and are theoretical constructs
             balance_block = {
-                "ACCE": max(0.0, min(100.0, round((1 - ((balance_acce or 0) / 45.0)) * 100, 1))),
-                "AERO": max(0.0, min(100.0, round((1 - ((balance_aero or 0) / 42.0)) * 100, 1))),
+                "ACCE": distance_to_percent(balance_acce, max_distance=45.0),
+                "AERO": distance_to_percent(balance_aero, max_distance=42.0),
                 "levels": balance_levels,
                 "note": ReportBalanceMessages.NOTE,
             }
@@ -486,10 +487,10 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
         "percentiles": percentiles,
         "style": None if not primary else {
             "primary_code": primary.style_code,
-            "primary_name": STYLE_LABELS_ID.get(primary.style_name, primary.style_name),
+            "primary_name": get_style_label(primary.style_name),
             "primary_brief": STYLE_BRIEF_ID.get(primary.style_name),
             "primary_detail": STYLE_DETAIL_ID.get(primary.style_name),
-            "backup_name": None if not backup_type else STYLE_LABELS_ID.get(backup_type.style_name, backup_type.style_name),
+            "backup_name": get_style_label(backup_type.style_name) if backup_type else None,
             "backup_code": None if not backup_type else backup_type.style_code,
             "backup_brief": None if not backup_type else STYLE_BRIEF_ID.get(backup_type.style_name),
             "backup_detail": None if not backup_type else STYLE_DETAIL_ID.get(backup_type.style_name),
