@@ -109,7 +109,7 @@
 - [ ]  Pastikan [database.py](http://database.py/) memiliki get_session() yang yield, tutup otomatis.
 - [ ]  Hindari commit per operasi kecil – batch commit untuk sekumpulan record.
 - [x]  Tambahkan precondition asserts untuk internal invariant (Fluent Python menganjurkan clarity).
-- [ ]  Gunakan typing.Literal untuk parameter yang hanya beberapa pilihan.
+- [x]  Gunakan typing.Literal untuk parameter yang hanya beberapa pilihan.
 - [ ]  Evaluasi apakah sebagian besar object bisa direpresentasi sebagai immutable mapping (MappingProxyType).
 - [ ]  Tandai modul yang intensif CPU agar dapat dipertimbangkan multiprocessing (jika benar-benar berat).
 - [ ]  Pastikan i/o file besar (norms) dibaca streaming jika ukuran masif.
@@ -133,7 +133,7 @@
 - [ ]  Pastikan [metrics.py](http://metrics.py/) memisahkan data structure (model) vs collector logic.
 - [ ]  Gunakan aggregator incremental (Welford algorithm) untuk rata-rata dan variance real-time.
 - [ ]  Pastikan pipeline dapat diinterupsi secara bersih (raise ControlledAbort).
-- [ ]  Tambahkan guard agar runtime tidak memproses dataset kosong (return early).
+- [x]  Tambahkan guard agar runtime tidak memproses dataset kosong (return early).
 - [ ]  Gunakan dictionary unpack (**kwargs) hati-hati – eksplisit parameter lebih mudah lacak.
 - [ ]  Pastikan serializer (jika ada) tidak men-serialize object berat (drop transient fields).
 - [ ]  Gunakan zoneinfo untuk waktu daripada naive datetime.
