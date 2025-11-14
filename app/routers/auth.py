@@ -1,9 +1,11 @@
 import re
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.db.database import get_db
 from app.db.repositories import UserRepository
 from app.schemas.auth import Role, Token, UserCreate, UserOut
@@ -11,8 +13,13 @@ from app.services.security import create_access_token, hash_password, verify_pas
 from app.i18n.id_messages import AuthMessages
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = get_logger("kolb.routers.auth", component="router")
 
 _KELAS_PATTERN = re.compile(r"IF-\d+")
+
+
+def _log_db_failure(event: str, **structured: Any) -> None:
+    logger.exception(event, extra={"structured_data": structured})
 
 
 @router.post("/register", response_model=UserOut)
@@ -50,6 +57,11 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         db.refresh(user)
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "auth_register_commit_failed",
+            email=payload.email,
+            role=role.value,
+        )
         raise
     return user
 

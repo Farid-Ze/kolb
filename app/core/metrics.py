@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from time import perf_counter
 from math import sqrt
+from time import perf_counter
 from typing import Any, Callable, Dict, Mapping, Sequence, TypeVar, cast
 _F = TypeVar("_F", bound=Callable[..., Any])
 
@@ -13,6 +14,98 @@ try:  # pragma: no cover - import guard for early initialization
     from app.core.config import settings as _settings
 except Exception:  # pragma: no cover - fallback during bootstrap
     _settings = None
+
+
+@dataclass(slots=True)
+class TimingStats:
+    """Numerical aggregates for a timing label."""
+
+    count: float = 0.0
+    total_ms: float = 0.0
+    max_ms: float = 0.0
+    avg_ms: float = 0.0
+    variance_ms: float = 0.0
+    stddev_ms: float = 0.0
+    _mean_ms: float = 0.0
+    _m2: float = 0.0
+
+    def update(self, elapsed_ms: float) -> None:
+        value = float(elapsed_ms)
+        self.count += 1.0
+        self.total_ms += value
+        if value > self.max_ms:
+            self.max_ms = value
+
+        delta = value - self._mean_ms
+        self._mean_ms += delta / self.count
+        delta2 = value - self._mean_ms
+        self._m2 += delta * delta2
+
+        variance = self._m2 / (self.count - 1.0) if self.count > 1.0 else 0.0
+        self.variance_ms = variance
+        self.stddev_ms = sqrt(variance) if variance > 0.0 else 0.0
+        self.avg_ms = self._mean_ms
+
+    def snapshot(self) -> Dict[str, float]:
+        return {
+            "count": self.count,
+            "total_ms": self.total_ms,
+            "max_ms": self.max_ms,
+            "avg_ms": self.avg_ms,
+            "variance_ms": self.variance_ms,
+            "stddev_ms": self.stddev_ms,
+        }
+
+
+@dataclass(slots=True)
+class HistogramBuckets:
+    """Histogram counts for a metric label."""
+
+    boundaries: tuple[float, ...]
+    counts: Dict[str, float] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.counts = {str(boundary): 0.0 for boundary in self.boundaries}
+        self.counts.setdefault("+Inf", 0.0)
+
+    def observe(self, value: float) -> None:
+        for boundary in self.boundaries:
+            if value <= boundary:
+                self.counts[str(boundary)] += 1.0
+                return
+        self.counts["+Inf"] += 1.0
+
+    def snapshot(self) -> Dict[str, float]:
+        return dict(self.counts)
+
+
+@dataclass(slots=True)
+class LastRunMetadata:
+    """Structured payload for last execution metadata."""
+
+    timestamp: str
+    duration_ms: float
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_duration(
+        cls, duration_ms: float, *, metadata: Mapping[str, Any] | None = None
+    ) -> "LastRunMetadata":
+        payload = dict(metadata) if metadata else {}
+        return cls(
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            duration_ms=float(duration_ms),
+            metadata=payload,
+        )
+
+    def snapshot(self) -> Dict[str, Any]:
+        data = {
+            "timestamp": self.timestamp,
+            "duration_ms": self.duration_ms,
+        }
+        if self.metadata:
+            data.update(self.metadata)
+        return data
 
 
 class _MetricsRegistry:
@@ -26,54 +119,17 @@ class _MetricsRegistry:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._timings: Dict[str, Dict[str, float]] = {}
+        self._timings: Dict[str, TimingStats] = {}
         self._counters: Dict[str, float] = {}
-        self._histograms: Dict[str, Dict[str, float]] = {}
-        self._last_runs: Dict[str, Dict[str, Any]] = {}
+        self._histograms: Dict[str, HistogramBuckets] = {}
+        self._last_runs: Dict[str, LastRunMetadata] = {}
 
     def record(self, label: str, elapsed_ms: float) -> None:
         if not label:
             return
         with self._lock:
-            entry = self._timings.setdefault(
-                label,
-                {
-                    "count": 0.0,
-                    "total_ms": 0.0,
-                    "max_ms": 0.0,
-                    "avg_ms": 0.0,
-                    "variance_ms": 0.0,
-                    "stddev_ms": 0.0,
-                    "_mean_ms": 0.0,
-                    "_m2": 0.0,
-                },
-            )
-            entry.setdefault("variance_ms", 0.0)
-            entry.setdefault("stddev_ms", 0.0)
-            entry.setdefault("_mean_ms", 0.0)
-            entry.setdefault("_m2", 0.0)
-
-            entry["count"] += 1.0
-            entry["total_ms"] += float(elapsed_ms)
-            current_value = float(elapsed_ms)
-            if current_value > entry["max_ms"]:
-                entry["max_ms"] = current_value
-
-            prev_mean = float(entry.get("_mean_ms", 0.0))
-            count = entry["count"]
-            delta = current_value - prev_mean
-            new_mean = prev_mean + (delta / count)
-            entry["_mean_ms"] = new_mean
-            delta2 = current_value - new_mean
-            entry["_m2"] = float(entry.get("_m2", 0.0)) + delta * delta2
-
-            if count > 1.0:
-                variance = entry["_m2"] / (count - 1.0)
-            else:
-                variance = 0.0
-            entry["variance_ms"] = variance
-            entry["stddev_ms"] = sqrt(variance) if variance > 0.0 else 0.0
-            entry["avg_ms"] = new_mean
+            entry = self._timings.setdefault(label, TimingStats())
+            entry.update(elapsed_ms)
 
     def observe_histogram(
         self,
@@ -86,23 +142,15 @@ class _MetricsRegistry:
             return
         bucket_sequence: Sequence[float] = buckets or (1.0, 5.0, 10.0, 20.0, 50.0)
         with self._lock:
-            histogram = self._histograms.setdefault(label, {str(b): 0.0 for b in bucket_sequence})
-            histogram.setdefault("+Inf", 0.0)
-            recorded = False
-            for boundary in bucket_sequence:
-                if value <= boundary:
-                    histogram[str(boundary)] += 1.0
-                    recorded = True
-                    break
-            if not recorded:
-                histogram["+Inf"] += 1.0
+            histogram = self._histograms.get(label)
+            if histogram is None:
+                histogram = HistogramBuckets(tuple(bucket_sequence))
+                self._histograms[label] = histogram
+            histogram.observe(value)
 
     def snapshot(self, reset: bool = False) -> Dict[str, Dict[str, float]]:
         with self._lock:
-            data = {
-                label: {key: value for key, value in record.items() if not key.startswith("_")}
-                for label, record in self._timings.items()
-            }
+            data = {label: stats.snapshot() for label, stats in self._timings.items()}
             if reset:
                 self._timings.clear()
             return data
@@ -130,7 +178,7 @@ class _MetricsRegistry:
 
     def histograms_snapshot(self, reset: bool = False) -> Dict[str, Dict[str, float]]:
         with self._lock:
-            data = {label: dict(buckets) for label, buckets in self._histograms.items()}
+            data = {label: buckets.snapshot() for label, buckets in self._histograms.items()}
             if reset:
                 self._histograms.clear()
             return data
@@ -145,17 +193,13 @@ class _MetricsRegistry:
         if not label:
             return
         with self._lock:
-            payload: Dict[str, Any] = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "duration_ms": float(duration_ms),
-            }
-            if metadata:
-                payload.update(dict(metadata))
-            self._last_runs[label] = payload
+            self._last_runs[label] = LastRunMetadata.from_duration(
+                duration_ms, metadata=metadata
+            )
 
     def last_runs_snapshot(self, reset: bool = False) -> Dict[str, Dict[str, Any]]:
         with self._lock:
-            data = {k: dict(v) for k, v in self._last_runs.items()}
+            data = {label: payload.snapshot() for label, payload in self._last_runs.items()}
             if reset:
                 self._last_runs.clear()
             return data

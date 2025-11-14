@@ -47,7 +47,7 @@
 - [ ]  Terapkan strategi precomputation untuk bobot per gaya belajar.
 - [ ]  Kaji apakah normalization selalu memanggil fungsi expensive – cache hasil per responden jika pola sama.
 - [x]  Gunakan Pydantic model untuk input instrument (jawaban pengguna) – memudahkan validasi.
-- [ ]  Jika terdapat banyak mapping skala, gunakan lookup table dict ketimbang if chain.
+- [x]  Jika terdapat banyak mapping skala, gunakan lookup table dict ketimbang if chain.
 - [x]  Pastikan interface di [interfaces.py](http://interfaces.py/) cukup abstrak untuk mocking unit test.
 - [x]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
 - [x]  Gunakan re-usable exception translator di routers (ubah domain exception ke HTTP response).
@@ -67,7 +67,7 @@
 - [ ]  Jika ada normalisasi memerlukan statistik populasi, precompute saat startup.
 - [x]  Pastikan penggunaan try/except yang sempit – jangan tangkap Exception broad.
 - [x]  Terapkan EAFP: coba akses field; jika KeyError tangani – hindari banyak if key in.
-- [ ]  Gunakan comprehension & generator expresion idiomatik untuk clarity.
+- [x]  Gunakan comprehension & generator expresion idiomatik untuk clarity.
 - [ ]  Hindari list(map(...)) ketika comprehension lebih jelas.
 - [x]  Gunakan f-string untuk formatting.
 - [x]  Periksa apakah ada penggunaan mutable default arg ({} / []) – ganti dengan None sentinel.
@@ -133,11 +133,11 @@
 - [x]  Pastikan error path mencantumkan id responden untuk trace.
 - [ ]  Gunakan generics typing (TypeVar) pada util generic.
 - [x]  Hindari pass di except – log minimal cause.
-- [ ]  Pastikan [metrics.py](http://metrics.py/) memisahkan data structure (model) vs collector logic.
+- [x]  Pastikan [metrics.py](http://metrics.py/) memisahkan data structure (model) vs collector logic.
 - [x]  Gunakan aggregator incremental (Welford algorithm) untuk rata-rata dan variance real-time (app/core/metrics.py kini menghitung variance_ms & stddev_ms dengan Welford incremental stats + snapshot tests).
 - [x]  Pastikan pipeline dapat diinterupsi secara bersih (raise ControlledAbort).
 - [x]  Tambahkan guard agar runtime tidak memproses dataset kosong (return early).
-- [ ]  Gunakan dictionary unpack (**kwargs) hati-hati – eksplisit parameter lebih mudah lacak.
+- [x]  Gunakan dictionary unpack (**kwargs) hati-hati – eksplisit parameter lebih mudah lacak.
 - [ ]  Pastikan serializer (jika ada) tidak men-serialize object berat (drop transient fields).
 - [ ]  Gunakan zoneinfo untuk waktu daripada naive datetime.
 - [ ]  Pastikan semua datetime UTC canonical.
@@ -164,7 +164,7 @@
 - [ ]  Gunakan caching layered: memory → (nanti) external (Redis) jika skala membesar.
 - [ ]  Tambahkan safety rate limit untuk operasi heavy (avoid runaway).
 - [ ]  Gunakan psutil (opsional) untuk memonitor memory jika pipeline memproses batch besar.
-- [ ]  Pastikan error path tidak swallow Traceback – log stack untuk debugging.
+- [x]  Pastikan error path tidak swallow Traceback – log stack untuk debugging.
 - [ ]  Gunakan assert untuk in-house invariants (non-user facing) + ubah ke if raise jika butuh runtime safety.
 - [ ]  Dokumentasikan kompleksitas per fungsi kritis (komentar O(n)).
 - [x]  Gunakan named logger (logging.getLogger("kolb.engine")) daripada root logger.

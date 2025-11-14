@@ -49,6 +49,14 @@ from app.i18n.id_messages import (
 )
 
 
+_WEAKEST_MODE_TIPS: dict[str, str] = {
+    "CE": ReportMetaLearningTips.WEAKEST_CE,
+    "RO": ReportMetaLearningTips.WEAKEST_RO,
+    "AC": ReportMetaLearningTips.WEAKEST_AC,
+    "AE": ReportMetaLearningTips.WEAKEST_AE,
+}
+
+
 def _derive_learning_space_suggestions(acce: int | None, aero: int | None,
                                        acc_assm: int | None, conv_div: int | None,
                                        lfi: float | None, intensity: int | None) -> list[str]:
@@ -166,14 +174,9 @@ def _derive_meta_learning(ac: int | None, ce: int | None, ae: int | None, ro: in
             tips.append(ReportMetaLearningTips.AERO_POSITIVE)
         else:
             tips.append(ReportMetaLearningTips.AERO_NEGATIVE)
-    if weakest == "CE":
-        tips.append(ReportMetaLearningTips.WEAKEST_CE)
-    elif weakest == "RO":
-        tips.append(ReportMetaLearningTips.WEAKEST_RO)
-    elif weakest == "AC":
-        tips.append(ReportMetaLearningTips.WEAKEST_AC)
-    elif weakest == "AE":
-        tips.append(ReportMetaLearningTips.WEAKEST_AE)
+    weakest_tip = _WEAKEST_MODE_TIPS.get(weakest)
+    if weakest_tip:
+        tips.append(weakest_tip)
     # Learning identity cues
     tips.append(ReportMetaLearningTips.SELF_TALK)
     return tips

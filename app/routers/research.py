@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -19,10 +19,16 @@ from app.schemas.research import (
     ResearchStudyUpdate,
     ValidityCreate,
 )
-from app.services.security import get_current_user
+from app.core.logging import get_logger
 from app.i18n.id_messages import AuthorizationMessages, ResearchMessages
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/research", tags=["research"])
+logger = get_logger("kolb.routers.research", component="router")
+
+
+def _log_db_failure(event: str, **structured: Any) -> None:
+    logger.exception(event, extra={"structured_data": structured})
 
 
 def _require_mediator(user: User) -> None:
@@ -45,6 +51,11 @@ def create_study(
         db.refresh(study)
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "research_create_study_failed",
+            user_id=user.id,
+            title=payload.title,
+        )
         raise
     return study
 
@@ -91,6 +102,12 @@ def update_study(
         db.refresh(study)
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "research_update_study_failed",
+            study_id=study_id,
+            user_id=user.id,
+            payload_fields=list(payload.model_dump(exclude_unset=True).keys()),
+        )
         raise
     return study
 
@@ -124,6 +141,11 @@ def delete_study(
         raise
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "research_delete_study_failed",
+            study_id=study_id,
+            user_id=user.id,
+        )
         raise
     return {"ok": True}
 
@@ -151,6 +173,12 @@ def add_reliability(
         raise
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "research_add_reliability_failed",
+            study_id=study_id,
+            user_id=user.id,
+            metric_name=payload.metric_name,
+        )
         raise
     return {"id": row.id, "metric_name": row.metric_name, "value": row.value}
 
@@ -178,6 +206,12 @@ def add_validity(
         raise
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "research_add_validity_failed",
+            study_id=study_id,
+            user_id=user.id,
+            evidence_type=payload.evidence_type,
+        )
         raise
     return {"id": row.id, "evidence_type": row.evidence_type}
 

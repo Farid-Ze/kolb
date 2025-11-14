@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.db.database import get_db
 from app.db.repositories import (
     TeamMemberRepository,
@@ -21,15 +22,20 @@ from app.schemas.team import (
     TeamRollupOut,
     TeamUpdate,
 )
+from app.i18n.id_messages import AuthorizationMessages, TeamMessages
 from app.services.rollup import compute_team_rollup
 from app.services.security import get_current_user
-from app.i18n.id_messages import AuthorizationMessages, TeamMessages
 
 router = APIRouter(prefix="/teams", tags=["teams"])
+logger = get_logger("kolb.routers.teams", component="router")
 
 def _require_mediator(user: User):
     if user.role != 'MEDIATOR':
         raise HTTPException(status_code=403, detail=AuthorizationMessages.MEDIATOR_REQUIRED)
+
+
+def _log_db_failure(event: str, **structured: Any) -> None:
+    logger.exception(event, extra={"structured_data": structured})
 
 
 @router.post("/", response_model=TeamOut)
@@ -50,6 +56,11 @@ def create_team(
         db.refresh(team)
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "teams_create_failed",
+            user_id=user.id,
+            team_name=payload.name,
+        )
         raise
     return team
 
@@ -102,6 +113,12 @@ def update_team(
         db.refresh(team)
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "teams_update_failed",
+            team_id=team_id,
+            user_id=user.id,
+            updated_fields=list(payload.model_dump(exclude_unset=True).keys()),
+        )
         raise
     return team
 
@@ -117,6 +134,8 @@ def delete_team(
     team_repo = TeamRepository(db)
     member_repo = TeamMemberRepository(db)
     rollup_repo = TeamRollupRepository(db)
+    members_count: Optional[int] = None
+    rollup_count: Optional[int] = None
     try:
         team = team_repo.get(team_id)
         if not team:
@@ -129,6 +148,13 @@ def delete_team(
         db.commit()
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "teams_delete_failed",
+            team_id=team_id,
+            user_id=user.id,
+            members_count=members_count,
+            rollup_count=rollup_count,
+        )
         raise
     return {"ok": True}
 
@@ -158,6 +184,12 @@ def add_member(
         db.refresh(tm)
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "teams_add_member_failed",
+            team_id=team_id,
+            user_id=user.id,
+            member_user_id=payload.user_id,
+        )
         raise
     return tm
 
@@ -180,6 +212,12 @@ def remove_member(
         db.commit()
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "teams_remove_member_failed",
+            team_id=team_id,
+            user_id=user.id,
+            member_id=member_id,
+        )
         raise
     return {"ok": True}
 
@@ -211,5 +249,11 @@ def run_rollup(
         db.refresh(roll)
     except Exception:
         db.rollback()
+        _log_db_failure(
+            "teams_run_rollup_failed",
+            team_id=team_id,
+            user_id=user.id,
+            for_date=for_date,
+        )
         raise
     return roll

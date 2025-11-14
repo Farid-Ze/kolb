@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.db.repositories import InstrumentRepository, PipelineRepository
 from app.models.klsi.instrument import Instrument
 from app.i18n.id_messages import PipelineMessages
+
+logger = get_logger("kolb.services.pipelines", component="service")
+
+
+def _log_pipeline_failure(event: str, **structured: Any) -> None:
+    logger.exception(event, extra={"structured_data": structured})
 
 
 def _instrument_or_404(
@@ -22,6 +29,13 @@ def _instrument_or_404(
     return instrument
 
 
+def _node_display_key(node) -> str:
+    callable_path = (node.config or {}).get("callable") if hasattr(node, "config") else None
+    if isinstance(callable_path, str) and callable_path:
+        return callable_path.rsplit(".", 1)[-1]
+    return node.node_key
+
+
 def list_pipelines(
     db: Session,
     instrument_code: str,
@@ -32,32 +46,31 @@ def list_pipelines(
     pipeline_repo = PipelineRepository(db)
     pipelines = pipeline_repo.list_with_nodes(instrument.id)
 
-    payload = []
-    for pipeline in pipelines:
-        payload.append(
-            {
-                "id": pipeline.id,
-                "pipeline_code": pipeline.pipeline_code,
-                "version": pipeline.version,
-                "description": pipeline.description,
-                "is_active": pipeline.is_active,
-                "metadata": pipeline.metadata_payload,
-                "created_at": pipeline.created_at.isoformat() if pipeline.created_at else None,
-                "nodes": [
-                    {
-                        "id": node.id,
-                        "node_key": node.node_key,
-                        "node_type": node.node_type,
-                        "order": node.execution_order,
-                        "config": node.config,
-                        "next": node.next_node_key,
-                        "is_terminal": node.is_terminal,
-                        "created_at": node.created_at.isoformat() if node.created_at else None,
-                    }
-                    for node in sorted(pipeline.nodes, key=lambda n: n.execution_order)
-                ],
-            }
-        )
+    payload = [
+        {
+            "id": pipeline.id,
+            "pipeline_code": pipeline.pipeline_code,
+            "version": pipeline.version,
+            "description": pipeline.description,
+            "is_active": pipeline.is_active,
+            "metadata": pipeline.metadata_payload,
+            "created_at": pipeline.created_at.isoformat() if pipeline.created_at else None,
+            "nodes": [
+                {
+                    "id": node.id,
+                    "node_key": _node_display_key(node),
+                    "node_type": node.node_type,
+                    "order": node.execution_order,
+                    "config": node.config,
+                    "next": node.next_node_key,
+                    "is_terminal": node.is_terminal,
+                    "created_at": node.created_at.isoformat() if node.created_at else None,
+                }
+                for node in sorted(pipeline.nodes, key=lambda n: n.execution_order)
+            ],
+        }
+        for pipeline in pipelines
+    ]
 
     return {
         "instrument": {
@@ -91,6 +104,11 @@ def activate_pipeline(
         db.refresh(pipeline)
     except Exception:
         db.rollback()
+        _log_pipeline_failure(
+            "pipeline_activation_failed",
+            instrument_id=instrument.id,
+            pipeline_id=pipeline_id,
+        )
         raise
 
     return {
@@ -146,6 +164,13 @@ def clone_pipeline(
         db.refresh(cloned)
     except Exception:
         db.rollback()
+        _log_pipeline_failure(
+            "pipeline_clone_failed",
+            instrument_id=instrument.id,
+            source_pipeline_id=pipeline_id,
+            candidate_code=candidate_code,
+            new_version=new_version,
+        )
         raise
 
     return {
@@ -186,6 +211,11 @@ def delete_pipeline(
         db.commit()
     except Exception:
         db.rollback()
+        _log_pipeline_failure(
+            "pipeline_delete_failed",
+            instrument_id=instrument.id,
+            pipeline_id=pipeline_id,
+        )
         raise
 
     return {
