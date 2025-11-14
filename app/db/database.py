@@ -113,7 +113,17 @@ class DatabaseGateway:
 
 
 # Note: psycopg2 is used for PostgreSQL when DATABASE_URL is set accordingly
-engine: Engine = create_engine(settings.database_url, echo=False, future=True)
+# Connection pooling configuration for improved performance
+engine: Engine = create_engine(
+    settings.database_url,
+    echo=False,
+    future=True,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_timeout=settings.db_pool_timeout,
+    pool_recycle=settings.db_pool_recycle,
+    pool_pre_ping=settings.db_pool_pre_ping,
+)
 SessionLocal: sessionmaker[Session] = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 database_gateway = DatabaseGateway(engine=engine, session_factory=SessionLocal)
 

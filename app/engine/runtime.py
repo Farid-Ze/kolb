@@ -9,6 +9,18 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.core.errors import (
+    ConfigurationError,
+    ConflictError,
+    DomainError,
+    InstrumentNotFoundError,
+    SessionFinalizedError,
+    SessionNotFoundError,
+    ValidationError,
+)
+from app.core.logging import correlation_context, get_logger
+from app.core.metrics import count_calls, measure_time, timeit
+from app.db.database import get_repository_provider
 from app.engine.authoring import get_instrument_locale_resource, get_instrument_spec
 from app.engine.interfaces import InstrumentId
 from app.engine.pipelines import assign_pipeline_version
@@ -18,31 +30,48 @@ from app.engine.runtime_logic import (
     build_finalize_payload,
     compose_delivery_payload,
 )
+from app.i18n.id_messages import EngineMessages
 from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.audit import AuditLog
 from app.models.klsi.enums import SessionStatus
 from app.models.klsi.user import User
-from app.models.klsi.audit import AuditLog
 from app.services.validation import run_session_validations
-from app.db.database import get_repository_provider
-from app.core.metrics import timeit, measure_time, count_calls
-from app.core.logging import correlation_context, get_logger
-from app.core.errors import (
-    DomainError,
-    ConfigurationError,
-    ConflictError,
-    InstrumentNotFoundError,
-    ValidationError,
-    SessionFinalizedError,
-    SessionNotFoundError,
-)
-from app.i18n.id_messages import EngineMessages
-
 
 logger = get_logger("kolb.engine.runtime", component="engine")
 
 
 class EngineRuntime:
-    """Co-ordinates pluggable assessment instruments via the engine registry."""
+    """Co-ordinates pluggable assessment instruments via the engine registry.
+    
+    Sync/Async Boundaries:
+    ----------------------
+    This class is currently fully synchronous with the following I/O patterns:
+    
+    1. **Database I/O** (Blocking):
+       - All DB operations use SQLAlchemy synchronous sessions
+       - DB access stays within services/engine layers (not in routers)
+       - Transaction management via context managers ensures atomicity
+       
+    2. **File I/O** (Blocking, Cached):
+       - Manifest/locale loading is cached via @lru_cache
+       - After first load, subsequent access is memory-only (no disk I/O)
+       - i18n resources are preloaded at startup if enabled
+       
+    3. **Future Async Integration Points**:
+       - External norm provider HTTP calls (when enabled):
+         * Currently: external_norms_enabled=False (synchronous fallback)
+         * Future: Replace with httpx.AsyncClient for async HTTP
+         * Will require: async def percentile() → tuple[float | None, str]
+       - Report generation for large datasets:
+         * Currently: Synchronous report building
+         * Future: Stream reports via async generators
+       
+    Design Notes:
+    - Method signatures will remain sync-only until async is actually needed
+    - When adding async, use AsyncSession from sqlalchemy.ext.asyncio
+    - Router layer already supports async (FastAPI handles sync→async)
+    - Engine→Services boundary stays sync for now (YAGNI principle)
+    """
 
     def __init__(self) -> None:
         self._registry = engine_registry
@@ -280,6 +309,7 @@ class EngineRuntime:
                         "structured_data": {
                             "session_id": session_id,
                             "user_id": session.user_id,
+                            "error": str(exc),
                             "correlation_id": correlation_id,
                         }
                     },
@@ -403,6 +433,7 @@ class EngineRuntime:
                         "structured_data": {
                             "session_id": session_id,
                             "user_id": session.user_id,
+                            "error": str(exc),
                             "correlation_id": correlation_id,
                         }
                     },
@@ -487,7 +518,9 @@ runtime = EngineRuntime()
 
 # Caching helpers (module-level to persist across runtime calls)
 @lru_cache(maxsize=128)
-def _cached_manifest(instrument_code: str, instrument_version: str):  # pragma: no cover - pure cache
+def _cached_manifest(
+    instrument_code: str, instrument_version: str
+):  # pragma: no cover - pure cache
     try:
         return get_instrument_spec(instrument_code, instrument_version).manifest()
     except KeyError:
@@ -495,7 +528,9 @@ def _cached_manifest(instrument_code: str, instrument_version: str):  # pragma: 
 
 
 @lru_cache(maxsize=256)
-def _cached_locale(instrument_code: str, instrument_version: str, locale: str):  # pragma: no cover - pure cache
+def _cached_locale(
+    instrument_code: str, instrument_version: str, locale: str
+):  # pragma: no cover - pure cache
     try:
         return get_instrument_locale_resource(instrument_code, instrument_version, locale)
     except KeyError:

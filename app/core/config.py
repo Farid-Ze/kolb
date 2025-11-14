@@ -53,6 +53,15 @@ class Settings(BaseSettings):
     norms_preload_max_entries: int = Field(default=400_000, ge=0)
     cached_norm_provider_enabled: bool = Field(default=True)
 
+    i18n_preload_enabled: bool = Field(default=True, description="Preload i18n resources at startup to avoid disk I/O per request")
+
+    # Database connection pooling settings
+    db_pool_size: int = Field(default=5, ge=1, le=50, description="Number of connections to keep in the pool")
+    db_max_overflow: int = Field(default=10, ge=0, le=100, description="Max connections to create beyond pool_size")
+    db_pool_timeout: int = Field(default=30, ge=1, le=300, description="Seconds to wait for connection from pool")
+    db_pool_recycle: int = Field(default=3600, ge=300, description="Seconds before recycling a connection")
+    db_pool_pre_ping: bool = Field(default=True, description="Enable connection health checks before use")
+
     disable_legacy_submission: bool = Field(default=False)
     disable_legacy_router: bool = Field(default=False)
     legacy_sunset: Optional[datetime] = Field(default=None)
