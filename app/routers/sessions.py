@@ -3,7 +3,7 @@ from email.utils import format_datetime
 from hashlib import sha256
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -12,7 +12,11 @@ from app.engine.runtime import runtime
 from app.models.klsi.user import User
 from app.services.security import get_current_user
 from app.services.validation import run_session_validations
-from app.schemas.session import SessionSubmissionPayload
+from app.schemas.session import (
+    LegacyContextSubmissionPayload,
+    LegacyItemSubmissionPayload,
+    SessionSubmissionPayload,
+)
 from app.core.config import settings
 from app.core.metrics import inc_counter
 from app.models.klsi.items import UserResponse
@@ -72,12 +76,11 @@ def submit_item(session_id: int, item_id: int, ranks: dict, response: Response, 
     sess = repo.get_for_user(session_id, user.id)
     if not sess or sess.user_id != user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
-    payload = {
-        "kind": "item",
-        "item_id": item_id,
-        "ranks": ranks,
-    }
-    runtime.submit_payload(db, session_id, payload)
+    try:
+        submission = LegacyItemSubmissionPayload(item_id=item_id, ranks=ranks)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+    runtime.submit_payload(db, session_id, submission.runtime_payload())
     return {"ok": True}
 
 @router.post("/{session_id}/submit_context", response_model=dict, deprecated=True)
@@ -107,16 +110,18 @@ def submit_context(
     sess = repo.get_for_user(session_id, user.id)
     if not sess or sess.user_id != user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
-    payload = {
-        "kind": "context",
-        "context_name": context_name,
-        "CE": CE,
-        "RO": RO,
-        "AC": AC,
-        "AE": AE,
-        "overwrite": overwrite,
-    }
-    runtime.submit_payload(db, session_id, payload)
+    try:
+        context_submission = LegacyContextSubmissionPayload(
+            context_name=context_name,
+            CE=CE,
+            RO=RO,
+            AC=AC,
+            AE=AE,
+            overwrite=overwrite,
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+    runtime.submit_payload(db, session_id, context_submission.runtime_payload())
     return {"ok": True}
 
 

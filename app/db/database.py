@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterator
 
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.engine import make_url, URL
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 import logging
+from sqlalchemy.pool import QueuePool, StaticPool
 
 from app.core.config import settings
 
@@ -114,16 +116,68 @@ class DatabaseGateway:
 
 # Note: psycopg2 is used for PostgreSQL when DATABASE_URL is set accordingly
 # Connection pooling configuration for improved performance
-engine: Engine = create_engine(
-    settings.database_url,
-    echo=False,
-    future=True,
-    pool_size=settings.db_pool_size,
-    max_overflow=settings.db_max_overflow,
-    pool_timeout=settings.db_pool_timeout,
-    pool_recycle=settings.db_pool_recycle,
-    pool_pre_ping=settings.db_pool_pre_ping,
-)
+ENGINE_CONFIG_SNAPSHOT: dict[str, object] = {}
+
+
+def _build_engine() -> Engine:
+    url: URL = make_url(settings.database_url)
+    kwargs: dict[str, object] = {
+        "echo": False,
+        "future": True,
+    }
+
+    if url.get_backend_name() == "sqlite":
+        connect_args: dict[str, object] = {"check_same_thread": False}
+        database = url.database or ""
+        if database.startswith("file:"):
+            connect_args["uri"] = True
+        kwargs["connect_args"] = connect_args
+
+        if database in ("", None, ":memory:", "file::memory:"):
+            kwargs["poolclass"] = StaticPool
+        else:
+            kwargs.update(
+                {
+                    "poolclass": QueuePool,
+                    "pool_size": settings.db_pool_size,
+                    "max_overflow": settings.db_max_overflow,
+                    "pool_timeout": settings.db_pool_timeout,
+                    "pool_recycle": settings.db_pool_recycle,
+                    "pool_pre_ping": settings.db_pool_pre_ping,
+                }
+            )
+    else:
+        kwargs.update(
+            {
+                "pool_size": settings.db_pool_size,
+                "max_overflow": settings.db_max_overflow,
+                "pool_timeout": settings.db_pool_timeout,
+                "pool_recycle": settings.db_pool_recycle,
+                "pool_pre_ping": settings.db_pool_pre_ping,
+            }
+        )
+
+    engine_instance = create_engine(settings.database_url, **kwargs)
+    _set_engine_snapshot(engine_instance, kwargs)
+    return engine_instance
+
+
+def _set_engine_snapshot(engine_instance: Engine, kwargs: dict[str, object]) -> None:
+    global ENGINE_CONFIG_SNAPSHOT
+    snapshot = {
+        "url": str(engine_instance.url),
+        "poolclass": getattr(kwargs.get("poolclass"), "__name__", engine_instance.pool.__class__.__name__),
+        "connect_args": dict(kwargs.get("connect_args", {})),
+        "pool_size": kwargs.get("pool_size"),
+        "max_overflow": kwargs.get("max_overflow"),
+        "pool_timeout": kwargs.get("pool_timeout"),
+        "pool_recycle": kwargs.get("pool_recycle"),
+        "pool_pre_ping": kwargs.get("pool_pre_ping"),
+    }
+    ENGINE_CONFIG_SNAPSHOT = snapshot
+
+
+engine: Engine = _build_engine()
 SessionLocal: sessionmaker[Session] = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 database_gateway = DatabaseGateway(engine=engine, session_factory=SessionLocal)
 
@@ -169,6 +223,10 @@ def norm_session_scope() -> Iterator[Session]:
         record_last_run("db.norm_session.duration", elapsed_ms)
         inc_counter("db.norm_session.closes")
         session.close()
+
+
+def get_engine_config_snapshot() -> dict[str, object]:
+    return dict(ENGINE_CONFIG_SNAPSHOT)
 
 
 @dataclass(frozen=True, slots=True)

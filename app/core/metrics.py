@@ -8,6 +8,11 @@ from time import perf_counter
 from typing import Any, Callable, Dict, Mapping, Sequence, TypeVar, cast
 _F = TypeVar("_F", bound=Callable[..., Any])
 
+try:  # pragma: no cover - import guard for early initialization
+    from app.core.config import settings as _settings
+except Exception:  # pragma: no cover - fallback during bootstrap
+    _settings = None
+
 
 class _MetricsRegistry:
     """Thread-safe in-process metrics registry.
@@ -125,16 +130,33 @@ class _MetricsRegistry:
 metrics_registry = _MetricsRegistry()
 
 
+_INSTRUMENTATION_ENABLED: bool = bool(
+    getattr(_settings, "debug_instrumentation_enabled", True) if _settings else True
+)
+
+
+def set_instrumentation_enabled(enabled: bool) -> None:
+    global _INSTRUMENTATION_ENABLED
+    _INSTRUMENTATION_ENABLED = bool(enabled)
+
+
+def instrumentation_enabled() -> bool:
+    return _INSTRUMENTATION_ENABLED
+
+
 @contextmanager
 def timer(label: str):
     """Context manager to time a code block and record it under `label`."""
+    if not instrumentation_enabled():
+        yield
+        return
     t0 = perf_counter()
     try:
         yield
     finally:
         dt_ms = (perf_counter() - t0) * 1000.0
         metrics_registry.record(label, dt_ms)
-    metrics_registry.set_last_run(label, dt_ms)
+        metrics_registry.set_last_run(label, dt_ms)
 
 
 def timeit(label: str) -> Callable[[_F], _F]:
@@ -143,6 +165,8 @@ def timeit(label: str) -> Callable[[_F], _F]:
     def _wrap(func: _F) -> _F:
         @wraps(func)
         def _inner(*args: Any, **kwargs: Any):
+            if not instrumentation_enabled():
+                return func(*args, **kwargs)
             t0 = perf_counter()
             try:
                 return func(*args, **kwargs)
@@ -168,6 +192,8 @@ def measure_time(
     def _wrap(func: _F) -> _F:
         @wraps(func)
         def _inner(*args: Any, **kwargs: Any):
+            if not instrumentation_enabled():
+                return func(*args, **kwargs)
             t0 = perf_counter()
             try:
                 return func(*args, **kwargs)
@@ -190,7 +216,8 @@ def count_calls(label: str) -> Callable[[_F], _F]:
     def _wrap(func: _F) -> _F:
         @wraps(func)
         def _inner(*args: Any, **kwargs: Any):
-            metrics_registry.inc(label)
+            if instrumentation_enabled():
+                metrics_registry.inc(label)
             return func(*args, **kwargs)
 
         return cast(_F, _inner)
@@ -225,13 +252,15 @@ def get_histograms(reset: bool = False) -> Dict[str, Dict[str, float]]:
 def observe_histogram(label: str, value: float, *, buckets: Sequence[float] | None = None) -> None:
     """Record a histogram observation for the given `label`."""
 
-    metrics_registry.observe_histogram(label, value, buckets=buckets)
+    if instrumentation_enabled():
+        metrics_registry.observe_histogram(label, value, buckets=buckets)
 
 
 def record_last_run(label: str, duration_ms: float, *, metadata: Mapping[str, Any] | None = None) -> None:
     """Store last execution metadata for a metric label."""
 
-    metrics_registry.set_last_run(label, duration_ms, metadata=metadata)
+    if instrumentation_enabled():
+        metrics_registry.set_last_run(label, duration_ms, metadata=metadata)
 
 
 def get_last_runs(reset: bool = False) -> Dict[str, Dict[str, Any]]:
@@ -253,4 +282,6 @@ __all__ = [
     "record_last_run",
     "get_last_runs",
     "metrics_registry",
+    "set_instrumentation_enabled",
+    "instrumentation_enabled",
 ]

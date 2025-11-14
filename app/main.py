@@ -19,6 +19,7 @@ from app.routers.research import router as research_router
 from app.routers.score import router as score_router
 from app.routers.teams import router as teams_router
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
+from app.engine.registry import engine_registry
 
 # Ensure instrument authoring manifest and plugins register on import
 importlib.import_module("app.instruments.klsi4")
@@ -30,6 +31,24 @@ logger = get_logger("kolb.app.main", component="app")
 
 # Store application startup time for health endpoint
 _app_start_time = datetime.now(timezone.utc)
+
+
+def _auto_discover_plugins() -> dict[str, object]:
+    if not settings.registry_auto_discover_enabled:
+        return {"enabled": False, "discovered": 0}
+    try:
+        discovered = engine_registry.discover_plugins()
+        return {
+            "enabled": True,
+            "discovered": len(discovered),
+        }
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.exception("plugin_discovery_failed", extra={"structured_data": {"error": str(exc)}})
+        return {
+            "enabled": True,
+            "discovered": 0,
+            "error": str(exc),
+        }
 
 
 @asynccontextmanager
@@ -67,6 +86,8 @@ async def lifespan(app: FastAPI):
             "i18n_preload_complete",
             extra={"structured_data": stats}
         )
+    discovery_stats = _auto_discover_plugins()
+    logger.info("plugin_discovery_complete", extra={"structured_data": discovery_stats})
     yield
     # Shutdown: nothing
 

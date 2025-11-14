@@ -5,7 +5,7 @@ from typing import Callable, cast
 import pytest
 from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.db.database import engine, norm_session_scope
+from app.db.database import engine, norm_session_scope, get_engine_config_snapshot
 
 
 def test_connection_pool_configured():
@@ -54,3 +54,16 @@ def test_norm_session_scope_uses_pool():
     with norm_session_scope() as session:
         assert isinstance(session, Session)
         assert session.bind is engine
+
+
+def test_sqlite_check_same_thread_disabled():
+    if engine.url.get_backend_name() != "sqlite":
+        pytest.skip("Only applicable for sqlite")
+    snapshot = get_engine_config_snapshot()
+    connect_args = snapshot.get("connect_args", {})
+    assert connect_args.get("check_same_thread") is False
+
+
+def test_engine_snapshot_matches_pool_class():
+    snapshot = get_engine_config_snapshot()
+    assert snapshot["poolclass"] == engine.pool.__class__.__name__

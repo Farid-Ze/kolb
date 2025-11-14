@@ -66,6 +66,16 @@ class Settings(BaseSettings):
 
     i18n_preload_enabled: bool = Field(default=True, description="Preload i18n resources at startup to avoid disk I/O per request")
 
+    registry_auto_discover_enabled: bool = Field(
+        default=True,
+        description="Automatically run engine registry plugin discovery during startup",
+    )
+
+    debug_instrumentation_enabled: bool = Field(
+        default=True,
+        description="Enable expensive timing/counter instrumentation (@measure_time, @count_calls)",
+    )
+
     # Database connection pooling settings
     db_pool_size: int = Field(default=5, ge=1, le=50, description="Number of connections to keep in the pool")
     db_max_overflow: int = Field(default=10, ge=0, le=100, description="Max connections to create beyond pool_size")

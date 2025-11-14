@@ -8,7 +8,7 @@
 - [x]  Tambahkan lapisan abstraksi repository di app/db/database.py agar akses ke SQLite terenkapsulasi.
 - [x]  Implementasikan caching (functools.lru_cache atau cachetools) untuk lookup norma yang sering diakses.
 - [x]  Jika norma/himpunan strategi dimuat sekali, gunakan single assignment + immutability (tuple/dict final) daripada membangun ulang per panggilan.
-- [ ]  Validasi apakah registry di app/engine/registry.py bisa diganti menjadi struktur mapping sederhana + plugin discovery otomatis.
+- [x]  Validasi apakah registry di app/engine/registry.py bisa diganti menjadi struktur mapping sederhana + plugin discovery otomatis.
 - [x]  Gunakan structural pattern matching (match-case) untuk pemilihan strategi daripada rantai if-elif panjang.
 - [ ]  Pastikan concurrency yang diperlukan memakai asyncio (jika ada I/O blocking seperti DB, jaringan, i18n file).
 - [ ]  Ganti sleep atau polling blocking dengan mekanisme event (jika ada).
@@ -27,7 +27,7 @@
 - [x]  Tambahkan docstring ringkas (reST atau Google style) untuk setiap public API.
 - [x]  Gunakan **all** di paket untuk menandai API publik.
 - [x]  Terapkan strategi lazy loading untuk data norma besar.
-- [ ]  Pastikan klsi.db akses pakai connection pooling sederhana (sqlite: check same-thread/uri flags).
+- [x]  Pastikan klsi.db akses pakai connection pooling sederhana (sqlite: check same-thread/uri flags).
 - [ ]  Hindari membuka koneksi baru setiap query – gunakan satu engine (SQLAlchemy) bila berkembang.
 - [ ]  Tambahkan integrasi transaction context manager agar batch operasi aman.
 - [ ]  Jika pipeline evaluasi berantai, gunakan generator agar memori hemat.
@@ -44,7 +44,7 @@
 - [x]  Simpan metrics last run di core/metrics.py (misal dictionary global thread-safe) untuk endpoint status.
 - [ ]  Terapkan strategi precomputation untuk bobot per gaya belajar.
 - [ ]  Kaji apakah normalization selalu memanggil fungsi expensive – cache hasil per responden jika pola sama.
-- [ ]  Gunakan Pydantic model untuk input instrument (jawaban pengguna) – memudahkan validasi.
+- [x]  Gunakan Pydantic model untuk input instrument (jawaban pengguna) – memudahkan validasi.
 - [ ]  Jika terdapat banyak mapping skala, gunakan lookup table dict ketimbang if chain.
 - [ ]  Pastikan interface di [interfaces.py](http://interfaces.py/) cukup abstrak untuk mocking unit test.
 - [x]  Tambahkan protokol (typing.Protocol) untuk strategi agar test mudah tanpa implementasi penuh.
@@ -85,7 +85,7 @@
 - [ ]  Jika load concurrency tinggi, pertimbangkan uvloop (jika FastAPI/asyncio).
 - [x]  Bangun health endpoint: menampilkan versi, waktu start, total requests.
 - [x]  Pastikan config memuat MODE (dev/prod) yang mempengaruhi tingkat debug logging.
-- [ ]  Sediakan toggle untuk mematikan expensive debug instrumentation di production.
+- [x]  Sediakan toggle untuk mematikan expensive debug instrumentation di production.
 - [ ]  Gunakan lazy import untuk modul berat (numpy/pandas) hanya bila diperlukan.
 - [ ]  Pastikan i18n modul memuat file JSON/YAML sekali – gunakan caching.
 - [ ]  Validasi ketersediaan locale fallback agar tidak error runtime.
