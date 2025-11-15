@@ -196,34 +196,27 @@ Catatan: endpoint riset mengikuti kontrak di `docs/SITEMAP.md` dan tests terkait
 
 Setiap panel mengacu pada `docs/psychometrics_spec.md` dan data di response `/reports/{session_id}`.
 
-- `LearningStyleSummaryCard`
   - Menampilkan primary style, backup style, intensitas.
   - Bahasa: "current learning preference" bukan "type".
 
-- `ModeScoresCard`
   - CE, RO, AC, AE raw + percentile.
   - Subtitle: "Percentiles based on norm group: {norm_group_used}".
 
-- `DialecticScoresCard`
   - ACCE dan AERO + Low/Mid/High band.
   - Penjelasan singkat per sumbu.
 
-- `BalanceScoresCard`
   - Menampilkan BAL_ACCE dan BAL_AERO + label "balance heuristic".
   - Selalu menyertakan `BalanceDisclaimer`.
 
-- `LearningSpaceKite`
   - Grafik posisi di kuadran ELT.
 
-- `LFISection`
   - Nilai LFI + level (Low/Med/High) + deskripsi interpretasi sesuai dokumen.
 
-- `ProvenancePanel`
   - Lihat §4.2; menampilkan sumber norm, fallback, truncation.
 
-- `MetaLearningRecommendationsCard`
   - Narrative & rekomendasi praktik; digunakan untuk action plan.
 
+See also `docs/WORKSPACE_STRUCTURE.md` for a full map of the repository and key files.
 ---
 
 ## 7. Sistem Bantuan Kontekstual & Telemetry
