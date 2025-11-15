@@ -184,3 +184,76 @@
 - [ ]  Gunakan FunctionNaming konsisten: compute_x, normalize_x, finalize_x.
 - [ ]  Dokumentasikan alur lengkap “dari jawaban mentah → profil gaya belajar” langkah demi langkah.
 - [ ]  Setelah setiap kelompok refactor (misal 10 perubahan), jalankan suite test + benchmark untuk mencegah over-optimisasi tanpa manfaat nyata.
+- [x] 1. **Validasi Konseptual & Spesifikasi Instrumen**
+   - Kunci teoretis tertulis dan disepakati:
+     - Dokumen `The Kolb Learning Style Inventory 4.0 - Guide to Theory, Psychometrics, Research & Applications.md` dan psychometrics_spec.md:
+       - Mendefinisikan konstruk: mode (CE/RO/AC/AE), dialectic (ACCE/AERO), LFI, gaya belajar, balance.
+       - Menjelaskan tujuan interpretasi: formatif, bukan diagnostik klinis.
+   - Definisi skor tidak ambigu:
+     - Setiap skor yang tampil di UI punya:
+       - Rumus matematis eksplisit (misal $ACCE = AC_{raw} - CE_{raw}$, LFI dari Kendall’s W).
+       - Domain nilai (range) dan interpretasi “rendah / sedang / tinggi”.
+   - Norma & kelompok normatif terdokumentasi:
+     - Sumber norm jelas (populasi, N, tahun, kriteria inklusi).
+     - Rantai **norm precedence** (EDU → COUNTRY → AGE → GENDER → Total → Appendix) dijelaskan dan dijustifikasi secara teoretis.
+
+- [x] 2. **Validitas, Reliabilitas & Batas Interpretasi** _(dirinci di `docs/frontend_readiness.md §5`)_
+   - State of evidence diringkas:
+     - Ringkasan reliabilitas (mis. Cronbach α, test–retest jika ada) dan bentuk validitas (konstrak, kriteria, dsb.) dalam docs.
+   - Batas interpretasi eksplisit:
+     - KLSI 4.0 dinyatakan sebagai instrumen formatif untuk refleksi belajar, **bukan** alat diagnosis kepribadian atau seleksi kerja.
+     - Balance “percentiles” ditandai sebagai heuristik non-normatif, bukan distribusi populasi.
+     - Mengacu pada standar AERA/APA/NCME: pengguna diberi tahu apa yang boleh dan tidak boleh disimpulkan dari skor.
+
+- [x] 3. **Spesifikasi Data & Privasi** _(lihat `docs/frontend_readiness.md §6`)_
+   - Klasifikasi data:
+     - Data respon KLSI diklasifikasikan (mis. data psikologis/pendidikan, semi-sensitif).
+   - Kebijakan consent & penggunaan:
+     - Teks consent untuk:
+       - Mahasiswa: tujuan penggunaan hasil, siapa yang boleh mengakses (dosen, peneliti, dsb.).
+       - Penelitian: bagaimana data dianonimkan, cara agregasi, hak penarikan data.
+   - Retensi & hak peserta:
+     - Kebijakan retensi (berapa lama data disimpan).
+     - Hak peserta (misalnya hak minta penghapusan, hak melihat kembali hasil).
+
+- [x] 4. **Kontrak API Backend Stabil** _(lihat `docs/frontend_readiness.md §7`)_
+   - Endpoint & schema minimum “dibekukan”:
+     - Versi API yang dipakai frontend didaftarkan: path, method, header, body, dan response untuk endpoint kunci (`auth`, `sessions/engine`, `reports`, `score/raw`).
+     - Bagian yang masih bisa berubah ditandai eksplisit sebagai “eksperimental”.
+   - Test otomatis kontrak:
+     - Tersedia tes untuk:
+       - `POST /auth/register`, `POST /auth/login`.
+       - Pengisian + finalize via `sessions`/`engine`.
+       - `GET /reports/{id}`.
+       - `POST /score/raw`.
+     - Tujuan: mencegah perubahan backend yang diam-diam menggeser makna psikometrik yang tampil di UI.
+
+- [x] 5. **Desain Laporan & UX Konsisten dengan Teori** _(lihat `docs/frontend_readiness.md §8`)_
+   - Struktur laporan disetujui secara teoretis:
+     - Urutan konten disepakati: ringkasan gaya → learning space → LFI → norms/percentil → meta-learning → rekomendasi.
+   - Bahasa UI tidak overclaim:
+     - Judul, label, tooltip di-review agar:
+       - Tidak memakai metafora yang misleading (mis. “IQ gaya belajar”, label absolut, atau bahasa patologis).
+       - Menekankan sifat dinamis/fleksibel gaya belajar.
+   - Guidelines untuk dosen/mediator:
+     - Prinsip penggunaan hasil di kelas:
+       - Untuk memfasilitasi variasi strategi belajar, **bukan** memberi label permanen pada mahasiswa.
+       - Rekomendasi diarahkan ke growth dan deliberate practice, bukan kategorisasi keras.
+
+- [x] 6. **Governance Perubahan & Audit** _(lihat `docs/frontend_readiness.md §9`)_
+   - Kebijakan perubahan norma & window gaya:
+     - Proses formal saat norm table atau style windows diubah:
+       - Siapa yang harus menyetujui (mis. scientific lead/komite).
+       - Changelog, versi norm, dan catatan implikasi interpretasi didokumentasikan.
+   - Audit trail yang bermakna:
+     - Selain hash & provenance teknis, ada SOP:
+       - Bagaimana audit log digunakan jika ada pertanyaan etis, komplain, atau review ilmiah.
+       - Siapa yang bisa mengakses audit dan untuk tujuan apa.
+
+- [x] 7. **Dokumentasi Pengguna (Educator & Researcher)** _(lihat `docs/frontend_readiness.md §10`)_
+   - Manual penggunaan:
+     - Draft minimal:
+       - “How to read your KLSI 4.0 profile” untuk mahasiswa (bahasa yang ramah dan non-menghakimi).
+       - “How to use KLSI 4.0 in class/research responsibly” untuk mediator/peneliti.
+   - Alignment dengan kurikulum & pedagogi:
+     - Penjelasan bagaimana KLSI menguatkan siklus experiential learning (CE→RO→AC→AE) dalam konteks mata kuliah / program, bukan sebagai alat lepas konteks.

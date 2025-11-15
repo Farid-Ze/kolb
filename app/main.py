@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import importlib
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Response
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -20,6 +22,7 @@ from app.routers.reports import router as reports_router
 from app.routers.research import router as research_router
 from app.routers.score import router as score_router
 from app.routers.teams import router as teams_router
+from app.routers.telemetry import router as telemetry_router
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 from app.engine.registry import engine_registry
 
@@ -30,6 +33,8 @@ from app.routers.engine import router as engine_router
 
 configure_logging(environment=settings.environment)
 logger = get_logger("kolb.app.main", component="app")
+BASE_DIR = Path(__file__).resolve().parent.parent
+GUIDES_STATIC_DIR = BASE_DIR / "docs" / "guides"
 
 # Store application startup time for health endpoint
 _app_start_time = datetime.now(timezone.utc)
@@ -104,6 +109,19 @@ app.include_router(reports_router)
 app.include_router(score_router)
 app.include_router(teams_router)
 app.include_router(research_router)
+app.include_router(telemetry_router)
+
+if GUIDES_STATIC_DIR.exists():
+    app.mount(
+        "/static/guides",
+        StaticFiles(directory=str(GUIDES_STATIC_DIR), html=False),
+        name="guides-static",
+    )
+else:  # pragma: no cover - informational log when guides not packaged
+    logger.warning(
+        "guides_static_dir_missing",
+        extra={"structured_data": {"path": str(GUIDES_STATIC_DIR)}}
+    )
 
  
 
