@@ -103,7 +103,8 @@ Catatan: Percentile harus non-decreasing terhadap `raw_score` per `(norm_group, 
 
 ## 10. Menjalankan Secara Lokal
 ```powershell
-# Install deps
+# Backend (development)
+cd backend
 pip install -r requirements.txt
 
 # Set environment variables untuk Alembic
@@ -115,6 +116,13 @@ alembic upgrade head
 
 # Jalankan server
 uvicorn app.main:app --reload
+```
+
+```powershell
+# Frontend (development)
+cd frontend
+npm install
+npm run dev
 ```
 
 **Catatan untuk Alembic**: Alembic memerlukan environment variables berikut:
