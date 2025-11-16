@@ -1,6 +1,6 @@
 # Spesifikasi Psikometrik – KLSI 4.0 Implementasi
 
-Dokumen ini memformalkan rumus, algoritma, dan aturan konversi yang diimplementasikan dalam kode (`app/services/scoring.py`) dengan referensi eksplisit ke landasan teoretis Experiential Learning Theory (Kolb 1984) dan KLSI 4.0 Guide (Appendix 1 & 7).
+Dokumen ini memformalkan rumus, algoritma, dan aturan konversi yang diimplementasikan dalam kode (`backend/app/services/scoring.py`) dengan referensi eksplisit ke landasan teoretis Experiential Learning Theory (Kolb 1984) dan KLSI 4.0 Guide (Appendix 1 & 7).
 
 ## 1. Struktur Skor Mentah
 Setiap dari 12 item gaya belajar berisi 4 pernyataan mewakili mode: CE (Concrete Experience), RO (Reflective Observation), AC (Abstract Conceptualization), AE (Active Experimentation). Pengguna melakukan ranking unik 1..4.
@@ -84,7 +84,7 @@ Kategori (heuristik persentil):
 - High: > 66.67
 
 ## 5. Konversi Percentile (Normatif)
-Sumber utama: `normative_conversion_table` (DB) berisi baris (norm_group, scale_name, raw_score, percentile) dari Appendix 1 (CE, RO, AC, AE, ACCE, AERO) & Appendix 7 (LFI). Fallback lokal `app/data/norms.py` dipakai apabila baris tidak tersedia. Sistem juga mendukung penyedia norma eksternal opsional via HTTP.
+ Sumber utama: `normative_conversion_table` (DB) berisi baris (norm_group, scale_name, raw_score, percentile) dari Appendix 1 (CE, RO, AC, AE, ACCE, AERO) & Appendix 7 (LFI). Fallback lokal `backend/app/data/norms.py` dipakai apabila baris tidak tersedia. Sistem juga mendukung penyedia norma eksternal opsional via HTTP.
 
 Strategi lookup & fallback (urutan precedence):
 1. Database subgroup norms terlebih dahulu (EDU, COUNTRY, AGE, GENDER, Total)

@@ -46,7 +46,7 @@ Dokumen ini merinci pemetaan konseptual ER (lihat `01-entity-relationship-model.
    - Converging/Diverging = (AC+AE) − (CE+RO)
 3. Dialektika → klasifikasi gaya (user_learning_styles) melalui pencocokan ke rentang ACCE/AERO dari `learning_style_types` + penentuan backup via jarak L1 ke window lain.
 4. Konteks fleksibilitas (lfi_context_scores) → Kendall's W → LFI = 1 − W → percentile (normative_conversion_table atau fallback Appendix 7).
-5. Percentile per skala & per dialektika (percentile_scores) dari normative DB atau fallback `app/data/norms.py`.
+5. Percentile per skala & per dialektika (percentile_scores) dari normative DB atau fallback `backend/app/data/norms.py`.
 
 ## Alasan Menyimpan Nilai Derivatif
 Walaupun ACCE/AERO dapat dihitung ulang dari `scale_scores`, penyimpanan di `combination_scores` memberikan:

@@ -12,9 +12,9 @@ Appendix mapping (acuannya di dokumen sumber):
 
 Kesesuaian implementasi (concordance dengan kode):
 - Skema dan layanan skor direalisasikan pada:
-  - Models: `app/models/klsi.py`
-  - Scoring & Laporan: `app/services/scoring.py`, `app/services/report.py`
-  - Norma lokal (fallback) dari Appendix: `app/data/norms.py` (file ini memuat dict Raw→Percentile dari Appendix 1 & 7; DB norm akan mengoverride jika tersedia)
+  - Models: `backend/app/models/klsi.py`
+  - Scoring & Laporan: `backend/app/services/scoring.py`, `backend/app/services/report.py`
+  - Norma lokal (fallback) dari Appendix: `backend/app/data/norms.py` (file ini memuat dict Raw→Percentile dari Appendix 1 & 7; DB norm akan mengoverride jika tersedia)
   - Dokumentasi ER yang lebih rinci juga tersedia di `docs/01-entity-relationship-model.md`. Dokumen saat ini menekankan ikatan ke Appendix dan penyelarasan dengan implementasi kode terkini untuk menghindari redundansi.
 
 ## Prinsip Desain
@@ -48,7 +48,7 @@ AssessmentSession (1) -- (1) CombinationScore
 AssessmentSession (1) -- (1) UserLearningStyle
 AssessmentSession (1) -- (n) LFIContextScore -> (aggregated) LearningFlexibilityIndex (1)
 ScaleScore/CombinationScore -> PercentileScore (0..n)
-NormativeConversionTable digunakan lookup saat finalisasi. Jika baris tidak tersedia, fallback menggunakan data Appendix lokal (`app/data/norms.py`).
+NormativeConversionTable digunakan lookup saat finalisasi. Jika baris tidak tersedia, fallback menggunakan data Appendix lokal (`backend/app/data/norms.py`).
 
 ## Relasional (Skema DDL Konseptual Ringkas)
 ```

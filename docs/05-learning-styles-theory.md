@@ -53,10 +53,10 @@ These indices map to style regions:
 ### Code Cross‑References
 | Construct | Implementation Location | Notes |
 |-----------|------------------------|-------|
-| Raw mode aggregation (CE/RO/AC/AE) | `app/services/scoring.py::compute_raw_scale_scores` | Sums ranked choices for first 12 style items. |
-| ACCE / AERO / Acc‑Assm / Conv‑Div formulas | `app/services/scoring.py::compute_combination_scores` | Single source of truth for all combination indices. |
-| Style region classification (9 styles) | `app/services/scoring.py::STYLE_CUTS` & `assign_learning_style` | Uses ACCE & AERO cut bands (<6 / 6–14 / >14; <1 / 1–11 / >11). |
-| API exposure of indices | `app/routers/score.py::score_raw` and `app/services/report.py::build_report` | Adds `ACCE`, `AERO`, `ACC_ASSM`, `CONV_DIV`. |
+| Raw mode aggregation (CE/RO/AC/AE) | `backend/app/services/scoring.py::compute_raw_scale_scores` | Sums ranked choices for first 12 style items. |
+| ACCE / AERO / Acc‑Assm / Conv‑Div formulas | `backend/app/services/scoring.py::compute_combination_scores` | Single source of truth for all combination indices. |
+| Style region classification (9 styles) | `backend/app/services/scoring.py::STYLE_CUTS` & `assign_learning_style` | Uses ACCE & AERO cut bands (<6 / 6–14 / >14; <1 / 1–11 / >11). |
+| API exposure of indices | `backend/app/routers/score.py::score_raw` and `backend/app/services/report.py::build_report` | Adds `ACCE`, `AERO`, `ACC_ASSM`, `CONV_DIV`. |
 | Visualization / intensity | `build_report` (dialectic section) | Style intensity = |ACCE| + |AERO|. |
 | Boundary stability test | `tests/test_backup_style_determinism.py` | Ensures deterministic primary/backup near ACCE/AERO thresholds. |
 
@@ -95,7 +95,7 @@ Our system captures only a subset (age, gender, education) explicitly; other lev
 - High flexibility: varied style deployment across quadrants (supports integrative development)
 - Low flexibility: over‑specialization (often assimilative dominance: high |AC+RO| vs AE+CE)
 
-Cross‑reference: `app/services/scoring.py::compute_kendalls_w`, `compute_lfi`; enhanced mediator diagnostics in `app/services/report.py`.
+Cross‑reference: `backend/app/services/scoring.py::compute_kendalls_w`, `compute_lfi`; enhanced mediator diagnostics in `backend/app/services/report.py`.
 
 ---
 ## 7. Interpretation Guidelines (Indices)

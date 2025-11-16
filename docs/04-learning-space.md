@@ -69,7 +69,7 @@ We operationalize the above via:
 
 ---
 ## 6) Cross‑references
-- Code: `app/services/report.py` (learning_space.suggestions), `app/services/scoring.py` (indices, LFI)
+-- Code: `backend/app/services/report.py` (learning_space.suggestions), `backend/app/services/scoring.py` (indices, LFI)
 - Docs: `docs/05-learning-styles-theory.md` (nine styles, indices), `docs/06-enhanced-lfi-analytics.md` (contexts, heatmap)
 
 ---

@@ -10,12 +10,12 @@ This document describes the improvements made to the Kolb assessment engine to e
 
 ### Changes Made
 
-#### `app/engine/registry.py`
+#### `backend/app/engine/registry.py`
 - Added `register_plugin()` convenience function for easier plugin registration
 - Enhanced documentation with usage examples
 - Exposed `register_plugin` in `__all__` for public API
 
-#### `app/engine/strategy_registry.py`
+#### `backend/app/engine/strategy_registry.py`
 - Added thread-safe operations using `RLock`
 - Implemented default strategy fallback mechanism via `register_strategy(strategy, is_default=True)`
 - Added `get_default_strategy()` to retrieve fallback strategy
@@ -52,7 +52,7 @@ snapshot = snapshot_strategies()
 
 ### Changes Made
 
-#### `app/engine/pipelines.py`
+#### `backend/app/engine/pipelines.py`
 - Added `PipelineStage` protocol for type-safe stage definitions
 - Created `PipelineDefinition` frozen dataclass for immutable pipeline specs
 - Implemented `execute()` method for sequential stage execution
@@ -91,7 +91,7 @@ else:
 
 ### Changes Made
 
-#### `app/engine/runtime.py`
+#### `backend/app/engine/runtime.py`
 - Added comprehensive docstring to `EngineRuntime` class
 - Documented current synchronous I/O patterns
 - Outlined future async integration points
@@ -127,16 +127,16 @@ else:
 
 ### Changes Made
 
-#### `app/i18n/__init__.py` (NEW)
+#### `backend/app/i18n/__init__.py` (NEW)
 - Created new module for i18n resource management
 - Implemented `preload_i18n_resources()` with thread-safe caching
 - Added locale fallback mechanism (id → en → default)
 - Zero disk I/O per request after preload
 
-#### `app/core/config.py`
+#### `backend/app/core/config.py`
 - Added `i18n_preload_enabled` setting (default: True)
 
-#### `app/main.py`
+#### `backend/app/main.py`
 - Integrated i18n preload into startup lifecycle
 - Logs preload statistics at startup
 
@@ -186,8 +186,8 @@ I18N_PRELOAD_ENABLED=true
 ### Changes Made
 
 #### Models Modified
-- `app/models/klsi/norms.py`: `PercentileScore.session_id` (explicit index)
-- `app/models/klsi/learning.py`:
+-- `backend/app/models/klsi/norms.py`: `PercentileScore.session_id` (explicit index)
+- `backend/app/models/klsi/learning.py`:
   - `CombinationScore.session_id` (explicit index)
   - `UserLearningStyle.session_id` (explicit index)
   - `ScaleProvenance.session_id + scale_code` (composite index)

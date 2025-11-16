@@ -30,7 +30,7 @@ models/         → Declarative ORM (persistence only, no business logic)
 
 ## 2. Psychometric Math Matches Specification
 
-All formulas implemented in `app/assessments/klsi_v4/logic.py` and `app/assessments/klsi_v4/calculations.py` match `docs/psychometrics_spec.md`:
+All formulas implemented in `backend/app/assessments/klsi_v4/logic.py` and `backend/app/assessments/klsi_v4/calculations.py` match `docs/psychometrics_spec.md`:
 
 - **Raw Scale Scores:** Direct sum of ranks (1-4) per mode across 12 items
   - CE_raw = Σ(CE ranks), RO_raw = Σ(RO ranks), AC_raw = Σ(AC ranks), AE_raw = Σ(AE ranks)
@@ -53,7 +53,7 @@ All formulas implemented in `app/assessments/klsi_v4/logic.py` and `app/assessme
 
 ## 3. Atomic Finalize Pipeline
 
-The finalize pipeline in `app/engine/finalize.py::finalize_assessment()` ensures atomicity:
+The finalize pipeline in `backend/app/engine/finalize.py::finalize_assessment()` ensures atomicity:
 
 1. **Nested Transaction:** Uses `db.begin_nested()` to create SAVEPOINT
 2. **Validation First:** Runs all validation rules before computing
@@ -69,13 +69,13 @@ The finalize pipeline in `app/engine/finalize.py::finalize_assessment()` ensures
 - `PercentileScore.raw_outside_norm_range` - truncation detection
 - `PercentileScore.truncated_scales` - which scales were truncated
 
-**Verification:** See `app/engine/finalize.py` lines 77-260
+**Verification:** See `backend/app/engine/finalize.py` lines 77-260
 
 **Test Coverage:** `tests/test_finalize_atomicity.py`, `tests/test_engine_finalize.py`
 
 ## 4. Norm Conversion Precedence with Provenance
 
-Multi-tier fallback strategy implemented in `app/assessments/klsi_v4/logic.py::resolve_norm_groups()`:
+Multi-tier fallback strategy implemented in `backend/app/assessments/klsi_v4/logic.py::resolve_norm_groups()`:
 
 ```
 1. Education Level  → "EDU:University Degree" (from users.education_level)
@@ -83,7 +83,7 @@ Multi-tier fallback strategy implemented in `app/assessments/klsi_v4/logic.py::r
 3. Age Band        → "AGE:19-24" (computed from users.date_of_birth)
 4. Gender          → "GENDER:Male" (from users.gender)
 5. Total           → "Total" (global norms)
-6. Appendix        → Appendix 1 & 7 dictionaries (app/data/norms.py)
+6. Appendix        → Appendix 1 & 7 dictionaries (backend/app/data/norms.py)
 ```
 
 **Truncation Detection:**
@@ -92,45 +92,45 @@ Multi-tier fallback strategy implemented in `app/assessments/klsi_v4/logic.py::r
 - Nearest absolute match for LFI (continuous two-decimal values)
 - `truncated_scales` dict records which scales needed boundary handling
 
-**Verification:** See `app/assessments/klsi_v4/logic.py` lines 220-247
+**Verification:** See `backend/app/assessments/klsi_v4/logic.py` lines 220-247
 
 **Test Coverage:** `tests/test_norm_group_precedence.py`, `tests/test_percentile_fallback.py`
 
 ## 5. Performance Layers
 
 ### a) LRU Cache (DB Lookup)
-- `app/engine/norms/factory.py::_make_cached_db_lookup()`
+-- `backend/app/engine/norms/factory.py::_make_cached_db_lookup()`
 - `@lru_cache(maxsize=4096)` on `(group_token, scale_name, raw_score)` tuples
 - Invalidation via `clear_norm_db_cache()` after imports
 
 ### b) Batch DB Fetch
-- `app/engine/norms/cached_composite.py::CachedCompositeNormProvider`
+-- `backend/app/engine/norms/cached_composite.py::CachedCompositeNormProvider`
 - Preloads all scales for a session's norm chain in single query
 - Converts to in-process LRU cache for zero-latency subsequent lookups
 
 ### c) Adaptive Preload
-- `app/engine/norms/factory.py::_maybe_build_preloaded_map()`
+-- `backend/app/engine/norms/factory.py::_maybe_build_preloaded_map()`
 - Loads entire norm table into immutable `MappingProxyType` if row count < threshold
 - Feature-flagged via `settings.norms_preload_enabled`
 - Skips if table > `norms_preload_row_threshold` (default: 50,000 rows)
 
 ### d) Appendix Fallback
-- `app/data/norms.py` - hardcoded Appendix 1 & 7 dictionaries
+- `backend/app/data/norms.py` - hardcoded Appendix 1 & 7 dictionaries
 - 11-44 entries per mode scale, 63 ACCE entries, 67 AERO entries, 89 LFI entries
 - Used when DB lookup returns `None`
 
 ### e) Optional External Provider
-- `app/engine/norms/composite.py::ExternalNormProvider`
+- `backend/app/engine/norms/composite.py::ExternalNormProvider`
 - HTTP-based norm service integration (configurable endpoint)
 - Falls between DB and Appendix in precedence chain
 
-**Verification:** See `app/engine/norms/factory.py`, `docs/17-architecture-engine.md`
+**Verification:** See `backend/app/engine/norms/factory.py`, `docs/17-architecture-engine.md`
 
 **Test Coverage:** `tests/test_cached_composite_norm_provider.py`, `tests/test_external_norm_provider.py`
 
 ## 6. Style Assignment: DB Windows with L1 Backup
 
-`app/assessments/klsi_v4/logic.py::assign_learning_style()` uses DB windows exclusively:
+`backend/app/assessments/klsi_v4/logic.py::assign_learning_style()` uses DB windows exclusively:
 
 1. **Load Windows from DB:** Query `learning_style_types` table for ACCE_min/max, AERO_min/max
 2. **Primary by Containment:** First style where (ACCE, AERO) point lies within window
@@ -143,17 +143,17 @@ Multi-tier fallback strategy implemented in `app/assessments/klsi_v4/logic.py::r
 - `STYLE_CUTS` remains as helper/validator only (not used for primary assignment)
 
 **Seeding:**
-- `app/services/seeds.py::seed_learning_styles()` populates windows from config
-- `STYLE_WINDOWS` derived from `app/assessments/klsi_v4/load_config()` YAML
+-- `backend/app/services/seeds.py::seed_learning_styles()` populates windows from config
+-- `STYLE_WINDOWS` derived from `backend/app/assessments/klsi_v4/load_config()` YAML
 - Called on app startup if `settings.run_startup_seed=True`
 
-**Verification:** See `app/assessments/klsi_v4/logic.py` lines 317-382
+**Verification:** See `backend/app/assessments/klsi_v4/logic.py` lines 317-382
 
 **Test Coverage:** `tests/test_backup_style_determinism.py`, `tests/test_architecture_requirements.py::test_learning_style_windows_prevent_drift`
 
 ## 7. STYLE_CUTS Helper Only
 
-`app/assessments/klsi_v4/logic.py::STYLE_CUTS` is a **read-only helper dictionary**:
+`backend/app/assessments/klsi_v4/logic.py::STYLE_CUTS` is a **read-only helper dictionary**:
 
 ```python
 STYLE_CUTS = _build_style_cuts()  # Dict[str, Callable[[int, int], bool]]
@@ -188,7 +188,7 @@ Balance scores measure distance to normative centers:
 
 ### Documentation & Labeling
 - `docs/psychometrics_spec.md` Section 2.1: Explicitly states "heuristik" interpretation
-- `app/i18n/id_messages.py::ReportBalanceMessages.NOTE`: Contains explicit warning:
+- `backend/app/i18n/id_messages.py::ReportBalanceMessages.NOTE`: Contains explicit warning:
   > "BALANCE percentiles bersifat turunan teoritis dari jarak ke pusat normatif (ACCE≈9, AERO≈6); **ini bukan persentil normatif populasi**."
 
 **Verification:** See `docs/psychometrics_spec.md` lines 29-40
@@ -198,8 +198,8 @@ Balance scores measure distance to normative centers:
 ## 9. Required Actions from Problem Statement
 
 ### ✓ Ensure learning_style_type windows are seeded
-- **Status:** Implemented in `app/services/seeds.py::seed_learning_styles()`
-- **Startup:** Called in `app/main.py` if `settings.run_startup_seed=True`
+-- **Status:** Implemented in `backend/app/services/seeds.py::seed_learning_styles()`
+-- **Startup:** Called in `backend/app/main.py` if `settings.run_startup_seed=True`
 - **Verification:** `tests/test_architecture_requirements.py::test_learning_style_types_seeded_with_windows`
 
 ### ✓ Balance percentiles correctly labeled non-normative
@@ -207,7 +207,7 @@ Balance scores measure distance to normative centers:
 - **Verification:** `tests/test_architecture_requirements.py::test_balance_percentiles_labeled_non_normative`
 
 ### ✓ Call clear_norm_db_cache after norm imports
-- **Status:** Implemented in `app/routers/admin.py::import_norms()` lines 93-99
+-- **Status:** Implemented in `backend/app/routers/admin.py::import_norms()` lines 93-99
 - **Mechanism:** Builds provider, calls `clear_norm_db_cache(provider._db_lookup)`
 - **Fallback:** Non-fatal; cache naturally evicts if invalidation fails
 - **Verification:** `tests/test_architecture_requirements.py::test_clear_norm_db_cache_functionality`
@@ -230,9 +230,9 @@ Balance scores measure distance to normative centers:
 Recommended CI pipeline steps:
 
 1. **Unit Tests:** `pytest tests/ -v --tb=short`
-2. **Coverage Report:** `pytest tests/ --cov=app --cov-report=html`
-3. **Type Checking:** `mypy app/`
-4. **Linting:** `ruff check app/ tests/`
+2. **Coverage Report:** `pytest tests/ --cov=backend/app --cov-report=html`
+3. **Type Checking:** `mypy backend/app/`
+4. **Linting:** `ruff check backend/app/ tests/`
 5. **Architecture Compliance:** `pytest tests/test_architecture_requirements.py -v`
 
 ## 11. Maintenance Guidelines
@@ -244,7 +244,7 @@ Recommended CI pipeline steps:
 4. Verify `norm_group_used` field reflects new group
 
 ### When modifying style windows:
-1. Update `app/assessments/klsi_v4/config.yaml`
+1. Update `backend/app/assessments/klsi_v4/config.yaml`
 2. Re-seed database via startup or migration script
 3. Run `tests/test_architecture_requirements.py::test_learning_style_types_seeded_with_windows`
 4. Verify `STYLE_CUTS` still matches (helper consistency)

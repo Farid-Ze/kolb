@@ -8,13 +8,13 @@ This document outlines the phased migration from a KLSI-specific backend to a re
 - Maintain current API behavior and report outputs during migration.
 
 ## Current Architecture Snapshot
-- Runtime: `app/engine/runtime.py` orchestrates pluggable instruments via registry.
-- KLSI plugin: `app/instruments/klsi4/plugin.py` provides item delivery, submission validation, scoring, norms, and reports.
+-- Runtime: `backend/app/engine/runtime.py` orchestrates pluggable instruments via registry.
+-- KLSI plugin: `backend/app/instruments/klsi4/plugin.py` provides item delivery, submission validation, scoring, norms, and reports.
 - Norms: Composite provider with precedence Database → External → Appendix. Provenance is stored per-scale.
 - Finalization: Transactional, with readiness checks and audit logging.
 
 ## New Engine Authoring Models
-File: `app/models/engine.py`
+File: `backend/app/models/engine.py`
 - EngineInstrument(code, version, name, status)
 - EngineForm(form_code, ordering)
 - EnginePage(page_code, page_order)

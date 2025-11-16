@@ -50,7 +50,7 @@ User submits forced-choice rankings for 12 learning style items:
 3. ✅ Each rank used exactly once
 4. ✅ Choice IDs must match item's defined choices
 
-**Code Reference:** `app/services/validation.py::validate_ipsative_response()`
+**Code Reference:** `backend/app/services/validation.py::validate_ipsative_response()`
 
 ### Database Storage
 
@@ -98,7 +98,7 @@ AE_raw = 2 + 3 + ... + 4 = 26
 assert CE_raw + RO_raw + AC_raw + AE_raw == 12 * (1+2+3+4) == 120
 ```
 
-**Code Reference:** `app/assessments/klsi_v4/logic.py::compute_raw_scale_scores()`
+**Code Reference:** `backend/app/assessments/klsi_v4/logic.py::compute_raw_scale_scores()`
 
 ### Database Storage
 
@@ -144,7 +144,7 @@ ACC_ASSIM = (28 + 22) - (26 + 20) = 50 - 46 = 4   (Slightly assimilative)
 CONV_DIV = (28 + 26) - (20 + 22) = 54 - 42 = 12   (Convergent tendency)
 ```
 
-**Code Reference:** `app/assessments/klsi_v4/logic.py::compute_combination_scores()`
+**Code Reference:** `backend/app/assessments/klsi_v4/logic.py::compute_combination_scores()`
 
 ### Database Storage
 
@@ -230,7 +230,7 @@ If a user shows flexibility, identify which other styles they use across LFI con
 # Store in backup_learning_styles table
 ```
 
-**Code Reference:** `app/assessments/klsi_v4/logic.py::assign_learning_style()`
+**Code Reference:** `backend/app/assessments/klsi_v4/logic.py::assign_learning_style()`
 
 ### Database Storage
 
@@ -303,7 +303,7 @@ Steps:
 - W ≈ 0 → Low consistency (high flexibility)
 - LFI = 1 - W, so higher LFI = more flexible
 
-**Code Reference:** `app/assessments/klsi_v4/logic.py::compute_lfi()`
+**Code Reference:** `backend/app/assessments/klsi_v4/logic.py::compute_lfi()`
 
 ### Database Storage
 
@@ -378,7 +378,7 @@ percentile_scores.CE_percentile = 48.0
 percentile_scores.norm_group_used = "EDU:University Degree"
 ```
 
-**Code Reference:** `app/assessments/klsi_v4/logic.py::apply_percentiles()`
+**Code Reference:** `backend/app/assessments/klsi_v4/logic.py::apply_percentiles()`
 
 ### Database Storage
 
@@ -445,21 +445,21 @@ VALUES (101, 48.0, 52.0, 68.0, 61.0, 45.0, 38.0, 95.0, 90.0, 82.0, 'EDU:Universi
 
 ### Localization
 
-All user-facing text uses Indonesian constants from `app/i18n/id_styles.py`:
+All user-facing text uses Indonesian constants from `backend/app/i18n/id_styles.py`:
 
 ```python
-from app.i18n.id_styles import STYLE_LABELS_ID, STYLE_DETAIL_ID
+from backend.app.i18n.id_styles import STYLE_LABELS_ID, STYLE_DETAIL_ID
 
 report["primary_style_label"] = STYLE_LABELS_ID[primary_style]
 report["primary_style_detail"] = STYLE_DETAIL_ID[primary_style]
 ```
 
-**Code Reference:** `app/services/report.py::generate_full_report()`
+**Code Reference:** `backend/app/services/report.py::generate_full_report()`
 
 ## Complete Pipeline in Code
 
 ```python
-# app/engine/runtime.py::finalize()
+# backend/app/engine/runtime.py::finalize()
 
 def finalize(db: Session, session_id: int) -> dict:
     """Complete assessment pipeline."""
@@ -530,7 +530,7 @@ raise InvalidAssessmentData(f"Diperlukan 8 konteks LFI, ditemukan {len(contexts)
 raise NormLookupError(f"Konversi norma tidak ditemukan untuk {scale}={raw}")
 ```
 
-All errors use centralized i18n constants from `app/i18n/id_messages.py`.
+All errors use centralized i18n constants from `backend/app/i18n/id_messages.py`.
 
 ## Performance Characteristics
 
@@ -555,7 +555,7 @@ All errors use centralized i18n constants from `app/i18n/id_messages.py`.
 2. **KLSI 4.0 Guide**: Appendix 1 (Norms), Appendix 7 (LFI), Figure 4-5 (Dialectics)
 3. **Psychometrics Spec**: `/docs/psychometrics_spec.md`
 4. **Database Schema**: `/docs/02-relational-model.md`
-5. **Code Implementation**: `app/assessments/klsi_v4/logic.py`
+5. **Code Implementation**: `backend/app/assessments/klsi_v4/logic.py`
 
 ---
 

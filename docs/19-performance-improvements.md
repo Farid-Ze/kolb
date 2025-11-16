@@ -27,7 +27,7 @@ Configured connection pooling with:
 
 #### Implementation
 
-**Configuration** (`app/core/config.py`):
+**Configuration** (`backend/app/core/config.py`):
 ```python
 db_pool_size: int = Field(default=5, ge=1, le=50)
 db_max_overflow: int = Field(default=10, ge=0, le=100)
@@ -36,7 +36,7 @@ db_pool_recycle: int = Field(default=3600, ge=300)
 db_pool_pre_ping: bool = Field(default=True)
 ```
 
-**Engine Configuration** (`app/db/database.py`):
+**Engine Configuration** (`backend/app/db/database.py`):
 ```python
 engine: Engine = create_engine(
     settings.database_url,
@@ -86,7 +86,7 @@ Chunk-based lazy loading with LRU cache:
 
 #### Implementation
 
-**LazyNormLoader** (`app/engine/norms/lazy_loader.py`):
+**LazyNormLoader** (`backend/app/engine/norms/lazy_loader.py`):
 ```python
 class LazyNormLoader:
     def __init__(
@@ -178,7 +178,7 @@ Generator-based pipeline execution:
 
 #### Implementation
 
-**Streaming Methods** (`app/engine/pipelines.py`):
+**Streaming Methods** (`backend/app/engine/pipelines.py`):
 
 1. **Stage-level streaming**:
 ```python

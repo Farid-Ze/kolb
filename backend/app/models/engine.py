@@ -1,7 +1,7 @@
 """Generic assessment engine authoring models.
 
 These models are intentionally separate from the legacy KLSI-specific
-schema defined in `app/models/klsi.py`. Over time, the KLSI tables can
+schema defined in `backend/app/models/klsi.py`. Over time, the KLSI tables can
 be migrated (or mirrored) onto this generic layer. For now they serve
 as an authoring abstraction (instrument → form → page → item → option)
 plus declarative scoring constructs (scales & scoring rules).

@@ -8,10 +8,10 @@ Bagian ini memenuhi kebutuhan TODO 181: memastikan seluruh fondasi akademik KLSI
   - `The Kolb Learning Style Inventory 4.0 - Guide to Theory, Psychometrics, Research & Applications.md` (root repository).
   - `docs/psychometrics_spec.md` (ringkasan internal jalur perhitungan, mengikuti panduan Kolb 4.0).
 - **Konstruksi yang wajib dicakup**
-  - Mode belajar: Concrete Experience (**CE**), Reflective Observation (**RO**), Abstract Conceptualization (**AC**), Active Experimentation (**AE**). Lihat `docs/psychometrics_spec.md §1.1` dan `app/assessments/klsi_v4/definition.py`.
-  - Dialektik utama: **ACCE = AC_raw − CE_raw**, **AERO = AE_raw − RO_raw**. Dijelaskan di `docs/psychometrics_spec.md §1.2` dan dikodekan di `app/assessments/klsi_v4/calculations.py::calculate_combination_metrics`.
-  - Learning Flexibility Index (**LFI**): diturunkan dari koefisien Kendall’s W (lihat `docs/psychometrics_spec.md §2` dan `app/assessments/klsi_v4/logic.py::compute_learning_flexibility`).
-  - Learning style grid + balance: rujuk `docs/psychometrics_spec.md §3` serta konfigurasi window di `app/assessments/klsi_v4/config.yaml` dan `app/services/seeds.py::seed_learning_styles`.
+  - Mode belajar: Concrete Experience (**CE**), Reflective Observation (**RO**), Abstract Conceptualization (**AC**), Active Experimentation (**AE**). Lihat `docs/psychometrics_spec.md §1.1` dan `backend/app/assessments/klsi_v4/definition.py`.
+  - Dialektik utama: **ACCE = AC_raw − CE_raw**, **AERO = AE_raw − RO_raw**. Dijelaskan di `docs/psychometrics_spec.md §1.2` dan dikodekan di `backend/app/assessments/klsi_v4/calculations.py::calculate_combination_metrics`.
+  - Learning Flexibility Index (**LFI**): diturunkan dari koefisien Kendall’s W (lihat `docs/psychometrics_spec.md §2` dan `backend/app/assessments/klsi_v4/logic.py::compute_learning_flexibility`).
+  - Learning style grid + balance: rujuk `docs/psychometrics_spec.md §3` serta konfigurasi window di `backend/app/assessments/klsi_v4/config.yaml` dan `backend/app/services/seeds.py::seed_learning_styles`.
 - **Tujuan interpretasi**
   - Harus ditegaskan dalam dokumentasi UI dan laporan bahwa KLSI 4.0 adalah **instrumen formatif** untuk refleksi belajar dan desain pedagogi, **bukan** alat diagnostik klinis/seleksi. Referensi narasi resmi: `The Kolb ... Guide` dan `docs/psychometrics_spec.md §0.3`.
 
@@ -21,11 +21,11 @@ Semua skor yang akan muncul di UI harus memiliki definisi matematis eksplisit da
 
 | Skor                | Rumus / Implementasi                                    | Rentang & Interpretasi                                                                                                                                                   | Sumber Kode |
 |---------------------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|
-| CE_raw, RO_raw, AC_raw, AE_raw | Penjumlahan rank 1–4 per mode dari 12 item (ipsative). | Setiap mode berada di rentang 12–48 (12 item × nilai 1–4). Nilai lebih tinggi menunjukkan preferensi relatif terhadap mode tersebut.                                     | `app/assessments/klsi_v4/logic.py::aggregate_mode_scores` |
-| ACCE                | `AC_raw - CE_raw`.                                       | Rentang teoretis −36…+36. Bandingkan dengan cutoff Low (≤5), Mid (6–14), High (≥15) sebagaimana di `docs/psychometrics_spec.md §3`.                                       | `app/assessments/klsi_v4/calculations.py` |
-| AERO                | `AE_raw - RO_raw`.                                       | Rentang −36…+36. Band definisi Low (≤0), Mid (1–11), High (≥12).                                                                                                         | `app/assessments/klsi_v4/calculations.py` |
-| LFI                 | `1 - W`, di mana `W = (12 × S) / (m² × (n³ - n))`, `m=8` konteks, `n=4` mode, `S = Σ(R_j - R̄)²`. | Nilai 0–1. Panduan interpretasi: rendah (<0.45) → perlu latihan rotasi siklus, sedang (0.45–0.69), tinggi (≥0.70).                                                       | `docs/psychometrics_spec.md §2`, `app/assessments/klsi_v4/logic.py::compute_learning_flexibility` |
-| Balance heuristics  | `BAL_ACCE = |ACCE - 9|`, `BAL_AERO = |AERO - 6|` lalu `P_BAL = 100 × (1 - distance/threshold)` (clamped). | Persentase heuristik (0–100). Disebut eksplisit **non-normatif** dalam `docs/psychometrics_spec.md §2.1` dan pesan i18n `ReportBalanceMessages.NOTE`.                     | `app/assessments/klsi_v4/logic.py::compute_balance_percentiles` |
+ | CE_raw, RO_raw, AC_raw, AE_raw | Penjumlahan rank 1–4 per mode dari 12 item (ipsative). | Setiap mode berada di rentang 12–48 (12 item × nilai 1–4). Nilai lebih tinggi menunjukkan preferensi relatif terhadap mode tersebut.                                     | `backend/app/assessments/klsi_v4/logic.py::aggregate_mode_scores` |
+| ACCE                | `AC_raw - CE_raw`.                                       | Rentang teoretis −36…+36. Bandingkan dengan cutoff Low (≤5), Mid (6–14), High (≥15) sebagaimana di `docs/psychometrics_spec.md §3`.                                       | `backend/app/assessments/klsi_v4/calculations.py` |
+ | AERO                | `AE_raw - RO_raw`.                                       | Rentang −36…+36. Band definisi Low (≤0), Mid (1–11), High (≥12).                                                                                                         | `backend/app/assessments/klsi_v4/calculations.py` |
+ | LFI                 | `1 - W`, di mana `W = (12 × S) / (m² × (n³ - n))`, `m=8` konteks, `n=4` mode, `S = Σ(R_j - R̄)²`. | Nilai 0–1. Panduan interpretasi: rendah (<0.45) → perlu latihan rotasi siklus, sedang (0.45–0.69), tinggi (≥0.70).                                                       | `docs/psychometrics_spec.md §2`, `backend/app/assessments/klsi_v4/logic.py::compute_learning_flexibility` |
+ | Balance heuristics  | `BAL_ACCE = |ACCE - 9|`, `BAL_AERO = |AERO - 6|` lalu `P_BAL = 100 × (1 - distance/threshold)` (clamped). | Persentase heuristik (0–100). Disebut eksplisit **non-normatif** dalam `docs/psychometrics_spec.md §2.1` dan pesan i18n `ReportBalanceMessages.NOTE`.                     | `backend/app/assessments/klsi_v4/logic.py::compute_balance_percentiles` |
 
 Pastikan setiap tampilan frontend memiliki tautan atau tooltip ke definisi di atas, sehingga pengguna paham arti angka tinggi/rendah.
 
@@ -35,13 +35,13 @@ Pastikan setiap tampilan frontend memiliki tautan atau tooltip ke definisi di at
   - Data norm dari hasil studi Kolb terbaru (lihat lampiran di `The Kolb ... Guide`).
   - Jika memakai norm internal, catat populasi, jumlah responden, tahun pengambilan, dan kriteria inklusi di `docs/psychometrics_spec.md §4`.
 - **Norm precedence chain**
-  - Implementasi resmi berada di `app/assessments/klsi_v4/logic.py::resolve_norm_groups` dan `app/engine/norms/factory.py`. Urutan wajib:
+  - Implementasi resmi berada di `backend/app/assessments/klsi_v4/logic.py::resolve_norm_groups` dan `backend/app/engine/norms/factory.py`. Urutan wajib:
     1. `EDU:<education_level>`
     2. `COUNTRY:<country>`
     3. `AGE:<band>`
     4. `GENDER:<gender>`
     5. `Total`
-    6. Appendix / fallback (lihat `app/data/norms.py`)
+    6. Appendix / fallback (lihat `backend/app/data/norms.py`)
   - Dokumentasi harus menjelaskan justifikasi akademiknya (per Kolb 4.0): prioritas berdasarkan dampak terbesar terhadap distribusi skor.
 - **Traceability**
   - Frontend harus mampu menampilkan metadata penting dari backend (`PercentileScore.norm_group_used`, `norm_provenance`, `used_fallback_any`, `raw_outside_norm_range`). Cantumkan referensi ini di pengantar UI agar auditor tahu bahwa setiap skor memiliki sumber norm jelas.
@@ -61,8 +61,8 @@ Pastikan setiap tampilan frontend memiliki tautan atau tooltip ke definisi di at
 | Komponen | Temuan Utama | Rujukan Kode / Dokumen | Implikasi Frontend |
 |----------|--------------|------------------------|--------------------|
 | Internal consistency | Kolb 4.0 melaporkan Cronbach α mode CE/RO/AC/AE berada di kisaran **0.79–0.84** dengan rata-rata **0.81** (Guide Table 3). | `docs/01-entity-relationship-model.md §1.17`, `The Kolb ... Guide Table 3`. | Taruh catatan “Internal consistency α≈0.81” pada tab reliabilitas laporan agar pengguna tahu tingkat keandalan skala. |
-| Test–retest | Studi retest 5–8 minggu menunjukkan korelasi stabil untuk mode dan dialektik; style agreement diukur dengan **Cohen’s κ** untuk memastikan konsistensi kategori. | `docs/01-entity-relationship-model.md §1.17`, `app/models/reliability_study.py` (jika dibuat). | UI harus menyebutkan bahwa perubahan gaya antar retest bisa muncul karena ELT menekankan adaptasi kontekstual; hindari bahasa “tetap selamanya”. |
-| Measurement audits | Entitas `RELIABILITY_STUDY` (lihat `docs/01-entity-relationship-model.md §1.17`) menyimpan α, retest r, dan κ sehingga backend dapat mengirimkan angka aktual bila tersedia untuk populasi lokal. | `app/services/report.py` (bagian penyusunan payload laporan) + tabel reliabilitas pada DB ketika diimplementasikan. | Sediakan placeholder di laporan untuk “Data reliabilitas populasi lokal” sehingga mudah diperbarui ketika studi internal selesai. |
+ | Test–retest | Studi retest 5–8 minggu menunjukkan korelasi stabil untuk mode dan dialektik; style agreement diukur dengan **Cohen’s κ** untuk memastikan konsistensi kategori. | `docs/01-entity-relationship-model.md §1.17`, `backend/app/models/reliability_study.py` (jika dibuat). | UI harus menyebutkan bahwa perubahan gaya antar retest bisa muncul karena ELT menekankan adaptasi kontekstual; hindari bahasa “tetap selamanya”. |
+ | Measurement audits | Entitas `RELIABILITY_STUDY` (lihat `docs/01-entity-relationship-model.md §1.17`) menyimpan α, retest r, dan κ sehingga backend dapat mengirimkan angka aktual bila tersedia untuk populasi lokal. | `backend/app/services/report.py` (bagian penyusunan payload laporan) + tabel reliabilitas pada DB ketika diimplementasikan. | Sediakan placeholder di laporan untuk “Data reliabilitas populasi lokal” sehingga mudah diperbarui ketika studi internal selesai. |
 
 ### 5.2 Bukti Validitas Konstrak & Kriteria
 
@@ -74,7 +74,7 @@ Pastikan setiap tampilan frontend memiliki tautan atau tooltip ke definisi di at
 ### 5.3 Batas Interpretasi & Pesan Pengguna
 
 1. **Instrumen formatif**: Semua layar harus memuat pernyataan eksplisit bahwa KLSI 4.0 digunakan untuk refleksi dan desain pembelajaran, **bukan** seleksi kerja atau diagnosis klinis. Referensi: `docs/psychometrics_spec.md §0.3`, `The Kolb ... Guide Introduction`.
-2. **Balance percentiles**: Tegaskan kembali bahwa `P_BAL_ACCE` dan `P_BAL_AERO` adalah heuristik jarak ke pusat normatif (lihat `app/i18n/id_messages.py::ReportBalanceMessages.NOTE`). Tooltip wajib menyebut “bukan persentil populasi normatif”.
+2. **Balance percentiles**: Tegaskan kembali bahwa `P_BAL_ACCE` dan `P_BAL_AERO` adalah heuristik jarak ke pusat normatif (lihat `backend/app/i18n/id_messages.py::ReportBalanceMessages.NOTE`). Tooltip wajib menyebut “bukan persentil populasi normatif”.
 3. **Standar AERA/APA/NCME**: Laporkan penggunaan sesuai standar: jelaskan apa yang boleh disimpulkan (preferensi belajar dalam konteks) dan apa yang tidak (mis. tidak memprediksi kepribadian). Tambahkan link pendek ke ringkasan standar di laporan digital.
 4. **Guidance untuk mediator**: UI report/educator dashboard perlu menyertakan panel “Cara menggunakan hasil secara etis” yang menyarankan diskusi reflektif, bukan pelabelan permanen. Ini memastikan interpretasi mengikuti spirit ELT tentang fleksibilitas.
 
@@ -161,7 +161,7 @@ Checklist TODO 183 selesai bila:
   - Pastikan setiap kali modal dibuka, frontend memanggil `POST /telemetry/guide-open` (lihat langkah 4) sebelum menampilkan konten agar event tercatat.
 2. **Tooltip / Help Drawer**
   - Untuk panel laporan, tambahkan icon bantuan dengan tooltip yang memuat ringkasan 1–2 kalimat serta link ke bagian relevan (mis. anchor `#panel-ringkasan-gaya`).
-  - Pastikan tooltip copy diambil dari `app/i18n` agar konsisten dengan bahasa UI.
+  - Pastikan tooltip copy diambil dari `backend/app/i18n` agar konsisten dengan bahasa UI.
 3. **Asset Delivery**
   - File Markdown disalin dari `docs/guides` dan disajikan langsung oleh FastAPI melalui mount `/static/guides/*.md`. Frontend cukup melakukan fetch ke endpoint tersebut tanpa memaketkan ulang konten.
   - Build pipeline harus meng-copy `docs/guides/**/*.md` ke folder publik agar versi terbaru selalu tersedia.
@@ -185,15 +185,15 @@ Checklist TODO 183 selesai bila:
 
 | Endpoint | Method | Tujuan | Request Schema | Response Schema | Implementasi | Status |
 |----------|--------|--------|----------------|-----------------|--------------|--------|
-| `/auth/register` | POST | Registrasi akun mahasiswa/mediator otomatis berdasarkan domain email. | `app.schemas.auth.UserCreate` | `app.schemas.auth.UserOut` | `app/routers/auth.py::register` | Stable |
-| `/auth/login` | POST | Menghasilkan JWT akses 60 menit. | Body `{"email": str, "password": str}` | `app.schemas.auth.Token` | `app/routers/auth.py::login` | Stable |
-| `/engine/sessions/start` | POST | Membuat sesi instrumen dan mengembalikan `session_id`. | `StartSessionRequest` | `{ "session_id": int }` | `app/routers/engine.py` | Stable |
-| `/engine/sessions/{id}/delivery` | GET | Mendapatkan paket item lengkap + konten i18n. | Query `locale` optional | `EngineSessionService.delivery_package` payload | `app/routers/engine.py` | Stable |
-| `/engine/sessions/{id}/submit_all` | POST | Kirim 12 item + 8 konteks sekaligus dan finalize atomik. | `app.schemas.session.SessionSubmissionPayload` | `{ "ok": true, "result": {...} }` | `app/routers/engine.py` | Stable |
-| `/engine/sessions/{id}/report` | GET | Laporan lengkap dengan gating analytics per role. | Header auth | `runtime.build_report` dict | `app/routers/engine.py` | Stable |
-| `/reports/{session_id}` | GET | Jalur publik final UI menggunakan builder yang sama (periksa role). | Header auth opsional | JSON blok `session/raw/percentiles/narrative` | `app/routers/reports.py` | Stable |
-| `/score/raw` | POST | Preview skor tanpa persist (alat dosen/riset). | `app.schemas.score.ScorePreviewRequest` | `ScorePreviewResponse` | `app/routers/score.py` | Stable |
-| `/telemetry/guide-open` | POST | Catat event pembukaan panduan untuk analitik. | `{ guide_id: str, language?: str, surface: Literal[...] }` | `{ "ok": true }` | `app/routers/telemetry.py` | Stable |
+| `/auth/register` | POST | Registrasi akun mahasiswa/mediator otomatis berdasarkan domain email. | `backend/app/schemas/auth.UserCreate` | `backend/app/schemas/auth.UserOut` | `backend/app/routers/auth.py::register` | Stable |
+| `/auth/login` | POST | Menghasilkan JWT akses 60 menit. | Body `{"email": str, "password": str}` | `backend/app/schemas/auth.Token` | `backend/app/routers/auth.py::login` | Stable |
+| `/engine/sessions/start` | POST | Membuat sesi instrumen dan mengembalikan `session_id`. | `StartSessionRequest` | `{ "session_id": int }` | `backend/app/routers/engine.py` | Stable |
+| `/engine/sessions/{id}/delivery` | GET | Mendapatkan paket item lengkap + konten i18n. | Query `locale` optional | `EngineSessionService.delivery_package` payload | `backend/app/routers/engine.py` | Stable |
+| `/engine/sessions/{id}/submit_all` | POST | Kirim 12 item + 8 konteks sekaligus dan finalize atomik. | `backend/app/schemas/session.SessionSubmissionPayload` | `{ "ok": true, "result": {...} }` | `backend/app/routers/engine.py` | Stable |
+| `/engine/sessions/{id}/report` | GET | Laporan lengkap dengan gating analytics per role. | Header auth | `runtime.build_report` dict | `backend/app/routers/engine.py` | Stable |
+| `/reports/{session_id}` | GET | Jalur publik final UI menggunakan builder yang sama (periksa role). | Header auth opsional | JSON blok `session/raw/percentiles/narrative` | `backend/app/routers/reports.py` | Stable |
+| `/score/raw` | POST | Preview skor tanpa persist (alat dosen/riset). | `backend/app/schemas/score.ScorePreviewRequest` | `ScorePreviewResponse` | `backend/app/routers/score.py` | Stable |
+| `/telemetry/guide-open` | POST | Catat event pembukaan panduan untuk analitik. | `{ guide_id: str, language?: str, surface: Literal[...] }` | `{ "ok": true }` | `backend/app/routers/telemetry.py` | Stable |
 
 Semua schema di atas sudah diekspor melalui Pydantic, sehingga frontend dapat menjadikan file `.py` sebagai sumber tipe saat membangun TypeScript interfaces (mis. via `datamodel-code-generator`).
 
@@ -261,7 +261,7 @@ Checklist TODO 185 selesai ketika: (a) struktur laporan tercantum & disetujui sc
 
 ### 9.2 SOP Audit & Provenance
 
-- Pipeline `finalize_with_audit` (lihat `app/engine/finalize.py`) menyimpan hash SHA-256 dari artefak skor + salt. Log audit mencatat `actor_email`, `action`, dan payload. SOP audit:
+  - Pipeline `finalize_with_audit` (lihat `backend/app/engine/finalize.py`) menyimpan hash SHA-256 dari artefak skor + salt. Log audit mencatat `actor_email`, `action`, dan payload. SOP audit:
   1. Catat tiket internal ketika ada pertanyaan etis/komplain.
   2. Query tabel `audit_logs` dengan `session_id` terkait, verifikasi hash cocok dengan ulang-serialisasi artefak.
   3. Ambil `percentile_scores.norm_provenance`, `used_fallback_any`, `raw_outside_norm_range` untuk menjelaskan sumber norm kepada auditor.
@@ -324,7 +324,7 @@ Checklist TODO 187 selesai bila: (a) draft/manual berada di folder `docs/guides/
   2. Gunakan proses review dua langkah untuk terjemahan Inggris (editor bilingual + scientific reviewer memastikan istilah ELT konsisten).
   3. Daftarkan bahasa yang tersedia di `docs/guides/README.md` agar frontend tahu mana yang bisa dihubungkan.
 - **Integrasi UI**: frontend menautkan panduan sesuai locale pengguna. Jika tidak ada terjemahan, fallback ke versi default tetapi tampilkan penanda "(ID)" agar pengguna tahu bahasa yang ditampilkan.
-- **i18n Messages**: gunakan modul `app/i18n/` untuk menyertakan snippet pendek (mis. di tooltips) yang merujuk panduan. Untuk konten panjang, tampilkan link ke file Markdown ini pada modal bantuan.
+  - **i18n Messages**: gunakan modul `backend/app/i18n/` untuk menyertakan snippet pendek (mis. di tooltips) yang merujuk panduan. Untuk konten panjang, tampilkan link ke file Markdown ini pada modal bantuan.
 - **Deploy**: saat membangun image/container, copy `docs/guides` ke lokasi yang sama dengan source code sehingga mount `/static/guides` tetap valid. Contoh Dockerfile snippet:
   ```dockerfile
   COPY docs/guides /app/docs/guides

@@ -198,7 +198,7 @@ Untuk skor keseimbangan (BALANCE_ACCE, BALANCE_AERO), tampilan percentil diberi 
 | Team list | GET `/teams` | `[{id, team_name, members}]` | Tautan ke halaman rollup per tim. |
 | Research curve | GET `/research/lfi-regression-curve` | `{curve:[{intensity,predicted_lfi}], r2, method}` | Menampilkan `RegressionCurveCard` (inverted‑U). |
 | What‑If Scoring | POST `/score/sandbox` | `{style_primary, acce, aero, kite_coordinates}` | Tidak menyimpan ke DB; untuk edukasi dan eksplorasi.
-| Session designs | GET `/designs/recommendations?primary=Balancing&backup=Reflecting` | `[{code,title,summary,activates,duration_min}]` | Backed by `app/data/session_designs.py::recommend_for_primary`.
+ | Session designs | GET `/designs/recommendations?primary=Balancing&backup=Reflecting` | `[{code,title,summary,activates,duration_min}]` | Backed by `backend/app/data/session_designs.py::recommend_for_primary`.
 
 Client MUST treat 400/401/403/409 per semantics defined in routers (e.g., 409 = already completed).
 
@@ -283,7 +283,7 @@ Security/Auth & Seeding Notes:
 Dokumen ini mendefinisikan desain UI berbasis model mental pengguna yang mencerminkan pipeline psikometrik KLSI 4.0 secara transparan, mengintegrasikan prinsip Fluent 2 & iOS modern dalam visual, dan menjaga fidelity akademis melalui komponen yang memaparkan proses (ranking, dialektika, fleksibilitas) secara netral. Implementasi mengikuti pemisahan konseptual entitas backend sehingga setiap representasi frontend dapat ditelusuri ke satu sumber data terverifikasi.
 
 ## 17. Learning Session Designs (Recommendations)
-Seksi ini mengangkat rekomendasi aktivitas berbasis gaya dari `app/data/session_designs.py`.
+ Seksi ini mengangkat rekomendasi aktivitas berbasis gaya dari `backend/app/data/session_designs.py`.
 
 - Sumber data: `designs[]` (kode, judul, ringkasan, gaya yang diaktifkan, durasi) dan `recommend_for_primary(primary, backup, limit)`.
 - UI: Halaman `/designs` menampilkan hasil rekomendasi berdasar gaya utama dan (opsional) gaya cadangan; sertakan filter “stretch targets” untuk menstimulasi zona kurang dominan (lihat `STRETCH_SUGGESTIONS`).

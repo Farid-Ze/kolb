@@ -77,7 +77,7 @@ repos:
     rev: 1.7.10
     hooks:
       - id: bandit
-        args: [-c, .bandit, -r, app/]
+        args: [-c, .bandit, -r, backend/app/]
         exclude: ^tests/
 
   # Check for common security issues

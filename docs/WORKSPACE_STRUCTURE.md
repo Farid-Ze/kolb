@@ -18,11 +18,11 @@ This document maps the repository structure and explains the purpose of major fo
 
 ---
 
-## `app/`
+## `backend/app/`
 This is the application source (FastAPI backend). Key subfolders:
 
-- `app/main.py` — FastAPI app entrypoint (routers, static mounts, middleware)
-- `app/routers/` — HTTP routers and endpoints
+-- `backend/app/main.py` — FastAPI app entrypoint (routers, static mounts, middleware)
+-- `backend/app/routers/` — HTTP routers and endpoints
   - `auth.py` — registration/login
   - `sessions.py` — legacy session APIs
   - `engine.py` — generic engine (start session, delivery, finalize, report)
@@ -31,15 +31,15 @@ This is the application source (FastAPI backend). Key subfolders:
   - `research.py` — research mode APIs
   - `admin.py` — admin operations (norm imports, seeding)
   - `telemetry.py` — new telemetry endpoints (`POST /telemetry/guide-open`)
-- `app/assessments/` — instrument definition and code
+- `backend/app/assessments/` — instrument definition and code
   - `klsi_v4` — specific klsi 4.0 support: calculations, logic, config.yaml
-- `app/engine/` — runtime engine (authoring, registry, finalize pipeline)
-- `app/services/` — orchestration & domain services
+- `backend/app/engine/` — runtime engine (authoring, registry, finalize pipeline)
+-- `backend/app/services/` — orchestration & domain services
   - `scoring.py`, `report.py`, `rollup.py`, `provenance.py`, `seeds.py`
-- `app/models/` — SQLAlchemy models
-- `app/db/` — database layer & repositories
-- `app/core/` — utilities like `metrics.py`, `config.py`, `formatting.py`.
-- `app/data/` — normative tables (Appendix fallback) and LFI session designs
+- `backend/app/models/` — SQLAlchemy models
+-- `backend/app/db/` — database layer & repositories
+-- `backend/app/core/` — utilities like `metrics.py`, `config.py`, `formatting.py`.
+-- `backend/app/data/` — normative tables (Appendix fallback) and LFI session designs
 
 ---
 
@@ -76,14 +76,14 @@ Unit and integration tests. Notable tests:
 ---
 
 ## `docs/guides` & Static Guides
-- The guides are stored in `docs/guides/` and are served by the backend as Markdown static files at `/static/guides` when `app/main.py` mounts the folder.
+-- The guides are stored in `docs/guides/` and are served by the backend as Markdown static files at `/static/guides` when `backend/app/main.py` mounts the folder.
 - Frontend should fetch `{guide}.${locale}.md` and fallback to default if missing.
 - Telemetry: frontends should call `POST /telemetry/guide-open` when a guide is opened (this writes to internal metrics counters).
 
 ---
 
 ## Telemetry & Metrics
-- `app/core/metrics.py` — in-process metrics registry; used by `/telemetry` router and other server metrics
+- `backend/app/core/metrics.py` — in-process metrics registry; used by `/telemetry` router and other server metrics
 - `tests/test_telemetry_router.py` — checks `POST /telemetry/guide-open` increments counters
 
 ---
@@ -101,13 +101,11 @@ Unit and integration tests. Notable tests:
 ---
 
 ## Quick reference: most important files
-- `app/main.py` — app bootstrap
-- `docs/SITEMAP.md` — API ↔ UI mapping
-- `docs/frontend_blueprint.md` — UI architectural pattern with Liquid Glass
+ `backend/app/assessments/klsi_v4/*` — calculation & psychometric core
+ `backend/app/engine/*` — engine runtime & finalize pipeline
 - `docs/frontend_readiness.md` — psychometrics, privacy, contract
-- `app/assessments/klsi_v4/*` — calculation & psychometric core
-- `app/engine/*` — engine runtime & finalize pipeline
-- `app/routers/telemetry.py` + `tests/test_telemetry_router.py` — guides/telemetry contract
+ 
+-- `backend/app/routers/telemetry.py` + `tests/test_telemetry_router.py` — guides/telemetry contract
 
 ---
 

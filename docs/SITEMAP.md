@@ -2,23 +2,23 @@
 
 Dokumen ini memetakan:
 
-1. **Sitemap API** (endpoint nyata FastAPI yang ada di `app/routers/`)
+1. **Sitemap API** (endpoint nyata FastAPI yang ada di `backend/app/routers/`)
 2. **Mental model domain & engine** (assessment → runtime → norms → report)
 3. **Sitemap UI (frontend)** yang logis di atas API tersebut
 
 Sumber utama (lebih dari 100 file) mencakup antara lain:
 
-- Router: `app/routers/auth.py`, `sessions.py`, `engine.py`, `reports.py`, `teams.py`, `research.py`, `admin.py`, `score.py`
-- Services: `app/services/scoring.py`, `score_preview.py`, `engine.py`, `report.py`, `rollup.py`, `validation.py`, `batch_scores.py`, `security.py`, `seeds.py`, `provenance.py`, `pipelines.py`
-- Engine: `app/engine/runtime.py`, `runtime_logic.py`, `runtime_components.py`, `finalize.py`, `pipelines.py`, `registry.py`, `strategy_registry.py`, `norms/*`, `authoring/*`, `strategies/*`, `exceptions.py`, `validation.py`, `constants.py`, `interfaces.py`
-- Assessments: `app/assessments/validators.py`, `constants.py`, `enums.py`, `klsi_v4/__init__.py`, `klsi_v4/config.yaml`, `klsi_v4/types.py`, `klsi_v4/calculations.py`, `klsi_v4/logic.py`, `klsi_v4/definition.py`
-- DB layer: `app/db/database.py`, `db/repositories/*.py`, `db/README.md`
-- Models: `app/models/klsi/**/*`, `app/models/engine.py`, `app/models/team.py`, `app/models/research.py`
-- i18n: `app/i18n/__init__.py`, `id_messages.py`, `id_styles.py`, `id_messages.json`, `en_messages.json`, `id_styles.yaml`, `en_styles.yaml`, `i18n/README.md`
-- Instruments & authoring: `app/instruments/klsi4/*.py`, `instrument.yaml`
-- Core util: `app/core/config.py`, `logging.py`, `metrics.py`, `profiling.py`, `numeric.py`, `formatting.py`, `errors.py`, `sentinels.py`
-- Data: `app/data/norms.py`, `session_designs.py`
-- Entrypoint: `app/main.py`, `app/routers/exceptions.py`
+-- Router: `backend/app/routers/auth.py`, `sessions.py`, `engine.py`, `reports.py`, `teams.py`, `research.py`, `admin.py`, `score.py`
+-- Services: `backend/app/services/scoring.py`, `score_preview.py`, `engine.py`, `report.py`, `rollup.py`, `validation.py`, `batch_scores.py`, `security.py`, `seeds.py`, `provenance.py`, `pipelines.py`
+- Engine: `backend/app/engine/runtime.py`, `runtime_logic.py`, `runtime_components.py`, `finalize.py`, `pipelines.py`, `registry.py`, `strategy_registry.py`, `norms/*`, `authoring/*`, `strategies/*`, `exceptions.py`, `validation.py`, `constants.py`, `interfaces.py`
+ - Assessments: `backend/app/assessments/validators.py`, `constants.py`, `enums.py`, `klsi_v4/__init__.py`, `klsi_v4/config.yaml`, `klsi_v4/types.py`, `klsi_v4/calculations.py`, `klsi_v4/logic.py`, `klsi_v4/definition.py`
+- DB layer: `backend/app/db/database.py`, `db/repositories/*.py`, `db/README.md`
+- Models: `backend/app/models/klsi/**/*`, `backend/app/models/engine.py`, `backend/app/models/team.py`, `backend/app/models/research.py`
+-- i18n: `backend/app/i18n/__init__.py`, `id_messages.py`, `id_styles.py`, `id_messages.json`, `en_messages.json`, `id_styles.yaml`, `en_styles.yaml`, `i18n/README.md`
+-- Instruments & authoring: `backend/app/instruments/klsi4/*.py`, `instrument.yaml`
+- Core util: `backend/app/core/config.py`, `logging.py`, `metrics.py`, `profiling.py`, `numeric.py`, `formatting.py`, `errors.py`, `sentinels.py`
+-- Data: `backend/app/data/norms.py`, `session_designs.py`
+-- Entrypoint: `backend/app/main.py`, `backend/app/routers/exceptions.py`
 
 ---
 
@@ -27,16 +27,16 @@ Sumber utama (lebih dari 100 file) mencakup antara lain:
 ### 1.1 Health & Root
 
 - `GET /health`  
-  - File: `app/main.py`  
+  - File: `backend/app/main.py`  
   - Fungsi: health check, versi, waktu start, total request (via metrics & `_app_start_time`).
 
 - `GET /`  
-  - File: `app/main.py`  
+  - File: `backend/app/main.py`  
   - Fungsi: root info sederhana (banner / metadata).
 
 ---
 
-### 1.2 Auth (`app/routers/auth.py`)
+### 1.2 Auth (`backend/app/routers/auth.py`)
 
 - `POST /auth/register`
   - Body: `UserCreate`
@@ -86,7 +86,7 @@ Sumber utama (lebih dari 100 file) mencakup antara lain:
 
 ---
 
-### 1.3 Legacy Session API (`app/routers/sessions.py`)
+### 1.3 Legacy Session API (`backend/app/routers/sessions.py`)
 
 > Jalur legacy yang menempel langsung ke runtime KLSI, masih dipertahankan untuk kompatibilitas.
 
@@ -133,9 +133,10 @@ Sumber utama (lebih dari 100 file) mencakup antara lain:
       ],
       "contexts": [
         {
-          "context_name": "Belajar di kelas",
+      -- Engine: `backend/app/engine/runtime.py`, `runtime_logic.py`, `runtime_components.py`, `finalize.py`, `pipelines.py`, `registry.py`, `strategy_registry.py`, `norms/*`, `authoring/*`, `strategies/*`, `exceptions.py`, `validation.py`, `constants.py`, `interfaces.py`
           "CE": 1, "RO": 2, "AC": 3, "AE": 4
         }
+       - Assessments: `backend/app/assessments/validators.py`, `constants.py`, `enums.py`, `klsi_v4/__init__.py`, `klsi_v4/config.yaml`, `klsi_v4/types.py`, `klsi_v4/calculations.py`, `klsi_v4/logic.py`, `klsi_v4/definition.py`
       ]
     }
     ```
@@ -194,7 +195,7 @@ Sumber utama (lebih dari 100 file) mencakup antara lain:
 
 ---
 
-### 1.4 Generic Engine API (`app/routers/engine.py`)
+### 1.4 Generic Engine API (`backend/app/routers/engine.py`)
 
 > Lapisan engine generik di atas authoring spec + plugin; sudah aktif untuk KLSI 4.0.
 
@@ -303,7 +304,7 @@ Sumber utama (lebih dari 100 file) mencakup antara lain:
 
 ---
 
-### 1.5 Laporan (Reports) (`app/routers/reports.py`)
+### 1.5 Laporan (Reports) (`backend/app/routers/reports.py`)
 
 - `GET /reports/{session_id}`
   - Header: `Authorization` opsional.
@@ -403,7 +404,7 @@ Frontend sebaiknya hanya mengandalkan nama-nama kunci besar (`session`, `scores`
 
 ---
 
-### 1.6 Skor “Preview” tanpa DB (`app/routers/score.py`)
+### 1.6 Skor “Preview” tanpa DB (`backend/app/routers/score.py`)
 
 - `POST /score/raw`
   - Body: `ScorePreviewRequest`:
@@ -431,7 +432,7 @@ Frontend sebaiknya hanya mengandalkan nama-nama kunci besar (`session`, `scores`
 
 ---
 
-### 1.7 Tim & Kelas (`app/routers/teams.py`)
+### 1.7 Tim & Kelas (`backend/app/routers/teams.py`)
 
 - `POST /teams`
   - Header: `Authorization` wajib, role `MEDIATOR`.
@@ -494,7 +495,7 @@ Frontend sebaiknya hanya mengandalkan nama-nama kunci besar (`session`, `scores`
 
 ---
 
-### 1.8 Research (`app/routers/research.py`)
+### 1.8 Research (`backend/app/routers/research.py`)
 
 Repositori: `ResearchStudyRepository`, `ReliabilityRepository`, `ValidityRepository`.
 
@@ -547,7 +548,7 @@ Repositori: `ResearchStudyRepository`, `ReliabilityRepository`, `ValidityReposit
 
 ---
 
-### 1.9 Admin & Norms (`app/routers/admin.py`)
+### 1.9 Admin & Norms (`backend/app/routers/admin.py`)
 
 - `POST /admin/norms/import`
   - Header: `Authorization` wajib, role `MEDIATOR`.
@@ -609,7 +610,7 @@ Repositori: `ResearchStudyRepository`, `ReliabilityRepository`, `ValidityReposit
 
 ### 2.2 Engine runtime
 
-- `EngineRuntime` (`app/engine/runtime.py`):
+-- `EngineRuntime` (`backend/app/engine/runtime.py`):
   - start_session → membuat `AssessmentSession`
   - delivery_package → gunakan plugin `InstrumentPlugin` + authoring spec
   - submit_payload / finalize / finalize_with_audit
@@ -627,7 +628,7 @@ Repositori: `ResearchStudyRepository`, `ReliabilityRepository`, `ValidityReposit
 - Authoring:
   - `InstrumentSpec` (`engine/authoring/spec.py` + YAML)
   - Registry: `authoring/registry.py`
-  - KLSI instrument spec: `app/instruments/klsi4`.
+  - KLSI instrument spec: `backend/app/instruments/klsi4`.
 
 ### 2.3 Psychometrics
 
@@ -750,7 +751,7 @@ Berbasis API di atas, berikut sitemap UI yang disarankan.
 
 Diagram kasar layer terhadap endpoint:
 
-- Routers (`app/routers/*`):
+- Routers (`backend/app/routers/*`):
   - Auth → `services/security`, `db.repositories.user`
   - Sessions/Engine → `services/engine`, `engine.runtime`, `engine.finalize`, `assessments/klsi_v4/*`
   - Reports → `services/report`

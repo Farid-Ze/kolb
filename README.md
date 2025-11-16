@@ -10,7 +10,7 @@ Platform ini mengeksekusi asesmen Kolb Learning Style Inventory versi 4.0 secara
 | Dialektika perbedaan | `combination_scores` menyimpan ACCE, AERO, assimilation_accommodation, converging_diverging | KLSI Guide halaman formula (page 41), Figures 4–5 |
 | 9 gaya belajar | Window numerik `learning_style_types` (ACCE & AERO band: Low/Mid/High) | Refinement KLSI 4.0 (Eickmann, Kolb & Kolb 2004) |
 | Fleksibilitas belajar | Kendall’s W → LFI = 1 − W | Chapter 6 + Appendix 7 |
-| Konversi percentiles | Preferensi DB (`normative_conversion_table`) → fallback `app/data/norms.py` | Appendix 1, Appendix 7 |
+| Konversi percentiles | Preferensi DB (`normative_conversion_table`) → fallback `backend/app/data/norms.py` | Appendix 1, Appendix 7 |
 | Provenance norma | Kolom `norm_group_used` (Database vs AppendixFallback) | Standar transparansi AERA/APA/NCME |
 | Auditabilitas | Tabel `audit_log` (hash payload finalisasi & impor norma) | Standards for Educational & Psychological Testing (1999) |
 | Ipsative integrity | Constraint UNIQUE + CHECK di `user_responses` | Format KLSI forced-choice |
@@ -32,12 +32,12 @@ Dokumentasi lengkap ada di `docs/02-relational-model.md` dan `docs/psychometrics
 ## 5. Komponen Kode
 | File | Fungsi Utama |
 |------|--------------|
-| `app/models/klsi.py` | Definisi skema ORM terpisah per tahap transformasi |
-| `app/services/scoring.py` | Pipeline finalisasi, klasifikasi gaya, LFI, provenance norma |
-| `app/data/norms.py` | Fallback Appendix 1 & 7 percentile dictionaries |
-| `app/services/report.py` | Kompilasi laporan (kite, backup, sumber norma) |
-| `app/routers/admin.py` | Import norma dengan validasi monotonic, idempotent upsert, audit |
-| `app/routers/engine.py` | Operasi sesi generik berbasis instrumen (KLSI via Engine) |
+| `backend/app/models/klsi.py` | Definisi skema ORM terpisah per tahap transformasi |
+| `backend/app/services/scoring.py` | Pipeline finalisasi, klasifikasi gaya, LFI, provenance norma |
+| `backend/app/data/norms.py` | Fallback Appendix 1 & 7 percentile dictionaries |
+| `backend/app/services/report.py` | Kompilasi laporan (kite, backup, sumber norma) |
+| `backend/app/routers/admin.py` | Import norma dengan validasi monotonic, idempotent upsert, audit |
+| `backend/app/routers/engine.py` | Operasi sesi generik berbasis instrumen (KLSI via Engine) |
 | `docs/psychometrics_spec.md` | Kontrak matematis resmi |
 | `docs/hci_model.md` | Model mental & HCI berlandaskan ELT |
 
@@ -108,7 +108,7 @@ cd backend
 pip install -r requirements.txt
 
 # Set environment variables untuk Alembic
-$Env:PYTHONPATH = (Get-Location).Path
+$Env:PYTHONPATH = (Join-Path (Get-Location).Path 'backend')
 $Env:JWT_SECRET_KEY = "your-secret-key-here"
 
 # Terapkan migrasi skema (disarankan untuk dev & prod)
@@ -169,7 +169,7 @@ docker compose up --build
 ```
 
 ## 13. Seed & Startup (Rekomendasi)
-Gunakan Alembic untuk mengelola skema dan seed awal di lingkungan produksi. Untuk keperluan pengembangan cepat, aplikasi menyediakan toggle startup berikut (lihat `app/core/config.py`):
+Gunakan Alembic untuk mengelola skema dan seed awal di lingkungan produksi. Untuk keperluan pengembangan cepat, aplikasi menyediakan toggle startup berikut (lihat `backend/app/core/config.py`):
 
 - `RUN_STARTUP_DDL` (default: 1) — `Base.metadata.create_all()` untuk dev; nonaktifkan di prod
 - `RUN_STARTUP_SEED` (default: 1) — seed instrument KLSI 4.0 & item; nonaktifkan di prod

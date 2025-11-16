@@ -165,7 +165,7 @@ python -c "from app.i18n.id_styles import *; print('All style imports successful
 ## Maintenance
 
 When refactoring code:
-- Search for hardcoded Indonesian strings: `grep -r '".*tidak\|harus\|gagal' app/`
+- Search for hardcoded Indonesian strings: `grep -r '".*tidak\|harus\|gagal' backend/app/`
 - Move them to appropriate message classes
 - Update code to use the constants
 - Test that error paths still work correctly
@@ -174,4 +174,4 @@ When refactoring code:
 
 - `/docs/hci_model.md` - HCI principles for user-facing text
 - `/docs/psychometrics_spec.md` - Psychometric terminology standards
-- `app/core/errors.py` - Domain error hierarchy using these messages
+- `backend/app/core/errors.py` - Domain error hierarchy using these messages

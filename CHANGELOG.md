@@ -32,7 +32,7 @@ All notable changes to this project will be documented in this file.
 - When counts approach zero:
   1) Staging: `DISABLE_LEGACY_SUBMISSION=1` (and optionally `DISABLE_LEGACY_ROUTER=1`).
   2) Production: apply the same toggles once confirmed.
-  3) Next release: remove `app/routers/sessions.py` and retire legacy tests; add migration notes here.
+  3) Next release: remove `backend/app/routers/sessions.py` and retire legacy tests; add migration notes here.
 
 
 ## [0.2.0] - 2025-11-11

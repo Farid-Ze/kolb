@@ -252,10 +252,10 @@ Based on percentile tertiles:
 
 ### Code Location
 
-- **Core computation:** `app/services/scoring.py::compute_kendalls_w()`
-- **LFI calculation:** `app/services/scoring.py::compute_lfi()`
-- **Validation:** `app/services/scoring.py::validate_lfi_context_ranks()`
-- **Percentile lookup:** `app/data/norms.py::lookup_lfi()`
+- **Core computation:** `backend/app/services/scoring.py::compute_kendalls_w()`
+- **LFI calculation:** `backend/app/services/scoring.py::compute_lfi()`
+- **Validation:** `backend/app/services/scoring.py::validate_lfi_context_ranks()`
+- **Percentile lookup:** `backend/app/data/norms.py::lookup_lfi()`
 
 ### Database Schema
 
@@ -540,4 +540,4 @@ print(f"Flexibility: Very High")
 
 ---
 
-*For questions or clarifications, refer to the KLSI 4.0 Guide Chapter 6 or consult the implementation in `app/services/scoring.py`.*
+*For questions or clarifications, refer to the KLSI 4.0 Guide Chapter 6 or consult the implementation in `backend/app/services/scoring.py`.*

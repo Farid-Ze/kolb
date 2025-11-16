@@ -6,16 +6,16 @@ Daftar tugas ini mencakup implementasi, refactor, dan integrasi React Query untu
 
 Tugas-tugas ini memastikan logika inti di backend Python secara akurat mencerminkan panduan psikometrik KLSI 4.0.
 
-* [ ] **Refactor**: `app/services/scoring.py` - Verifikasi `compute_raw_scale_scores` menjumlahkan rank 1-4 dengan benar (total 120 untuk 12 item), sesuai `psychometrics_spec.md §1`.
-* [ ] **Refactor**: `app/services/scoring.py` - Verifikasi `compute_combination_scores` menghitung `ACCE = AC_raw - CE_raw` dan `AERO = AE_raw - RO_raw` (hlm. 45-46 PDF).
-* [ ] **Implementasi**: `app/services/scoring.py` - Implementasikan `compute_combination_scores` untuk `BAL_ACCE` dan `BAL_AERO` menggunakan median normatif 9 dan 6, sesuai `psychometrics_spec.md §2.1` (hlm. 48 PDF).
-* [ ] **Refactor**: `app/assessments/klsi_v4/logic.py` - Konfirmasi `assign_learning_style` menggunakan *cutpoints* yang benar untuk 9-style grid (ACCE ≤5, 6-14, ≥15; AERO ≤0, 1-11, ≥12) sesuai `psychometrics_spec.md §3` (hlm. 50 PDF).
-* [ ] **Implementasi**: `app/assessments/klsi_v4/logic.py` - Implementasikan logika penentuan `backup_learning_styles` berdasarkan 8 konteks LFI (hlm. 84-88 PDF) dan simpan ke `backup_learning_styles` (per `psychometrics_spec.md §3`).
-* [ ] **Refactor**: `app/services/scoring.py` - Pastikan `compute_lfi` (Kendall's W) diimplementasikan sebagai `LFI = 1 - W` (hlm. 77 PDF).
-* [ ] **Refactor**: `app/services/scoring.py` - Pastikan strategi `apply_percentiles` menggunakan fallback "nearest-lower" (konservatif) jika data norma tidak ada, sesuai `psychometrics_spec.md §5`.
-* [ ] **Implementasi**: `app/services/report.py` - Implementasikan `_classify_development` (Acquisition, Specialization, Integration) berdasarkan `intensity` dan `lfi` (hlm. 24-26 PDF).
-* [ ] **Implementasi**: `app/services/report.py` - Implementasikan `_derive_meta_learning` untuk memberikan tips berdasarkan mode skor mentah terendah (CE/RO/AC/AE) (hlm. 32-33 PDF).
-* [ ] **Refactor**: `app/main.py` - Konfigurasi `StaticFiles` untuk `/static/guides` agar dapat menyajikan file markdown dari `docs/guides/` (untuk `frontend_blueprint.md §7.1`).
+* [ ] **Refactor**: `backend/app/services/scoring.py` - Verifikasi `compute_raw_scale_scores` menjumlahkan rank 1-4 dengan benar (total 120 untuk 12 item), sesuai `psychometrics_spec.md §1`.
+* [ ] **Refactor**: `backend/app/services/scoring.py` - Verifikasi `compute_combination_scores` menghitung `ACCE = AC_raw - CE_raw` dan `AERO = AE_raw - RO_raw` (hlm. 45-46 PDF).
+* [ ] **Implementasi**: `backend/app/services/scoring.py` - Implementasikan `compute_combination_scores` untuk `BAL_ACCE` dan `BAL_AERO` menggunakan median normatif 9 dan 6, sesuai `psychometrics_spec.md §2.1` (hlm. 48 PDF).
+* [ ] **Refactor**: `backend/app/assessments/klsi_v4/logic.py` - Konfirmasi `assign_learning_style` menggunakan *cutpoints* yang benar untuk 9-style grid (ACCE ≤5, 6-14, ≥15; AERO ≤0, 1-11, ≥12) sesuai `psychometrics_spec.md §3` (hlm. 50 PDF).
+* [ ] **Implementasi**: `backend/app/assessments/klsi_v4/logic.py` - Implementasikan logika penentuan `backup_learning_styles` berdasarkan 8 konteks LFI (hlm. 84-88 PDF) dan simpan ke `backup_learning_styles` (per `psychometrics_spec.md §3`).
+* [ ] **Refactor**: `backend/app/services/scoring.py` - Pastikan `compute_lfi` (Kendall's W) diimplementasikan sebagai `LFI = 1 - W` (hlm. 77 PDF).
+* [ ] **Refactor**: `backend/app/services/scoring.py` - Pastikan strategi `apply_percentiles` menggunakan fallback "nearest-lower" (konservatif) jika data norma tidak ada, sesuai `psychometrics_spec.md §5`.
+* [ ] **Implementasi**: `backend/app/services/report.py` - Implementasikan `_classify_development` (Acquisition, Specialization, Integration) berdasarkan `intensity` dan `lfi` (hlm. 24-26 PDF).
+* [ ] **Implementasi**: `backend/app/services/report.py` - Implementasikan `_derive_meta_learning` untuk memberikan tips berdasarkan mode skor mentah terendah (CE/RO/AC/AE) (hlm. 32-33 PDF).
+* [ ] **Refactor**: `backend/app/main.py` - Konfigurasi `StaticFiles` untuk `/static/guides` agar dapat menyajikan file markdown dari `docs/guides/` (untuk `frontend_blueprint.md §7.1`).
 
 ## Phase 2: Frontend Foundation & Design System "Liquid Glass" (18 Tugas)
 
@@ -42,9 +42,9 @@ Membangun UI primitives berdasarkan `Guidelines.md` dan `frontend_blueprint.md`.
 
 ## Phase 3: Alur Autentikasi & Akun (9 Tugas)
 
-Menghubungkan frontend React ke API otentikasi `app/routers/auth.py`.
+Menghubungkan frontend React ke API otentikasi `backend/app/routers/auth.py`.
 
-* [ ] **Refactor**: `app/routers/auth.py` - Amankan endpoint `POST /auth/login` dan `POST /auth/register`.
+* [ ] **Refactor**: `backend/app/routers/auth.py` - Amankan endpoint `POST /auth/login` dan `POST /auth/register`.
 * [x] **Refactor**: `src/types/api.d.ts` - Pastikan tipe `LoginResponse` dan `User` sesuai dengan respons backend.
 * [x] **Implementasi**: `src/services/authService.ts` - Buat fungsi `login` dan `register` yang memanggil API.
 * [x] **Implementasi**: `src/contexts/AuthContext.tsx` - Buat provider untuk menyimpan `user` dan `accessToken` (sesuai `frontend_blueprint.md §8`).
@@ -81,7 +81,7 @@ Mengimplementasikan alur lengkap dari `HomePage` hingga `AssessmentReviewPage` m
 
 ## Phase 5: Laporan Siswa (Frontend) (13 Tugas)
 
-Memvisualisasikan data dari `app/services/report.py` di `ReportPage.tsx`, mematuhi `frontend_blueprint.md §6`.
+Memvisualisasikan data dari `backend/app/services/report.py` di `ReportPage.tsx`, mematuhi `frontend_blueprint.md §6`.
 
 * [x] **Refactor**: `src/services/reportService.ts` - Implementasikan `getReport` (`GET /reports/sessions/:id`) (sesuai `Task 37`).
 * [x] **React Query**: `src/pages/ReportPage.tsx` - Terapkan `useQuery(['report', sessionId], getReport)` (sesuai `Task 38`).
@@ -99,13 +99,13 @@ Memvisualisasikan data dari `app/services/report.py` di `ReportPage.tsx`, mematu
 
 ## Phase 6: Alur Mediator & Analitik Tambahan (15 Tugas)
 
-Mengimplementasikan fitur khusus untuk peran "MEDIATOR", termasuk analitik yang lebih mendalam di `app/services/report.py`.
+Mengimplementasikan fitur khusus untuk peran "MEDIATOR", termasuk analitik yang lebih mendalam di `backend/app/services/report.py`.
 
-* [ ] **Refactor**: `app/routers/reports.py` - Pastikan `get_report` mengecek `viewer.role == "MEDIATOR"` (sesuai `reports.py`).
-* [ ] **Refactor**: `app/services/report.py` - Implementasikan *logic* untuk *hanya* menyertakan blok `enhanced_analytics` jika `viewer_role == "MEDIATOR"`.
-* [ ] **Implementasi**: `app/services/report.py` - Implementasikan `_generate_flexibility_narrative` (analisis pola fleksibilitas "Mark vs Jason", hlm. 85-88 PDF) untuk `enhanced_analytics`.
-* [ ] **Implementasi**: `app/services/report.py` - Implementasikan `_educator_role_suggestions` (Facilitator, Expert, Evaluator, Coach) untuk `enhanced_analytics` (hlm. 37-38 PDF).
-* [ ] **Implementasi**: `app/services/report.py` - Implementasikan `predict_integrative_development` (regresi) untuk `enhanced_analytics` (hlm. 81 PDF).
+* [ ] **Refactor**: `backend/app/routers/reports.py` - Pastikan `get_report` mengecek `viewer.role == "MEDIATOR"` (sesuai `reports.py`).
+* [ ] **Refactor**: `backend/app/services/report.py` - Implementasikan *logic* untuk *hanya* menyertakan blok `enhanced_analytics` jika `viewer_role == "MEDIATOR"`.
+* [ ] **Implementasi**: `backend/app/services/report.py` - Implementasikan `_generate_flexibility_narrative` (analisis pola fleksibilitas "Mark vs Jason", hlm. 85-88 PDF) untuk `enhanced_analytics`.
+* [ ] **Implementasi**: `backend/app/services/report.py` - Implementasikan `_educator_role_suggestions` (Facilitator, Expert, Evaluator, Coach) untuk `enhanced_analytics` (hlm. 37-38 PDF).
+* [ ] **Implementasi**: `backend/app/services/report.py` - Implementasikan `predict_integrative_development` (regresi) untuk `enhanced_analytics` (hlm. 81 PDF).
 * [x] **Refactor**: `src/components/auth/ProtectedRoute.tsx` - Tambahkan prop `requiredRole` untuk memvalidasi peran (STUDENT/MEDIATOR).
 * [x] **Refactor**: `src/App.tsx` - Terapkan `requiredRole="MEDIATOR"` pada route `/teams` dan `/research`.
 * [x] **Implementasi**: `src/pages/MediatorDashboardPage.tsx` - Gunakan `SplitViewLayout` dan tampilkan `GuideModal` (onboarding) dengan guide `educator_responsible_use` (per `frontend_blueprint.md §5.2`).
@@ -121,7 +121,7 @@ Mengimplementasikan fitur khusus untuk peran "MEDIATOR", termasuk analitik yang 
 
 Mengimplementasikan sistem bantuan *in-app* dan *telemetry* sesuai `frontend_blueprint.md §7`.
 
-* [ ] **Implementasi**: `app/routers/telemetry.py` - Buat endpoint `POST /telemetry/guide-open` (per `frontend_blueprint.md §7.2`).
+* [ ] **Implementasi**: `backend/app/routers/telemetry.py` - Buat endpoint `POST /telemetry/guide-open` (per `frontend_blueprint.md §7.2`).
 * [x] **Implementasi**: `src/services/telemetryService.ts` - Buat fungsi `trackGuideOpen`.
 * [x] **React Query**: `src/hooks/useTelemetry.ts` - Buat hook `useTelemetry` dengan `useMutation` untuk `trackGuideOpen`.
 * [x] **Implementasi**: `src/services/guideService.ts` - Buat `getGuideContent` (`GET /static/guides/:guideId.:locale.md`).
@@ -132,13 +132,13 @@ Mengimplementasikan sistem bantuan *in-app* dan *telemetry* sesuai `frontend_blu
 
 Fokus pada optimalisasi backend, data longitudinal (lintas sesi), dan penyelesaian UI Riset.
 
-* [ ] **Refactor**: `app/services/scoring.py` - Terapkan `CachedCompositeNormProvider` (seperti di docstring `apply_percentiles`) untuk memperbaiki *N+1 query* saat konversi persentil.
-* [ ] **Refactor**: `app/engine/runtime.py` - Selesaikan `_write_audit_log` untuk `finalize_with_audit` guna memastikan `payload_hash` (SHA256) tersimpan di `AuditLog`.
-* [ ] **Refactor**: `app/models/klsi/assessment.py` - Pastikan `AssessmentSessionDelta` (Tabel `assessment_session_deltas`) ada.
-* [ ] **Implementasi**: `app/assessments/klsi_v4/logic.py` - Selesaikan `compute_longitudinal_delta` (per `klsi4.py`) untuk menghitung perubahan `delta_acce`, `delta_aero`, `delta_lfi` dari sesi sebelumnya.
-* [l] **Refactor**: `app/services/report.py` - Masukkan data `delta` (jika ada) ke dalam payload `build_report`.
+* [ ] **Refactor**: `backend/app/services/scoring.py` - Terapkan `CachedCompositeNormProvider` (seperti di docstring `apply_percentiles`) untuk memperbaiki *N+1 query* saat konversi persentil.
+* [ ] **Refactor**: `backend/app/engine/runtime.py` - Selesaikan `_write_audit_log` untuk `finalize_with_audit` guna memastikan `payload_hash` (SHA256) tersimpan di `AuditLog`.
+* [ ] **Refactor**: `backend/app/models/klsi/assessment.py` - Pastikan `AssessmentSessionDelta` (Tabel `assessment_session_deltas`) ada.
+* [ ] **Implementasi**: `backend/app/assessments/klsi_v4/logic.py` - Selesaikan `compute_longitudinal_delta` (per `klsi4.py`) untuk menghitung perubahan `delta_acce`, `delta_aero`, `delta_lfi` dari sesi sebelumnya.
+* [l] **Refactor**: `backend/app/services/report.py` - Masukkan data `delta` (jika ada) ke dalam payload `build_report`.
 * [x] **Implementasi**: `src/components/report/DeltaChangesCard.tsx` - (Jika `report.delta` ada) Tampilkan visualisasi perubahan skor ACCE/AERO/LFI dari asesmen sebelumnya.
 * [x] **Implementasi**: `src/pages/ResearchDashboardPage.tsx` - Buat UI untuk `GET /research/studies`.
 * [x] **Implementasi**: `src/pages/ResearchDetailPage.tsx` - Buat UI untuk `GET /research/studies/:id`.
-* [ ] **Implementasi**: `app/services/regression.py` - Implementasikan `analyze_lfi_contexts` untuk menghasilkan `style_frequency` dan `flexibility_pattern` (high/moderate/low) (per `report.py`).
-* [ ] **Implementasi**: `app/services/regression.py` - Implementasikan `generate_lfi_heatmap` (per `report.py`) untuk analitik mediator.
+* [ ] **Implementasi**: `backend/app/services/regression.py` - Implementasikan `analyze_lfi_contexts` untuk menghasilkan `style_frequency` dan `flexibility_pattern` (high/moderate/low) (per `report.py`).
+* [ ] **Implementasi**: `backend/app/services/regression.py` - Implementasikan `generate_lfi_heatmap` (per `report.py`) untuk analitik mediator.

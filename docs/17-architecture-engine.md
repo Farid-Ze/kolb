@@ -8,22 +8,22 @@ specification and should be read alongside `docs/03-klsi-overview.md` and
 
 ## Layered Responsibilities
 
-- **Routers (`app/routers/`)** – HTTP boundary. They authenticate, authorize,
+ **Routers (`backend/app/routers/`)** – HTTP boundary. They authenticate, authorize,
 	deserialize payloads, and dispatch to the service layer. No business logic
 	beyond input validation or error translation lives here.
-- **Services (`app/services/`)** – Orchestration layer. Each service coordinates
+ **Services (`backend/app/services/`)** – Orchestration layer. Each service coordinates
 	repositories, engine runtime, localization, and reporting. Services are the
 	API that routers call.
-- **Engine (`app/engine/`)** – Assessment-agnostic runtime that handles
+- **Engine (`backend/app/engine/`)** – Assessment-agnostic runtime that handles
 	instrument registration, pipeline execution, auditing, and metric reporting.
 	It delegates psychometric computation to instrument plugins.
-- **Assessments (`app/assessments/`)** – Instrument-specific logic and
+- **Assessments (`backend/app/assessments/`)** – Instrument-specific logic and
 	configuration. For KLSI 4.0 this includes forced-choice validation, style
 	assignment, and percentile mapping.
-- **Repositories (`app/db/repositories/`)** – Typed, testable data-access
+- **Repositories (`backend/app/db/repositories/`)** – Typed, testable data-access
 	objects that isolate SQLAlchemy usage. Repository creation is funneled through
 	`RepositoryProvider` to avoid leaking sessions across layers.
-- **Models (`app/models/`)** – Declarative SQLAlchemy models. They remain
+- **Models (`backend/app/models/`)** – Declarative SQLAlchemy models. They remain
 	persistence only: constructors do not perform I/O or scoring.
 
 ## Runtime Flow (Happy Path)
@@ -31,9 +31,9 @@ specification and should be read alongside `docs/03-klsi-overview.md` and
 1. `POST /sessions/{id}/submit_all_responses` calls `runtime.finalize_with_audit`.
 2. `EngineRuntime` resolves the session, looks up the registered plugin,
 	 validates readiness, and invokes the plugin scorer (`finalize`).
-3. The scorer calls into `app/services/scoring.finalize_session`, which in turn
+3. The scorer calls into `backend/app/services/scoring.finalize_session`, which in turn
 	 drives the canonical pipeline defined in
-	 `app/assessments/klsi_v4/definition.py` (raw modes → combination → style →
+	`backend/app/assessments/klsi_v4/definition.py` (raw modes → combination → style →
 	 LFI → percentiles → longitudinal delta).
 4. Each step uses repositories pulled from `RepositoryProvider` or via direct
 	 constructor injection to keep DB access explicit and mockable.
@@ -58,7 +58,7 @@ specification and should be read alongside `docs/03-klsi-overview.md` and
 - Each step exposes a `.name` and `.depends_on` list, enabling dependency
 	checking before execution. This guards against missing prerequisites when
 	authors reorder steps.
-- Steps are pure glue: they call functions from `app.assessments.klsi_v4.logic`
+ - Steps are pure glue: they call functions from `backend/app/assessments/klsi_v4/logic.py` (file path) or at runtime `app.assessments.klsi_v4.logic` with PYTHONPATH set to `backend`.
 	which perform the heavy computation using immutable value types (`ScoreVector`,
 	`CombinationScore`, `UserLearningStyle`).
 - Future instruments can inherit this structure by providing their own
@@ -69,7 +69,7 @@ specification and should be read alongside `docs/03-klsi-overview.md` and
 - Norm lookups are composed via `CompositeNormProvider`, which chains the
 	database-backed provider, optional external HTTP provider, and Appendix
 	fallbacks.
-- `app/engine/norms/factory._maybe_build_preloaded_map` creates an immutable
+ - `backend/app/engine/norms/factory._maybe_build_preloaded_map` creates an immutable
 	`MappingProxyType` snapshot when the DB table is below configured thresholds.
 	Otherwise the runtime falls back to an LRU-cached query function.
 - `RepositoryProvider` ensures that all norm repositories share a single SQL
@@ -77,7 +77,7 @@ specification and should be read alongside `docs/03-klsi-overview.md` and
 
 ## Metrics & Observability
 
-- `app/core/metrics.py` exposes `@timeit` for latency measurement and histogram
+ - `backend/app/core/metrics.py` exposes `@timeit` for latency measurement and histogram
 	aggregation. `EngineRuntime.finalize` and `finalize_with_audit` are decorated
 	to emit timing data for dashboards.
 - Validation issues, fallback provenance, and anomaly detection outcomes are
@@ -99,7 +99,7 @@ specification and should be read alongside `docs/03-klsi-overview.md` and
 When adding a new assessment instrument:
 
 1. Implement logic functions (validation, scoring, percentile conversion) in a
-	 dedicated module under `app/assessments/`.
+	 dedicated module under `backend/app/assessments/`.
 2. Define step classes and an `AssessmentDefinition` analogue mirroring the KLSI
 	 blueprint.
 3. Create an instrument plugin that implements the required protocols and

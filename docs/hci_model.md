@@ -34,7 +34,7 @@ Dokumen ini memformalkan desain antarmuka dan alur kognitif pengguna untuk asesm
 ## Mekanisme Finalisasi
 Saat finalisasi:
 1. Lock sesi (status → Completed) agar tidak ada mutasi tambahan.
-2. Jalankan pipeline `finalize_session` (lihat `app/services/scoring.py`).
+2. Jalankan pipeline `finalize_session` (lihat `backend/app/services/scoring.py`).
 3. Simpan snapshot hasil (ScaleScore, CombinationScore, PercentileScore, LearningFlexibilityIndex, UserLearningStyle).
 4. Audit entry ditulis: action="FINALIZE_SESSION" + hash payload aggregate JSON.
 5. UI menampilkan hasil `run_session_validations()` bila ada kegagalan (mis. `ITEMS_INCOMPLETE`, `LFI_CONTEXT_COUNT`) melalui panel peringatan yang menautkan langsung ke item/konteks bermasalah.
@@ -53,7 +53,7 @@ Panel validasi menampilkan kode/penjelasan isu, status fatal, dan tautan tindaka
 | LFI | Skor (0–1) + percentile + kategori | Menjelaskan fleksibilitas lintas konteks. |
 
 ## Internasionalisasi (Bahasa Indonesia)
-- File `app/i18n/id_styles.py` menyimpan ringkas deskripsi gaya.
+-- File `backend/app/i18n/id_styles.py` menyimpan ringkas deskripsi gaya.
 - Strategi: short phrase (<120 karakter) + link/kode referensi Appendix 9 untuk studi lanjut.
 - Menyediakan glosarium: CE = Pengalaman Konkret, RO = Observasi Reflektif, AC = Konseptualisasi Abstrak, AE = Eksperimen Aktif.
 

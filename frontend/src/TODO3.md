@@ -119,7 +119,7 @@ Mengganti ikonografi statis dengan aset berlapis yang dinamis.
 
 ## Phase 6: High-Fidelity Report & Analytics (20 Tugas)
 
-Memastikan `ReportPage.tsx` menyajikan *semua data* dari `app/services/report.py` (termasuk `enhanced_analytics`) menggunakan *Liquid Glass*.
+Memastikan `ReportPage.tsx` menyajikan *semua data* dari `backend/app/services/report.py` (termasuk `enhanced_analytics`) menggunakan *Liquid Glass*.
 
 * [ ] **Implementasi**: `src/components/report/LearningStyleChart.tsx` - Pastikan visualisasi 4-kuadran menggunakan *GlassPanel* dan *spring physics* untuk animasi *reveal*.
 * [ ] **Implementasi**: `src/components/report/FlexibilityChart.tsx` - Pastikan *gauge* LFI menggunakan animasi *spring* untuk jarumnya.

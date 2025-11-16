@@ -1,7 +1,7 @@
 """Regression-based analytics for Learning Flexibility Index (LFI).
 
 Coefficients, means, and standard deviations are loaded from
-``app/assessments/klsi_v4/config.yaml`` so the implementation stays aligned
+``backend/app/assessments/klsi_v4/config.yaml`` so the implementation stays aligned
 with the Kolb & Kolb (2013) specification and the repository's governance
 rules for psychometric parameters.
 """

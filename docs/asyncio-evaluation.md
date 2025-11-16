@@ -6,8 +6,8 @@
 
 The KLSI application currently has **minimal async usage**:
 
-1. **app/main.py**: `lifespan()` context manager for FastAPI startup/shutdown
-2. **app/routers/exceptions.py**: `_handle_domain_error()` exception handler
+1. **backend/app/main.py**: `lifespan()` context manager for FastAPI startup/shutdown
+2. **backend/app/routers/exceptions.py**: `_handle_domain_error()` exception handler
 
 All other endpoints, services, and business logic use **synchronous** patterns.
 
@@ -224,7 +224,7 @@ SQLAlchemy pool handles this automatically.
 To validate this decision, implement monitoring:
 
 ```python
-# app/core/metrics.py (already exists)
+# backend/app/core/metrics.py (already exists)
 from prometheus_client import Histogram
 
 REQUEST_DURATION = Histogram(

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `app/engine` module implements the core assessment execution engine for the KLSI system. It provides a pluggable architecture that separates instrument-specific logic from the runtime orchestration layer.
+The `backend/app/engine` module implements the core assessment execution engine for the KLSI system. It provides a pluggable architecture that separates instrument-specific logic from the runtime orchestration layer.
 
 ## Key Design Principles
 
@@ -15,7 +15,7 @@ The `app/engine` module implements the core assessment execution engine for the 
 ## Module Structure
 
 ```
-app/engine/
+backend/app/engine/
 ├── __init__.py
 ├── README.md (this file)
 ├── constants.py          # Immutable constants (PRIMARY_MODE_CODES, etc.)
@@ -227,7 +227,7 @@ DomainError (base)
 3. **Validation Errors**: Input problems, clear feedback
 4. **Fatal Errors**: Unhandled exceptions, 500 status
 
-All error messages use centralized i18n constants (`app/i18n/id_messages.py`).
+All error messages use centralized i18n constants (`backend/app/i18n/id_messages.py`).
 
 ## Testing Strategy
 
@@ -344,8 +344,8 @@ Potential improvements:
 - `/docs/psychometrics_spec.md` - Mathematical specifications
 - `/docs/02-relational-model.md` - Database schema
 - `/docs/hci_model.md` - User experience principles
-- `app/i18n/README.md` - Localization guidelines
-- `app/assessments/klsi_v4/README.md` - KLSI 4.0 implementation
+- `backend/app/i18n/README.md` - Localization guidelines
+- `backend/app/assessments/klsi_v4/README.md` - KLSI 4.0 implementation
 
 ## Glossary
 

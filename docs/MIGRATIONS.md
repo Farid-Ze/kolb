@@ -145,7 +145,7 @@ Example: Migration `0020_add_session_lookup_indexes` uses `postgresql_include` p
 For rapid iteration during development, you can use:
 
 ```python
-# app/main.py
+# backend/app/main.py
 if settings.run_startup_ddl:
     Base.metadata.create_all(bind=engine)
 ```

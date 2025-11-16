@@ -89,7 +89,7 @@ Coverage: Core scoring logic, API endpoints, edge cases
 The codebase follows **proper separation of concerns**:
 
 ```
-app/
+backend/app/
 ├── routers/              # API endpoints (thin controllers)
 │   ├── auth.py          # Authentication routes
 │   ├── sessions.py      # Session management
@@ -153,7 +153,7 @@ def finalize_session(db: Session, session_id: int):
 
 #### Request/Response Models
 
-**File: `app/schemas/auth.py`**
+**File: `backend/app/schemas/auth.py`**
 ```python
 class UserCreate(BaseModel):
     email: EmailStr
@@ -173,7 +173,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 ```
 
-**File: `app/schemas/team.py`**
+**File: `backend/app/schemas/team.py`**
 ```python
 class TeamCreate(BaseModel):
     team_name: str = Field(..., min_length=3, max_length=100)
@@ -186,7 +186,7 @@ class TeamMemberAdd(BaseModel):
 
 #### Validation Services
 
-**File: `app/services/validation.py`**
+**File: `backend/app/services/validation.py`**
 ```python
 def validate_ipsative_response(
     session_id: int,
@@ -339,7 +339,7 @@ CREATE INDEX idx_backup_session ON backup_learning_styles(session_id);
 
 ### ✅ **Complete LFI Pipeline Service**
 
-**Location:** `app/services/scoring.py::compute_lfi()`
+**Location:** `backend/app/services/scoring.py::compute_lfi()`
 
 ```python
 def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
@@ -423,7 +423,7 @@ def compute_lfi(db: Session, session_id: int) -> LearningFlexibilityIndex:
 
 ### Backup Style Inference Service
 
-**Location:** `app/services/scoring.py::assign_learning_style()`
+**Location:** `backend/app/services/scoring.py::assign_learning_style()`
 
 ```python
 def assign_learning_style(db: Session, combo: CombinationScore) -> UserLearningStyle:
@@ -566,7 +566,7 @@ Config:
 
 #### Tier 3: Appendix Fallback (Static, from KLSI 4.0 Guide)
 
-**File:** `app/data/norms.py`
+**File:** `backend/app/data/norms.py`
 
 ```python
 # Appendix 1: Primary Mode Percentiles (CE, RO, AC, AE)
@@ -705,7 +705,7 @@ def _age_to_band(user: User) -> str | None:
 
 ### ✅ **LFI Context Analysis Service**
 
-**File:** `app/services/regression.py::analyze_lfi_contexts()`
+**File:** `backend/app/services/regression.py::analyze_lfi_contexts()`
 
 ```python
 def analyze_lfi_contexts(session_id: int, db: Session) -> dict:
@@ -768,7 +768,7 @@ def analyze_lfi_contexts(session_id: int, db: Session) -> dict:
 
 ### LFI Heatmap Generation
 
-**File:** `app/services/regression.py::generate_lfi_heatmap()`
+**File:** `backend/app/services/regression.py::generate_lfi_heatmap()`
 
 ```python
 def generate_lfi_heatmap(session_id: int, db: Session) -> dict:
@@ -902,7 +902,7 @@ def generate_lfi_heatmap(session_id: int, db: Session) -> dict:
 
 5. **Multi-Language Support**
    - Internationalization (i18n) for Indonesian/English
-   - Already partially implemented in `app/i18n/`
+    - Already partially implemented in `backend/app/i18n/`
 
 6. **Advanced Analytics**
    - Machine learning models for style prediction

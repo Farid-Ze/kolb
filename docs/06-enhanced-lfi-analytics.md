@@ -304,18 +304,18 @@ High-flexibility entrepreneurs achieve greater innovation by:
 ### Module Structure
 
 ```
-app/services/regression.py
+backend/app/services/regression.py
 ├── predict_lfi() — LFI regression Model 3
 ├── predicted_curve() — Inverted-U visualization
 ├── predict_integrative_development() — Hypothesis 6 model
 ├── analyze_lfi_contexts() — Contextual profile generator
 └── generate_lfi_heatmap() — Visualization data
 
-app/services/report.py  
+backend/app/services/report.py  
 ├── _generate_flexibility_narrative() — Interpretive text
 └── build_report(viewer_role) — Role-based assembly
 
-app/routers/reports.py
+backend/app/routers/reports.py
 └── get_report() — JWT validation + access control
 ```
 

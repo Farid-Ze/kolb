@@ -1,6 +1,6 @@
 # Model Data KLSI 4.0: Konseptual → Logis → Fisik
 
-Dokumen ini menjabarkan model data end‑to‑end untuk sistem KLSI 4.0 berdasarkan seluruh dokumen di folder `docs/`, skema ORM (`app/models/klsi.py`), serta migrasi database. Isi dan aturan psikometrik telah divalidasi selaras dengan The Kolb Learning Style Inventory 4.0 – Guide to Theory, Psychometrics, Research & Applications (khususnya Appendix 1 & 7) sebagaimana juga diringkas pada `docs/psychometrics_spec.md`.
+Dokumen ini menjabarkan model data end‑to‑end untuk sistem KLSI 4.0 berdasarkan seluruh dokumen di folder `docs/`, skema ORM (`backend/app/models/klsi.py`), serta migrasi database. Isi dan aturan psikometrik telah divalidasi selaras dengan The Kolb Learning Style Inventory 4.0 – Guide to Theory, Psychometrics, Research & Applications (khususnya Appendix 1 & 7) sebagaimana juga diringkas pada `docs/psychometrics_spec.md`.
 
 Catatan singkat validasi terhadap KLSI 4.0 Guide:
 - Mode: CE, RO, AC, AE; dialektika: ACCE = AC − CE, AERO = AE − RO.
@@ -184,11 +184,8 @@ Partisi & retensi (opsional skala besar):
 
 ## 6) Selaras dengan KLSI 4.0 Guide (ringkas)
 
-- Formula mode, difference, balance, dan LFI identik dengan Guide; grid 3×3 memakai band kanonik (<6 / 6–14 / >14 dan <1 / 1–11 / >11) telah diterapkan di view/matview. Semua rumus terpusat di `psychometrics_spec.md` untuk mengurangi duplikasi; file ini hanya merujuk.
-- 9 gaya: Imagining/Experiencing/Initiating/Reflecting/Balancing/Acting/Analyzing/Thinking/Deciding tersedia di kamus gaya dan/atau dapat dipetakan dari band.
-- Percentile menggunakan tabel normatif resmi ketika tersedia; fallback hanya ketika baris tidak ada (ditandai jelas dalam hasil).
 
-
+ ORM: `backend/app/models/klsi.py`
 ## 7) Gap & Next Steps
 
 - Entitas “Team/TeamMember/TeamPerformance” dan studi reliabilitas/validitas disebut di dokumen konseptual, namun belum diimplementasikan pada ORM saat ini. Rekomendasi:
@@ -200,13 +197,11 @@ Partisi & retensi (opsional skala besar):
 
 ## 8) Referensi silang cepat
 
-- ORM: `app/models/klsi.py`
-- Migrasi: `migrations/versions/0001_initial.py`, `0002_materialized_class_stats.py`
-- Spesifikasi rumus & aturan: `docs/psychometrics_spec.md`
-- Tampilan dan agregasi: `v_style_grid`, `mv_class_style_stats`
+ ORM: `backend/app/models/klsi.py`
 
 
-Ringkasan: Arsitektur data memisahkan fakta granular ipsatif dari derivasi psikometrik (raw → difference → style/LFI → persentil) dengan integritas kuat melalui constraint, dukungan laporan via view/matview, serta kompatibel penuh dengan KLSI 4.0 Guide. Dokumentasi ini menjadi acuan tunggal untuk desain konseptual, skema logis, dan realisasi fisik sistem.
+ Dokumen ini menjabarkan model data end‑to‑end untuk sistem KLSI 4.0 berdasarkan seluruh dokumen di folder `docs/`, skema ORM (`backend/app/models/klsi.py`), serta migrasi database. Isi dan aturan psikometrik telah divalidasi selaras dengan The Kolb Learning Style Inventory 4.0 – Guide to Theory, Psychometrics, Research & Applications (khususnya Appendix 1 & 7) sebagaimana juga diringkas pada `docs/psychometrics_spec.md`.
+ Ringkasan: Arsitektur data memisahkan fakta granular ipsatif dari derivasi psikometrik (raw → difference → style/LFI → persentil) dengan integritas kuat melalui constraint, dukungan laporan via view/matview, serta kompatibel penuh dengan KLSI 4.0 Guide. Dokumentasi ini menjadi acuan tunggal untuk desain konseptual, skema logis, dan realisasi fisik sistem.
 
 ## 9) Harmonisasi & Anti-Duplikasi (Audit Singkat)
 Perubahan harmonisasi dilakukan:
