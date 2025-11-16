@@ -1,0 +1,37 @@
+import { useState, useEffect } from 'react';
+
+/**
+ * KLSI 4.0 - useLocalStorage Hook
+ * Custom hook untuk sync state dengan localStorage
+ */
+
+export function useLocalStorage<T>(
+  key: string,
+  initialValue: T
+): [T, (value: T | ((val: T) => T)) => void] {
+  // Get from localStorage atau use initialValue
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
+      return initialValue;
+    }
+  });
+
+  // Update localStorage saat storedValue berubah
+  const setValue = (value: T | ((val: T) => T)) => {
+    try {
+      const valueToStore =
+        value instanceof Function ? value(storedValue) : value;
+      
+      setStoredValue(valueToStore);
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+    } catch (error) {
+      console.error('Error writing to localStorage:', error);
+    }
+  };
+
+  return [storedValue, setValue];
+}

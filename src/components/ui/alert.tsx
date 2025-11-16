@@ -1,0 +1,94 @@
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority@0.7.1";
+import { AlertCircle, CheckCircle, AlertTriangle, Info } from "lucide-react@0.487.0";
+
+import { cn } from "./utils";
+
+const alertVariants = cva(
+  "relative w-full rounded-lg border px-4 py-3 text-sm grid has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] grid-cols-[0_1fr] has-[>svg]:gap-x-3 gap-y-0.5 items-start [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current",
+  {
+    variants: {
+      variant: {
+        default: "bg-card text-card-foreground border-border",
+        destructive:
+          "text-destructive bg-destructive/10 border-destructive/30 [&>svg]:text-destructive *:data-[slot=alert-description]:text-destructive/90",
+        warning:
+          "text-warning bg-warning/10 border-warning/30 [&>svg]:text-warning *:data-[slot=alert-description]:text-warning/90",
+        success:
+          "text-success bg-success/10 border-success/30 [&>svg]:text-success *:data-[slot=alert-description]:text-success/90",
+        info:
+          "text-primary bg-primary/10 border-primary/30 [&>svg]:text-primary *:data-[slot=alert-description]:text-primary/90",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
+
+// Icon mapping for semantic variants (Guidelines.md §3.4.3)
+const variantIcons = {
+  default: null,
+  destructive: AlertCircle,
+  warning: AlertTriangle,
+  success: CheckCircle,
+  info: Info,
+};
+
+interface AlertProps extends React.ComponentProps<"div">, VariantProps<typeof alertVariants> {
+  /** Show semantic icon automatically */
+  showIcon?: boolean;
+}
+
+function Alert({
+  className,
+  variant,
+  showIcon = true,
+  children,
+  ...props
+}: AlertProps) {
+  const Icon = variant && showIcon ? variantIcons[variant] : null;
+  
+  return (
+    <div
+      data-slot="alert"
+      role="alert"
+      className={cn(alertVariants({ variant }), className)}
+      {...props}
+    >
+      {Icon && <Icon className="size-4" />}
+      {children}
+    </div>
+  );
+}
+
+function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-title"
+      className={cn(
+        "col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function AlertDescription({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-description"
+      className={cn(
+        "text-muted-foreground col-start-2 grid justify-items-start gap-1 text-sm [&_p]:leading-relaxed",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export { Alert, AlertTitle, AlertDescription };
