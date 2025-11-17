@@ -23,7 +23,7 @@ from app.routers.research import router as research_router
 from app.routers.score import router as score_router
 from app.routers.teams import router as teams_router
 from app.routers.telemetry import router as telemetry_router
-from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
+from app.services.seeds import seed_assessment_items, seed_engine_authoring, seed_instruments, seed_learning_styles
 from app.engine.registry import engine_registry
 
 # Ensure instrument authoring manifest and plugins register on import
@@ -86,6 +86,7 @@ async def lifespan(app: FastAPI):
             seed_instruments(db)
             seed_learning_styles(db)
             seed_assessment_items(db)
+            seed_engine_authoring(db)
     if settings.i18n_preload_enabled:
         logger.info("startup_preload_i18n", extra={"structured_data": {"i18n_preload_enabled": True}})
         stats = preload_i18n_resources()

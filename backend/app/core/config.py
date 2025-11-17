@@ -76,6 +76,11 @@ class Settings(BaseSettings):
         description="Automatically run engine registry plugin discovery during startup",
     )
 
+    engine_authoring_items_enabled: bool = Field(
+        default=False,
+        description="Serve KLSI items from engine authoring tables when enabled",
+    )
+
     debug_instrumentation_enabled: bool = Field(
         default=True,
         description="Enable expensive timing/counter instrumentation (@measure_time, @count_calls)",

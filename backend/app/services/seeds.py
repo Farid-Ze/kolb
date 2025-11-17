@@ -1,8 +1,20 @@
-from sqlalchemy.orm import Session
-
+import json
 from datetime import datetime, timezone
+from sqlalchemy.orm import Session, joinedload
 
 from app.assessments.klsi_v4 import load_config
+from app.models.engine import (
+    EngineInstrument,
+    EngineForm,
+    EnginePage,
+    EngineItem,
+    EngineItemOption,
+    EngineItemType,
+    EngineScale,
+    EngineScoringRule,
+    InstrumentStatus,
+    RuleType,
+)
 from app.models.klsi.enums import ItemType, LearningMode
 from app.models.klsi.instrument import Instrument, InstrumentScale, ScoringPipeline, ScoringPipelineNode
 from app.models.klsi.items import AssessmentItem, ItemChoice
@@ -23,6 +35,40 @@ def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
 
 STYLE_WINDOWS = _style_windows_from_config()
 
+
+def _authoring_catalog_current(instrument: EngineInstrument, expected_items: int) -> bool:
+    """Return True when existing engine catalog mirrors legacy definition."""
+
+    forms = instrument.forms or []
+    if not forms:
+        return False
+
+    item_count = 0
+    for form in forms:
+        for page in form.pages or []:
+            for item in page.items or []:
+                item_count += 1
+                metadata = item.metadata_payload or {}
+                if not isinstance(metadata.get("legacy_item_id"), int):
+                    return False
+                if len(item.options or []) != 4:
+                    return False
+                for option in item.options or []:
+                    option_meta = option.metadata_payload or {}
+                    if not isinstance(option_meta.get("legacy_choice_id"), int):
+                        return False
+
+    if item_count != expected_items:
+        return False
+
+    if len(instrument.scales or []) != len(SCALE_DEFS):
+        return False
+
+    if len(instrument.rules or []) != len(AUTHORING_RULE_DEFS):
+        return False
+
+    return True
+
 STYLE_DEFS = [
     ("Initiating", "INIT"),
     ("Experiencing", "EXPR"),
@@ -33,6 +79,93 @@ STYLE_DEFS = [
     ("Deciding", "DECI"),
     ("Acting", "ACTN"),
     ("Balancing", "BALN"),
+]
+
+
+ITEM_STEMS = [
+    "Saya belajar paling baik saat mengalami langsung.",
+    "Saya memahami ide dengan mengamati refleksi.",
+    "Saya menganalisis konsep melalui logika.",
+    "Saya menguji ide dengan bertindak.",
+    "Saya fokus pada perasaan ketika memulai belajar.",
+    "Saya menelaah dari berbagai sudut pandang.",
+    "Saya menyusun model konseptual untuk memahami.",
+    "Saya mencoba menerapkan ide secara praktis.",
+    "Saya menggali pengalaman orang lain.",
+    "Saya mencatat pola dan hubungan.",
+    "Saya menghubungkan teori dengan praktik.",
+    "Saya belajar dengan melakukan eksperimen singkat.",
+]
+
+
+CHOICE_TEXT = {
+    LearningMode.CE: "Saya mengandalkan perasaan saya",
+    LearningMode.RO: "Saya mengamati dengan cermat",
+    LearningMode.AC: "Saya berpikir tentang gagasan",
+    LearningMode.AE: "Saya mencoba melakukannya",
+}
+
+
+SCALE_DEFS = [
+    ("CE", "Concrete Experience", 1),
+    ("RO", "Reflective Observation", 2),
+    ("AC", "Abstract Conceptualization", 3),
+    ("AE", "Active Experimentation", 4),
+    ("ACCE", "AC - CE Dialectic", 5),
+    ("AERO", "AE - RO Dialectic", 6),
+    ("LFI", "Learning Flexibility Index", 7),
+]
+
+
+AUTHORING_RULE_DEFS = [
+    {
+        "code": "RAW_SUM_CE",
+        "type": RuleType.sum,
+        "target": "CE",
+        "position": 1,
+        "expression": {"inputs": ["CE_raw"]},
+        "config": {"source": "forced_choice"},
+    },
+    {
+        "code": "RAW_SUM_RO",
+        "type": RuleType.sum,
+        "target": "RO",
+        "position": 2,
+        "expression": {"inputs": ["RO_raw"]},
+        "config": {"source": "forced_choice"},
+    },
+    {
+        "code": "RAW_SUM_AC",
+        "type": RuleType.sum,
+        "target": "AC",
+        "position": 3,
+        "expression": {"inputs": ["AC_raw"]},
+        "config": {"source": "forced_choice"},
+    },
+    {
+        "code": "RAW_SUM_AE",
+        "type": RuleType.sum,
+        "target": "AE",
+        "position": 4,
+        "expression": {"inputs": ["AE_raw"]},
+        "config": {"source": "forced_choice"},
+    },
+    {
+        "code": "DIFF_ACCE",
+        "type": RuleType.diff,
+        "target": "ACCE",
+        "position": 5,
+        "expression": {"minuend": "AC", "subtrahend": "CE"},
+        "config": {"source": "dialectic"},
+    },
+    {
+        "code": "DIFF_AERO",
+        "type": RuleType.diff,
+        "target": "AERO",
+        "position": 6,
+        "expression": {"minuend": "AE", "subtrahend": "RO"},
+        "config": {"source": "dialectic"},
+    },
 ]
 
 
@@ -53,16 +186,7 @@ def seed_instruments(db: Session) -> None:
     db.add(instrument)
     db.flush()
 
-    scale_defs = [
-        ("CE", "Concrete Experience", 1),
-        ("RO", "Reflective Observation", 2),
-        ("AC", "Abstract Conceptualization", 3),
-        ("AE", "Active Experimentation", 4),
-        ("ACCE", "AC - CE Dialectic", 5),
-        ("AERO", "AE - RO Dialectic", 6),
-        ("LFI", "Learning Flexibility Index", 7),
-    ]
-    for code, name, order in scale_defs:
+    for code, name, order in SCALE_DEFS:
         db.add(
             InstrumentScale(
                 instrument_id=instrument.id,
@@ -199,19 +323,134 @@ def seed_assessment_items(db: Session):
     AC (Abstract Conceptualization), and AE (Active Experimentation).
     """
     if db.query(AssessmentItem).count() == 0:
-        # 12 learning style items from KLSI 4.0 academic publication
-        for i in range(1, 13):
+        for idx, stem in enumerate(ITEM_STEMS, start=1):
             item = AssessmentItem(
-                item_number=i, 
-                item_type=ItemType.learning_style, 
-                item_stem=f"Ketika saya belajar: (Item {i})", 
-                language="ID"
+                item_number=idx,
+                item_type=ItemType.learning_style,
+                item_stem=stem,
+                language="ID",
             )
             db.add(item)
             db.flush()
-            db.add_all([
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.CE, choice_text="Saya mengandalkan perasaan saya"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.RO, choice_text="Saya mengamati dengan cermat"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.AC, choice_text="Saya berpikir tentang gagasan"),
-                ItemChoice(item_id=item.id, learning_mode=LearningMode.AE, choice_text="Saya mencoba melakukannya")
-            ])
+            for mode in (LearningMode.CE, LearningMode.RO, LearningMode.AC, LearningMode.AE):
+                db.add(
+                    ItemChoice(
+                        item_id=item.id,
+                        learning_mode=mode,
+                        choice_text=CHOICE_TEXT[mode],
+                    )
+                )
+            db.flush()
+
+
+def seed_engine_authoring(db: Session) -> None:
+    """Mirror legacy KLSI catalog into engine authoring tables."""
+
+    legacy_items = (
+        db.query(AssessmentItem)
+        .options(joinedload(AssessmentItem.choices))
+        .order_by(AssessmentItem.item_number.asc())
+        .all()
+    )
+    if not legacy_items:
+        return
+
+    existing = (
+        db.query(EngineInstrument)
+        .filter(EngineInstrument.code == "KLSI", EngineInstrument.version == "4.0")
+        .options(
+            joinedload(EngineInstrument.forms)
+            .joinedload(EngineForm.pages)
+            .joinedload(EnginePage.items)
+            .joinedload(EngineItem.options),
+            joinedload(EngineInstrument.scales),
+            joinedload(EngineInstrument.rules),
+        )
+        .first()
+    )
+
+    expected_item_count = len(legacy_items)
+    if existing and _authoring_catalog_current(existing, expected_item_count):
+        return
+    if existing:
+        db.delete(existing)
+        db.flush()
+
+    instrument = EngineInstrument(
+        code="KLSI",
+        version="4.0",
+        name="KLSI 4.0",
+        status=InstrumentStatus.active,
+        description="KLSI 4.0 forced-choice instrument seeded from legacy tables",
+    )
+    db.add(instrument)
+    db.flush()
+
+    form = EngineForm(
+        instrument_id=instrument.id,
+        form_code="learning_style",
+        title="Learning Style Items",
+        ordering=1,
+    )
+    db.add(form)
+    db.flush()
+
+    page = EnginePage(
+        form_id=form.id,
+        page_code="learning_style_page",
+        title="Forced Choice",
+        page_order=1,
+    )
+    db.add(page)
+    db.flush()
+
+    for legacy_item in legacy_items:
+        eng_item = EngineItem(
+            page_id=page.id,
+            item_code=f"LS_{legacy_item.item_number:02d}",
+            item_type=EngineItemType.forced_choice,
+            stem=legacy_item.item_stem,
+            sequence_order=legacy_item.item_number,
+            metadata_payload={
+                "legacy_item_id": legacy_item.id,
+                "legacy_item_number": legacy_item.item_number,
+            },
+        )
+        db.add(eng_item)
+        db.flush()
+
+        for choice in sorted(legacy_item.choices, key=lambda c: c.learning_mode.value):
+            db.add(
+                EngineItemOption(
+                    item_id=eng_item.id,
+                    option_code=f"{choice.learning_mode.value}_{legacy_item.item_number:02d}",
+                    option_text=choice.choice_text,
+                    learning_mode=choice.learning_mode.value,
+                    value=choice.learning_mode.value,
+                    metadata_payload={"legacy_choice_id": choice.id},
+                )
+            )
+
+    for code, name, order in SCALE_DEFS:
+        db.add(
+            EngineScale(
+                instrument_id=instrument.id,
+                scale_code=code,
+                name=name,
+                ordering=order,
+            )
+        )
+
+    for definition in AUTHORING_RULE_DEFS:
+        expression_payload = json.dumps(definition["expression"], separators=(",", ":"))
+        db.add(
+            EngineScoringRule(
+                instrument_id=instrument.id,
+                rule_code=definition["code"],
+                rule_type=definition["type"],
+                target=definition["target"],
+                position=definition["position"],
+                expression=expression_payload,
+                config=dict(definition["config"]),
+            )
+        )

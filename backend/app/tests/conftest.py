@@ -7,7 +7,12 @@ from app.db.database import Base, SessionLocal, engine
 from app.main import app
 from app.models import klsi as _  # ensure legacy models load before schema sync
 from app.models import engine as _engine  # register new engine authoring models
-from app.services.seeds import seed_learning_styles, seed_assessment_items, seed_instruments
+from app.services.seeds import (
+    seed_learning_styles,
+    seed_assessment_items,
+    seed_instruments,
+    seed_engine_authoring,
+)
 
 
 @pytest.fixture(scope="session")
@@ -25,6 +30,7 @@ def db_setup():
         seed_instruments(db)
         seed_learning_styles(db)
         seed_assessment_items(db)
+        seed_engine_authoring(db)
         db.commit()
     yield
 

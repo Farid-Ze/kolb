@@ -4,7 +4,7 @@
 
 ## A. Engine Runtime & Finalization
 
-- [ ] **Finalize: strategi vs deklaratif – dead branch & kontrol alur**  
+- [x] **Finalize: strategi vs deklaratif – dead branch & kontrol alur**  
   `engine/finalize.py::finalize_assessment` memiliki dua jalur: (1) jalur `strategy` (pipeline declarative + `strategy.finalize`), (2) jalur fallback berbasis `assessment.steps`. Perlu audit menyeluruh bahwa kedua jalur ini tidak menghasilkan perbedaan perilaku yang tidak diinginkan (khususnya untuk KLSI 4.0) dan bahwa boundary dengan `EngineRuntime.finalize_with_audit` konsisten. Tambahan boundary tests untuk parity antara jalur strategi dan jalur langkah manual.
 
 - [x] **Finalize: penanganan `issues` saat ada validation rules**  
@@ -43,16 +43,16 @@
 
 ## C. DB Engine, Session, dan Repository Scope
 
-- [ ] **DatabaseGateway: konfigurasi pool untuk Postgres – monitoring**  
+- [x] **DatabaseGateway: konfigurasi pool untuk Postgres – monitoring**  
   `_build_engine()` mengatur `QueuePool` dengan `db_pool_size`, `db_max_overflow`, `db_pool_timeout`, `db_pool_recycle`, dan `db_pool_pre_ping`. Tambahkan diagnostics/metrics (atau log sekali di startup) yang menyimpan snapshot `ENGINE_CONFIG_SNAPSHOT` ke log sehingga konfigurasi koneksi dapat diaudit dari luar tanpa introspeksi kode.
 
-- [ ] **DatabaseGateway: `hyperatomic_session` contract enforcement**  
+- [x] **DatabaseGateway: `hyperatomic_session` contract enforcement**  
   `hyperatomic_session` adalah transactional scope ketat dengan `flush_before_commit=True`. Perlu memastikan tidak ada kode yang memanggil `session.commit()` secara manual di dalam scope ini (di luar lapisan DB). Tambah greps/tests atau lint rule sederhana untuk mencegah commit manual di luar helper-lapisan DB.
 
-- [ ] **Norm session & main session separation**  
+- [x] **Norm session & main session separation**  
   `norm_session_scope` menggunakan `SessionLocal()` terpisah dari `database_gateway.session()`. Perlu audit bahwa session untuk norm lookup tidak pernah digunakan untuk menulis entitas lain (hanya read-only) agar tidak ada write yang lolos di luar transaksi utama.
 
-- [ ] **RepositoryProvider vs direct Session usage**  
+- [x] **RepositoryProvider vs direct Session usage**  
   Di `engine`, `services`, dan `routers`, pastikan akses ke DB hanya dilakukan via `RepositoryProvider` atau helper session official (`get_db`, `get_session`, `transactional_session`, `hyperatomic_session`, `norm_session_scope`). Tambahkan tests atau static check untuk mendeteksi pola `Session(...)` atau `session.query()` yang bocor ke layer yang tidak semestinya.
 
 - [x] **EngineSessionService: mixing Repository dan direct ORM**  
@@ -69,7 +69,7 @@
 - [x] **Norm provenance: konsistensi antara model dan payload**  
   `PercentileScore` menyimpan `norm_provenance`, `truncated_scales`, `raw_outside_norm_range`, `used_fallback_any` di DB, sementara payload percentiles di `finalize_assessment` memetakan kembali ke struktur dict. Pastikan bahwa setiap perubahan schema/provenance di DB punya test yang menjamin payload tetap sinkron.
 
-- [ ] **ExternalNormProvider: TTL cache & background fetch safety**  
+- [x] **ExternalNormProvider: TTL cache & background fetch safety**  
   `engine/norms/composite.ExternalNormProvider` mengelola TTL cache dan background fetch dengan thread terpisah. Tambahkan tests yang memverifikasi: (1) key cache selalu memakai `int(raw)`, (2) TTL dan ukuran cache (`external_norms_ttl_sec`, `external_norms_cache_size`) dihormati, (3) thread background tidak melempar exception yang bocor ke caller, dan (4) statistik `cache_stats()` konsisten dengan penghitungan internal.
 
 ## E. KLSI 4.0 Logic & Style Assignment
@@ -103,13 +103,13 @@
 
 ## G. Tests, Observability, dan Tooling
 
-- [ ] **Tambah smoke test untuk `get_engine_config_snapshot()`**  
+- [x] **Tambah smoke test untuk `get_engine_config_snapshot()`**  
   Pastikan helper ini dipanggil setidaknya sekali di tests untuk memverifikasi struktur snapshot dan menjaga agar future refaktor tidak memecahkan observability.
 
 - [x] **Tambahan tests untuk `repository_scope()` dan `hyperatomic_session()`**  
   `test_database_session_helper` sudah menguji `get_session`. Tambahkan tests serupa untuk `repository_scope()` dan `hyperatomic_session()` (termasuk kasus exception di dalam blok) agar kontrak rollback/commit teruji dengan baik.
 
-- [ ] **Static checks/grep guard untuk pelanggaran arsitektur**  
+- [x] **Static checks/grep guard untuk pelanggaran arsitektur**  
   Pertimbangkan menambah check sederhana (mis. script pytest/CI ringan) yang memastikan:
   - Tidak ada `from sqlalchemy.orm import Session` di `routers/`,
   - Tidak ada akses langsung ke model di `routers/` tanpa melalui `services`.

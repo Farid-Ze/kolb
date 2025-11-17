@@ -8,6 +8,7 @@ This test validates:
 4. Mixed-provenance and near-boundary diagnostics work correctly
 """
 
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable, cast
 
 from sqlalchemy.orm import Session
@@ -224,3 +225,103 @@ def test_balance_score_formula_documented():
             "Spec should document BAL_ACCE formula"
         assert "BAL" in content and "AERO" in content, \
             "Spec should document BAL_AERO formula"
+
+
+def test_hyperatomic_session_usage_confined_to_db_layer():
+    """Ensure hyperatomic_session is only referenced in DB layer and dedicated tests.
+
+    This prevents services/routers from circumventing repository_scope guarantees.
+    """
+
+    repo_root = Path(__file__).resolve().parents[3]
+    allowed_paths = {
+        repo_root / "backend" / "app" / "db" / "database.py",
+        repo_root / "backend" / "app" / "tests" / "test_database_session_helper.py",
+        Path(__file__).resolve(),
+    }
+
+    disallowed: list[Path] = []
+    app_root = repo_root / "backend" / "app"
+    for py_file in app_root.rglob("*.py"):
+        if py_file in allowed_paths:
+            continue
+        text = py_file.read_text(encoding="utf-8")
+        if "hyperatomic_session" in text:
+            disallowed.append(py_file.relative_to(repo_root))
+
+    assert not disallowed, (
+        "hyperatomic_session should remain confined to database helper layer; "
+        f"found references in: {', '.join(str(path) for path in disallowed)}"
+    )
+
+
+def test_router_modules_do_not_newly_import_sqlalchemy_session():
+    """Routers should avoid direct Session imports; legacy offenders are allowlisted."""
+
+    repo_root = Path(__file__).resolve().parents[3]
+    routers_dir = repo_root / "backend" / "app" / "routers"
+    legacy_allowlist = {
+        Path("backend/app/routers/admin.py"),
+        Path("backend/app/routers/auth.py"),
+        Path("backend/app/routers/engine.py"),
+        Path("backend/app/routers/reports.py"),
+        Path("backend/app/routers/research.py"),
+        Path("backend/app/routers/sessions.py"),
+        Path("backend/app/routers/teams.py"),
+    }
+
+    found_files: set[Path] = set()
+    violations: list[Path] = []
+    for router_file in routers_dir.rglob("*.py"):
+        rel = router_file.relative_to(repo_root)
+        text = router_file.read_text(encoding="utf-8")
+        if "from sqlalchemy.orm import Session" in text:
+            found_files.add(rel)
+            if rel not in legacy_allowlist:
+                violations.append(rel)
+
+    assert not violations, (
+        "New router modules must not import Session directly; offending files: "
+        f"{', '.join(str(path) for path in violations)}"
+    )
+
+    unexpected_allowlisted = legacy_allowlist - found_files
+    assert not unexpected_allowlisted, (
+        "Allowlist should stay in sync; remove entries for cleaned routers: "
+        f"{', '.join(str(path) for path in unexpected_allowlisted)}"
+    )
+
+
+def test_router_modules_avoid_direct_model_imports():
+    """Routers should depend on services rather than importing ORM models directly."""
+
+    repo_root = Path(__file__).resolve().parents[3]
+    routers_dir = repo_root / "backend" / "app" / "routers"
+    legacy_allowlist = {
+        Path("backend/app/routers/admin.py"),
+        Path("backend/app/routers/reports.py"),
+        Path("backend/app/routers/research.py"),
+        Path("backend/app/routers/sessions.py"),
+        Path("backend/app/routers/teams.py"),
+    }
+
+    found_files: set[Path] = set()
+    violations: list[Path] = []
+    for router_file in routers_dir.rglob("*.py"):
+        rel = router_file.relative_to(repo_root)
+        text = router_file.read_text(encoding="utf-8")
+        if "from app.models" in text or "import app.models" in text:
+            found_files.add(rel)
+            if rel not in legacy_allowlist:
+                violations.append(rel)
+
+    assert not violations, (
+        "Routers must not import ORM models directly; offending files: "
+        f"{', '.join(str(path) for path in violations)}"
+    )
+
+    unexpected_allowlisted = legacy_allowlist - found_files
+    assert not unexpected_allowlisted, (
+        "Router model-import allowlist stale; remove cleaned entries: "
+        f"{', '.join(str(path) for path in unexpected_allowlisted)}"
+    )

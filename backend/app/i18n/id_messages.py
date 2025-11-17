@@ -203,6 +203,9 @@ class KLSI4Messages:
     BOOLEAN_NOT_ALLOWED: str = "Nilai boolean tidak diperbolehkan"
     FLOAT_MUST_BE_INTEGER: str = "Nilai float harus ekuivalen dengan bilangan bulat"
     INTEGER_COMPATIBLE_REQUIRED: str = "Nilai harus berupa tipe numerik yang dapat dikonversi ke integer"
+    AUTHORING_INSTRUMENT_MISSING: str = "Instrumen authoring KLSI belum disiapkan"
+    AUTHORING_METADATA_MISSING: str = "Metadata legacy untuk item authoring tidak ditemukan"
+    AUTHORING_OPTION_METADATA_MISSING: str = "Metadata legacy untuk opsi authoring tidak ditemukan"
 
 
 class ReportMessages:

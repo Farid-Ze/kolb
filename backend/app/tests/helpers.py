@@ -11,7 +11,12 @@ from app.models.klsi.instrument import Instrument
 from app.models.klsi.items import AssessmentItem, UserResponse
 from app.models.klsi.learning import LFIContextScore
 from app.models.klsi.user import User
-from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
+from app.services.seeds import (
+    seed_assessment_items,
+    seed_engine_authoring,
+    seed_instruments,
+    seed_learning_styles,
+)
 
 
 def build_seeded_memory_db():
@@ -22,6 +27,7 @@ def build_seeded_memory_db():
     seed_instruments(db)
     seed_learning_styles(db)
     seed_assessment_items(db)
+    seed_engine_authoring(db)
     return db
 
 

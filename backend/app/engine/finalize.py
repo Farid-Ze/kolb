@@ -65,6 +65,33 @@ def _build_balance_snapshot(combo) -> dict | None:
     }
 
 
+def _build_percentiles_context(percentiles, combo_entity):
+    snapshot = {
+        "CE": percentiles.CE_percentile,
+        "RO": percentiles.RO_percentile,
+        "AC": percentiles.AC_percentile,
+        "AE": percentiles.AE_percentile,
+        "ACCE": percentiles.ACCE_percentile,
+        "AERO": percentiles.AERO_percentile,
+        "sources": percentiles.norm_provenance,
+        "truncated": percentiles.truncated_scales,
+        "raw_outside_norm_range": percentiles.raw_outside_norm_range,
+        "used_fallback_any": percentiles.used_fallback_any,
+        "norm_group_used": percentiles.norm_group_used,
+        "per_scale_sources": {
+            "CE": percentiles.CE_source,
+            "RO": percentiles.RO_source,
+            "AC": percentiles.AC_source,
+            "AE": percentiles.AE_source,
+            "ACCE": percentiles.ACCE_source,
+            "AERO": percentiles.AERO_source,
+        },
+        "balance": _build_balance_snapshot(combo_entity),
+        "entity": percentiles,
+    }
+    return snapshot
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
 
@@ -293,29 +320,7 @@ def finalize_assessment(
                 key: value for key, value in ctx["lfi"].items() if key != "entity"
             }
 
-            ctx["percentiles"] = {
-                "CE": percentiles.CE_percentile,
-                "RO": percentiles.RO_percentile,
-                "AC": percentiles.AC_percentile,
-                "AE": percentiles.AE_percentile,
-                "ACCE": percentiles.ACCE_percentile,
-                "AERO": percentiles.AERO_percentile,
-                "sources": percentiles.norm_provenance,
-                "truncated": percentiles.truncated_scales,
-                "raw_outside_norm_range": percentiles.raw_outside_norm_range,
-                "used_fallback_any": percentiles.used_fallback_any,
-                "norm_group_used": percentiles.norm_group_used,
-                "per_scale_sources": {
-                    "CE": percentiles.CE_source,
-                    "RO": percentiles.RO_source,
-                    "AC": percentiles.AC_source,
-                    "AE": percentiles.AE_source,
-                    "ACCE": percentiles.ACCE_source,
-                    "AERO": percentiles.AERO_source,
-                },
-                "balance": _build_balance_snapshot(combo),
-                "entity": percentiles,
-            }
+            ctx["percentiles"] = _build_percentiles_context(percentiles, combo)
             artifact_snapshots["percentiles"] = {
                 key: value for key, value in ctx["percentiles"].items() if key != "entity"
             }
@@ -347,6 +352,19 @@ def finalize_assessment(
                         if key not in {"entity", "intensity_metrics"}
                     }
             session.strategy_code = None
+            if "percentiles" in ctx:
+                pct_entity = ctx["percentiles"].get("entity") if isinstance(ctx["percentiles"], dict) else None
+                combo_entity = None
+                combination_ctx = ctx.get("combination")
+                if isinstance(combination_ctx, dict):
+                    combo_entity = combination_ctx.get("entity")
+                if pct_entity is not None:
+                    ctx["percentiles"] = _build_percentiles_context(pct_entity, combo_entity)
+                    artifact_snapshots["percentiles"] = {
+                        key: value
+                        for key, value in ctx["percentiles"].items()
+                        if key != "entity"
+                    }
             db.flush()
 
         # Canonical audit hash (sorted keys + salt for tamper resistance)

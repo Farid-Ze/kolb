@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
@@ -163,6 +164,78 @@ def test_finalize_falls_back_to_definition_steps_when_strategy_missing():
             assessment_registry._registry[alt_key] = original_definition
         else:
             assessment_registry._registry.pop(alt_key, None)
+        db.close()
+
+
+def test_finalize_artifacts_match_between_strategy_and_manual_paths():
+    db = build_seeded_memory_db()
+    original_strategy = strategy_registry._STRATEGIES.get("KLSI4.0")
+    try:
+        session_strategy = seed_complete_session(db)
+        result_strategy = finalize_session(db, session_strategy.id)
+        assert result_strategy["ok"] is True
+        session_strategy.user.email = "strategy-user@example.com"
+        db.flush()
+
+        strategy_registry._STRATEGIES.pop("KLSI4.0", None)
+        session_manual = seed_complete_session(db)
+        result_manual = finalize_session(db, session_manual.id)
+        assert result_manual["ok"] is True
+
+        assert result_manual["artifacts"] == result_strategy["artifacts"]
+        keys = ("norm_group_used", "raw_outside_norm_range", "truncated_scales", "used_fallback_any")
+        manual_prov = result_manual["validation"].get("provenance", {})
+        strategy_prov = result_strategy["validation"].get("provenance", {})
+        for key in keys:
+            assert manual_prov.get(key) == strategy_prov.get(key)
+    finally:
+        if original_strategy is not None:
+            strategy_registry._STRATEGIES["KLSI4.0"] = original_strategy
+        else:
+            strategy_registry._STRATEGIES.pop("KLSI4.0", None)
+        db.close()
+
+
+def test_engine_runtime_finalize_with_audit_matches_manual_path_artifacts():
+    db = build_seeded_memory_db()
+    runtime = EngineRuntime(components_enabled=False)
+    original_strategy = strategy_registry._STRATEGIES.get("KLSI4.0")
+    captured_payloads: list[dict[str, Any]] = []
+    try:
+        session_strategy = seed_complete_session(db)
+        strategy_result = finalize_session(db, session_strategy.id)
+        assert strategy_result["ok"] is True
+        session_strategy.user.email = "runtime-strategy@example.com"
+        db.flush()
+
+        strategy_registry._STRATEGIES.pop("KLSI4.0", None)
+        session_manual = seed_complete_session(db)
+
+        def _build_payload(payload_dict: dict[str, Any]) -> bytes:
+            captured_payloads.append(payload_dict)
+            return json.dumps(payload_dict, default=str).encode("utf-8")
+
+        runtime_result = runtime.finalize_with_audit(
+            db,
+            session_manual.id,
+            actor_email="mediator@example.com",
+            action="FINALIZE",
+            build_payload=_build_payload,
+        )
+
+        assert runtime_result["ok"] is True
+        assert captured_payloads
+        assert runtime_result["artifacts"] == strategy_result["artifacts"]
+        assert runtime_result["validation"]["structural"] == strategy_result["validation"]["structural"]
+        runtime_prov = runtime_result["validation"].get("provenance", {})
+        strategy_prov = strategy_result["validation"].get("provenance", {})
+        for key in ("norm_group_used", "raw_outside_norm_range", "truncated_scales", "used_fallback_any"):
+            assert runtime_prov.get(key) == strategy_prov.get(key)
+    finally:
+        if original_strategy is not None:
+            strategy_registry._STRATEGIES["KLSI4.0"] = original_strategy
+        else:
+            strategy_registry._STRATEGIES.pop("KLSI4.0", None)
         db.close()
 
 

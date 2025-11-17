@@ -3,6 +3,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from types import SimpleNamespace
 
+import pytest
+
 from sqlalchemy import text
 
 from app.db import database as database_module
@@ -35,11 +37,21 @@ def test_get_session_closes_context(monkeypatch):
 def test_hyperatomic_session_flushes_before_commit(monkeypatch):
     trace: list[str] = []
 
+    session_obj = SimpleNamespace(
+        flush=lambda: trace.append("flush"),
+        commit=lambda: trace.append("commit"),
+    )
+
     @contextmanager
     def fake_transactional(*, flush_before_commit: bool = False):
         trace.append(f"enter:{flush_before_commit}")
-        yield SimpleNamespace(flush=lambda: trace.append("flush"), commit=lambda: trace.append("commit"))
-        trace.append("exit")
+        try:
+            yield session_obj
+        finally:
+            if flush_before_commit:
+                session_obj.flush()
+            session_obj.commit()
+            trace.append("exit")
 
     monkeypatch.setattr(database_module, "database_gateway", SimpleNamespace(transactional=fake_transactional))
 
@@ -47,6 +59,22 @@ def test_hyperatomic_session_flushes_before_commit(monkeypatch):
         assert session is not None
 
     assert trace == ["enter:True", "flush", "commit", "exit"]
+
+
+def test_hyperatomic_session_blocks_manual_commit(monkeypatch):
+    base_session = SimpleNamespace(flush=lambda: None, commit=lambda: None, rollback=lambda: None)
+
+    @contextmanager
+    def fake_transactional(*, flush_before_commit: bool = False):
+        yield base_session
+
+    monkeypatch.setattr(database_module, "database_gateway", SimpleNamespace(transactional=fake_transactional))
+
+    with hyperatomic_session() as session:
+        with pytest.raises(RuntimeError):
+            session.commit()
+        with pytest.raises(RuntimeError):
+            session.rollback()
 
 
 def test_repository_scope_uses_hyperatomic_session(monkeypatch):

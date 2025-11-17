@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from time import perf_counter
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING, Iterator, Iterable
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import make_url, URL
@@ -119,6 +119,38 @@ class DatabaseGateway:
 ENGINE_CONFIG_SNAPSHOT: dict[str, object] = {}
 
 
+class _SessionGuard:
+    __slots__ = ("_session", "_scope", "_blocked")
+
+    def __init__(self, session: Session, *, scope: str, blocked_methods: Iterable[str]) -> None:
+        object.__setattr__(self, "_session", session)
+        object.__setattr__(self, "_scope", scope)
+        object.__setattr__(self, "_blocked", frozenset(blocked_methods))
+
+    def __getattr__(self, name: str):
+        session = object.__getattribute__(self, "_session")
+        blocked = object.__getattribute__(self, "_blocked")
+        attr = getattr(session, name)
+        if name in blocked:
+            scope = object.__getattribute__(self, "_scope")
+
+            def _blocked(*_args, **_kwargs):
+                raise RuntimeError(f"{scope} prohibits calling {name}() inside its scope")
+
+            return _blocked
+        return attr
+
+    def __setattr__(self, name: str, value) -> None:  # pragma: no cover - simple passthrough
+        setattr(object.__getattribute__(self, "_session"), name, value)
+
+
+def _guard_session(session: Session, *, scope: str, blocked_methods: Iterable[str]) -> Session:
+    blocked = tuple(blocked_methods)
+    if not blocked:
+        return session
+    return _SessionGuard(session, scope=scope, blocked_methods=blocked)  # type: ignore[return-value]
+
+
 def _build_engine() -> Engine:
     url: URL = make_url(settings.database_url)
     kwargs: dict[str, object] = {
@@ -164,10 +196,11 @@ def _build_engine() -> Engine:
 
 def _set_engine_snapshot(engine_instance: Engine, kwargs: dict[str, object]) -> None:
     global ENGINE_CONFIG_SNAPSHOT
+    connect_args = kwargs.get("connect_args")
     snapshot = {
         "url": str(engine_instance.url),
         "poolclass": getattr(kwargs.get("poolclass"), "__name__", engine_instance.pool.__class__.__name__),
-        "connect_args": dict(kwargs.get("connect_args", {})),
+        "connect_args": dict(connect_args) if isinstance(connect_args, dict) else {},
         "pool_size": kwargs.get("pool_size"),
         "max_overflow": kwargs.get("max_overflow"),
         "pool_timeout": kwargs.get("pool_timeout"),
@@ -175,6 +208,7 @@ def _set_engine_snapshot(engine_instance: Engine, kwargs: dict[str, object]) -> 
         "pool_pre_ping": kwargs.get("pool_pre_ping"),
     }
     ENGINE_CONFIG_SNAPSHOT = snapshot
+    logger.info("db_engine_config_snapshot", extra={"structured_data": snapshot})
 
 
 engine: Engine = _build_engine()
@@ -208,7 +242,7 @@ def hyperatomic_session() -> Iterator[Session]:
     """Stricter transactional scope that prevents nested commits by callers."""
 
     with database_gateway.transactional(flush_before_commit=True) as session:
-        yield session
+        yield _guard_session(session, scope="hyperatomic_session", blocked_methods=("commit", "rollback"))
 
 
 @contextmanager
@@ -216,10 +250,25 @@ def norm_session_scope() -> Iterator[Session]:
     """Dedicated pooled session scope for norm-heavy workloads with metrics."""
 
     session: Session = SessionLocal()
+    guarded = _guard_session(
+        session,
+        scope="norm_session_scope",
+        blocked_methods=(
+            "add",
+            "add_all",
+            "delete",
+            "merge",
+            "flush",
+            "commit",
+            "bulk_save_objects",
+            "bulk_update_mappings",
+            "bulk_insert_mappings",
+        ),
+    )
     started = perf_counter()
     inc_counter("db.norm_session.opens")
     try:
-        yield session
+        yield guarded
     finally:
         elapsed_ms = (perf_counter() - started) * 1000.0
         metrics_registry.record("db.norm_session.duration", elapsed_ms)

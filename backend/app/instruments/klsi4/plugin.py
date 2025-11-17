@@ -5,6 +5,7 @@ from typing import Dict, List, Sequence
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.config import settings
 from app.engine.interfaces import (
     DeliveryConfig,
     EngineNormProvider,
@@ -15,7 +16,16 @@ from app.engine.interfaces import (
     ItemDTO,
 )
 from app.engine.registry import engine_registry
+from app.models.engine import (
+    EngineForm,
+    EngineInstrument,
+    EngineItem,
+    EngineItemOption,
+    EngineItemType,
+    EnginePage,
+)
 from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import ItemType
 from app.models.klsi.items import AssessmentItem, ItemChoice, UserResponse
 from app.models.klsi.learning import LFIContextScore
 from app.models.klsi.norms import PercentileScore
@@ -61,32 +71,9 @@ class KLSI4Plugin(
 
     def fetch_items(self, db: Session, session_id: int) -> Sequence[ItemDTO]:
         self._ensure_session(db, session_id)
-        items = (
-            db.query(AssessmentItem)
-            .order_by(AssessmentItem.item_number.asc())
-            .options(joinedload(AssessmentItem.choices))
-            .all()
-        )
-        result: List[ItemDTO] = []
-        for item in items:
-            options = [
-                {
-                    "id": choice.id,
-                    "learning_mode": choice.learning_mode.value,
-                    "text": choice.choice_text,
-                }
-                for choice in item.choices
-            ]
-            result.append(
-                ItemDTO(
-                    id=item.id,
-                    number=item.item_number,
-                    type=item.item_type.value,
-                    stem=item.item_stem,
-                    options=options,
-                )
-            )
-        return result
+        if settings.engine_authoring_items_enabled:
+            return self._fetch_items_from_authoring(db)
+        return self._fetch_items_from_legacy(db)
 
     def validate_submit(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
         self._ensure_session(db, session_id)
@@ -143,6 +130,95 @@ class KLSI4Plugin(
     # ──────────────────────────────────────────────────────────────────────────
     # Internal helpers
     # ──────────────────────────────────────────────────────────────────────────
+
+    def _fetch_items_from_legacy(self, db: Session) -> Sequence[ItemDTO]:
+        items = (
+            db.query(AssessmentItem)
+            .order_by(AssessmentItem.item_number.asc())
+            .options(joinedload(AssessmentItem.choices))
+            .all()
+        )
+        result: List[ItemDTO] = []
+        for item in items:
+            options = [
+                {
+                    "id": choice.id,
+                    "learning_mode": choice.learning_mode.value,
+                    "text": choice.choice_text,
+                }
+                for choice in item.choices
+            ]
+            result.append(
+                ItemDTO(
+                    id=item.id,
+                    number=item.item_number,
+                    type=item.item_type.value,
+                    stem=item.item_stem,
+                    options=options,
+                )
+            )
+        return result
+
+    def _fetch_items_from_authoring(self, db: Session) -> Sequence[ItemDTO]:
+        instrument = (
+            db.query(EngineInstrument)
+            .filter(
+                EngineInstrument.code == self._ID.key,
+                EngineInstrument.version == self._ID.version,
+            )
+            .options(
+                joinedload(EngineInstrument.forms)
+                .joinedload(EngineForm.pages)
+                .joinedload(EnginePage.items)
+                .joinedload(EngineItem.options)
+            )
+            .first()
+        )
+        if not instrument:
+            raise HTTPException(status_code=404, detail=KLSI4Messages.AUTHORING_INSTRUMENT_MISSING)
+
+        payload: List[ItemDTO] = []
+        forms = sorted(instrument.forms, key=lambda f: f.ordering)
+        for form in forms:
+            pages = sorted(form.pages, key=lambda p: p.page_order)
+            for page in pages:
+                items = sorted(page.items, key=lambda i: i.sequence_order)
+                for item in items:
+                    metadata = item.metadata_payload or {}
+                    legacy_item_id = metadata.get("legacy_item_id")
+                    legacy_item_number = metadata.get("legacy_item_number", item.sequence_order)
+                    if not isinstance(legacy_item_id, int):
+                        raise HTTPException(status_code=500, detail=KLSI4Messages.AUTHORING_METADATA_MISSING)
+                    if item.item_type != EngineItemType.forced_choice:
+                        continue
+                    option_payload: List[Dict[str, object]] = []
+                    for option in sorted(item.options, key=lambda o: o.option_code):
+                        option_metadata = option.metadata_payload or {}
+                        legacy_choice_id = option_metadata.get("legacy_choice_id")
+                        if not isinstance(legacy_choice_id, int):
+                            raise HTTPException(
+                                status_code=500,
+                                detail=KLSI4Messages.AUTHORING_OPTION_METADATA_MISSING,
+                            )
+                        option_payload.append(
+                            {
+                                "id": legacy_choice_id,
+                                "learning_mode": option.learning_mode,
+                                "text": option.option_text,
+                            }
+                        )
+                    if not option_payload:
+                        raise HTTPException(status_code=500, detail=KLSI4Messages.AUTHORING_OPTION_METADATA_MISSING)
+                    payload.append(
+                        ItemDTO(
+                            id=legacy_item_id,
+                            number=int(legacy_item_number),
+                            type=ItemType.learning_style.value,
+                            stem=item.stem,
+                            options=option_payload,
+                        )
+                    )
+        return payload
 
     def _ensure_session(self, db: Session, session_id: int) -> AssessmentSession:
         session = (
