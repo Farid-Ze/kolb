@@ -1,4 +1,4 @@
-Finalfrom __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 
@@ -11,11 +11,10 @@ from app.core.errors import (
     SessionFinalizedError,
     SessionNotFoundError,
 )
+from app.db.repositories.assessment import LFIContextRepository, UserResponseRepository
 from app.db.repositories.sessions import SessionRepository
 from app.engine.runtime import runtime
 from app.models.klsi.enums import SessionStatus
-from app.models.klsi.learning import LFIContextScore
-from app.models.klsi.items import UserResponse
 from app.schemas.session import SessionSubmissionPayload
 from app.services.validation import validate_full_submission_payload
 from app.i18n.id_messages import SessionErrorMessages
@@ -31,6 +30,8 @@ class EngineSessionService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self._sessions = SessionRepository(db)
+        self._responses = UserResponseRepository(db)
+        self._contexts = LFIContextRepository(db)
 
     def start_session(
         self,
@@ -151,24 +152,20 @@ class EngineSessionService:
     def _persist_batch_payload(self, session_id: int, payload: SessionSubmissionPayload) -> None:
         for item in payload.items:
             for choice_id, rank_value in item.ranks.items():
-                self.db.add(
-                    UserResponse(
-                        session_id=session_id,
-                        item_id=item.item_id,
-                        choice_id=int(choice_id),
-                        rank_value=int(rank_value),
-                    )
+                self._responses.record_response(
+                    session_id=session_id,
+                    item_id=item.item_id,
+                    choice_id=int(choice_id),
+                    rank_value=int(rank_value),
                 )
         for ctx in payload.contexts:
-            self.db.add(
-                LFIContextScore(
-                    session_id=session_id,
-                    context_name=ctx.context_name,
-                    CE_rank=ctx.CE,
-                    RO_rank=ctx.RO,
-                    AC_rank=ctx.AC,
-                    AE_rank=ctx.AE,
-                )
+            self._contexts.record_context(
+                session_id=session_id,
+                context_name=ctx.context_name,
+                CE=ctx.CE,
+                RO=ctx.RO,
+                AC=ctx.AC,
+                AE=ctx.AE,
             )
 
     @staticmethod

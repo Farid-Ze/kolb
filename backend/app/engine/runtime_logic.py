@@ -67,6 +67,63 @@ class FinalizePayload:
         return response
 
 
+def _normalize_issue_list(value: Any) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    if isinstance(value, Iterable):
+        for entry in value:
+            if isinstance(entry, Mapping):
+                issues.append(dict(entry))
+    return issues
+
+
+def _normalize_anomaly_list(value: Any) -> list[str]:
+    anomalies: list[str] = []
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+        for entry in value:
+            if isinstance(entry, str):
+                anomalies.append(entry)
+    return anomalies
+
+
+def _merge_unique_str_lists(primary: Iterable[str], secondary: Iterable[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for source in (primary, secondary):
+        for entry in source:
+            if entry not in seen:
+                seen.add(entry)
+                merged.append(entry)
+    return merged
+
+
+def _merge_validation_sections(
+    runtime_map: Mapping[str, Any],
+    scorer_map: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    merged = dict(runtime_map)
+    runtime_issues = _normalize_issue_list(merged.get("issues"))
+    runtime_anomalies = _normalize_anomaly_list(merged.get("anomalies"))
+    merged["issues"] = list(runtime_issues)
+    merged["anomalies"] = list(runtime_anomalies)
+    diagnostics = merged.get("diagnostics")
+    merged["diagnostics"] = dict(diagnostics) if isinstance(diagnostics, Mapping) else {}
+
+    if scorer_map and isinstance(scorer_map, Mapping):
+        for section in ("structural", "psychometric", "provenance"):
+            section_payload = scorer_map.get(section)
+            if isinstance(section_payload, Mapping):
+                merged[section] = dict(section_payload)
+        scorer_issues = _normalize_issue_list(scorer_map.get("issues"))
+        scorer_anomalies = _normalize_anomaly_list(scorer_map.get("anomalies"))
+        merged["issues"] = list(runtime_issues) + scorer_issues
+        merged["anomalies"] = _merge_unique_str_lists(runtime_anomalies, scorer_anomalies)
+        scorer_diagnostics = scorer_map.get("diagnostics")
+        if isinstance(scorer_diagnostics, Mapping):
+            merged["diagnostics"].update(dict(scorer_diagnostics))
+
+    return merged
+
+
 def build_finalize_payload(
     scorer_result: Mapping[str, Any],
     validation: ValidationReport,
@@ -74,7 +131,8 @@ def build_finalize_payload(
     override: bool,
 ) -> FinalizePayload:
     base = dict(scorer_result)
-    base["validation"] = validation.to_mapping()
+    scorer_validation = base.get("validation") if isinstance(base.get("validation"), Mapping) else None
+    base["validation"] = _merge_validation_sections(validation.to_mapping(), scorer_validation)
     base["override"] = override
     ok = bool(base.get("ok", False))
     body = {key: value for key, value in base.items() if key != "ok"}

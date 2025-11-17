@@ -16,7 +16,54 @@ from app.models.klsi.audit import AuditLog
 from app.services.regression import analyze_lfi_contexts
 from app.services.validation import check_session_complete
 from app.engine.validation import ValidationResult
-from app.i18n.id_messages import EngineMessages, RegressionMessages, SessionErrorMessages
+from app.core.formatting import distance_to_percent
+from app.i18n.id_messages import (
+    EngineMessages,
+    RegressionMessages,
+    ReportBalanceMessages,
+    SessionErrorMessages,
+)
+def _build_balance_snapshot(combo) -> dict | None:
+    if not combo:
+        return None
+    balance_acce = getattr(combo, "balance_acce", None)
+    balance_aero = getattr(combo, "balance_aero", None)
+    if balance_acce is None or balance_aero is None:
+        return None
+
+    def _acce_level(value: int) -> str:
+        if value <= 3:
+            return "high"
+        if value <= 8:
+            return "moderate"
+        return "low"
+
+    def _aero_level(value: int) -> str:
+        if value <= 2:
+            return "high"
+        if value <= 8:
+            return "moderate"
+        return "low"
+
+    return {
+        "distance": {"ACCE": balance_acce, "AERO": balance_aero},
+        "pseudo_percentiles": {
+            "ACCE": distance_to_percent(balance_acce, max_distance=45.0),
+            "AERO": distance_to_percent(balance_aero, max_distance=42.0),
+        },
+        "levels": {
+            "ACCE": _acce_level(balance_acce),
+            "AERO": _aero_level(balance_aero),
+        },
+        "heuristic": True,
+        "kind": "heuristic_distance",
+        "note": ReportBalanceMessages.NOTE,
+        "reference": {
+            "centers": {"ACCE": 9, "AERO": 6},
+            "max_distance": {"ACCE": 45.0, "AERO": 42.0},
+        },
+    }
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
@@ -258,6 +305,15 @@ def finalize_assessment(
                 "raw_outside_norm_range": percentiles.raw_outside_norm_range,
                 "used_fallback_any": percentiles.used_fallback_any,
                 "norm_group_used": percentiles.norm_group_used,
+                "per_scale_sources": {
+                    "CE": percentiles.CE_source,
+                    "RO": percentiles.RO_source,
+                    "AC": percentiles.AC_source,
+                    "AE": percentiles.AE_source,
+                    "ACCE": percentiles.ACCE_source,
+                    "AERO": percentiles.AERO_source,
+                },
+                "balance": _build_balance_snapshot(combo),
                 "entity": percentiles,
             }
             artifact_snapshots["percentiles"] = {

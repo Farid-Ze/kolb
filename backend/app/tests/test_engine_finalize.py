@@ -1,106 +1,46 @@
 from __future__ import annotations
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 import json
+
+import pytest
 
 import app.engine.registry as assessment_registry
 import app.engine.strategy_registry as strategy_registry
-from app.assessments.klsi_v4.definition import CONTEXT_NAMES, KLSIAssessmentDefinition  # noqa: F401 ensures registration
-from app.db.database import Base
+from app.assessments.klsi_v4.definition import KLSIAssessmentDefinition  # noqa: F401 ensures registration
+
 from app.models.klsi.assessment import AssessmentSession
-from app.models.klsi.enums import SessionStatus
 from app.models.klsi.instrument import Instrument
-from app.models.klsi.items import AssessmentItem, UserResponse
-from app.models.klsi.learning import LFIContextScore, ScaleProvenance
+from app.models.klsi.learning import ScaleProvenance
 from app.models.klsi.user import User
 
 from app.engine.strategies.klsi4 import KLSI4Strategy
 from app.engine.runtime import EngineRuntime
 from app.services.scoring import finalize_session
-from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
 from app.db.repositories.pipeline import PipelineRepository
 from app.i18n.id_messages import EngineMessages
+from app.tests.helpers import build_seeded_memory_db, seed_complete_session
 
 
-def _db_session():
-    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
-    Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(bind=engine)
-    db = SessionLocal()
-    seed_instruments(db)
-    seed_learning_styles(db)
-    seed_assessment_items(db)
-    return db
-
-
-def _seed_complete_session(
-    db,
-    *,
-    assessment_id: str = "KLSI",
-    assessment_version: str = "4.0",
-) -> AssessmentSession:
-    user = User(full_name="Tester", email="tester@example.com")
-    db.add(user)
-    db.flush()
-
-    instrument = (
-        db.query(Instrument)
-        .filter(Instrument.code == assessment_id, Instrument.version == assessment_version)
-        .first()
-    )
-
-    session = AssessmentSession(
-        user_id=user.id,
-        assessment_id=assessment_id,
-        assessment_version=assessment_version,
-        instrument_id=instrument.id if instrument else None,
-        status=SessionStatus.started,
-    )
-    db.add(session)
-    db.flush()
-
-    mode_ranks = {"CE": 4, "RO": 3, "AC": 2, "AE": 1}
-    items = db.query(AssessmentItem).order_by(AssessmentItem.item_number.asc()).all()
-    for item in items:
-        choice_map = {choice.learning_mode.value: choice.id for choice in item.choices}
-        for mode, rank in mode_ranks.items():
-            db.add(
-                UserResponse(
-                    session_id=session.id,
-                    item_id=item.id,
-                    choice_id=choice_map[mode],
-                    rank_value=rank,
-                )
-            )
-
-    rotations = [
-        (1, 2, 3, 4),
-        (2, 3, 4, 1),
-        (3, 4, 1, 2),
-        (4, 1, 2, 3),
+def test_klsi_definition_dependency_graph_matches_expected_flow():
+    definition = KLSIAssessmentDefinition()
+    step_names = [step.name for step in definition.steps]
+    assert step_names == [
+        "raw_modes",
+        "combination",
+        "style",
+        "lfi",
+        "percentiles",
+        "delta",
     ]
-    for idx, context_name in enumerate(CONTEXT_NAMES):
-        ranks = rotations[idx % len(rotations)]
-        db.add(
-            LFIContextScore(
-                session_id=session.id,
-                context_name=context_name,
-                CE_rank=ranks[0],
-                RO_rank=ranks[1],
-                AC_rank=ranks[2],
-                AE_rank=ranks[3],
-            )
-        )
-
-    db.flush()
-    return session
+    deps = {step.name: list(step.depends_on) for step in definition.steps}
+    assert deps["percentiles"] == ["raw_modes", "combination", "style"]
+    assert deps["delta"] == ["combination", "style", "lfi"]
 
 
 def test_finalize_records_truncation_and_artifacts():
-    db = _db_session()
+    db = build_seeded_memory_db()
     try:
-        session = _seed_complete_session(db)
+        session = seed_complete_session(db)
 
         result = finalize_session(db, session.id)
         assert result["ok"] is True
@@ -115,6 +55,11 @@ def test_finalize_records_truncation_and_artifacts():
         assert "CE" in artifacts["truncated"]
         assert artifacts["truncated"]["CE"]["raw"] == 48
         assert artifacts["norm_group_used"] == "Appendix:Fallback"
+        balance = artifacts["balance"]
+        assert balance["heuristic"] is True
+        assert balance["kind"] == "heuristic_distance"
+        assert balance["pseudo_percentiles"]["ACCE"] is not None
+        assert artifacts["per_scale_sources"]["CE"].startswith("Appendix")
 
         scale_rows = (
             db.query(ScaleProvenance)
@@ -133,10 +78,10 @@ def test_finalize_records_truncation_and_artifacts():
 
 
 def test_finalize_delegates_to_registered_strategy():
-    db = _db_session()
+    db = build_seeded_memory_db()
     original_strategy = strategy_registry._STRATEGIES.get("KLSI4.0")
     try:
-        session = _seed_complete_session(db)
+        session = seed_complete_session(db)
 
         # Ensure there is an active pipeline with nodes so that the
         # declarative resolver path in finalize_assessment is exercised.
@@ -176,7 +121,7 @@ def test_finalize_delegates_to_registered_strategy():
 
 
 def test_finalize_falls_back_to_definition_steps_when_strategy_missing():
-    db = _db_session()
+    db = build_seeded_memory_db()
     alt_key = "ALT:1.0"
     original_definition = assessment_registry._registry.get(alt_key)
     try:
@@ -197,7 +142,7 @@ def test_finalize_falls_back_to_definition_steps_when_strategy_missing():
 
         assessment_registry.register(AltAssessmentDefinition())
 
-        session = _seed_complete_session(
+        session = seed_complete_session(
             db,
             assessment_id="ALT",
             assessment_version="1.0",
@@ -222,9 +167,9 @@ def test_finalize_falls_back_to_definition_steps_when_strategy_missing():
 
 
 def test_finalize_assigns_pipeline_version():
-    db = _db_session()
+    db = build_seeded_memory_db()
     try:
-        session = _seed_complete_session(db)
+        session = seed_complete_session(db)
         session.pipeline_version = None
         db.flush()
 
@@ -243,9 +188,9 @@ def test_finalize_assigns_pipeline_version():
 
 
 def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
-    db = _db_session()
+    db = build_seeded_memory_db()
     try:
-        session = _seed_complete_session(db)
+        session = seed_complete_session(db)
 
         class DummyPipeline:
             id = 1
@@ -275,7 +220,7 @@ def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
 
 
 def test_runtime_start_session_sets_pipeline_version():
-    db = _db_session()
+    db = build_seeded_memory_db()
     runtime = EngineRuntime()
     try:
         user = User(full_name="Runtime User", email="runtime_user@example.com")
@@ -285,4 +230,70 @@ def test_runtime_start_session_sets_pipeline_version():
         session = runtime.start_session(db, user, "KLSI", "4.0")
         assert session.pipeline_version == "KLSI4.0:v1"
     finally:
+        db.close()
+
+
+def test_finalize_dependency_guard_raises_when_artifact_missing():
+    db = build_seeded_memory_db()
+    alt_key = "ALT:broken"
+    original_definition = assessment_registry._registry.get(alt_key)
+    saved_strategies = dict(strategy_registry._STRATEGIES)
+    saved_default = strategy_registry._REGISTRY._default_strategy_code
+    try:
+        strategy_registry._STRATEGIES.clear()
+        strategy_registry._REGISTRY._default_strategy_code = None
+
+        instrument = Instrument(
+            code="ALT",
+            name="Alt Assessment Broken",
+            version="broken",
+            default_strategy_code=None,
+            description=None,
+            is_active=True,
+        )
+        db.add(instrument)
+        db.flush()
+
+        class BrokenStep:
+            name = "broken"
+            depends_on = ["combination"]
+
+            def run(self, db, session_id, ctx):  # pragma: no cover - not expected to run
+                ctx[self.name] = {"ran": True}
+
+        class BrokenDefinition(KLSIAssessmentDefinition):
+            id = "ALT"
+            version = "broken"
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.steps = [BrokenStep()] + self.steps
+
+        assessment_registry.register(BrokenDefinition())
+
+        session = seed_complete_session(
+            db,
+            assessment_id="ALT",
+            assessment_version="broken",
+        )
+        session.instrument_id = instrument.id
+        db.flush()
+
+        expected_message = EngineMessages.DEPENDENCY_NOT_AVAILABLE.format(
+            dep="combination",
+            step="broken",
+        )
+
+        with pytest.raises(RuntimeError) as exc:
+            finalize_session(db, session.id)
+
+        assert str(exc.value) == expected_message
+    finally:
+        strategy_registry._STRATEGIES.clear()
+        strategy_registry._STRATEGIES.update(saved_strategies)
+        strategy_registry._REGISTRY._default_strategy_code = saved_default
+        if original_definition is not None:
+            assessment_registry._registry[alt_key] = original_definition
+        else:
+            assessment_registry._registry.pop(alt_key, None)
         db.close()

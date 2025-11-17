@@ -19,26 +19,26 @@
 - [x] **Finalize: konsistensi penggunaan `ValidationResult` vs `issues`**  
   `ValidationResult` digunakan untuk menyimpan provenance dan hasil `check_session_complete`, sementara `issues` dari validation rules dikembalikan sebagai list dict. Perlu konsolidasi/standarisasi interface (mis. semua validation output melalui `ValidationResult`) agar audit dan observability lebih mudah.
 
-- [ ] **Finalize: snapshot artefak & audit hash – cakupan field**  
+- [x] **Finalize: snapshot artefak & audit hash – cakupan field**  
   `artifact_snapshots` menyimpan subset field dari `scale`, `combo`, `style`, `lfi`, dan `percentiles` (tanpa `entity`). Perlu review bahwa:
   - Semua field yang dibutuhkan untuk rekonstruksi audit (termasuk BAL_ACCE/BAL_AERO, heuristik, dan provenance norm) sudah tercakup.
   - SHA-256 hash konsisten antara versi dengan dan tanpa strategi/pipeline deklaratif.
 
-- [ ] **Finalize: dependency check untuk declarative steps**  
+- [x] **Finalize: dependency check untuk declarative steps**  
   Di cabang non-strategy, tiap `step.run` dipanggil setelah mengecek bahwa setiap `dep` ada di `artifact_snapshots` atau `ctx`. Perlu pastikan bahwa definisi dep di `assessments/klsi_v4/definition.py` konsisten dengan realitas fungsi `logic.py` (raw → combination → style → LFI → percentiles → delta) dan menambah tests untuk dependency yang salah/ordering error.
 
-- [ ] **Finalize: anomali & provenance LFI/konteks – konsistensi lintas jalur**  
+- [x] **Finalize: anomali & provenance LFI/konteks – konsistensi lintas jalur**  
   Bagian akhir `finalize_assessment` menambah anomaly tags (`RAW_OUTSIDE_NORM_RANGE`, `EXCESSIVE_TRUNCATION`, `MIXED_PROVENANCE`, `LOW_W_PATTERN`, `HIGH_W_UNIFORMITY`, `LFI_REPEATED_PATTERN_*`, `NEAR_STYLE_BOUNDARY`) ke `ValidationResult`. Pastikan semua anomaly ini juga terefleksi di payload yang dikembalikan ke klien (via services/engine) dan didokumentasikan di schema/report, serta jalur finalize via `EngineRuntime.finalize_with_audit` menghasilkan konteks/anomali yang setara.
 
 ## B. Engine Runtime & Session Handling
 
-- [ ] **EngineRuntime: path `_components_enabled` vs non-components**  
+- [x] **EngineRuntime: path `_components_enabled` vs non-components**  
   `EngineRuntime._resolve_session` punya dua jalur: ketika runtime components aktif, ia memanfaatkan `RuntimeScheduler`; jika tidak, ia langsung memakai `RepositoryProvider.sessions`. Perlu tests tambahan yang memverifikasi kedua jalur ini bekerja identik untuk kasus umum (session not found, session completed, dsb.).
 
-- [ ] **EngineRuntime: integrasi `run_session_validations`**  
+- [x] **EngineRuntime: integrasi `run_session_validations`**  
   `_phase_validate` memanggil `run_session_validations(context.db, session.id)` dan membungkus hasilnya ke `ValidationReport`. Pastikan bahwa subset validation yang sama juga dijalankan ketika `finalize_assessment` melalui jalur strategi (agar tidak ada perbedaan antara finalize via EngineRuntime vs finalize langsung).
 
-- [ ] **EngineRuntime: error reporting metadata parity**  
+- [x] **EngineRuntime: error reporting metadata parity**  
   `_log_runtime_error` mengirim structured metadata ke `RuntimeErrorReporter` atau logger langsung. Pastikan semua event (`scorer_issue_event`, `runtime_error_event`, dsb.) di seluruh pipeline selalu menyertakan `correlation_id`, `session_id`, `user_id`, dan info pipeline yang cukup, lalu tambahkan tests untuk mem-verifikasi bentuk struktur log (smoke test).
 
 ## C. DB Engine, Session, dan Repository Scope
@@ -55,7 +55,7 @@
 - [ ] **RepositoryProvider vs direct Session usage**  
   Di `engine`, `services`, dan `routers`, pastikan akses ke DB hanya dilakukan via `RepositoryProvider` atau helper session official (`get_db`, `get_session`, `transactional_session`, `hyperatomic_session`, `norm_session_scope`). Tambahkan tests atau static check untuk mendeteksi pola `Session(...)` atau `session.query()` yang bocor ke layer yang tidak semestinya.
 
-- [ ] **EngineSessionService: mixing Repository dan direct ORM**  
+- [x] **EngineSessionService: mixing Repository dan direct ORM**  
   `services/engine.EngineSessionService` menggunakan `SessionRepository` untuk pembacaan session, tetapi menulis `UserResponse` dan `LFIContextScore` langsung dengan `db.add(...)` di `_persist_batch_payload`. Pertimbangkan menyatukan penulisan ini ke repository khusus (mis. `UserResponseRepository`/`LFIContextRepository`) agar pola akses data konsisten dan lapisan services tetap bebas dari ORM.
 
 ## D. Norms, Cache, dan Provenance
@@ -66,7 +66,7 @@
 - [x] **Percentile cache: key normalisation**  
   `_lookup_percentile_cached` meng-cast `raw` menjadi `int` ketika membuat key. Untuk skala yang potensial menggunakan nilai float (mis. LFI dua desimal), perlu verifikasi bahwa normalisasi ke int tidak merusak presisi (atau gunakan key `Decimal`/`tuple` yang memelihara presisi LFI). Tambahkan tests batas `raw` untuk LFI dan mode.
 
-- [ ] **Norm provenance: konsistensi antara model dan payload**  
+- [x] **Norm provenance: konsistensi antara model dan payload**  
   `PercentileScore` menyimpan `norm_provenance`, `truncated_scales`, `raw_outside_norm_range`, `used_fallback_any` di DB, sementara payload percentiles di `finalize_assessment` memetakan kembali ke struktur dict. Pastikan bahwa setiap perubahan schema/provenance di DB punya test yang menjamin payload tetap sinkron.
 
 - [ ] **ExternalNormProvider: TTL cache & background fetch safety**  
@@ -74,16 +74,16 @@
 
 ## E. KLSI 4.0 Logic & Style Assignment
 
-- [ ] **STYLE_CUTS closure bug potensial (`_build_style_cuts`)**  
+- [x] **STYLE_CUTS closure bug potensial (`_build_style_cuts`)**  
   `_build_style_cuts` mendefinisikan fungsi `rule` dalam loop untuk tiap `style_name, window`, tetapi menggunakan `w: StyleWindow = window` sebagai default argumen untuk menghindari late-binding. Perlu tests tambahan di `tests/test_style_boundaries.py` atau sejenis yang memverifikasi semua 9 fungsi `STYLE_CUTS` benar-benar memakai window masing-masing (bukan semuanya memakai window terakhir).
 
-- [ ] **Balance percentiles – komunikasi heuristik**  
+- [x] **Balance percentiles – komunikasi heuristik**  
   Walau sudah ada tests untuk label non-normatif, pastikan seluruh titik konsumsi (report builder, API payload) menandai field ini sebagai heuristik, bukan persentil normatif, terutama dalam metadata i18n atau schema OpenAPI.
 
-- [ ] **Age band mapping edge cases**  
+- [x] **Age band mapping edge cases**  
   `_age_to_band` mengonversi `User.date_of_birth` ke band. Perlu tests untuk edge case tanggal lahir tepat di batas (19, 24, 25, 34, dsb.) dan kasus timezone/tanggal `datetime` vs `date` untuk menghindari off-by-one bug.
 
-- [ ] **Longitudinal delta: toleransi missing relationships**  
+- [x] **Longitudinal delta: toleransi missing relationships**  
   `compute_longitudinal_delta` mengasumsikan bahwa `previous.learning_style` dan `previous.lfi_index` tersedia untuk menghitung `delta_intensity` dan `delta_lfi`. Pastikan ada tests / guard yang menangani kasus ketika session sebelumnya ada tetapi relasi ini belum terisi (mis. migrasi lama), sehingga finalize tidak gagal secara runtime.
 
 ## F. Engine Authoring & DSL Migrasi

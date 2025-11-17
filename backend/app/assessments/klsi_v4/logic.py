@@ -679,16 +679,29 @@ def compute_longitudinal_delta(
         assessment_version=session.assessment_version,
         exclude_session_id=session_id,
     )
-    if not previous or not previous.combination_score or not previous.lfi_index:
+    if not previous:
         return None
-    previous_intensity = previous.learning_style.style_intensity_score if previous.learning_style else None
+
+    prev_combo = previous.combination_score
+    prev_lfi = previous.lfi_index
+    prev_style = previous.learning_style
+
+    if not any([prev_combo, prev_lfi, prev_style]):
+        return None
+
+    previous_intensity = (
+        prev_style.style_intensity_score if prev_style and prev_style.style_intensity_score is not None else None
+    )
+
     delta = AssessmentSessionDelta(
         session_id=session_id,
         previous_session_id=previous.id,
-        delta_acce=combo.ACCE_raw - previous.combination_score.ACCE_raw,
-        delta_aero=combo.AERO_raw - previous.combination_score.AERO_raw,
-        delta_lfi=(lfi.LFI_score - previous.lfi_index.LFI_score) if previous.lfi_index else None,
-    delta_intensity=(int(intensity_metrics.manhattan) - previous_intensity) if previous_intensity is not None else None,
+        delta_acce=(combo.ACCE_raw - prev_combo.ACCE_raw) if prev_combo else None,
+        delta_aero=(combo.AERO_raw - prev_combo.AERO_raw) if prev_combo else None,
+        delta_lfi=(lfi.LFI_score - prev_lfi.LFI_score) if prev_lfi else None,
+        delta_intensity=(int(intensity_metrics.manhattan) - previous_intensity)
+        if previous_intensity is not None
+        else None,
     )
     db.add(delta)
     return delta

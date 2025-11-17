@@ -172,10 +172,30 @@ class EngineRuntime:
             "user_id": user_id,
             "error": str(exc),
             "correlation_id": correlation_id,
+            "pipeline_event": event,
         }
         if metadata:
             structured.update(metadata)
         logger.exception(event, extra={"structured_data": structured})
+
+    @staticmethod
+    def _emit_scorer_issue_log(
+        *,
+        event: str,
+        session_id: int,
+        user_id: int | None,
+        issues: Any,
+        correlation_id: str,
+    ) -> dict[str, Any]:
+        structured = {
+            "session_id": session_id,
+            "user_id": user_id,
+            "issues": issues,
+            "correlation_id": correlation_id,
+            "pipeline_event": event,
+        }
+        logger.warning(event, extra={"structured_data": structured})
+        return structured
 
     def _phase_ingest(
         self,
@@ -256,16 +276,13 @@ class EngineRuntime:
         def _ensure_ok(payload: dict[str, Any]) -> None:
             if payload.get("ok"):
                 return
-            logger.warning(
-                scorer_issue_event,
-                extra={
-                    "structured_data": {
-                        "session_id": session.id,
-                        "issues": payload.get("issues"),
-                        "correlation_id": context.correlation_id,
-                    }
-                },
-            )
+                self._emit_scorer_issue_log(
+                    event=scorer_issue_event,
+                    session_id=session.id,
+                    user_id=session.user_id,
+                    issues=payload.get("issues"),
+                    correlation_id=context.correlation_id,
+                )
             raise ValidationError(
                 "Pipeline finalisasi mendeteksi masalah",
                 detail={

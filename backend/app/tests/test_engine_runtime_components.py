@@ -72,3 +72,39 @@ def test_log_runtime_error_uses_reporter_when_enabled():
 def test_runtime_state_tracker_reports_duration():
     tracker = RuntimeStateTracker("test")
     assert tracker.duration_ms() >= 0.0
+
+
+def test_log_runtime_error_logs_structured_data_when_disabled(monkeypatch):
+    class CaptureLogger:
+        def __init__(self):
+            self.calls: List[Tuple[str, Dict[str, Any] | None]] = []
+
+        def exception(self, event: str, *, extra: Dict[str, Any] | None = None):
+            self.calls.append((event, extra))
+
+    capture_logger = CaptureLogger()
+    monkeypatch.setattr("app.engine.runtime.logger", capture_logger)
+
+    scheduler = StubScheduler(SimpleNamespace(id=1))
+    runtime = EngineRuntime(components_enabled=False, scheduler=scheduler)
+
+    runtime._log_runtime_error(
+        event="runtime_event",
+        session_id=77,
+        user_id=88,
+        exc=RuntimeError("boom"),
+        correlation_id="cid-77",
+        metadata={"actor_email": "user@example.com"},
+    )
+
+    assert capture_logger.calls
+    event, extra = capture_logger.calls[0]
+    assert event == "runtime_event"
+    assert extra is not None
+    structured = extra.get("structured_data", {})
+    assert structured["session_id"] == 77
+    assert structured["user_id"] == 88
+    assert structured["correlation_id"] == "cid-77"
+    assert structured["pipeline_event"] == "runtime_event"
+    assert structured["actor_email"] == "user@example.com"
+    assert structured["error"] == "boom"

@@ -1,4 +1,4 @@
-from app.assessments.klsi_v4.logic import STYLE_CUTS
+from app.assessments.klsi_v4.logic import STYLE_CUTS, _cfg
 
 
 def test_boundaries_acce_5_6():
@@ -37,3 +37,15 @@ def test_boundaries_aero_0_1_11_12():
     assert STYLE_CUTS["Initiating"](0, 12)
     assert STYLE_CUTS["Acting"](6, 12)
     assert STYLE_CUTS["Deciding"](15, 12)
+
+
+def test_each_style_cut_has_unique_window():
+    cfg_windows = _cfg().style_windows
+    seen_ids = set()
+    for name, rule in STYLE_CUTS.items():
+        defaults = getattr(rule, "__defaults__", None)
+        assert defaults, f"{name} rule missing window default"
+        window = defaults[0]
+        assert window is cfg_windows[name], f"{name} rule does not reference its config window"
+        assert id(window) not in seen_ids, f"Window reused between style cuts for {name}"
+        seen_ids.add(id(window))

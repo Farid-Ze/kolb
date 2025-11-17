@@ -456,6 +456,12 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
                 "AERO": distance_to_percent(balance_aero, max_distance=42.0),
                 "levels": balance_levels,
                 "note": ReportBalanceMessages.NOTE,
+                "heuristic": True,
+                "kind": "heuristic_distance",
+                "reference": {
+                    "centers": {"ACCE": 9, "AERO": 6},
+                    "max_distance": {"ACCE": 45.0, "AERO": 42.0},
+                },
             }
 
         percentiles = {
@@ -468,7 +474,19 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "bands": bands,
             "BALANCE": balance_block,
             "source_provenance": p.norm_group_used,
+            "norm_group_used": p.norm_group_used,
             "per_scale_provenance": p.norm_provenance,
+            "per_scale_sources": {
+                "CE": p.CE_source,
+                "RO": p.RO_source,
+                "AC": p.AC_source,
+                "AE": p.AE_source,
+                "ACCE": p.ACCE_source,
+                "AERO": p.AERO_source,
+            },
+            "used_fallback_any": p.used_fallback_any,
+            "raw_outside_norm_range": p.raw_outside_norm_range,
+            "truncated_scales": p.truncated_scales,
         }
 
     return {

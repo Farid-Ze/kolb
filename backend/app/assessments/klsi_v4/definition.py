@@ -167,7 +167,7 @@ class PercentileStep:
 
     def __init__(self) -> None:
         self.name = "percentiles"
-        self.depends_on = ["combination", "style"]
+        self.depends_on = ["raw_modes", "combination", "style"]
 
     def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
         scale_entity = ctx["raw_modes"]["entity"]
@@ -196,7 +196,7 @@ class DeltaStep:
 
     def __init__(self) -> None:
         self.name = "delta"
-        self.depends_on = ["style", "lfi"]
+        self.depends_on = ["combination", "style", "lfi"]
 
     def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
         combo_entity = ctx["combination"]["entity"]

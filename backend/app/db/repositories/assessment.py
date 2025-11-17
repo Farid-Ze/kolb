@@ -36,6 +36,23 @@ class AssessmentItemRepository(Repository[Session]):
 class UserResponseRepository(Repository[Session]):
     """Repository exposing aggregate computations on user responses."""
 
+    def record_response(
+        self,
+        *,
+        session_id: int,
+        item_id: int,
+        choice_id: int,
+        rank_value: int,
+    ) -> UserResponse:
+        entity = UserResponse(
+            session_id=session_id,
+            item_id=item_id,
+            choice_id=choice_id,
+            rank_value=rank_value,
+        )
+        self.db.add(entity)
+        return entity
+
     def aggregate_ranks_by_item(self, session_id: int) -> List[ItemRankAggregate]:
         rows = (
             self.db.query(
@@ -81,6 +98,27 @@ class UserResponseRepository(Repository[Session]):
 @dataclass
 class LFIContextRepository(Repository[Session]):
     """Repository for accessing LFI context scores."""
+
+    def record_context(
+        self,
+        *,
+        session_id: int,
+        context_name: str,
+        CE: int,
+        RO: int,
+        AC: int,
+        AE: int,
+    ) -> LFIContextScore:
+        entity = LFIContextScore(
+            session_id=session_id,
+            context_name=context_name,
+            CE_rank=CE,
+            RO_rank=RO,
+            AC_rank=AC,
+            AE_rank=AE,
+        )
+        self.db.add(entity)
+        return entity
 
     def list_for_session(self, session_id: int) -> List[LFIContextScore]:
         return (
