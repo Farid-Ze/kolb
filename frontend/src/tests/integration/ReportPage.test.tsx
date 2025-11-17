@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ReportPage } from '../../pages/ReportPage';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,28 +13,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Mock data
 const mockReport = {
   report_id: 'report-1',
+  session_id: '1',
   user_id: 'user-1',
-  session_id: 1,
-  created_at: '2024-01-15T10:00:00Z',
-  scores: {
-    CE: 28,
-    RO: 32,
-    AC: 35,
-    AE: 25,
-    AC_CE: 7,
-    AE_RO: -7,
-  },
-  learning_style: {
-    primary: 'Assimilator',
-    description: 'Anda cenderung untuk berpikir abstrak dan observasi reflektif.',
-    coordinates: { x: 7, y: -7 },
-  },
-  norm_group: {
-    group_name: 'Mahasiswa Indonesia',
-    sample_size: 1500,
-    mean_AC_CE: 5.2,
-    mean_AE_RO: -3.8,
-  },
+  instrument_id: 'KLSI',
+  generated_at: '2024-01-15T10:00:00Z',
+  raw_scores: { CE: 28, RO: 32, AC: 35, AE: 25 },
+  dialectic_scores: { 'AC-CE': 7, 'AE-RO': -7 },
+  learning_style: { style_code: 'ASS', style_name: 'Assimilator', quadrant: 2, description: 'Anda cenderung untuk berpikir abstrak.' },
+  nine_style: { style_code: 'ASS-1', style_name: 'Assimilator', description: 'No detail' },
+  flexibility: { lfi_score: 72, category: 'High', interpretation: 'High flexibility' },
+  norm_group: { norm_name: 'Mahasiswa Indonesia', sample_size: 1500, description: 'Norma nasional' },
+  percentile_scores: { CE: 80, RO: 60, AC: 90, AE: 50, 'AC-CE': 70, 'AE-RO': 40 },
+  per_scale_provenance: {},
+  delta: null,
 };
 
 // Mock Recharts components untuk testing
@@ -55,7 +46,7 @@ vi.mock('recharts', () => ({
 
 // Mock services
 vi.mock('../../services/reportService', () => ({
-  getReportById: vi.fn(),
+  getReport: vi.fn(),
 }));
 
 // Mock useAuth
@@ -103,17 +94,14 @@ const renderWithProviders = (reportId: string = 'report-1') => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <MemoryRouter initialEntries={[`/report/${reportId}`]}>
         <AuthProvider>
           <Routes>
             <Route path="/report/:reportId" element={<ReportPage />} />
           </Routes>
         </AuthProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     </QueryClientProvider>,
-    {
-      initialEntries: [`/report/${reportId}`],
-    }
   );
 };
 
@@ -124,8 +112,8 @@ describe('Report Page Integration', () => {
   });
 
   it('should render loading state initially', async () => {
-    const { getReportById } = await import('../../services/reportService');
-    vi.mocked(getReportById).mockImplementation(
+    const { getReport } = await import('../../services/reportService');
+      vi.mocked(getReport).mockImplementation(
       () =>
         new Promise((resolve) =>
           setTimeout(() => resolve(mockReport), 100)
@@ -138,8 +126,8 @@ describe('Report Page Integration', () => {
   });
 
   it('should load and display report data', async () => {
-    const { getReportById } = await import('../../services/reportService');
-    vi.mocked(getReportById).mockResolvedValue(mockReport);
+    const { getReport } = await import('../../services/reportService');
+      vi.mocked(getReport).mockResolvedValue(mockReport);
 
     renderWithProviders();
 
@@ -224,6 +212,24 @@ describe('Report Page Integration', () => {
 
     expect(screen.getByText('Mahasiswa Indonesia')).toBeInTheDocument();
     expect(screen.getByText(/1500/)).toBeInTheDocument();
+  });
+
+  it('should display longitudinal delta when present', async () => {
+    const { getReportById } = await import('../../services/reportService');
+    vi.mocked(getReportById).mockResolvedValue({
+      ...mockReport,
+      delta: { delta_acce: 2.0, delta_aero: -1.0, delta_lfi: 0.05, previous_session_id: 999, previous_session_date: '2024-01-01T00:00:00Z' },
+    });
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText(/perubahan dari asesmen sebelumnya/i)).toBeDefined();
+    });
+
+    expect(screen.queryByText('+2.0')).toBeTruthy();
+    expect(screen.queryByText('-1.0')).toBeTruthy();
+    expect(screen.queryByText('+0.1')).toBeTruthy(); // LFI formatted
   });
 
   it('should display responsible use notice', async () => {

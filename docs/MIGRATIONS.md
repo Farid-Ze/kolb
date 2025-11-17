@@ -236,6 +236,12 @@ Example GitLab CI:
 migrate:
   script:
     - export PYTHONPATH=$CI_PROJECT_DIR
+      - name: Run backend tests
+         env:
+            PYTHONPATH: backend
+         run: |
+            python -m pip install -r backend/requirements.txt
+            pytest -q
     - export JWT_SECRET_KEY=ci-test-secret
     - pip install -r requirements.txt
     - alembic upgrade head

@@ -74,6 +74,8 @@ Tes unit (pytest) mencakup:
 - Fallback percentile (raw di bawah/atas range & key hilang) → nearest-lower konservatif.
 Rencana lanjutan: uji deterministik backup style jarak L1 & reliabilitas test–retest.
 
+Local / CI commands: See `docs/ci.md` for exact commands to run pytest with `PYTHONPATH=backend`.
+
 ### 8.2 Contoh CSV Import Norma
 Lihat `docs/examples/norm_import.sample.csv` untuk format:
 ```

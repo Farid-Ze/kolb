@@ -5,73 +5,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { AssessmentPage } from '../../pages/AssessmentPage';
 import { AuthProvider } from '../../contexts/AuthContext';
 
 // Mock data
 const mockDeliveryPackage = {
-  session_id: 1,
-  user_id: 'user-1',
-  assessment_id: 'lsi-4.0',
-  instructions:
-    'Urutkan pernyataan berikut dari 1 (paling sesuai) hingga 4 (paling tidak sesuai) dengan cara Anda belajar.',
+  session_id: '1',
+  instrument_code: 'KLSI',
+  total_items: 2,
   items: [
     {
       item_id: 'lsi_item_001',
-      item_number: 1,
+      order: 1,
       prompt: 'Ketika saya belajar:',
-      modes: [
-        {
-          mode: 'CE',
-          statement: 'Saya suka merasakan',
-          rank: null,
-        },
-        {
-          mode: 'RO',
-          statement: 'Saya suka mengamati',
-          rank: null,
-        },
-        {
-          mode: 'AC',
-          statement: 'Saya suka berpikir',
-          rank: null,
-        },
-        {
-          mode: 'AE',
-          statement: 'Saya suka berbuat',
-          rank: null,
-        },
+      options: [
+        { option_code: 'CE', text: 'Saya suka merasakan', dimension: 'CE' },
+        { option_code: 'RO', text: 'Saya suka mengamati', dimension: 'RO' },
+        { option_code: 'AC', text: 'Saya suka berpikir', dimension: 'AC' },
+        { option_code: 'AE', text: 'Saya suka berbuat', dimension: 'AE' },
       ],
     },
     {
       item_id: 'lsi_item_002',
-      item_number: 2,
+      order: 2,
       prompt: 'Saya belajar paling baik ketika:',
-      modes: [
-        {
-          mode: 'CE',
-          statement: 'Saya terbuka terhadap pengalaman baru',
-          rank: null,
-        },
-        {
-          mode: 'RO',
-          statement: 'Saya mendengarkan dan mengamati dengan seksama',
-          rank: null,
-        },
-        {
-          mode: 'AC',
-          statement: 'Saya mengandalkan pemikiran logis',
-          rank: null,
-        },
-        {
-          mode: 'AE',
-          statement: 'Saya bekerja keras untuk menyelesaikan sesuatu',
-          rank: null,
-        },
+      options: [
+        { option_code: 'CE', text: 'Saya terbuka terhadap pengalaman baru', dimension: 'CE' },
+        { option_code: 'RO', text: 'Saya mendengarkan dan mengamati dengan seksama', dimension: 'RO' },
+        { option_code: 'AC', text: 'Saya mengandalkan pemikiran logis', dimension: 'AC' },
+        { option_code: 'AE', text: 'Saya bekerja keras untuk menyelesaikan sesuatu', dimension: 'AE' },
       ],
     },
   ],
+  instructions:
+    'Urutkan pernyataan berikut dari 1 (paling sesuai) hingga 4 (paling tidak sesuai) dengan cara Anda belajar.',
 };
 
 // Mock services
@@ -118,16 +86,13 @@ vi.mock('react-router-dom', async () => {
 // Helper untuk render dengan providers
 const renderWithProviders = (sessionId: string = '1') => {
   return render(
-    <BrowserRouter>
+    <MemoryRouter initialEntries={[`/assessment/${sessionId}`]}>
       <AuthProvider>
         <Routes>
           <Route path="/assessment/:sessionId" element={<AssessmentPage />} />
         </Routes>
       </AuthProvider>
-    </BrowserRouter>,
-    {
-      initialEntries: [`/assessment/${sessionId}`],
-    }
+    </MemoryRouter>,
   );
 };
 

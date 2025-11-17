@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
-from typing import Iterable, Sequence, TYPE_CHECKING
+from typing import Any, Dict, Iterable, Sequence, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -92,19 +92,16 @@ def finalize_assessment(
         assessment = get_definition(assessment_id, assessment_version)
 
         validation_result = ValidationResult()
+        issues: list[object] = []
         if not skip_checks:
             # Run validation rules declared by the assessment definition.
-            issues = []
             for rule in assessment.validation_rules():
                 issues.extend(rule.validate(db, session_id))
-            if issues:
-                fatal = [i for i in issues if i.fatal]
-                if strategy:
-                    return {"ok": False, "issues": [i.as_dict() for i in issues]}
 
             # Always ensure ipsative core validation runs (engine-agnostic guard).
             completeness = check_session_complete(db, session_id)
             validation_result.structural["item_completeness"] = completeness
+
         ctx = ScoringContext()
         artifact_snapshots: dict[str, dict] = {}
 
@@ -125,6 +122,39 @@ def finalize_assessment(
                 break
             except KeyError:
                 continue
+
+        # If validation produced issues, short‑circuit with a stable payload
+        # before executing any scoring logic. This keeps behavior consistent
+        # regardless of whether a strategy was resolved.
+        if issues:
+            serialized_issues: list[Dict[str, Any]] = []
+            for item in issues:
+                payload = getattr(item, "as_dict", None)
+                if callable(payload):
+                    data = payload()
+                elif isinstance(item, dict):
+                    data = item
+                else:
+                    data = {
+                        "code": getattr(item, "code", "UNKNOWN"),
+                        "message": getattr(item, "message", str(item)),
+                        "fatal": getattr(item, "fatal", False),
+                    }
+                if not isinstance(data, dict):
+                    data = {"code": "UNKNOWN", "message": str(data), "fatal": False}
+                serialized_issues.append(data)
+
+            validation_result.issues.extend(serialized_issues)
+            fatal = [issue for issue in serialized_issues if issue.get("fatal")]
+            if fatal:
+                # For now return a minimal contract used by services; keep
+                # validation_result to allow future extension without
+                # breaking callers.
+                return {
+                    "ok": False,
+                    "issues": serialized_issues,
+                    "validation": validation_result.as_dict(),
+                }
 
         if strategy:
             # If a strategy is available, prefer declarative pipeline execution

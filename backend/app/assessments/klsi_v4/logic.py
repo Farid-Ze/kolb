@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from functools import lru_cache
 from threading import RLock
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 from cachetools import LRUCache
 from sqlalchemy.orm import Session
@@ -79,6 +79,12 @@ def clear_percentile_cache() -> None:
         _PERCENTILE_CACHE.clear()
 
 
+def _percentile_cache_key(scale_name: str, raw: int | float) -> Union[int, float]:
+    if scale_name == "LFI":
+        return round(float(raw), 6)
+    return int(raw)
+
+
 def _lookup_percentile_cached(
     provider: NormProvider,
     group_chain: Sequence[str],
@@ -97,7 +103,7 @@ def _lookup_percentile_cached(
     if _PERCENTILE_CACHE is None:
         result = provider.percentile(list(normalized_chain), scale_name, raw)
         return result.percentile, result.provenance, result.truncated
-    key = (normalized_chain, scale_name, int(raw))
+    key = (normalized_chain, scale_name, _percentile_cache_key(scale_name, raw))
     with _PERCENTILE_CACHE_LOCK:
         cached = _PERCENTILE_CACHE.get(key)
         if cached is not None:

@@ -59,6 +59,8 @@
       "@/types/*": ["./types/*"],
       "@/styles/*": ["./styles/*"]
     },
+    // Include vitest and jest-dom matchers in global types for tests
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
 
     // ===== Advanced =====
     "experimentalDecorators": true,

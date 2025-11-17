@@ -97,7 +97,6 @@ def import_norms(
         provider = build_composite_norm_provider(db)
         if hasattr(provider, "_db_lookup"):
             clear_norm_db_cache(getattr(provider, "_db_lookup"))
-            clear_percentile_cache()
     except Exception as exc:
         logger.exception(
             "norm_cache_invalidation_failed",
@@ -109,6 +108,8 @@ def import_norms(
                 }
             },
         )
+    finally:
+        clear_percentile_cache()
     return {
         "norm_group": norm_group,
         "norm_version": norm_version,

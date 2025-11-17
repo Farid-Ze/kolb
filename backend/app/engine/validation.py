@@ -10,6 +10,7 @@ class ValidationResult:
     psychometric: Dict[str, Any] = field(default_factory=dict)
     provenance: Dict[str, Any] = field(default_factory=dict)
     anomalies: List[str] = field(default_factory=list)
+    issues: List[Dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -17,4 +18,5 @@ class ValidationResult:
             "psychometric": self.psychometric,
             "provenance": self.provenance,
             "anomalies": self.anomalies,
+            "issues": self.issues,
         }
