@@ -15,6 +15,7 @@
 
 import React, { ElementType, ReactNode } from 'react';
 import { cn } from '../../lib/utils';
+import { useTextScaleFactor } from '../../lib/accessibility';
 
 /**
  * Typography scale sesuai Guidelines.md §1.4.3
@@ -169,11 +170,18 @@ export const Caption2: React.FC<Omit<DynamicTypeProps, 'as' | 'level'>> = (props
  * Guidelines.md §1.4.3: Text measure (45-75 characters)
  */
 
+export interface FontScaleState {
+  scale: number;
+  isXXXL: boolean;
+}
+
 /** Hook to access current font scale */
-export const useFontScale = (): number => {
-  // In a real implementation, this would detect user's font size preference
-  // For now, return 1.0 (no scaling)
-  return 1.0;
+export const useFontScale = (): FontScaleState => {
+  const scale = useTextScaleFactor();
+  return {
+    scale,
+    isXXXL: scale >= 1.4,
+  };
 };
 
 interface LongFormTextProps extends Omit<DynamicTypeProps, 'as' | 'level'> {

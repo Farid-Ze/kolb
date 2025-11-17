@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.repositories import UserRepository
-from app.i18n.id_messages import SecurityMessages
+from app.i18n.id_messages import AuthorizationMessages, SecurityMessages
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -155,3 +155,20 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
         raise HTTPException(status_code=401, detail=SecurityMessages.USER_NOT_FOUND)
     
     return user
+
+
+def require_mediator(user, detail: str | None = None) -> None:
+    """Ensure the authenticated user has MEDIATOR role.
+
+    Args:
+        user: ORM user model returned by `get_current_user`.
+        detail: Optional localized message for HTTP 403 errors.
+
+    Raises:
+        HTTPException: When `user.role` is not MEDIATOR.
+    """
+    if getattr(user, "role", None) != "MEDIATOR":
+        raise HTTPException(
+            status_code=403,
+            detail=detail or AuthorizationMessages.MEDIATOR_REQUIRED,
+        )

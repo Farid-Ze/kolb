@@ -224,6 +224,15 @@ class ReportMessages:
         "self-direction, integrative complexity)."
     )
     INTEGRATIVE_MODEL_INFO: str = "Hierarchical Regression Model 1 (N=169, R²=0.13, Adj. R²=0.10)"
+    LEARNING_SPACE_HEURISTIC_NOTE: str = (
+        "Blok learning_space berisi rekomendasi heuristik/non-diagnostik yang bertujuan memicu refleksi; tidak mempengaruhi skor resmi."
+    )
+    ANALYTICS_HEURISTIC_NOTE: str = (
+        "Prediksi regresi (kurva LFI, skor perkembangan integratif) bersifat heuristik formatif dan tidak mengubah raw score maupun LFI resmi."
+    )
+    INTEGRATIVE_DEV_HEURISTIC_NOTE: str = (
+        "Model perkembangan integratif ini menggunakan koefisien penelitian Kolb & Kolb (2013) dan hanya untuk wawasan heuristik."
+    )
     DEVELOPMENT_DISCLAIMER: str = (
         "Klasifikasi tahap perkembangan ini bersifat heuristik (bukan diagnosis). Didasarkan pada pola dialektika, "
         "fleksibilitas, dan intensitas gaya; gunakan sebagai pemicu refleksi, bukan label tetap."

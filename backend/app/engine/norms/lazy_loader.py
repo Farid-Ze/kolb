@@ -11,7 +11,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import RLock
-from typing import Protocol
+from typing import Protocol, TypedDict
 from sys import getsizeof
 
 from sqlalchemy.orm import Session
@@ -22,6 +22,19 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+# Typed stats snapshot so downstream code (and mypy) can access nested keys safely.
+class LazyNormStats(TypedDict):
+    hits: int
+    misses: int
+    hit_rate: float
+    chunks_loaded: int
+    cache_size: int
+    evictions: int
+    eviction_reasons: dict[str, int]
+    bytes_loaded: int
+    last_chunk_loaded_at: str | None
 
 
 class NormDataSource(Protocol):
@@ -179,7 +192,7 @@ class LazyNormLoader:
             size += getsizeof(row)
         return size
     
-    def get_stats(self) -> dict[str, int | float]:
+    def get_stats(self) -> LazyNormStats:
         """Get cache statistics.
         
         Returns:

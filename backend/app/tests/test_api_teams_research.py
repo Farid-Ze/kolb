@@ -177,22 +177,35 @@ def test_research_crud_and_children(client):
     sid = r.json()['id']
 
     # List studies
-    r = client.get('/research/studies?q=Studi')
+    mediator_headers = {'Authorization': f'Bearer {token_mediator}'}
+
+    r = client.get('/research/studies?q=Studi', headers=mediator_headers)
     assert r.status_code == 200 and any(s['id'] == sid for s in r.json())
+    r_unauth = client.get('/research/studies?q=Studi')
+    assert r_unauth.status_code == 401
 
     # Update study
     r = client.patch(
         f'/research/studies/{sid}',
         json={'notes': 'Catatan'},
-        headers={'Authorization': f'Bearer {token_mediator}'},
+        headers=mediator_headers,
     )
     assert r.status_code == 200 and r.json()['notes'] == 'Catatan'
+
+    # Fetch single study
+    r_detail = client.get(
+        f'/research/studies/{sid}',
+        headers=mediator_headers,
+    )
+    assert r_detail.status_code == 200 and r_detail.json()['id'] == sid
+    r_detail_unauth = client.get(f'/research/studies/{sid}')
+    assert r_detail_unauth.status_code == 401
 
     # Add reliability
     r = client.post(
         f'/research/studies/{sid}/reliability',
         json={'metric_name': 'Cronbach_alpha_AC', 'value': 0.81},
-        headers={'Authorization': f'Bearer {token_mediator}'},
+        headers=mediator_headers,
     )
     assert r.status_code == 200
 
@@ -200,20 +213,24 @@ def test_research_crud_and_children(client):
     r = client.post(
         f'/research/studies/{sid}/validity',
         json={'evidence_type': 'construct', 'description': 'Factor structure'},
-        headers={'Authorization': f'Bearer {token_mediator}'},
+        headers=mediator_headers,
     )
     assert r.status_code == 200
 
     # List reliability & validity
-    r_rel = client.get(f'/research/studies/{sid}/reliability')
-    r_val = client.get(f'/research/studies/{sid}/validity')
+    r_rel = client.get(f'/research/studies/{sid}/reliability', headers=mediator_headers)
+    r_val = client.get(f'/research/studies/{sid}/validity', headers=mediator_headers)
     assert r_rel.status_code == 200 and len(r_rel.json()) == 1
     assert r_val.status_code == 200 and len(r_val.json()) == 1
+    r_rel_unauth = client.get(f'/research/studies/{sid}/reliability')
+    r_val_unauth = client.get(f'/research/studies/{sid}/validity')
+    assert r_rel_unauth.status_code == 401
+    assert r_val_unauth.status_code == 401
 
     # Delete should 409 while children exist
     r = client.delete(
         f'/research/studies/{sid}',
-        headers={'Authorization': f'Bearer {token_mediator}'},
+        headers=mediator_headers,
     )
     assert r.status_code == 409
 
@@ -225,6 +242,6 @@ def test_research_crud_and_children(client):
         db.commit()
     r = client.delete(
         f'/research/studies/{sid}',
-        headers={'Authorization': f'Bearer {token_mediator}'},
+        headers=mediator_headers,
     )
     assert r.status_code == 200

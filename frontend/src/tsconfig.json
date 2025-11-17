@@ -90,6 +90,8 @@
     "**/*.spec.ts",
     "**/*.test.ts",
     "**/*.spec.tsx",
-    "**/*.test.tsx"
+    "**/*.test.tsx",
+    "docker-compose.yml.tsx",
+    "Dockerfile/**/*"
   ]
 }

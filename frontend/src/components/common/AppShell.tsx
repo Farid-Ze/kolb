@@ -11,14 +11,13 @@
  * §1.3.2: Zona Hijau ergonomis untuk mobile
  */
 
-import React, { useState, useEffect, ReactNode } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, 
   FileText, 
   BookOpen, 
-  Settings, 
   Menu, 
   X,
   LogOut,
@@ -26,7 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { useAuth } from '../../contexts/AuthContext';
-import { ThemeToggle } from '../features/ThemeToggle';
+import { ThemeToggle } from './ThemeToggle';
 import { VibrantText } from '../ui/VibrantText';
 import { useScrollEdge } from '../ui/ScrollEdgeHandler';
 import { useBreakpoint } from '../../hooks/useBreakpoint';

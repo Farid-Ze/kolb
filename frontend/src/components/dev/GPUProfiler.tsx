@@ -79,10 +79,9 @@ export const GPUProfiler: React.FC<GPUProfilerProps> = ({
     timestamp: Date.now(),
   });
 
-  const frameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(performance.now());
   const fpsHistoryRef = useRef<number[]>([]);
-  const rafIdRef = useRef<number>();
+  const rafIdRef = useRef<number | null>(null);
 
   // FPS Calculation using requestAnimationFrame
   useEffect(() => {
@@ -123,7 +122,7 @@ export const GPUProfiler: React.FC<GPUProfilerProps> = ({
       rafIdRef.current = requestAnimationFrame(calculateFPS);
     };
 
-    rafIdRef.current = requestAnimationFrame(calculateFPS);
+    rafIdRef.current = requestAnimationFrame((time) => calculateFPS(time));
 
     return () => {
       if (rafIdRef.current) {
@@ -286,7 +285,7 @@ export const GPUProfiler: React.FC<GPUProfilerProps> = ({
               {/* Info */}
               <div className="text-xs text-muted-foreground pt-2 border-t border-border">
                 <p className="mb-1">
-                  <strong>Target:</strong> 60 FPS, <{glassThreshold} glass elements
+                  <strong>Target:</strong> {`60 FPS, <${glassThreshold} glass elements`}
                 </p>
                 <p>
                   <strong>Guidelines §4.5.2:</strong> Glass materials are GPU-expensive

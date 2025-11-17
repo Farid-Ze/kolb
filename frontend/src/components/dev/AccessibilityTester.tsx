@@ -19,6 +19,12 @@ import { FormInput } from '../ui/FormInput';
 import { LongFormText, useFontScale } from '../ui/DynamicType';
 import { useWindowFocus } from '../../hooks/useWindowFocus';
 import { cn } from '../../lib/utils';
+import {
+  getContrastRatio,
+  getContrastRating,
+  isWCAGCompliant,
+  WCAGLevel,
+} from '../../lib/accessibility';
 
 interface AccessibilityTesterProps {
   /** Show/hide tester panel */
@@ -30,7 +36,7 @@ interface AccessibilityTesterProps {
  * Guidelines.md §8.5.4
  */
 const WindowFocusState: React.FC = () => {
-  const { isFocused, isVisible } = useWindowFocus();
+  const { isFocused } = useWindowFocus();
   
   return (
     <div className="flex items-center justify-between">
@@ -119,26 +125,32 @@ export const AccessibilityTester: React.FC<AccessibilityTesterProps> = ({
 
   // Show element boundaries
   React.useEffect(() => {
-    if (showBoundaries) {
-      const style = document.createElement('style');
-      style.id = 'accessibility-boundaries';
-      style.textContent = `
-        * {
-          outline: 1px solid rgba(255, 0, 0, 0.2) !important;
-        }
-        *:hover {
-          outline: 2px solid rgba(255, 0, 0, 0.5) !important;
-        }
-      `;
-      document.head.appendChild(style);
-      
-      return () => {
-        const existingStyle = document.getElementById('accessibility-boundaries');
-        if (existingStyle) {
-          document.head.removeChild(existingStyle);
-        }
-      };
+    if (!showBoundaries) {
+      const existingStyle = document.getElementById('accessibility-boundaries');
+      if (existingStyle) {
+        document.head.removeChild(existingStyle);
+      }
+      return;
     }
+
+    const style = document.createElement('style');
+    style.id = 'accessibility-boundaries';
+    style.textContent = `
+      * {
+        outline: 1px solid rgba(255, 0, 0, 0.2) !important;
+      }
+      *:hover {
+        outline: 2px solid rgba(255, 0, 0, 0.5) !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      const existingStyle = document.getElementById('accessibility-boundaries');
+      if (existingStyle) {
+        document.head.removeChild(existingStyle);
+      }
+    };
   }, [showBoundaries]);
 
   if (!isOpen) {
@@ -271,7 +283,7 @@ export const AccessibilityTester: React.FC<AccessibilityTesterProps> = ({
           <FormInput
             label="Test Input"
             placeholder="Type something..."
-            helperText="Helper text untuk testing"
+            helpText="Helper text untuk testing"
           />
 
           {/* Test Long Text */}
@@ -318,10 +330,6 @@ export const ContrastChecker: React.FC<{
   foreground: string;
   background: string;
 }> = ({ foreground, background }) => {
-  // Import accessibility utilities
-  const { getContrastRatio, getContrastRating, isWCAGCompliant, WCAGLevel } = 
-    require('../../lib/accessibility');
-  
   const ratio = getContrastRatio(foreground, background);
   const rating = getContrastRating(ratio);
   const isAA = isWCAGCompliant(ratio, WCAGLevel.AA);

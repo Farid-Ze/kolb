@@ -86,17 +86,15 @@
 - [x] **Longitudinal delta: toleransi missing relationships**  
   `compute_longitudinal_delta` mengasumsikan bahwa `previous.learning_style` dan `previous.lfi_index` tersedia untuk menghitung `delta_intensity` dan `delta_lfi`. Pastikan ada tests / guard yang menangani kasus ketika session sebelumnya ada tetapi relasi ini belum terisi (mis. migrasi lama), sehingga finalize tidak gagal secara runtime.
 
-## F. Engine Authoring & DSL Migrasi
-
-- [ ] **Seeder KLSI → engine authoring tables**  
+- [x] **Seeder KLSI → engine authoring tables**  
   Implementasi seeding dari konfigurasi KLSI ke tabel engine (`EngineInstrument`, `EngineForm`, `EngineItem`, `EngineItemOption`, `EngineScale`, `EngineScoringRule`) perlu audit bahwa:
   - Semua item dan opsi forced-choice terwakili dengan benar,
   - `learning_mode` dan `value` konsisten dengan logic `aggregate_mode_scores`.
 
-- [ ] **Adapter runtime: sumber item tunggal**  
+- [x] **Adapter runtime: sumber item tunggal**  
   Saat feature flag diaktifkan, runtime harus membaca item dan skala KLSI hanya dari tabel engine authoring, tetapi masih memanggil fungsi scoring KLSI yang sama. Perlu tests parity untuk memastikan perubahan sumber data tidak mengubah skor.
 
-- [ ] **DSL coverage & safety**  
+- [x] **DSL coverage & safety**  
   Saat memindahkan perhitungan ke DSL (SUM, DIFF, PERCENTILE, CLASSIFY, CUSTOM), pastikan: 
   - Semua operasi tetap pure dan deterministik,
   - Tidak ada akses langsung ke DB atau side effect di expression evaluator.
@@ -114,13 +112,13 @@
   - Tidak ada `from sqlalchemy.orm import Session` di `routers/`,
   - Tidak ada akses langsung ke model di `routers/` tanpa melalui `services`.
 
-- [ ] **End-to-end parity tests antara engine router dan legacy**  
+- [x] **End-to-end parity tests antara engine router dan legacy**  
   Tambahkan tests E2E yang membandingkan hasil `submit_all` + `engine.finalize_with_audit` dengan jalur finalize legacy (jika masih ada) untuk beberapa profil boundary (near style boundaries, norm truncation, extreme LFI) guna memastikan migrasi ke engine runtime tidak mengubah hasil psikometrik.
 
-- [ ] **Report heuristics vs normative data – dokumentasi & tests**  
+- [x] **Report heuristics vs normative data – dokumentasi & tests**  
   Beberapa heuristik di `services/report.py` dan `services/regression.py` (mis. _derive_learning_space_suggestions, _classify_development, prediksi LFI berbasis regresi) bersifat non-diagnostik dan tidak normatif. Pastikan semua output ini jelas diberi label sebagai heuristik di payload dan dokumentasi (README, docs), serta tambahkan tests yang memverifikasi bahwa perubahan konfigurasi regresi tidak mempengaruhi core skor KLSI (raw modes, ACCE/AERO, LFI resmi).
 
-- [ ] **Security & research access – konsistensi role/JWT & logging**  
+- [x] **Security & research access – konsistensi role/JWT & logging**  
   Audit `services/security.py`, `routers/auth.py`, `routers/admin.py`, dan `routers/research.py` untuk memastikan: (1) `get_current_user` hanya dipakai di layer router/service (bukan di engine/assessments), (2) semua endpoint sensitif (import norms, research CRUD, perf-metrics) selalu memeriksa role `MEDIATOR` melalui helper tunggal (mis. `_require_mediator`), (3) JWT `aud/iss` di-config konsisten antara create/decode/token usage di tests, dan (4) failure-path DB (commit/rollback) selalu tercatat via structured logging dengan field minimal `user_id`, `email`, dan `operation`.
 
 ---

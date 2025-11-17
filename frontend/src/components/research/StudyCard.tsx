@@ -12,15 +12,15 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Users, Calendar, ChevronRight, FileText } from 'lucide-react';
-import type { ResearchStudy } from '../../services/researchService';
+import type { Study } from '../../services/researchService';
 import { ShortLabel, DescriptionText } from '../ui/DynamicType';
 
 interface StudyCardProps {
-  study: ResearchStudy;
+  study: Study;
   onClick: () => void;
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<Study['status'], { label: string; className: string }> = {
   ACTIVE: {
     label: 'Aktif',
     className: 'bg-chart-4/10 text-chart-4',

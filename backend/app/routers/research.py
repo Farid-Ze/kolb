@@ -21,19 +21,20 @@ from app.schemas.research import (
 )
 from app.core.logging import get_logger
 from app.i18n.id_messages import AuthorizationMessages, ResearchMessages
-from app.services.security import get_current_user
+from app.services.security import get_current_user, require_mediator
 
 router = APIRouter(prefix="/research", tags=["research"])
 logger = get_logger("kolb.routers.research", component="router")
 
 
-def _log_db_failure(event: str, **structured: Any) -> None:
-    logger.exception(event, extra={"structured_data": structured})
-
-
-def _require_mediator(user: User) -> None:
-    if user.role != "MEDIATOR":
-        raise HTTPException(status_code=403, detail=AuthorizationMessages.MEDIATOR_REQUIRED)
+def _log_db_failure(event: str, *, user: User, operation: str, **structured: Any) -> None:
+    payload = {
+        "user_id": user.id,
+        "user_email": user.email,
+        "operation": operation,
+    }
+    payload.update(structured)
+    logger.exception(event, extra={"structured_data": payload})
 
 
 @router.post("/studies", response_model=ResearchStudyOut)
@@ -43,7 +44,7 @@ def create_study(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    _require_mediator(user)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     study_repo = ResearchStudyRepository(db)
     try:
         study = study_repo.create(**payload.model_dump())
@@ -53,7 +54,8 @@ def create_study(
         db.rollback()
         _log_db_failure(
             "research_create_study_failed",
-            user_id=user.id,
+            user=user,
+            operation="research_create_study",
             title=payload.title,
         )
         raise
@@ -66,13 +68,22 @@ def list_studies(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     q: Optional[str] = Query(None),
+    authorization: str | None = Header(default=None),
 ):
+    user = get_current_user(authorization, db)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     study_repo = ResearchStudyRepository(db)
     return study_repo.list(skip, limit, q)
 
 
 @router.get("/studies/{study_id}", response_model=ResearchStudyOut)
-def get_study(study_id: int, db: Session = Depends(get_db)):
+def get_study(
+    study_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     study_repo = ResearchStudyRepository(db)
     study = study_repo.get(study_id)
     if not study:
@@ -88,7 +99,7 @@ def update_study(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    _require_mediator(user)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     study_repo = ResearchStudyRepository(db)
     try:
         study = study_repo.get(study_id)
@@ -104,8 +115,9 @@ def update_study(
         db.rollback()
         _log_db_failure(
             "research_update_study_failed",
+            user=user,
+            operation="research_update_study",
             study_id=study_id,
-            user_id=user.id,
             payload_fields=list(payload.model_dump(exclude_unset=True).keys()),
         )
         raise
@@ -119,7 +131,7 @@ def delete_study(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    _require_mediator(user)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     study_repo = ResearchStudyRepository(db)
     reliability_repo = ReliabilityRepository(db)
     validity_repo = ValidityRepository(db)
@@ -143,8 +155,9 @@ def delete_study(
         db.rollback()
         _log_db_failure(
             "research_delete_study_failed",
+            user=user,
+            operation="research_delete_study",
             study_id=study_id,
-            user_id=user.id,
         )
         raise
     return {"ok": True}
@@ -158,7 +171,7 @@ def add_reliability(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    _require_mediator(user)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     study_repo = ResearchStudyRepository(db)
     reliability_repo = ReliabilityRepository(db)
     try:
@@ -175,8 +188,9 @@ def add_reliability(
         db.rollback()
         _log_db_failure(
             "research_add_reliability_failed",
+            user=user,
+            operation="research_add_reliability",
             study_id=study_id,
-            user_id=user.id,
             metric_name=payload.metric_name,
         )
         raise
@@ -191,7 +205,7 @@ def add_validity(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    _require_mediator(user)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     study_repo = ResearchStudyRepository(db)
     validity_repo = ValidityRepository(db)
     try:
@@ -208,8 +222,9 @@ def add_validity(
         db.rollback()
         _log_db_failure(
             "research_add_validity_failed",
+            user=user,
+            operation="research_add_validity",
             study_id=study_id,
-            user_id=user.id,
             evidence_type=payload.evidence_type,
         )
         raise
@@ -217,7 +232,13 @@ def add_validity(
 
 
 @router.get("/studies/{study_id}/reliability", response_model=list[dict])
-def list_reliability(study_id: int, db: Session = Depends(get_db)):
+def list_reliability(
+    study_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     repo = ReliabilityRepository(db)
     rows = repo.list_by_study(study_id)
     return [
@@ -227,7 +248,13 @@ def list_reliability(study_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/studies/{study_id}/validity", response_model=list[dict])
-def list_validity(study_id: int, db: Session = Depends(get_db)):
+def list_validity(
+    study_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
     repo = ValidityRepository(db)
     rows = repo.list_by_study(study_id)
     return [

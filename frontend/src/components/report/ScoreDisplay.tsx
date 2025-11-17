@@ -61,8 +61,11 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
         <div className="grid sm:grid-cols-2 gap-4">
           {(Object.entries(rawScores) as [keyof RawScores, number][]).map(
             ([mode, score]) => {
-              const info = modeDescriptions[mode];
-              const percentile = percentileScores[mode];
+              const info = modeDescriptions[mode as keyof typeof modeDescriptions];
+              if (!info) {
+                return null;
+              }
+              const percentile = percentileScores[mode] ?? 0;
               
               return (
                 <div
@@ -127,7 +130,7 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
           {(
             Object.entries(dialecticScores) as [keyof DialecticScores, number][]
           ).map(([dimension, score]) => {
-            const percentile = percentileScores[dimension];
+            const percentile = percentileScores[dimension] ?? 0;
             const isPositive = score > 0;
             const [pole1, pole2] = dimension.split('-');
             

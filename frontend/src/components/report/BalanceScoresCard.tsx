@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Info, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Info, TrendingUp, Minus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 

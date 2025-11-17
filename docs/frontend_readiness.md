@@ -76,8 +76,9 @@ Pastikan setiap tampilan frontend memiliki tautan atau tooltip ke definisi di at
 
 1. **Instrumen formatif**: Semua layar harus memuat pernyataan eksplisit bahwa KLSI 4.0 digunakan untuk refleksi dan desain pembelajaran, **bukan** seleksi kerja atau diagnosis klinis. Referensi: `docs/psychometrics_spec.md §0.3`, `The Kolb ... Guide Introduction`.
 2. **Balance percentiles**: Tegaskan kembali bahwa `P_BAL_ACCE` dan `P_BAL_AERO` adalah heuristik jarak ke pusat normatif (lihat `backend/app/i18n/id_messages.py::ReportBalanceMessages.NOTE`). Tooltip wajib menyebut “bukan persentil populasi normatif”.
-3. **Standar AERA/APA/NCME**: Laporkan penggunaan sesuai standar: jelaskan apa yang boleh disimpulkan (preferensi belajar dalam konteks) dan apa yang tidak (mis. tidak memprediksi kepribadian). Tambahkan link pendek ke ringkasan standar di laporan digital.
-4. **Guidance untuk mediator**: UI report/educator dashboard perlu menyertakan panel “Cara menggunakan hasil secara etis” yang menyarankan diskusi reflektif, bukan pelabelan permanen. Ini memastikan interpretasi mengikuti spirit ELT tentang fleksibilitas.
+3. **Learning space & regression heuristics**: Payload `learning_space.meta` dan `analytics.meta` sekarang memuat label heuristik (`ReportMessages.LEARNING_SPACE_HEURISTIC_NOTE`, `ReportMessages.ANALYTICS_HEURISTIC_NOTE`). Pastikan UI menampilkan badge/tooltip “heuristik/non-diagnostik” di panel rekomendasi ruang belajar, peran pendidik, meta-learning, dan prediksi regresi (kurva LFI, skor perkembangan integratif) agar pengguna memahami bahwa blok tersebut tidak memengaruhi skor resmi.
+4. **Standar AERA/APA/NCME**: Laporkan penggunaan sesuai standar: jelaskan apa yang boleh disimpulkan (preferensi belajar dalam konteks) dan apa yang tidak (mis. tidak memprediksi kepribadian). Tambahkan link pendek ke ringkasan standar di laporan digital.
+5. **Guidance untuk mediator**: UI report/educator dashboard perlu menyertakan panel “Cara menggunakan hasil secara etis” yang menyarankan diskusi reflektif, bukan pelabelan permanen. Ini memastikan interpretasi mengikuti spirit ELT tentang fleksibilitas.
 
 Checklist TODO 182 dianggap terpenuhi ketika:
 - Bagian ini disisipkan di dokumen onboarding frontend dan direview oleh scientific lead.

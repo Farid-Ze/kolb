@@ -1,6 +1,7 @@
 import csv
 from hashlib import sha256
 from io import StringIO
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -20,13 +21,17 @@ from app.engine.norms.factory import (
 from app.assessments.klsi_v4.logic import clear_percentile_cache
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.services.security import get_current_user
+from app.services.security import get_current_user, require_mediator
 from app.services import pipelines as pipeline_service
 from app.core.metrics import get_metrics, get_counters
 from app.i18n.id_messages import AdminMessages, AuthorizationMessages
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = get_logger("kolb.routers.admin", component="router")
+
+
+def _log_db_failure(event: str, **structured: Any) -> None:
+    logger.exception(event, extra={"structured_data": structured})
 
 @router.post("/norms/import")
 def import_norms(
@@ -37,8 +42,7 @@ def import_norms(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    if user.role != 'MEDIATOR':
-        raise HTTPException(status_code=403, detail=AuthorizationMessages.MEDIATOR_NORM_IMPORT_ONLY)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_NORM_IMPORT_ONLY)
     fname = file.filename or ""
     if not fname.lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail=AdminMessages.FILE_MUST_BE_CSV)
@@ -86,12 +90,35 @@ def import_norms(
     batch_hash = sha256(content.encode('utf-8')).hexdigest()
     norm_repo = NormativeConversionRepository(db)
     inserted = 0
-    with db.begin():
-        for scale_name, raw_score, percentile in rows:
-            _, created = norm_repo.upsert(norm_group, norm_version, scale_name, raw_score, percentile)
-            if created:
-                inserted += 1
-        db.add(AuditLog(actor=user.email, action=f'norm_import:{norm_group}:{norm_version}', payload_hash=batch_hash))
+    try:
+        with db.begin():
+            for scale_name, raw_score, percentile in rows:
+                _, created = norm_repo.upsert(
+                    norm_group,
+                    norm_version,
+                    scale_name,
+                    raw_score,
+                    percentile,
+                )
+                if created:
+                    inserted += 1
+            db.add(
+                AuditLog(
+                    actor=user.email,
+                    action=f"norm_import:{norm_group}:{norm_version}",
+                    payload_hash=batch_hash,
+                )
+            )
+    except Exception:
+        _log_db_failure(
+            "admin_norm_import_failed",
+            operation="norm_import",
+            user_id=user.id,
+            user_email=user.email,
+            norm_group=norm_group,
+            norm_version=norm_version,
+        )
+        raise
     # Invalidate in-process normative cache so subsequent lookups see fresh data
     try:
         provider = build_composite_norm_provider(db)
@@ -126,11 +153,7 @@ def get_norm_cache_stats(
 ):
     """Return in-process normative DB lookup cache statistics (Mediator only)."""
     user = get_current_user(authorization, db)
-    if user.role != 'MEDIATOR':
-        raise HTTPException(
-            status_code=403,
-            detail=AuthorizationMessages.MEDIATOR_CACHE_STATS_ONLY,
-        )
+    require_mediator(user, AuthorizationMessages.MEDIATOR_CACHE_STATS_ONLY)
     provider = build_composite_norm_provider(db)
     stats = {}
     if hasattr(provider, "_db_lookup"):
@@ -149,11 +172,7 @@ def get_external_norm_cache_stats(
     Mengembalikan hit/miss, ukuran cache, TTL, dan metrik jaringan dasar.
     """
     user = get_current_user(authorization, db)
-    if user.role != 'MEDIATOR':
-        raise HTTPException(
-            status_code=403,
-            detail=AuthorizationMessages.MEDIATOR_EXTERNAL_CACHE_STATS_ONLY,
-        )
+    require_mediator(user, AuthorizationMessages.MEDIATOR_EXTERNAL_CACHE_STATS_ONLY)
     if not (settings.external_norms_enabled and settings.external_norms_base_url):
         return {"enabled": False, "message": AdminMessages.EXTERNAL_NORMS_DISABLED}
     stats = external_cache_stats()
@@ -172,11 +191,7 @@ def get_perf_metrics(
     Use `reset=true` to clear counters after reading.
     """
     user = get_current_user(authorization, db)
-    if user.role != 'MEDIATOR':
-        raise HTTPException(
-            status_code=403,
-            detail=AuthorizationMessages.MEDIATOR_METRICS_ONLY,
-        )
+    require_mediator(user, AuthorizationMessages.MEDIATOR_METRICS_ONLY)
     timing = get_metrics(reset=reset)
     counters = get_counters(reset=reset)
     # Toggle visibility for ops
@@ -212,11 +227,7 @@ def list_instrument_pipelines(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    if user.role != "MEDIATOR":
-        raise HTTPException(
-            status_code=403,
-            detail=AuthorizationMessages.MEDIATOR_PIPELINE_ACCESS_ONLY,
-        )
+    require_mediator(user, AuthorizationMessages.MEDIATOR_PIPELINE_ACCESS_ONLY)
     return pipeline_service.list_pipelines(db, instrument_code, instrument_version)
 
 
@@ -229,17 +240,24 @@ def activate_instrument_pipeline(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    if user.role != "MEDIATOR":
-        raise HTTPException(
-            status_code=403,
-            detail=AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY,
+    require_mediator(user, AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY)
+    try:
+        return pipeline_service.activate_pipeline(
+            db,
+            instrument_code,
+            pipeline_id,
+            instrument_version=instrument_version,
         )
-    return pipeline_service.activate_pipeline(
-        db,
-        instrument_code,
-        pipeline_id,
-        instrument_version=instrument_version,
-    )
+    except Exception:
+        _log_db_failure(
+            "admin_pipeline_activate_failed",
+            operation="pipeline_activate",
+            user_id=user.id,
+            user_email=user.email,
+            instrument_code=instrument_code,
+            pipeline_id=pipeline_id,
+        )
+        raise
 
 
 class ClonePipelineRequest(BaseModel):
@@ -259,21 +277,29 @@ def clone_instrument_pipeline(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    if user.role != "MEDIATOR":
-        raise HTTPException(
-            status_code=403,
-            detail=AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY,
+    require_mediator(user, AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY)
+    try:
+        return pipeline_service.clone_pipeline(
+            db,
+            instrument_code,
+            pipeline_id,
+            instrument_version=instrument_version,
+            new_pipeline_code=payload.pipeline_code,
+            new_version=payload.version,
+            description=payload.description,
+            metadata_override=payload.metadata,
         )
-    return pipeline_service.clone_pipeline(
-        db,
-        instrument_code,
-        pipeline_id,
-        instrument_version=instrument_version,
-        new_pipeline_code=payload.pipeline_code,
-        new_version=payload.version,
-        description=payload.description,
-        metadata_override=payload.metadata,
-    )
+    except Exception:
+        _log_db_failure(
+            "admin_pipeline_clone_failed",
+            operation="pipeline_clone",
+            user_id=user.id,
+            user_email=user.email,
+            instrument_code=instrument_code,
+            pipeline_id=pipeline_id,
+            target_version=payload.version,
+        )
+        raise
 
 
 @router.delete("/instruments/{instrument_code}/pipelines/{pipeline_id}")
@@ -285,14 +311,21 @@ def delete_instrument_pipeline(
     authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    if user.role != "MEDIATOR":
-        raise HTTPException(
-            status_code=403,
-            detail=AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY,
+    require_mediator(user, AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY)
+    try:
+        return pipeline_service.delete_pipeline(
+            db,
+            instrument_code,
+            pipeline_id,
+            instrument_version=instrument_version,
         )
-    return pipeline_service.delete_pipeline(
-        db,
-        instrument_code,
-        pipeline_id,
-        instrument_version=instrument_version,
-    )
+    except Exception:
+        _log_db_failure(
+            "admin_pipeline_delete_failed",
+            operation="pipeline_delete",
+            user_id=user.id,
+            user_email=user.email,
+            instrument_code=instrument_code,
+            pipeline_id=pipeline_id,
+        )
+        raise

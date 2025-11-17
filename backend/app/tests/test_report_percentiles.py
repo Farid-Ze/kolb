@@ -41,3 +41,47 @@ def test_report_percentiles_include_provenance_metadata():
         assert "CE" in percentiles["truncated_scales"]
     finally:
         db.close()
+
+
+def test_learning_space_and_analytics_blocks_flag_heuristics():
+    db = build_seeded_memory_db()
+    try:
+        session = _finalized_session(db)
+        payload = build_report(db, session.id)
+        learning_space = payload["learning_space"]
+        meta = learning_space["meta"]
+        assert meta["heuristic"] is True
+        assert "heuristik" in meta["note"].lower()
+        analytics_meta = payload["analytics"]["meta"]
+        assert analytics_meta["heuristic"] is True
+        assert "regresi" in analytics_meta["note"].lower()
+    finally:
+        db.close()
+
+
+def test_regression_predictions_do_not_mutate_core_scores(monkeypatch):
+    db = build_seeded_memory_db()
+    try:
+        session = _finalized_session(db)
+        baseline = build_report(db, session.id)
+        raw_before = baseline["raw"].copy()
+        percentiles_before = baseline["percentiles"].copy()
+        lfi_before = baseline["lfi"].copy() if baseline["lfi"] else None
+
+        def fake_curve(*_args, **_kwargs):
+            return [{"acc_assm": -999, "pred_lfi": 0.01}]
+
+        def fake_integrative(**_kwargs):
+            return 42.42
+
+        monkeypatch.setattr("app.services.report.predicted_curve", fake_curve)
+        monkeypatch.setattr("app.services.report.predict_integrative_development", fake_integrative)
+
+        payload = build_report(db, session.id, viewer_role="MEDIATOR")
+        assert payload["raw"] == raw_before
+        assert payload["percentiles"] == percentiles_before
+        assert payload["lfi"] == lfi_before
+        integrative = payload["enhanced_analytics"]["integrative_development"]
+        assert integrative["heuristic"] is True
+    finally:
+        db.close()

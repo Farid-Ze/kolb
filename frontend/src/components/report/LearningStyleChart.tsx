@@ -40,12 +40,11 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
     },
   ];
 
-  // Quadrant labels & descriptions
-  const quadrants = [
-    { id: 1, name: 'Accommodating', position: { x: 30, y: 30 } },
-    { id: 2, name: 'Diverging', position: { x: -30, y: 30 } },
-    { id: 3, name: 'Assimilating', position: { x: -30, y: -30 } },
-    { id: 4, name: 'Converging', position: { x: 30, y: -30 } },
+  const quadrantSummaries = [
+    { name: 'Diverging', description: 'Feeling + Watching' },
+    { name: 'Accommodating', description: 'Feeling + Doing' },
+    { name: 'Assimilating', description: 'Thinking + Watching' },
+    { name: 'Converging', description: 'Thinking + Doing' },
   ];
 
   return (
@@ -147,22 +146,12 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
 
         {/* Quadrant Labels Overlay (positioned absolutely) */}
         <div className="relative mt-4 grid grid-cols-2 gap-4 text-center text-muted-foreground">
-          <div className="p-2 rounded-lg bg-secondary/20">
-            <div className="text-foreground">Diverging</div>
-            <div>Feeling + Watching</div>
-          </div>
-          <div className="p-2 rounded-lg bg-secondary/20">
-            <div className="text-foreground">Accommodating</div>
-            <div>Feeling + Doing</div>
-          </div>
-          <div className="p-2 rounded-lg bg-secondary/20">
-            <div className="text-foreground">Assimilating</div>
-            <div>Thinking + Watching</div>
-          </div>
-          <div className="p-2 rounded-lg bg-secondary/20">
-            <div className="text-foreground">Converging</div>
-            <div>Thinking + Doing</div>
-          </div>
+          {quadrantSummaries.map((quadrant) => (
+            <div key={quadrant.name} className="p-2 rounded-lg bg-secondary/20">
+              <div className="text-foreground">{quadrant.name}</div>
+              <div>{quadrant.description}</div>
+            </div>
+          ))}
         </div>
       </div>
 

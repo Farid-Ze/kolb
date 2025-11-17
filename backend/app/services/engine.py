@@ -57,17 +57,18 @@ class EngineSessionService:
         user: "User",
         payload: SessionSubmissionPayload,
     ) -> Dict[str, Any]:
-        session = self._load_authorized_session(session_id, user)
-        if session.status == SessionStatus.completed:
-            raise SessionFinalizedError()
-
-        # Fail fast before touching persistence
-        validate_full_submission_payload(self.db, payload)
-
         try:
-            with self.db.begin():
-                self._persist_batch_payload(session_id, payload)
+            session = self._load_authorized_session(session_id, user)
+            if session.status == SessionStatus.completed:
+                raise SessionFinalizedError()
+
+            # Validate before recording any ranks to ensure we never persist partial batches.
+            validate_full_submission_payload(self.db, payload)
+
+            self._persist_batch_payload(session_id, payload)
+            self.db.commit()
         except DomainError:
+            self.db.rollback()
             raise
         except Exception as exc:  # pragma: no cover - defensive guard for DB errors
             self.db.rollback()

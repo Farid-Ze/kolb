@@ -10,7 +10,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getAssessmentItems, submitAnswers } from '../services/assessmentService';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import type { AssessmentItem, ItemResponse, SubmitAnswersRequest } from '../types/api';
 
 interface UseAssessmentParams {

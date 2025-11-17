@@ -385,6 +385,10 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
                 lfi=lfi.LFI_score
             )
             
+            regression_meta = {
+                "heuristic": True,
+                "note": ReportMessages.ANALYTICS_HEURISTIC_NOTE,
+            }
             enhanced_analytics = {
                 "contextual_profile": contextual_profile,
                 "heatmap": heatmap,
@@ -394,12 +398,15 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
                         score=integrative_dev_score
                     ),
                     "model_info": ReportMessages.INTEGRATIVE_MODEL_INFO,
+                    "heuristic": True,
+                    "note": ReportMessages.INTEGRATIVE_DEV_HEURISTIC_NOTE,
                 },
                 "flexibility_narrative": _generate_flexibility_narrative(
                     lfi.LFI_score,
                     contextual_profile["flexibility_pattern"],
                     contextual_profile["style_frequency"]
-                )
+                ),
+                "meta": regression_meta,
             }
 
     # Build percentiles block with explicit typing to satisfy mypy (heterogeneous value types)
@@ -489,6 +496,53 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "truncated_scales": p.truncated_scales,
         }
 
+    learning_space_block = {
+        "meta": {
+            "heuristic": True,
+            "note": ReportMessages.LEARNING_SPACE_HEURISTIC_NOTE,
+        },
+        "suggestions": _derive_learning_space_suggestions(
+            combo.ACCE_raw if combo else None,
+            combo.AERO_raw if combo else None,
+            combo.assimilation_accommodation if combo else None,
+            combo.converging_diverging if combo else None,
+            None if not lfi else lfi.LFI_score,
+            intensity
+        ),
+        "development": _classify_development(
+            combo.ACCE_raw if combo else None,
+            combo.AERO_raw if combo else None,
+            combo.assimilation_accommodation if combo else None,
+            combo.converging_diverging if combo else None,
+            None if not lfi else lfi.LFI_score,
+            intensity
+        ),
+        "meta_learning": _derive_meta_learning(
+            scale.AC_raw if scale else None,
+            scale.CE_raw if scale else None,
+            scale.AE_raw if scale else None,
+            scale.RO_raw if scale else None,
+            combo.ACCE_raw if combo else None,
+            combo.AERO_raw if combo else None,
+            None if not lfi else lfi.LFI_score
+        ),
+        "educator_roles": _educator_role_suggestions(
+            None if not primary else primary.style_name,
+            combo.ACCE_raw if combo else None,
+            combo.AERO_raw if combo else None,
+            None if not lfi else lfi.LFI_score
+        ),
+    }
+
+    analytics_block = {
+        "predicted_lfi_curve": predicted_curve(age=None, gender=None, education=None, specialization=None) if combo else None,
+        "acc_assm_peak_note": ReportAnalyticsMessages.ACC_ASSM_PEAK_NOTE,
+        "meta": {
+            "heuristic": True,
+            "note": ReportMessages.ANALYTICS_HEURISTIC_NOTE,
+        },
+    }
+
     return {
         "session_id": session_id,
         "raw": {
@@ -529,43 +583,8 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "dialectic": {"ACCE": combo.ACCE_raw if combo else None, "AERO": combo.AERO_raw if combo else None, "CONV_DIV": combo.converging_diverging if combo else None, "intensity": intensity}
         },
         "session_designs": recommendations,
-        "analytics": {
-            "predicted_lfi_curve": predicted_curve(age=None, gender=None, education=None, specialization=None) if combo else None,
-            "acc_assm_peak_note": ReportAnalyticsMessages.ACC_ASSM_PEAK_NOTE,
-        },
-        "learning_space": {
-            "suggestions": _derive_learning_space_suggestions(
-                combo.ACCE_raw if combo else None,
-                combo.AERO_raw if combo else None,
-                combo.assimilation_accommodation if combo else None,
-                combo.converging_diverging if combo else None,
-                None if not lfi else lfi.LFI_score,
-                intensity
-            ),
-            "development": _classify_development(
-                combo.ACCE_raw if combo else None,
-                combo.AERO_raw if combo else None,
-                combo.assimilation_accommodation if combo else None,
-                combo.converging_diverging if combo else None,
-                None if not lfi else lfi.LFI_score,
-                intensity
-            ),
-            "meta_learning": _derive_meta_learning(
-                scale.AC_raw if scale else None,
-                scale.CE_raw if scale else None,
-                scale.AE_raw if scale else None,
-                scale.RO_raw if scale else None,
-                combo.ACCE_raw if combo else None,
-                combo.AERO_raw if combo else None,
-                None if not lfi else lfi.LFI_score
-            ),
-            "educator_roles": _educator_role_suggestions(
-                None if not primary else primary.style_name,
-                combo.ACCE_raw if combo else None,
-                combo.AERO_raw if combo else None,
-                None if not lfi else lfi.LFI_score
-            )
-        },
+        "analytics": analytics_block,
+        "learning_space": learning_space_block,
         "enhanced_analytics": enhanced_analytics,  # MEDIATOR-only comprehensive diagnostics
         "notes": {
             "psychometric_terms": ReportNotesMessages.PSYCHOMETRIC_TERMS,
