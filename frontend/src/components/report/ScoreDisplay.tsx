@@ -14,7 +14,7 @@ import type {
   RawScores,
   DialecticScores,
   PercentileScores,
-} from '../../services/reportService';
+} from '../../types/api';
 import { TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -54,7 +54,7 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
       {/* Raw Scores */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-foreground">Skor Mode Belajar</h3>
+          <h3 className="text-foreground">Skor Mentah</h3>
           <TrendingUp className="h-5 w-5 text-muted-foreground" />
         </div>
         
@@ -78,7 +78,8 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
                       <span className="text-primary">{mode}</span>
                     </div>
                     <div className="text-foreground">
-                      {score.toFixed(1)}
+                      <span className="sr-only">{`${mode}: ${score}`}</span>
+                      {score}
                     </div>
                   </div>
 
@@ -133,6 +134,10 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
             const percentile = percentileScores[dimension] ?? 0;
             const isPositive = score > 0;
             const [pole1, pole2] = dimension.split('-');
+            const preciseScore = Number.isInteger(score)
+              ? score.toFixed(0)
+              : score.toFixed(1);
+            const signedDisplay = isPositive ? `+${preciseScore}` : preciseScore;
             
             return (
               <div
@@ -143,10 +148,12 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="text-foreground">{dimension}</div>
                   <div className="text-foreground">
-                    {score > 0 ? '+' : ''}
-                    {score.toFixed(1)}
+                    {signedDisplay}
                   </div>
                 </div>
+                <span className="sr-only">
+                  {`${dimension}: ${preciseScore}`}
+                </span>
 
                 {/* Visual Bar (bi-directional) */}
                 <div className="space-y-1">

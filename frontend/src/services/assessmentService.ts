@@ -46,17 +46,3 @@ export const submitAnswers = async (
   );
 };
 
-/**
- * Task 33: Finalize session
- * POST /engine/sessions/:id/finalize
- */
-export const finalizeSession = async (
-  sessionId: string
-): Promise<{ success: boolean; message: string }> => {
-  return authenticatedApiCall<{ success: boolean; message: string }>(
-    getApiUrl(`/engine/sessions/${sessionId}/finalize`),
-    {
-      method: 'POST',
-    }
-  );
-};

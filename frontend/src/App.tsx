@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './config/api';
@@ -22,12 +22,16 @@ import { ResearchDetailPage } from './pages/ResearchDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 // Dev Tools (only in development)
-const AccessibilityTester = process.env.NODE_ENV === 'development'
-  ? require('./components/dev/AccessibilityTester').AccessibilityTester
+const AccessibilityTester = import.meta.env.DEV
+  ? React.lazy(() =>
+      import('./components/dev/AccessibilityTester').then((module) => ({
+        default: module.AccessibilityTester,
+      }))
+    )
   : null;
 
-const DesignSystemShowcasePage = process.env.NODE_ENV === 'development'
-  ? require('./pages/DesignSystemShowcasePage').default
+const DesignSystemShowcasePage = import.meta.env.DEV
+  ? React.lazy(() => import('./pages/DesignSystemShowcasePage'))
   : null;
 
 /**
@@ -157,8 +161,15 @@ const App: React.FC = () => {
           />
 
           {/* Dev Tools - Design System Showcase (Development only) */}
-          {DesignSystemShowcasePage && (
-            <Route path="/dev/showcase" element={<DesignSystemShowcasePage />} />
+          {import.meta.env.DEV && DesignSystemShowcasePage && (
+            <Route
+              path="/dev/showcase"
+              element={
+                <Suspense fallback={null}>
+                  <DesignSystemShowcasePage />
+                </Suspense>
+              }
+            />
           )}
 
           {/* Unauthorized Page */}
@@ -187,7 +198,11 @@ const App: React.FC = () => {
             </Routes>
             
             {/* Dev Tools - Task TODO2.md Phase 5.12 */}
-            {AccessibilityTester && <AccessibilityTester initialOpen={false} />}
+            {AccessibilityTester && (
+              <Suspense fallback={null}>
+                <AccessibilityTester initialOpen={false} />
+              </Suspense>
+            )}
             </AuthProvider>
           </UIPreferencesProvider>
         </BrowserRouter>

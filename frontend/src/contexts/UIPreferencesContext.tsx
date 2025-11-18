@@ -13,16 +13,16 @@ interface UIPreferences {
   reduceTransparency: boolean;
 }
 
-interface UIPreferencesContextType extends UIPreferences {
+export interface UIPreferencesContextType extends UIPreferences {
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   toggleTheme: () => void;
   setReduceMotion: (value: boolean) => void;
   setReduceTransparency: (value: boolean) => void;
 }
 
-const UIPreferencesContext = createContext<UIPreferencesContextType | undefined>(
-  undefined
-);
+export const UIPreferencesContext = createContext<
+  UIPreferencesContextType | undefined
+>(undefined);
 
 interface UIPreferencesProviderProps {
   children: ReactNode;
@@ -139,3 +139,5 @@ export const useUIPreferences = (): UIPreferencesContextType => {
   }
   return context;
 };
+
+export const useUIPreferencesOptional = () => useContext(UIPreferencesContext);

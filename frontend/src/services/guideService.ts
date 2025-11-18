@@ -27,15 +27,6 @@ export const GUIDE_IDS = {
   CONTACT_SUPPORT: 'contact_support',
 } as const;
 
-export type GuideId = (typeof GUIDE_IDS)[keyof typeof GUIDE_IDS];
-
-export interface GuideMetadata {
-  id: string;
-  title: string;
-  category: 'student' | 'mediator' | 'general';
-  locales: string[];
-}
-
 /**
  * Get guide content markdown
  * Path: /static/guides/:guideId.:locale.md
@@ -72,76 +63,3 @@ export const getGuideContent = async (
   }
 };
 
-/**
- * Get list of available guides
- * This is a static list as guides are predefined
- */
-export const getGuideList = async (): Promise<GuideMetadata[]> => {
-  return [
-    // Student guides
-    {
-      id: GUIDE_IDS.STUDENT_INTRO,
-      title: 'Pengenalan KLSI 4.0',
-      category: 'student',
-      locales: ['id-ID', 'en-US'],
-    },
-    {
-      id: GUIDE_IDS.ASSESSMENT_INSTRUCTIONS,
-      title: 'Instruksi Asesmen',
-      category: 'student',
-      locales: ['id-ID', 'en-US'],
-    },
-    {
-      id: GUIDE_IDS.RESULTS_INTERPRETATION,
-      title: 'Interpretasi Hasil',
-      category: 'student',
-      locales: ['id-ID', 'en-US'],
-    },
-    {
-      id: GUIDE_IDS.LEARNING_STRATEGIES,
-      title: 'Strategi Belajar',
-      category: 'student',
-      locales: ['id-ID', 'en-US'],
-    },
-    
-    // Mediator guides
-    {
-      id: GUIDE_IDS.EDUCATOR_RESPONSIBLE_USE,
-      title: 'Panduan Penggunaan Bertanggung Jawab',
-      category: 'mediator',
-      locales: ['id-ID', 'en-US'],
-    },
-    {
-      id: GUIDE_IDS.TEAM_FACILITATION,
-      title: 'Fasilitasi Tim',
-      category: 'mediator',
-      locales: ['id-ID', 'en-US'],
-    },
-    {
-      id: GUIDE_IDS.RESEARCH_ETHICS,
-      title: 'Etika Penelitian',
-      category: 'mediator',
-      locales: ['id-ID', 'en-US'],
-    },
-    
-    // General guides
-    {
-      id: GUIDE_IDS.FAQ,
-      title: 'Pertanyaan Umum',
-      category: 'general',
-      locales: ['id-ID', 'en-US'],
-    },
-    {
-      id: GUIDE_IDS.PRIVACY_POLICY,
-      title: 'Kebijakan Privasi',
-      category: 'general',
-      locales: ['id-ID', 'en-US'],
-    },
-    {
-      id: GUIDE_IDS.CONTACT_SUPPORT,
-      title: 'Hubungi Dukungan',
-      category: 'general',
-      locales: ['id-ID', 'en-US'],
-    },
-  ];
-};

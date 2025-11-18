@@ -160,6 +160,7 @@ export const AssessmentPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
+        <div role="status" aria-live="polite" className="sr-only">Memuat asesmen...</div>
         <header className="glass-regular sticky top-0 z-50 border-b border-border">
           <div className="mx-auto max-w-4xl p-4">
             <Skeleton className="mb-2 h-8 w-[200px]" />

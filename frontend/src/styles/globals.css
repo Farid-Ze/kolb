@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -225,10 +227,6 @@ html {
  * Implementasi "Liquid Glass" Design System
  * @context Guidelines.md - Basis Pengetahuan Desain Antarmuka Modern
  */
-
-/* ===== FONT IMPORT: Inter (Recommended) ===== */
-/* Bagian 1.4.3 - Keterbacaan & Skala Teks Dinamis */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ===== BASE RESETS & ENHANCEMENTS ===== */
 @layer base {

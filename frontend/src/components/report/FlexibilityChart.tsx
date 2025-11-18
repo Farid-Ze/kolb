@@ -25,7 +25,7 @@ import {
   Radar,
   Legend,
 } from 'recharts';
-import type { FlexibilityIndex } from '../../services/reportService';
+import type { FlexibilityIndex } from '../../types/api';
 import { Activity, Layers } from 'lucide-react';
 
 interface FlexibilityChartProps {
@@ -76,7 +76,7 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
     <div className="space-y-6">
       {/* Title */}
       <div className="space-y-2">
-        <h3 className="text-foreground">Learning Flexibility Index</h3>
+        <h3 className="text-foreground">Fleksibilitas Belajar</h3>
         <p className="text-muted-foreground">
           Mengukur kemampuan adaptasi Anda di berbagai mode belajar
         </p>
@@ -125,9 +125,19 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
             layout="vertical"
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-            <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
-            <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" />
+            <CartesianGrid strokeDasharray="3 3" opacity={0.2} data-testid="flexibility-grid" />
+            <XAxis
+              type="number"
+              domain={[0, 100]}
+              stroke="hsl(var(--muted-foreground))"
+              data-testid="flexibility-x-axis"
+            />
+            <YAxis
+              dataKey="name"
+              type="category"
+              stroke="hsl(var(--muted-foreground))"
+              data-testid="flexibility-y-axis"
+            />
             <Tooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {

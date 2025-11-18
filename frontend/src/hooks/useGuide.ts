@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getGuideContent, getGuideList } from '../services/guideService';
+import { getGuideContent } from '../services/guideService';
 import { useTelemetry } from './useTelemetry';
 import { useEffect } from 'react';
 
@@ -49,13 +49,3 @@ export const useGuide = ({
   return query;
 };
 
-/**
- * Hook untuk fetching guide list
- */
-export const useGuideList = () => {
-  return useQuery({
-    queryKey: ['guides', 'list'],
-    queryFn: getGuideList,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-};

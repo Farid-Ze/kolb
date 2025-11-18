@@ -167,34 +167,3 @@ export const getTeamRollup = async (teamId: number): Promise<TeamRollup> => {
   });
 };
 
-/**
- * Update team details
- * PUT /teams/:id
- */
-export const updateTeam = async (
-  teamId: number,
-  data: {
-    name?: string;
-    description?: string;
-  }
-): Promise<Team> => {
-  return authenticatedApiCall<Team>(getApiUrl(`teams/${teamId}`), {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-};
-
-/**
- * Delete team
- * DELETE /teams/:id
- */
-export const deleteTeam = async (
-  teamId: number
-): Promise<{ ok: boolean; message: string }> => {
-  return authenticatedApiCall<{ ok: boolean; message: string }>(
-    getApiUrl(`teams/${teamId}`),
-    {
-      method: 'DELETE',
-    }
-  );
-};

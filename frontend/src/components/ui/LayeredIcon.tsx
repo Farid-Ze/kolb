@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import type { LucideIcon } from 'lucide-react';
+import { usePrefersReducedMotionSetting } from '../../lib/motion';
 
 export interface LayeredIconProps {
   /**
@@ -66,6 +67,9 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
 }) => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
+  const reduceMotion = usePrefersReducedMotionSetting();
+  const parallaxActive = enableParallax && !reduceMotion;
+  const lightingActive = enableLighting && !reduceMotion;
 
   // Parse icons for each layer
   const icons = (Array.isArray(icon)
@@ -76,7 +80,7 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
 
   // Parallax effect based on mouse position
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!enableParallax) return;
+    if (!parallaxActive) return;
     
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left - rect.width / 2) / rect.width;
@@ -105,15 +109,15 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
         setIsHovered(false);
         setMousePos({ x: 0, y: 0 });
       }}
-      whileHover={{ scale: 1.05 }}
+      whileHover={parallaxActive ? { scale: 1.05 } : undefined}
       transition={springConfig}
     >
       {/* Background Layer - Shadow/Depth */}
       <motion.div
         className="absolute inset-0 flex items-center justify-center"
         animate={{
-          x: mousePos.x * -8,
-          y: mousePos.y * -8,
+          x: (parallaxActive ? mousePos.x : 0) * -8,
+          y: (parallaxActive ? mousePos.y : 0) * -8,
         }}
         transition={springConfig}
       >
@@ -130,8 +134,8 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
       <motion.div
         className="absolute inset-0 flex items-center justify-center"
         animate={{
-          x: mousePos.x * -4,
-          y: mousePos.y * -4,
+          x: (parallaxActive ? mousePos.x : 0) * -4,
+          y: (parallaxActive ? mousePos.y : 0) * -4,
         }}
         transition={springConfig}
       >
@@ -139,19 +143,19 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
           className={cn(
             sizeConfig[size].icon,
             colorConfig[color],
-            enableLighting && isHovered && 'drop-shadow-[0_0_8px_currentColor]'
+            lightingActive && isHovered && 'drop-shadow-[0_0_8px_currentColor]'
           )} 
         />
         
         {/* Dynamic highlight overlay (Guidelines §8.3.1 - lighting) */}
-        {enableLighting && isHovered && (
+        {lightingActive && isHovered && (
           <motion.div
             className="absolute inset-0 rounded-full bg-gradient-to-br from-white/30 to-transparent mix-blend-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={springConfig}
             style={{
-              transform: `translate(${mousePos.x * 4}px, ${mousePos.y * 4}px)`,
+              transform: `translate(${(parallaxActive ? mousePos.x : 0) * 4}px, ${(parallaxActive ? mousePos.y : 0) * 4}px)`,
             }}
           />
         )}
@@ -161,8 +165,8 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
       <motion.div
         className="relative z-10 flex items-center justify-center"
         animate={{
-          x: mousePos.x * 2,
-          y: mousePos.y * 2,
+          x: (parallaxActive ? mousePos.x : 0) * 2,
+          y: (parallaxActive ? mousePos.y : 0) * 2,
         }}
         transition={springConfig}
       >
@@ -176,7 +180,7 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
       </motion.div>
 
       {/* Dynamic shadow (Guidelines §8.3.1) */}
-      {enableLighting && isHovered && (
+      {lightingActive && isHovered && (
         <motion.div
           className="absolute inset-0 -z-10 rounded-2xl bg-gradient-radial from-primary/20 via-primary/10 to-transparent blur-xl"
           initial={{ opacity: 0, scale: 0.8 }}

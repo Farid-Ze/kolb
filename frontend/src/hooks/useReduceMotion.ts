@@ -56,30 +56,3 @@ export const useReduceMotion = (): boolean => {
 
   return reduceMotion;
 };
-
-/**
- * Hook alternatif yang return transition config untuk framer-motion
- * Automatically mengganti spring dengan cross-fade jika reduce motion aktif
- * 
- * @example
- * const transition = useMotionTransition();
- * <motion.div transition={transition} />
- */
-export const useMotionTransition = () => {
-  const reduceMotion = useReduceMotion();
-
-  if (reduceMotion) {
-    // Fallback: Simple cross-fade (opacity transition)
-    return {
-      duration: 0.2,
-      ease: 'easeInOut',
-    };
-  }
-
-  // Default: Spring physics
-  return {
-    type: 'spring' as const,
-    stiffness: 300,
-    damping: 30,
-  };
-};

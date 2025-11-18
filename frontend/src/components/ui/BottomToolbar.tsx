@@ -13,8 +13,12 @@
 import React, { ReactNode } from 'react';
 import { motion, type HTMLMotionProps } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { useMotionConfig, SPRING_FAST, CROSS_FADE_FAST } from '../../lib/motion';
-import { useReduceMotion } from '../../hooks/useReduceMotion';
+import {
+  useMotionConfig,
+  SPRING_FAST,
+  CROSS_FADE_FAST,
+  usePrefersReducedMotionSetting,
+} from '../../lib/motion';
 
 interface BottomToolbarProps {
   children: ReactNode;
@@ -39,7 +43,7 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
   className = '',
   visible = true,
 }) => {
-  const reduceMotion = useReduceMotion();
+  const reduceMotion = usePrefersReducedMotionSetting();
   const transition = useMotionConfig();
   const animation = {
     initial: reduceMotion ? false : { y: 100 },
@@ -93,6 +97,7 @@ export const BottomToolbarButton: React.FC<BottomToolbarButtonProps> = ({
   ...props
 }) => {
   const transition = useMotionConfig(SPRING_FAST, CROSS_FADE_FAST);
+  const reduceMotion = usePrefersReducedMotionSetting();
 
   const variantClasses = {
     primary: 'bg-primary text-primary-foreground',
@@ -118,8 +123,8 @@ export const BottomToolbarButton: React.FC<BottomToolbarButtonProps> = ({
         ${baseClass}
         ${className}
       `.trim()}
-      whileHover={!disabled ? { scale: 1.02 } : undefined}
-      whileTap={!disabled ? { scale: 0.98 } : undefined}
+      whileHover={!disabled && !reduceMotion ? { scale: 1.02 } : undefined}
+      whileTap={!disabled && !reduceMotion ? { scale: 0.98 } : undefined}
       transition={transition}
       {...props}
     >

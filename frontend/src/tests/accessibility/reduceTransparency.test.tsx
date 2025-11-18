@@ -9,9 +9,13 @@
  */
 
 import React from 'react';
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { GlassPanel } from '../../components/ui/GlassPanel';
 import { TintedGlassButton } from '../../components/ui/TintedGlassButton';
 import { ModalLayer } from '../../components/ui/ModalLayer';
+import { UIPreferencesProvider } from '../../contexts/UIPreferencesContext';
 
 interface TestScenario {
   name: string;
@@ -209,3 +213,33 @@ export const ReduceTransparencyTests: React.FC = () => {
     </div>
   );
 };
+
+const renderWithUIPreferences = (ui: React.ReactElement) =>
+  render(<UIPreferencesProvider>{ui}</UIPreferencesProvider>);
+
+describe('ReduceTransparencyTests playground', () => {
+  it('renders instructional copy and scenarios', () => {
+    renderWithUIPreferences(<ReduceTransparencyTests />);
+    expect(
+      screen.getByText('Reduce Transparency Fallback Tests')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Guidelines\.md §8\.5\.3/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /GlassPanel Functional/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /TintedGlassButton/i })
+    ).toBeInTheDocument();
+  });
+
+  it('shows modal instructions without crashing', async () => {
+    const user = userEvent.setup();
+    renderWithUIPreferences(<ReduceTransparencyTests />);
+    await user.click(screen.getByRole('button', { name: /open modal/i }));
+    expect(
+      screen.getByText(/Modal backdrop should have no blur/i)
+    ).toBeInTheDocument();
+  });
+});

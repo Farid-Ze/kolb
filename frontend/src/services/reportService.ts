@@ -10,18 +10,6 @@ import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
 import type { Report } from '../types/api';
 
-// Re-export types from api.d.ts
-export type { 
-  Report, 
-  RawScores, 
-  DialecticScores, 
-  LearningStyle, 
-  NineStyle,
-  FlexibilityIndex, 
-  NormGroup,
-  PercentileScores 
-} from '../types/api';
-
 /**
  * Task 37: Get report for a session
  * GET /reports/sessions/:id
@@ -36,10 +24,15 @@ export const getReport = async (sessionId: string): Promise<Report> => {
 };
 
 /**
- * Backwards-compatible alias for legacy tests expecting getReportById
+ * Get report detail by report_id (used in shared links / report route)
  */
-export const getReportById = async (sessionId: string): Promise<Report> => {
-  return getReport(sessionId);
+export const getReportById = async (reportId: string): Promise<Report> => {
+  return authenticatedApiCall<Report>(
+    getApiUrl(`/reports/${reportId}`),
+    {
+      method: 'GET',
+    }
+  );
 };
 
 /**

@@ -20,7 +20,7 @@ import {
   ReferenceLine,
   Label,
 } from 'recharts';
-import type { DialecticScores, LearningStyle } from '../../services/reportService';
+import type { DialecticScores, LearningStyle } from '../../types/api';
 
 interface LearningStyleChartProps {
   dialecticScores: DialecticScores;
@@ -64,7 +64,7 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
             margin={{ top: 20, right: 20, bottom: 40, left: 40 }}
           >
             {/* Grid */}
-            <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+            <CartesianGrid strokeDasharray="3 3" opacity={0.2} data-testid="cartesian-grid" />
 
             {/* X-Axis: Abstract-Concrete */}
             <XAxis
@@ -163,10 +163,10 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
           </div>
           <div className="flex-1">
             <h4 className="text-foreground mb-1">
-              {learningStyle.style_name}
+              {`Profil ${learningStyle.style_name}`}
             </h4>
             <p className="text-sm text-muted-foreground">
-              {learningStyle.description}
+              {`Koordinat ACCE ${dialecticScores['AC-CE']} dan AERO ${dialecticScores['AE-RO']} menempatkan Anda di kuadran ${learningStyle.quadrant}.`}
             </p>
           </div>
         </div>

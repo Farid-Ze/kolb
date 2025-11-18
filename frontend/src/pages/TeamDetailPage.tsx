@@ -9,7 +9,7 @@
  * - React Query untuk data fetching dan mutations
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -46,6 +46,8 @@ export const TeamDetailPage: React.FC = () => {
   const [memberToRemove, setMemberToRemove] = useState<TeamDetail['members'][number] | null>(null);
 
   const teamIdNum = teamId ? parseInt(teamId) : 0;
+  const teamQueryKey = useMemo(() => ['team', teamId ?? ''], [teamId]);
+  const rollupQueryKey = useMemo(() => ['teamRollup', teamId ?? ''], [teamId]);
 
   // Task 57: Fetch team details with React Query
   const {
@@ -53,7 +55,7 @@ export const TeamDetailPage: React.FC = () => {
     isLoading: isLoadingTeam,
     error: teamError,
   } = useQuery<TeamDetail, Error>({
-    queryKey: ['team', teamIdNum],
+    queryKey: teamQueryKey,
     queryFn: () => getTeamDetails(teamIdNum),
     enabled: !!teamId,
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -64,17 +66,19 @@ export const TeamDetailPage: React.FC = () => {
     data: teamRollup,
     isLoading: isLoadingRollup,
   } = useQuery<TeamRollup, Error>({
-    queryKey: ['teamRollup', teamIdNum],
+    queryKey: rollupQueryKey,
     queryFn: () => getTeamRollup(teamIdNum),
     enabled: !!teamId,
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: 1, // Rollup is optional, don't retry too much
   });
 
-  const refreshTeamData = () => {
-    queryClient.invalidateQueries({ queryKey: ['team', teamIdNum] });
-    queryClient.invalidateQueries({ queryKey: ['teamRollup', teamIdNum] });
-  };
+  const refreshTeamData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: teamQueryKey, refetchType: 'active' });
+    queryClient.invalidateQueries({ queryKey: rollupQueryKey, refetchType: 'active' });
+    queryClient.refetchQueries({ queryKey: teamQueryKey, type: 'active' });
+    queryClient.refetchQueries({ queryKey: rollupQueryKey, type: 'active' });
+  }, [queryClient, teamQueryKey, rollupQueryKey]);
 
   // Normalize legacy rollup payloads used in tests/mocks that still expose `members` fields
   const fallbackMembers = useMemo(() => {
@@ -171,14 +175,24 @@ export const TeamDetailPage: React.FC = () => {
       : teamError.message;
   }, [teamError]);
 
+  const handleOpenAddModal = () => {
+    refreshTeamData();
+    if (teamId) {
+      void queryClient.prefetchQuery({
+        queryKey: teamQueryKey,
+        queryFn: () => getTeamDetails(teamIdNum),
+      });
+    }
+    setShowAddModal(true);
+  };
+
   // Task 60: Add member mutation
   const addMemberMutation = useMutation({
     mutationFn: (data: { user_email: string }) =>
       addMemberToTeam(teamIdNum, data),
     onSuccess: () => {
       // Invalidate and refetch
-      queryClient.invalidateQueries({ queryKey: ['team', teamIdNum] });
-      queryClient.invalidateQueries({ queryKey: ['teamRollup', teamIdNum] });
+      refreshTeamData();
       
       toast.success('Anggota berhasil ditambahkan!');
       
@@ -196,8 +210,7 @@ export const TeamDetailPage: React.FC = () => {
     mutationFn: (userId: string) => removeMemberFromTeam(teamIdNum, userId),
     onSuccess: () => {
       // Invalidate and refetch
-      queryClient.invalidateQueries({ queryKey: ['team', teamIdNum] });
-      queryClient.invalidateQueries({ queryKey: ['teamRollup', teamIdNum] });
+      refreshTeamData();
       
       toast.success('Anggota berhasil dihapus!');
     },
@@ -268,9 +281,10 @@ export const TeamDetailPage: React.FC = () => {
               <button
                 onClick={() => navigate('/teams')}
                 className="inline-flex items-center gap-2 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                aria-label="Kembali ke daftar tim"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Daftar Tim
+                Kembali ke Daftar Tim
               </button>
               <div className="hidden sm:block h-6 w-px bg-border" />
               <div className="hidden sm:flex items-center gap-2">
@@ -283,8 +297,9 @@ export const TeamDetailPage: React.FC = () => {
 
             {/* Add Member Button */}
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={handleOpenAddModal}
               className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Tambah anggota baru"
             >
               <UserPlus className="h-4 w-4" />
               <span className="hidden sm:inline">Tambah Anggota</span>
@@ -358,7 +373,7 @@ export const TeamDetailPage: React.FC = () => {
                   Dengan Data
                 </div>
                 <div className="text-2xl text-foreground">
-                  {normalizedSummary.members_with_data}
+                  {normalizedSummary.members_with_data} anggota
                 </div>
               </div>
               <div className="material-thin rounded-lg p-4">
@@ -465,7 +480,7 @@ export const TeamDetailPage: React.FC = () => {
                 Belum ada anggota di tim ini
               </p>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={handleOpenAddModal}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:scale-105 active:scale-95"
               >
                 <UserPlus className="h-4 w-4" />

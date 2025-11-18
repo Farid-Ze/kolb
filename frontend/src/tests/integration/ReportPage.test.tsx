@@ -29,9 +29,13 @@ const mockReport = {
 };
 
 // Mock services
-vi.mock('../../services/reportService', () => ({
-  getReport: vi.fn(),
-}));
+vi.mock('../../services/reportService', () => {
+  const getReport = vi.fn();
+  return {
+    getReport,
+    getReportById: getReport,
+  };
+});
 
 // Mock useAuth
 const mockAuth = {

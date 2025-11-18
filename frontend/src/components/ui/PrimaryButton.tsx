@@ -12,7 +12,12 @@
 import React, { ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { useMotionConfig, SPRING_FAST, CROSS_FADE_FAST } from '../../lib/motion';
+import {
+  useMotionConfig,
+  SPRING_FAST,
+  CROSS_FADE_FAST,
+  usePrefersReducedMotionSetting,
+} from '../../lib/motion';
 
 interface PrimaryButtonProps {
   children: ReactNode;
@@ -81,6 +86,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
   className = '',
 }) => {
   const transition = useMotionConfig(SPRING_FAST, CROSS_FADE_FAST);
+  const prefersReducedMotion = usePrefersReducedMotionSetting();
 
   // Variant styles (Guidelines.md §3.4.1 - Accent untuk interaktivitas)
   const variantClasses = {
@@ -121,8 +127,10 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
       onClick={onClick}
       disabled={isDisabled}
       className={baseClasses}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.97, filter: 'brightness(1.1)' }}
+      whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+      whileTap={
+        prefersReducedMotion ? undefined : { scale: 0.97, filter: 'brightness(1.1)' }
+      }
       transition={transition}
       // Accessibility
       aria-disabled={isDisabled}
@@ -130,12 +138,19 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
     >
       {/* Loading spinner */}
       {loading && (
-        <motion.div
-          className="h-4 w-4 border-2 border-current border-t-transparent rounded-full"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          aria-label="Loading"
-        />
+        prefersReducedMotion ? (
+          <div
+            className="h-4 w-4 border-2 border-current border-t-transparent rounded-full opacity-70"
+            aria-label="Loading"
+          />
+        ) : (
+          <motion.div
+            className="h-4 w-4 border-2 border-current border-t-transparent rounded-full"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+            aria-label="Loading"
+          />
+        )
       )}
 
       {/* Icon before */}

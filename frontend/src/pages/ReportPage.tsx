@@ -36,20 +36,40 @@ import {
 } from 'lucide-react';
 
 import { LayeredIcon } from '../components/ui/LayeredIcon';
+import { getReportById } from '../services/reportService';
 
 export const ReportPage: React.FC = () => {
   const navigate = useNavigate();
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const params = useParams<{ sessionId?: string; reportId?: string }>();
+  const sessionIdentifier = params.sessionId ?? params.reportId;
   const [showGuideModal, setShowGuideModal] = React.useState(false); // Task 8.9: Guide modal state
 
   // Task 6.9-6.10: Use dedicated useReport hook (SSOT pattern)
   const { data: report, isLoading, error, isRefetching } = useReport(
-    sessionId!,
+    sessionIdentifier,
     {
       enablePolling: true,
       stopPollingWhen: (data) => data?.status === 'COMPLETED',
+      fetcher: params.reportId ? getReportById : undefined,
+      pollingInterval: 1000,
+      retry: false,
     }
   );
+
+  const friendlyErrorMessage = React.useMemo(() => {
+    if (!error) {
+      return null;
+    }
+    const baseMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+        ? error
+        : 'Terjadi kesalahan';
+    return baseMessage.toLowerCase().includes('not found')
+      ? 'Laporan tidak ditemukan'
+      : baseMessage;
+  }, [error]);
 
   // Print functionality (Task 49)
   const handlePrint = () => {
@@ -62,8 +82,26 @@ export const ReportPage: React.FC = () => {
     alert('Fitur download PDF akan segera hadir!');
   };
 
+  if (!sessionIdentifier) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+          <h2 className="text-2xl text-foreground">Error</h2>
+          <p className="text-muted-foreground">ID sesi laporan tidak ditemukan.</p>
+          <button
+            onClick={() => navigate('/reports')}
+            className="rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:opacity-90"
+          >
+            Kembali ke Beranda
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Loading state (Task 39 - initial loading)
-  if (isLoading) {
+  if (isLoading && !error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
         <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-6">
@@ -88,20 +126,40 @@ export const ReportPage: React.FC = () => {
 
   // Error state (Task 39 - error handling)
   if (error || !report) {
+    const message = friendlyErrorMessage ?? 'Laporan tidak ditemukan';
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
           <h2 className="text-2xl text-foreground">Error</h2>
-          <p className="text-muted-foreground">
-            {error instanceof Error ? error.message : 'Laporan tidak ditemukan'}
-          </p>
+          <p className="text-muted-foreground">{message}</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/reports')}
             className="rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:opacity-90"
           >
             Kembali ke Beranda
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!error && report.status && report.status !== 'COMPLETED') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="relative">
+              <Clock className="h-16 w-16 text-primary animate-pulse" />
+              <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl text-foreground">Memproses Hasil Asesmen</h2>
+            <p className="text-muted-foreground">
+              Harap tunggu, laporan Anda sedang disiapkan.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -115,18 +173,19 @@ export const ReportPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate('/')}
-                className="inline-flex items-center gap-2 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                onClick={() => navigate('/reports')}
+                className="inline-flex items-center gap-2 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded print:hidden"
+                aria-label="Kembali ke beranda"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Beranda
+                Kembali ke Beranda
               </button>
               <div className="hidden sm:block h-6 w-px bg-border" />
               <div className="hidden sm:flex items-center gap-2">
                 <FileText className="h-5 w-5 text-muted-foreground" />
-                <h1 className="text-lg text-foreground">
+                <p className="text-lg text-foreground">
                   Laporan Learning Style
-                </h1>
+                </p>
               </div>
             </div>
 
@@ -135,6 +194,7 @@ export const ReportPage: React.FC = () => {
               <button
                 onClick={handleDownload}
                 className="inline-flex items-center gap-2 rounded-lg bg-secondary text-secondary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Unduh PDF laporan"
               >
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">PDF</span>
@@ -142,6 +202,7 @@ export const ReportPage: React.FC = () => {
               <button
                 onClick={handlePrint}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Cetak laporan"
               >
                 <Printer className="h-4 w-4" />
                 <span className="hidden sm:inline">Cetak</span>
@@ -163,10 +224,10 @@ export const ReportPage: React.FC = () => {
         {/* Report Header - Guidelines §8.4.1: Increased padding & line-height */}
         <div className="text-center space-y-6 py-8 print:py-4">
           <h1 className="text-3xl text-foreground print:text-2xl leading-relaxed">
-            Kolb Learning Style Inventory 4.0
+            Laporan Hasil Asesmen
           </h1>
           <p className="text-lg text-muted-foreground print:text-base leading-relaxed">
-            Laporan Hasil Asesmen
+            Kolb Learning Style Inventory 4.0
           </p>
 
           {/* Metadata */}
@@ -193,10 +254,10 @@ export const ReportPage: React.FC = () => {
           <div className="flex items-start gap-4">
             <AlertCircle className="h-5 w-5 text-chart-3 flex-shrink-0 mt-1 print:text-gray-600" />
             <div className="space-y-3">
-              <h3 className="text-foreground leading-relaxed">Panduan Penggunaan Bertanggung Jawab</h3>
+              <h3 className="text-foreground leading-relaxed">Penggunaan Bertanggung Jawab</h3>
               <p className="text-sm text-muted-foreground print:text-gray-600 leading-relaxed text-left max-w-[70ch]">
                 {report.responsible_use_notice ||
-                  'KLSI 4.0 adalah alat formatif untuk refleksi belajar dan desain pedagogi, bukan alat diagnostik klinis atau seleksi. Hasil dapat berubah seiring pengalaman dan konteks belajar Anda. Gunakan hasil ini sebagai titik awal diskusi dengan fasilitator, bukan sebagai label permanen.'}
+                  'Hasil ini adalah snapshot dari preferensi belajar Anda saat ini; gunakan untuk refleksi bersama fasilitator, bukan sebagai diagnosis permanen.'}
               </p>
             </div>
           </div>
@@ -230,7 +291,7 @@ export const ReportPage: React.FC = () => {
               <LayeredIcon icon={GraduationCap} size="lg" color="chart-2" enableParallax />
               <div className="flex-1">
                 <h4 className="text-xl text-foreground mb-2 leading-relaxed">
-                  {report.nine_style.style_name}
+                  {`${report.nine_style.style_name} (9-Style)`}
                 </h4>
                 <p className="text-sm text-muted-foreground print:text-gray-600">
                   9-Style Classification
@@ -284,7 +345,7 @@ export const ReportPage: React.FC = () => {
           <h3 className="text-lg text-foreground mb-3">Informasi Norma</h3>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground print:text-gray-600">Grup Norma</span>
+              <span className="text-muted-foreground print:text-gray-600">Kelompok Norma</span>
               <span className="text-foreground">{report.norm_group.norm_name}</span>
             </div>
             <div className="flex items-center justify-between">

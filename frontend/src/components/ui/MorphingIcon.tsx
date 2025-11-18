@@ -16,8 +16,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { useReduceMotion } from '../../hooks/useReduceMotion';
-import { SPRING_SMOOTH, CROSS_FADE } from '../../lib/motion';
+import { SPRING_SMOOTH, CROSS_FADE, usePrefersReducedMotionSetting } from '../../lib/motion';
 import { cn } from '../../lib/utils';
 
 interface MorphingIconProps {
@@ -110,7 +109,7 @@ export const MorphingIcon: React.FC<MorphingIconProps> = ({
   className = '',
   'aria-label': ariaLabel,
 }) => {
-  const reduceMotion = useReduceMotion();
+  const reduceMotion = usePrefersReducedMotionSetting();
   const paths = ICON_PATHS[variant];
 
   const Component = onToggle ? motion.button : motion.div;

@@ -10,7 +10,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { useMotionConfig, SPRING_FAST } from '../../lib/motion';
+import {
+  useMotionConfig,
+  SPRING_FAST,
+  usePrefersReducedMotionSetting,
+} from '../../lib/motion';
 
 export interface NotificationBadgeProps {
   /** Badge content (number or text) */
@@ -59,9 +63,11 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({
   children,
 }) => {
   const springTransition = useMotionConfig(SPRING_FAST);
+  const reduceMotion = usePrefersReducedMotionSetting();
+  const effectiveAnimation = reduceMotion ? 'none' : animation;
 
   // Bounce animation (Guidelines.md §2.2.3 - guide focus)
-  const bounceAnimation = animation === 'bounce' ? {
+  const bounceAnimation = effectiveAnimation === 'bounce' ? {
     initial: { scale: 0, opacity: 0 },
     animate: { 
       scale: [0, 1.2, 1],
@@ -71,7 +77,7 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({
   } : {};
 
   // Pulse animation (Guidelines.md §2.2.2 - show status)
-  const pulseAnimation = animation === 'pulse' ? {
+  const pulseAnimation = effectiveAnimation === 'pulse' ? {
     animate: {
       scale: [1, 1.1, 1],
       opacity: [1, 0.8, 1],
@@ -85,8 +91,8 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({
 
   const badgeElement = (
     <motion.span
-      {...(animation === 'bounce' ? bounceAnimation : {})}
-      {...(animation === 'pulse' ? pulseAnimation : {})}
+      {...(effectiveAnimation === 'bounce' ? bounceAnimation : {})}
+      {...(effectiveAnimation === 'pulse' ? pulseAnimation : {})}
       className={cn(
         'inline-flex items-center justify-center rounded-full font-medium',
         dot 

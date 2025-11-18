@@ -12,7 +12,7 @@
 
 import { useState, useEffect } from 'react';
 
-export interface WindowFocusState {
+interface WindowFocusState {
   /** True jika window/tab saat ini memiliki fokus */
   isFocused: boolean;
   

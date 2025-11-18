@@ -22,15 +22,20 @@ export function useLocalStorage<T>(
 
   // Update localStorage saat storedValue berubah
   const setValue = (value: T | ((val: T) => T)) => {
-    try {
+    setStoredValue((prev) => {
       const valueToStore =
-        value instanceof Function ? value(storedValue) : value;
-      
-      setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error('Error writing to localStorage:', error);
-    }
+        typeof value === 'function'
+          ? (value as (val: T) => T)(prev)
+          : value;
+
+      try {
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        return valueToStore;
+      } catch (error) {
+        console.error('Error writing to localStorage:', error);
+        return prev;
+      }
+    });
   };
 
   return [storedValue, setValue];

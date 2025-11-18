@@ -12,8 +12,8 @@
 
 import { useEffect, useState } from 'react';
 
-export type BreakpointSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-export type FormFactor = 'mobile' | 'tablet' | 'desktop';
+type BreakpointSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+type FormFactor = 'mobile' | 'tablet' | 'desktop';
 
 interface BreakpointInfo {
   /** Current breakpoint size */
@@ -158,28 +158,3 @@ export const useBreakpoint = (): BreakpointInfo => {
  * @example
  * const isLargeScreen = useBreakpointMatch('lg');
  */
-export const useBreakpointMatch = (breakpoint: BreakpointSize): boolean => {
-  const { width } = useBreakpoint();
-  return width >= BREAKPOINTS[breakpoint];
-};
-
-/**
- * Hook yang return true jika screen size antara min dan max
- * 
- * @param min - Minimum breakpoint (inclusive)
- * @param max - Maximum breakpoint (exclusive)
- * @returns true if screen is within range
- * 
- * @example
- * const isTabletOnly = useBreakpointRange('md', 'lg');
- */
-export const useBreakpointRange = (
-  min: BreakpointSize,
-  max?: BreakpointSize
-): boolean => {
-  const { width } = useBreakpoint();
-  const minWidth = BREAKPOINTS[min];
-  const maxWidth = max ? BREAKPOINTS[max] : Infinity;
-
-  return width >= minWidth && width < maxWidth;
-};

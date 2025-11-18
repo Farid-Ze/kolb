@@ -30,8 +30,17 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 
 // Zod validation schema (Task 14)
 const loginSchema = z.object({
-  email: z.string().trim().email('Format email tidak valid'),
-  password: z.string().min(1, 'Password wajib diisi'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email wajib diisi')
+    .email('Format email tidak valid'),
+  password: z
+    .string()
+    .trim()
+    .min(1, 'Password wajib diisi')
+    .min(6, 'Password minimal 6 karakter')
+    .max(64, 'Password maksimal 64 karakter'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -41,6 +50,7 @@ export const LoginPage: React.FC = () => {
   const { setAuthData } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoInfo] = useState(true);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Task 14: react-hook-form + zod integration
   const {
@@ -56,6 +66,13 @@ export const LoginPage: React.FC = () => {
   const demoCredentials = getDemoCredentials();
 
   // Task 13: useLoginMutation dengan React Query
+  const mapErrorMessage = (errorMessage: string) => {
+    if (/unable to reach/i.test(errorMessage) || /network error/i.test(errorMessage)) {
+      return 'Tidak dapat terhubung ke server. Periksa koneksi Anda dan coba lagi.';
+    }
+    return errorMessage;
+  };
+
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
       const response = await loginWithEmail(data.email, data.password);
@@ -65,6 +82,7 @@ export const LoginPage: React.FC = () => {
       // Store auth data using AuthContext
       const { access_token, user: userData } = response;
       setAuthData(access_token, userData);
+      setFormError(null);
       
       toast.success('Login berhasil! Selamat datang ' + userData.name);
       
@@ -73,16 +91,18 @@ export const LoginPage: React.FC = () => {
     },
     // Task 15: toast.error on mutation error
     onError: (error: Error) => {
-      const errorMessage = error.message || 'Login gagal. Silakan coba lagi.';
+      const rawMessage = error.message || 'Login gagal. Silakan coba lagi.';
+      const friendlyMessage = mapErrorMessage(rawMessage);
+      setFormError(friendlyMessage);
       
       // Jika error adalah password salah, berikan hint yang lebih membantu
-      if (errorMessage.includes('Password salah') || errorMessage.includes('Email tidak terdaftar')) {
-        toast.error(errorMessage, {
+      if (friendlyMessage.includes('Password salah') || friendlyMessage.includes('Email tidak terdaftar')) {
+        toast.error(friendlyMessage, {
           description: 'Gunakan Quick Login buttons atau credentials: demo@klsi.com / demo123',
           duration: 5000,
         });
       } else {
-        toast.error(errorMessage);
+        toast.error(friendlyMessage);
       }
     },
   });
@@ -94,6 +114,7 @@ export const LoginPage: React.FC = () => {
       password: data.password.trim(),
     };
     console.log('[LoginPage] Manual login attempt:', { email: trimmedData.email, passwordLength: trimmedData.password.length });
+    setFormError(null);
     loginMutation.mutate(trimmedData);
   };
 
@@ -109,6 +130,7 @@ export const LoginPage: React.FC = () => {
     });
     
     toast.info('Memproses login...', { duration: 1000 });
+    setFormError(null);
     loginMutation.mutate({ 
       email: trimmedEmail, 
       password: trimmedPassword 
@@ -143,7 +165,12 @@ export const LoginPage: React.FC = () => {
           
           <CardContent>
             {/* Form */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
+              {formError && (
+                <Alert variant="destructive" role="alert">
+                  <AlertDescription>{formError}</AlertDescription>
+                </Alert>
+              )}
               {/* Demo Mode Info */}
               {isDemoMode && showDemoInfo && (
                 <Alert>

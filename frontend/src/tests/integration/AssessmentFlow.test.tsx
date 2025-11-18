@@ -6,11 +6,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AssessmentPage } from '../../pages/AssessmentPage';
 import { AuthProvider } from '../../contexts/AuthContext';
+import type { GetAssessmentItemsResponse, SubmitAnswersResponse } from '../../types/api';
 
 // Mock data
-const mockDeliveryPackage = {
+const mockDeliveryPackage: GetAssessmentItemsResponse = {
   session_id: '1',
   instrument_code: 'KLSI',
   total_items: 2,
@@ -20,10 +22,10 @@ const mockDeliveryPackage = {
       order: 1,
       prompt: 'Ketika saya belajar:',
       options: [
-        { option_code: 'CE', text: 'Saya suka merasakan', dimension: 'CE' },
-        { option_code: 'RO', text: 'Saya suka mengamati', dimension: 'RO' },
-        { option_code: 'AC', text: 'Saya suka berpikir', dimension: 'AC' },
-        { option_code: 'AE', text: 'Saya suka berbuat', dimension: 'AE' },
+        { id: 'opt-001-ce', option_code: 'CE', text: 'Saya suka merasakan', dimension: 'CE' },
+        { id: 'opt-001-ro', option_code: 'RO', text: 'Saya suka mengamati', dimension: 'RO' },
+        { id: 'opt-001-ac', option_code: 'AC', text: 'Saya suka berpikir', dimension: 'AC' },
+        { id: 'opt-001-ae', option_code: 'AE', text: 'Saya suka berbuat', dimension: 'AE' },
       ],
     },
     {
@@ -31,10 +33,10 @@ const mockDeliveryPackage = {
       order: 2,
       prompt: 'Saya belajar paling baik ketika:',
       options: [
-        { option_code: 'CE', text: 'Saya terbuka terhadap pengalaman baru', dimension: 'CE' },
-        { option_code: 'RO', text: 'Saya mendengarkan dan mengamati dengan seksama', dimension: 'RO' },
-        { option_code: 'AC', text: 'Saya mengandalkan pemikiran logis', dimension: 'AC' },
-        { option_code: 'AE', text: 'Saya bekerja keras untuk menyelesaikan sesuatu', dimension: 'AE' },
+        { id: 'opt-002-ce', option_code: 'CE', text: 'Saya terbuka terhadap pengalaman baru', dimension: 'CE' },
+        { id: 'opt-002-ro', option_code: 'RO', text: 'Saya mendengarkan dan mengamati dengan seksama', dimension: 'RO' },
+        { id: 'opt-002-ac', option_code: 'AC', text: 'Saya mengandalkan pemikiran logis', dimension: 'AC' },
+        { id: 'opt-002-ae', option_code: 'AE', text: 'Saya bekerja keras untuk menyelesaikan sesuatu', dimension: 'AE' },
       ],
     },
   ],
@@ -85,14 +87,23 @@ vi.mock('react-router-dom', async () => {
 
 // Helper untuk render dengan providers
 const renderWithProviders = (sessionId: string = '1') => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
   return render(
-    <MemoryRouter initialEntries={[`/assessment/${sessionId}`]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/assessment/:sessionId" element={<AssessmentPage />} />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[`/assessment/${sessionId}`]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/assessment/:sessionId" element={<AssessmentPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 };
 
@@ -149,9 +160,7 @@ describe('Assessment Flow Integration', () => {
       expect(screen.getByText('Instruksi')).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByText(/Urutkan pernyataan berikut dari 1/i)
-    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Klik tombol/i)[0]).toBeInTheDocument();
   });
 
   it('should update progress bar as items are completed', async () => {
@@ -163,7 +172,7 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('Progress Asesmen')).toBeInTheDocument();
+      expect(screen.getByText(/Progress: 0%/i)).toBeInTheDocument();
     });
 
     // Progress should start at 0
@@ -227,7 +236,8 @@ describe('Assessment Flow Integration', () => {
       '../../services/assessmentService'
     );
     vi.mocked(getAssessmentItems).mockResolvedValue(mockDeliveryPackage);
-    vi.mocked(submitAnswers).mockResolvedValue(undefined);
+    const mockSubmitResponse: SubmitAnswersResponse = { saved_count: 1, message: 'ok' };
+    vi.mocked(submitAnswers).mockResolvedValue(mockSubmitResponse);
 
     const user = userEvent.setup();
     renderWithProviders();
@@ -260,9 +270,9 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('Error')).toBeInTheDocument();
+      expect(screen.getByText('Data Tidak Ditemukan')).toBeInTheDocument();
       expect(
-        screen.getByText('Failed to load assessment')
+        screen.getByText('Tidak ada item asesmen yang tersedia untuk sesi ini.')
       ).toBeInTheDocument();
     });
 

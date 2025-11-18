@@ -6,8 +6,6 @@
  * dengan error handling dan authentication yang konsisten.
  */
 
-import { API_BASE_URL } from '../config/api';
-
 interface ApiErrorPayload {
   detail?: string;
   message?: string;
@@ -113,12 +111,3 @@ export async function authenticatedApiCall<T>(
   return apiCall<T>(url, authenticatedOptions);
 }
 
-/**
- * Helper to build full API URL
- * @deprecated Use getApiUrl from config/api.ts instead
- */
-export function buildApiUrl(path: string): string {
-  const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-  const endpoint = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${endpoint}`;
-}

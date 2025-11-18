@@ -3,7 +3,7 @@
  * Global test setup dan mocks
  */
 import React from 'react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
@@ -14,9 +14,13 @@ afterEach(() => {
 
 // Mock Recharts globally to simplify integration tests
 vi.mock('recharts', () => {
-  const createStub = (testId?: string) =>
-    ({ children }: { children?: React.ReactNode } = {}) =>
-      React.createElement('div', testId ? { 'data-testid': testId } : undefined, children);
+  const createStub = (defaultTestId?: string) =>
+    ({ children, ['data-testid']: overrideTestId }: { children?: React.ReactNode; ['data-testid']?: string } = {}) =>
+      React.createElement(
+        'div',
+        overrideTestId || defaultTestId ? { 'data-testid': overrideTestId || defaultTestId } : undefined,
+        children,
+      );
 
   return {
     ResponsiveContainer: ({ children }: { children: React.ReactNode }) => React.createElement('div', undefined, children),
@@ -75,20 +79,29 @@ globalThis.ResizeObserver = class ResizeObserver {
 } as any;
 
 // Mock localStorage with in-memory store for deterministic tests
-const storage = new Map<string, string>();
-const localStorageMock = {
-  getItem: vi.fn((key: string) => (storage.has(key) ? storage.get(key)! : null)),
-  setItem: vi.fn((key: string, value: string) => {
-    storage.set(key, value);
-  }),
-  removeItem: vi.fn((key: string) => {
-    storage.delete(key);
-  }),
-  clear: vi.fn(() => {
-    storage.clear();
-  }),
+const createLocalStorageMock = () => {
+  const storage = new Map<string, string>();
+  return {
+    getItem: vi.fn((key: string) => (storage.has(key) ? storage.get(key)! : null)),
+    setItem: vi.fn((key: string, value: string) => {
+      storage.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      storage.delete(key);
+    }),
+    clear: vi.fn(() => {
+      storage.clear();
+    }),
+  };
 };
+
+let localStorageMock = createLocalStorageMock();
 globalThis.localStorage = localStorageMock as unknown as Storage;
+
+beforeEach(() => {
+  localStorageMock = createLocalStorageMock();
+  globalThis.localStorage = localStorageMock as unknown as Storage;
+});
 
 // Mock console methods untuk cleaner test output (optional)
 globalThis.console = {

@@ -10,7 +10,7 @@ import {
   type UseQueryOptions,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { getReport } from '../services/reportService';
+import { getReport, getReportById } from '../services/reportService';
 import type { Report } from '../types/api';
 
 type RefetchContext = {
@@ -26,6 +26,10 @@ interface UseReportOptions {
   pollingInterval?: number;
   /** Stop polling when condition met */
   stopPollingWhen?: (data: Report | undefined) => boolean;
+  /** Custom fetcher, defaults to session-based getReport */
+  fetcher?: (identifier: string) => Promise<Report>;
+  /** Override retry behaviour (default: 3 attempts) */
+  retry?: number | boolean;
 }
 
 /**
@@ -44,20 +48,30 @@ interface UseReportOptions {
  * });
  */
 export function useReport(
-  sessionId: string,
+  sessionId: string | undefined,
   options: UseReportOptions = {}
 ): UseQueryResult<Report, Error> {
   const {
     enablePolling = false,
     pollingInterval = 3000,
     stopPollingWhen,
+    fetcher,
+    retry = 3,
   } = options;
 
-  const queryOptions: UseQueryOptions<Report, Error, Report, [string, string]> = {
+  const queryOptions: UseQueryOptions<Report, Error, Report, [string, string | undefined]> = {
     queryKey: ['report', sessionId],
-    queryFn: () => getReport(sessionId),
+    queryFn: () => {
+      if (!sessionId) {
+        return Promise.reject(new Error('Session ID tidak tersedia'));
+      }
+      const fetchReport =
+        fetcher ?? (sessionId.startsWith('report-') ? getReportById : getReport);
+      return fetchReport(sessionId);
+    },
     staleTime: enablePolling ? 0 : 5 * 60 * 1000,
-    retry: 3,
+    retry,
+    enabled: Boolean(sessionId),
   };
 
   if (enablePolling) {
