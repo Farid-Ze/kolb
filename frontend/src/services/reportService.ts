@@ -45,6 +45,13 @@ export const getReport = async (sessionId: string): Promise<Report> => {
 };
 
 /**
+ * Backwards-compatible alias for legacy tests expecting getReportById
+ */
+export const getReportById = async (sessionId: string): Promise<Report> => {
+  return getReport(sessionId);
+};
+
+/**
  * Get all reports for current user
  * GET /reports/self
  */

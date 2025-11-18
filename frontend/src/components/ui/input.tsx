@@ -1,5 +1,5 @@
 import * as React from "react";
-import { AlertCircle } from "lucide-react@0.487.0";
+import { AlertCircle } from "lucide-react";
 
 import { cn } from "./utils";
 

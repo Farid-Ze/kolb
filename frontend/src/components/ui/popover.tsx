@@ -17,7 +17,7 @@
 "use client";
 
 import * as React from "react";
-import * as PopoverPrimitive from "@radix-ui/react-popover@1.1.6";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { motion } from "motion/react";
 import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { SPRING_SNAPPY, CROSS_FADE } from "../../lib/motion";

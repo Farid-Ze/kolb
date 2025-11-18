@@ -9,8 +9,8 @@
  */
 
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot@1.1.2";
-import { cva, type VariantProps } from "class-variance-authority@0.7.1";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
 import { motion, type HTMLMotionProps } from "motion/react";
 import { cn } from "./utils";
 import { useMotionConfig } from "../../lib/motion";
@@ -49,6 +49,7 @@ const buttonVariants = cva(
 );
 
 type ButtonProps = React.ComponentProps<"button"> &
+  Pick<HTMLMotionProps<"button">, "whileTap" | "whileHover" | "transition"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
     disableMotion?: boolean;
@@ -69,22 +70,28 @@ function Button({
   asChild = false,
   disableMotion = false,
   disabled,
+  whileTap,
+  whileHover,
+  transition: transitionOverride,
   ...props
 }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
   const transition = useMotionConfig(SPRING_FAST, CROSS_FADE_FAST);
 
   // Guidelines.md §2.2.1: Flexing (Melentur) untuk instant feedback
-  const motionProps: HTMLMotionProps<"button"> = disableMotion || disabled ? {} : {
-    whileTap: { 
-      scale: 0.95,
-      filter: "brightness(1.1)"
-    },
-    whileHover: {
-      scale: 1.02,
-    },
-    transition,
-  };
+  const motionProps: HTMLMotionProps<"button"> =
+    disableMotion || disabled
+      ? {}
+      : {
+          whileTap: whileTap ?? {
+            scale: 0.95,
+            filter: "brightness(1.1)",
+          },
+          whileHover: whileHover ?? {
+            scale: 1.02,
+          },
+          transition: transitionOverride ?? transition,
+        };
 
   if (asChild) {
     // For Slot, we can't use motion directly

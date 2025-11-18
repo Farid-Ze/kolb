@@ -35,20 +35,20 @@ const GlassPanelContext = createContext<GlassPanelContextValue | null>(null);
  */
 export const useGlassPanelContext = () => useContext(GlassPanelContext);
 
-interface GlassPanelProps {
+export interface GlassPanelProps extends React.HTMLAttributes<HTMLElement> {
   children: ReactNode;
   /** Material type: functional (navigation/control) atau content (data layer) */
   material?: 'functional' | 'content';
   /** Variant of glass material */
   variant?: 'regular' | 'clear' | 'thick' | 'thin';
   /** Density controls internal padding */
-  density?: 'compact' | 'regular' | 'spacious';
+  density?: 'compact' | 'regular' | 'spacious' | 'thin' | 'ultra-thin';
   /** Emphasis level (deprecated, use variant instead) */
   emphasis?: 'low' | 'medium' | 'high';
   /** Apply dimming layer (required for clear variant) */
   withDimming?: boolean;
   className?: string;
-  as?: 'div' | 'section' | 'article' | 'aside' | 'header' | 'footer' | 'nav';
+  as?: 'div' | 'section' | 'article' | 'aside' | 'header' | 'footer' | 'nav' | 'button';
 }
 
 /**
@@ -82,7 +82,7 @@ interface GlassPanelProps {
  *   <article>Card content</article>
  * </GlassPanel>
  */
-export const GlassPanel: React.FC<GlassPanelProps> = ({
+export const GlassPanel = React.forwardRef<HTMLElement, GlassPanelProps>(({
   children,
   material = 'functional',
   variant = 'regular',
@@ -91,7 +91,9 @@ export const GlassPanel: React.FC<GlassPanelProps> = ({
   withDimming = false,
   className = '',
   as: Component = 'div',
-}) => {
+  style,
+  ...rest
+}, ref) => {
   const reduceTransparency = useReduceTransparency();
   const { isFocused } = useWindowFocus();
 
@@ -141,6 +143,10 @@ export const GlassPanel: React.FC<GlassPanelProps> = ({
     switch (density) {
       case 'compact':
         return 'p-4'; // 16px (2 * 8px)
+      case 'thin':
+        return 'p-3';
+      case 'ultra-thin':
+        return 'p-2';
       case 'regular':
         return 'p-6'; // 24px (3 * 8px)
       case 'spacious':
@@ -151,23 +157,25 @@ export const GlassPanel: React.FC<GlassPanelProps> = ({
   };
 
   // Calculate vibrancy context (Phase 5.6)
+  const glassBackgroundColor = useMemo(
+    () => (reduceTransparency ? '#000000' : '#80808080'),
+    [reduceTransparency]
+  );
+  const vibrancy = useVibrancy(glassBackgroundColor);
+
   const vibrancyData = useMemo(() => {
-    if (!material || material === 'content') {
+    if (material !== 'functional') {
       return null;
     }
 
-    // For functional glass, provide vibrancy context
-    const bgColor = reduceTransparency ? '#000000' : '#80808080'; // Approximation
-    const vibrancy = useVibrancy(bgColor);
-
     return {
       isGlass: true,
-      backgroundColor: bgColor,
+      backgroundColor: glassBackgroundColor,
       textColor: vibrancy.textColor,
       secondaryTextColor: vibrancy.secondaryTextColor,
       contrastRatio: vibrancy.contrastRatio,
     };
-  }, [material, reduceTransparency]);
+  }, [material, glassBackgroundColor, vibrancy.textColor, vibrancy.secondaryTextColor, vibrancy.contrastRatio]);
 
   const materialClass = getMaterialClass();
   const densityClass = getDensityClass();
@@ -186,8 +194,15 @@ export const GlassPanel: React.FC<GlassPanelProps> = ({
   const needsDimming =
     effectiveVariant === 'clear' && material === 'functional' && withDimming;
 
+  const Comp = Component as React.ElementType;
+
   const content = (
-    <Component className={cn('relative overflow-hidden', className)}>
+    <Comp
+      ref={ref as React.Ref<HTMLElement>}
+      className={cn('relative overflow-hidden', className)}
+      style={style}
+      {...rest}
+    >
       {/* Dimming layer untuk Clear glass (§8.5.2) */}
       {needsDimming && !reduceTransparency && (
         <div className="absolute inset-0 bg-black/35 pointer-events-none" />
@@ -195,7 +210,7 @@ export const GlassPanel: React.FC<GlassPanelProps> = ({
 
       {/* Main glass material */}
       <div className={cn(materialClass, densityClass, windowFocusClass, transitionClass, 'relative z-10')}>{children}</div>
-    </Component>
+    </Comp>
   );
 
   // Wrap dengan context jika functional glass (untuk VibrantText)
@@ -208,7 +223,9 @@ export const GlassPanel: React.FC<GlassPanelProps> = ({
   }
 
   return content;
-};
+});
+
+GlassPanel.displayName = 'GlassPanel';
 
 /**
  * GlassPanelTile - Variant untuk interactive cards

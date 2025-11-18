@@ -9,7 +9,7 @@
  * - Spring-based animations
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import type { LucideIcon } from 'lucide-react';
@@ -68,9 +68,9 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
   const [isHovered, setIsHovered] = useState(false);
 
   // Parse icons for each layer
-  const icons = Array.isArray(icon) 
-    ? icon 
-    : [icon, icon, icon]; // Use same icon for all layers if single icon provided
+  const icons = (Array.isArray(icon)
+    ? icon
+    : [icon, icon, icon]) as [LucideIcon, LucideIcon, LucideIcon];
 
   const [BackgroundIcon, MiddleIcon, ForegroundIcon] = icons;
 

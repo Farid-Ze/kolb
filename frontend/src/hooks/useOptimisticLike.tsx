@@ -44,6 +44,10 @@ interface UseOptimisticLikeReturn {
   isReverting: boolean;
 }
 
+interface LikeMutationContext {
+  previousState: LikeState;
+}
+
 /**
  * useOptimisticLike - Instant like/unlike dengan optimistic updates
  * 
@@ -90,7 +94,7 @@ export const useOptimisticLike = ({
   const queryClient = useQueryClient();
 
   // Mutation for like/unlike
-  const likeMutation = useMutation({
+  const likeMutation = useMutation<unknown, Error, LikeState, LikeMutationContext>({
     mutationFn: async (newState: LikeState) => {
       const endpoint = `/api/${resourceType}/${resourceId}/like`;
       
@@ -117,7 +121,7 @@ export const useOptimisticLike = ({
       return { previousState };
     },
     // Success: sync server state
-    onSuccess: (data, variables, context) => {
+    onSuccess: (_data: unknown, variables: LikeState) => {
       setServerState(variables);
       setOptimisticState(variables);
       
@@ -129,7 +133,7 @@ export const useOptimisticLike = ({
       onSuccess?.();
     },
     // Error: rollback (Guidelines §2.4.2)
-    onError: (error: Error, variables, context) => {
+    onError: (error: Error, _variables: LikeState, context?: LikeMutationContext) => {
       setIsReverting(true);
       
       if (context?.previousState) {

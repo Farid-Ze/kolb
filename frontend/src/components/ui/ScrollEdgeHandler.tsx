@@ -58,11 +58,11 @@ export const ScrollEdgeHandler: React.FC<ScrollEdgeHandlerProps> = ({
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const rafIdRef = useRef<number>();
+  const rafIdRef = useRef<number | null>(null);
 
   const handleScroll = useCallback(() => {
     // Cancel previous RAF
-    if (rafIdRef.current) {
+    if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
     }
 
@@ -96,7 +96,7 @@ export const ScrollEdgeHandler: React.FC<ScrollEdgeHandlerProps> = ({
 
     // Cleanup
     return () => {
-      if (rafIdRef.current) {
+      if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
 
@@ -133,12 +133,12 @@ export const useScrollEdge = ({
 } = {}) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const rafIdRef = useRef<number>();
+  const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
       // Cancel previous RAF
-      if (rafIdRef.current) {
+      if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
 
@@ -166,7 +166,7 @@ export const useScrollEdge = ({
 
     // Cleanup
     return () => {
-      if (rafIdRef.current) {
+      if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
 
@@ -203,11 +203,11 @@ export const useScrollProgress = ({
   targetRef?: React.RefObject<HTMLElement>;
 } = {}) => {
   const [progress, setProgress] = useState(0);
-  const rafIdRef = useRef<number>();
+  const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (rafIdRef.current) {
+      if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
 
@@ -230,7 +230,7 @@ export const useScrollProgress = ({
     }
 
     return () => {
-      if (rafIdRef.current) {
+      if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
 

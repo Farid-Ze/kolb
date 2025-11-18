@@ -17,9 +17,9 @@
 "use client";
 
 import * as React from "react";
-import * as SheetPrimitive from "@radix-ui/react-dialog@1.1.6";
-import { XIcon } from "lucide-react@0.487.0";
-import { motion, AnimatePresence } from "motion/react";
+import * as SheetPrimitive from "@radix-ui/react-dialog";
+import { XIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { SPRING_SLIDE, CROSS_FADE } from "../../lib/motion";
 import { cn } from "./utils";
@@ -85,18 +85,24 @@ function SheetOverlay({
  * - Interruptible animations
  * - Glass material untuk functional layer
  */
+type SheetSide = "top" | "right" | "bottom" | "left";
+type SlideVariant = {
+  hidden: { x?: string; y?: string };
+  visible: { x?: number; y?: number };
+};
+
 function SheetContent({
   className,
   children,
   side = "bottom",
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
-  side?: "top" | "right" | "bottom" | "left";
+  side?: SheetSide;
 }) {
   const reduceMotion = useReduceMotion();
 
   // Slide direction untuk spring animation
-  const slideVariants = {
+  const slideVariants: Record<SheetSide, SlideVariant> = {
     right: {
       hidden: { x: "100%" },
       visible: { x: 0 },
@@ -116,12 +122,16 @@ function SheetContent({
   };
 
   // Position classes
-  const positionClasses = {
+  const positionClasses: Record<SheetSide, string> = {
     right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm rounded-l-xl",
     left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm rounded-r-xl",
     top: "inset-x-0 top-0 border-b rounded-b-xl max-h-[80vh]",
     bottom: "inset-x-0 bottom-0 border-t rounded-t-xl max-h-[80vh]",
   };
+
+  const resolvedSide: SheetSide = side ?? "bottom";
+  const resolvedPositionClass = positionClasses[resolvedSide];
+  const resolvedVariant = slideVariants[resolvedSide];
 
   return (
     <SheetPortal>
@@ -136,10 +146,10 @@ function SheetContent({
             "fixed z-modal flex flex-col shadow-xl",
             // Glass material (Guidelines.md §4.2)
             "glass-regular",
-            positionClasses[side],
+            resolvedPositionClass,
             className
           )}
-          variants={reduceMotion ? undefined : slideVariants[side]}
+          variants={reduceMotion ? undefined : resolvedVariant}
           initial="hidden"
           animate="visible"
           exit="hidden"

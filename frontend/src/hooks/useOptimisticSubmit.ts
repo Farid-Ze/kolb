@@ -38,7 +38,7 @@ export function useOptimisticSubmit<TData = unknown, TVariables = unknown>({
   const [optimisticData, setOptimisticData] = useState<TData | null>(null);
   const [previousData, setPreviousData] = useState<TData | null>(null);
 
-  const mutation = useMutation({
+  const mutation = useMutation<TData, Error, TVariables>({
     mutationFn,
     onSuccess: (data, variables) => {
       // Update with real data after success

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import * as TabsPrimitive from "@radix-ui/react-tabs@1.1.3";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { motion } from "motion/react";
 
 import { cn } from "./utils";
@@ -36,11 +36,14 @@ function TabsList({
   );
 }
 
+type TabsTriggerProps = React.ComponentProps<typeof TabsPrimitive.Trigger> &
+  React.ButtonHTMLAttributes<HTMLButtonElement>;
+
 function TabsTrigger({
   className,
   value,
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+}: TabsTriggerProps) {
   const transition = useMotionConfig(SPRING_FAST);
   
   return (
@@ -48,6 +51,7 @@ function TabsTrigger({
       data-slot="tabs-trigger"
       value={value}
       asChild
+      {...props}
     >
       <motion.button
         layoutId="tab-indicator"
@@ -57,7 +61,6 @@ function TabsTrigger({
           "data-[state=active]:bg-card dark:data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 text-foreground dark:text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-xl border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 relative",
           className,
         )}
-        {...props}
       />
     </TabsPrimitive.Trigger>
   );

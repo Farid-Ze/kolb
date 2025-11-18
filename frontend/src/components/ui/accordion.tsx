@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import * as AccordionPrimitive from "@radix-ui/react-accordion@1.2.3";
-import { ChevronDownIcon } from "lucide-react@0.487.0";
-import { motion, AnimatePresence } from "motion/react";
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
+import { ChevronDownIcon } from "lucide-react";
+import { motion } from "motion/react";
 
 import { cn } from "./utils";
 import { useMotionConfig, SPRING_SMOOTH } from "../../lib/motion";
@@ -27,12 +27,17 @@ function AccordionItem({
   );
 }
 
+type AccordionTriggerProps = React.ComponentProps<typeof AccordionPrimitive.Trigger> & {
+  ["data-state"]?: "open" | "closed";
+};
+
 function AccordionTrigger({
   className,
   children,
   ...props
-}: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
+}: AccordionTriggerProps) {
   const transition = useMotionConfig(SPRING_SMOOTH);
+  const motionProps = props as React.ComponentProps<typeof motion.button>;
   
   return (
     <AccordionPrimitive.Header className="flex">
@@ -47,7 +52,7 @@ function AccordionTrigger({
           )}
           whileHover={{ x: 2 }}
           transition={transition}
-          {...props}
+          {...motionProps}
         >
           {children}
           <motion.div

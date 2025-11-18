@@ -254,3 +254,10 @@ export const SkeletonChart: React.FC<{
     </div>
   );
 };
+
+// Backwards-compatible aliases for legacy imports
+export const Skeleton = SkeletonLoader;
+export const ReportPageSkeleton = SkeletonChart;
+export const DashboardSkeleton = SkeletonList;
+export const CardSkeleton = SkeletonCard;
+export const TableSkeleton = SkeletonTable;

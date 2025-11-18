@@ -29,14 +29,15 @@ import { useMemo } from 'react';
  * @param b - Blue (0-255)
  * @returns Relative luminance (0-1)
  */
-const getLuminance = (r: number, g: number, b: number): number => {
-  // Convert RGB to sRGB (gamma correction)
-  const [rs, gs, bs] = [r, g, b].map((val) => {
-    const v = val / 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-  });
+const toLinear = (value: number): number => {
+  const normalized = value / 255;
+  return normalized <= 0.03928
+    ? normalized / 12.92
+    : Math.pow((normalized + 0.055) / 1.055, 2.4);
+};
 
-  // Calculate luminance with ITU-R BT.709 coefficients
+const getLuminance = (r: number, g: number, b: number): number => {
+  const [rs, gs, bs] = [r, g, b].map(toLinear) as [number, number, number];
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 };
 
@@ -61,15 +62,18 @@ const getContrastRatio = (L1: number, L2: number): number => {
  * @returns RGB object atau null
  */
 const parseColor = (
-  color: string
+  color?: string
 ): { r: number; g: number; b: number } | null => {
+  if (!color) {
+    return null;
+  }
   // Hex color
   const hexMatch = color.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
   if (hexMatch) {
     return {
-      r: parseInt(hexMatch[1], 16),
-      g: parseInt(hexMatch[2], 16),
-      b: parseInt(hexMatch[3], 16),
+      r: parseInt(hexMatch[1]!, 16),
+      g: parseInt(hexMatch[2]!, 16),
+      b: parseInt(hexMatch[3]!, 16),
     };
   }
 
@@ -77,9 +81,9 @@ const parseColor = (
   const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   if (rgbMatch) {
     return {
-      r: parseInt(rgbMatch[1]),
-      g: parseInt(rgbMatch[2]),
-      b: parseInt(rgbMatch[3]),
+      r: parseInt(rgbMatch[1]!, 10),
+      g: parseInt(rgbMatch[2]!, 10),
+      b: parseInt(rgbMatch[3]!, 10),
     };
   }
 
@@ -118,16 +122,19 @@ const parseColor = (
  * );
  */
 export const useVibrancy = (
-  backgroundColor: string = '#ffffff',
+  backgroundColor?: string,
   targetContrast: number = 4.5
 ) => {
+  const safeBackground = backgroundColor ?? '#ffffff';
+
   return useMemo(() => {
-    const bgColor = parseColor(backgroundColor);
+    const bgColor = parseColor(safeBackground);
     
     if (!bgColor) {
       // Fallback jika parsing gagal
       return {
         textColor: 'var(--color-foreground)',
+        secondaryTextColor: 'var(--color-foreground-muted, rgba(0,0,0,0.72))',
         isLight: false,
         contrastRatio: 1,
         meetsWCAG_AA: false,
@@ -157,9 +164,15 @@ export const useVibrancy = (
       textColor = useWhiteText ? '#ffffff' : '#000000';
     }
 
+    const secondaryTextColor = useWhiteText
+      ? 'rgba(255,255,255,0.72)'
+      : 'rgba(0,0,0,0.72)';
+
     return {
       /** Calculated text color (hex) */
       textColor,
+      /** Secondary text color for muted content */
+      secondaryTextColor,
       /** Whether text should be light colored */
       isLight: useWhiteText,
       /** Actual contrast ratio achieved */
@@ -169,7 +182,7 @@ export const useVibrancy = (
       /** Meets WCAG AAA (7:1 for normal text) */
       meetsWCAG_AAA: bestContrast >= 7,
     };
-  }, [backgroundColor, targetContrast]);
+  }, [safeBackground, targetContrast]);
 };
 
 /**
@@ -189,7 +202,7 @@ export const useVibrancy = (
  *   </div>
  * );
  */
-export const useVibrancyClass = (backgroundColor: string = '#ffffff'): string => {
+export const useVibrancyClass = (backgroundColor?: string): string => {
   const { isLight } = useVibrancy(backgroundColor);
   
   // Return semantic color classes
@@ -207,8 +220,7 @@ export const useVibrancyClass = (backgroundColor: string = '#ffffff'): string =>
  * const { textColor, className } = useAdaptiveTextColor(bgColor, 'dark');
  */
 export const useAdaptiveTextColor = (
-  backgroundColor: string = '#ffffff',
-  theme: 'light' | 'dark' = 'light'
+  backgroundColor?: string
 ) => {
   const vibrancy = useVibrancy(backgroundColor);
 
@@ -234,10 +246,13 @@ export const useAdaptiveTextColor = (
  * @returns Whether combination meets standard
  */
 export const meetsWCAG = (
-  foreground: string,
-  background: string,
+  foreground?: string,
+  background?: string,
   level: 'AA' | 'AAA' = 'AA'
 ): boolean => {
+  if (!foreground || !background) {
+    return false;
+  }
   const fgColor = parseColor(foreground);
   const bgColor = parseColor(background);
 

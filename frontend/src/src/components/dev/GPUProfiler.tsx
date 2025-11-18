@@ -65,7 +65,7 @@ export const GPUProfiler: React.FC<GPUProfilerProps> = ({
   const frameCountRef = useRef(0);
   const lastTimeRef = useRef(performance.now());
   const droppedFramesRef = useRef(0);
-  const rafIdRef = useRef<number>();
+  const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -117,8 +117,9 @@ export const GPUProfiler: React.FC<GPUProfilerProps> = ({
     rafIdRef.current = requestAnimationFrame(measurePerformance);
 
     return () => {
-      if (rafIdRef.current) {
+      if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
       }
     };
   }, [enabled]);

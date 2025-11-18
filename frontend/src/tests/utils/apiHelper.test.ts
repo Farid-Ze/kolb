@@ -67,7 +67,7 @@ describe('apiCall', () => {
 
   it('should successfully fetch and return JSON data', async () => {
     const mockData = { id: 1, name: 'Test User' };
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-type': 'application/json' }),
       json: vi.fn().mockResolvedValue(mockData),
@@ -75,11 +75,11 @@ describe('apiCall', () => {
 
     const result = await apiCall('/api/test', { method: 'GET' });
     expect(result).toEqual(mockData);
-    expect(global.fetch).toHaveBeenCalledWith('/api/test', { method: 'GET' });
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/test', { method: 'GET' });
   });
 
   it('should handle non-JSON success responses', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-type': 'text/plain' }),
     });
@@ -89,7 +89,7 @@ describe('apiCall', () => {
   });
 
   it('should throw error on failed response', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 404,
       statusText: 'Not Found',
@@ -103,7 +103,7 @@ describe('apiCall', () => {
   });
 
   it('should handle network errors', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
     await expect(apiCall('/api/test', { method: 'GET' })).rejects.toThrow(
       'Network error'
@@ -111,7 +111,7 @@ describe('apiCall', () => {
   });
 
   it('should handle unknown errors', async () => {
-    global.fetch = vi.fn().mockRejectedValue('Unknown error');
+    globalThis.fetch = vi.fn().mockRejectedValue('Unknown error');
 
     await expect(apiCall('/api/test', { method: 'GET' })).rejects.toThrow(
       'Network error: Unable to reach server'

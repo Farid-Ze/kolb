@@ -18,7 +18,7 @@ import React, { ReactNode } from 'react';
 import { useGlassPanelContext } from './GlassPanel';
 import { cn } from '../../lib/utils';
 
-interface VibrantTextProps {
+export interface VibrantTextProps {
   children: ReactNode;
   /** Text hierarchy level */
   hierarchy?: 'primary' | 'secondary' | 'tertiary';
@@ -28,6 +28,12 @@ interface VibrantTextProps {
   className?: string;
   /** Truncate with ellipsis */
   truncate?: boolean;
+}
+
+export type VibrantTextPreset = 'heading' | 'label' | 'description' | 'caption';
+
+export interface VibrantTextWithPresetProps extends VibrantTextProps {
+  preset?: VibrantTextPreset;
 }
 
 /**
@@ -58,13 +64,24 @@ interface VibrantTextProps {
  * // Di luar glass (fallback ke system colors)
  * <VibrantText>Normal text</VibrantText>
  */
-export const VibrantText: React.FC<VibrantTextProps> = ({
+export const VibrantText: React.FC<VibrantTextWithPresetProps> = ({
   children,
   hierarchy = 'primary',
   as: Component = 'span',
   className = '',
   truncate = false,
+  preset,
 }) => {
+  // Map preset to hierarchy
+  const effectiveHierarchy: VibrantTextProps['hierarchy'] = preset
+    ? preset === 'heading'
+      ? 'primary'
+      : preset === 'label'
+      ? 'primary'
+      : preset === 'description'
+      ? 'secondary'
+      : 'tertiary'
+    : hierarchy;
   // Get vibrancy context dari parent GlassPanel
   const glassContext = useGlassPanelContext();
 
@@ -72,7 +89,7 @@ export const VibrantText: React.FC<VibrantTextProps> = ({
   const getTextColor = () => {
     if (!glassContext?.isGlass) {
       // Not on glass - use standard system colors
-      switch (hierarchy) {
+      switch (effectiveHierarchy) {
         case 'primary':
           return 'text-foreground';
         case 'secondary':
@@ -83,7 +100,7 @@ export const VibrantText: React.FC<VibrantTextProps> = ({
     }
 
     // On glass - use vibrant colors from context
-    switch (hierarchy) {
+    switch (effectiveHierarchy) {
       case 'primary':
         return ''; // Will use inline style from context
       case 'secondary':
@@ -99,7 +116,7 @@ export const VibrantText: React.FC<VibrantTextProps> = ({
       return undefined;
     }
 
-    switch (hierarchy) {
+    switch (effectiveHierarchy) {
       case 'primary':
         return { color: glassContext.textColor };
       case 'secondary':

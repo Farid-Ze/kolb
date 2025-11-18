@@ -8,6 +8,48 @@
 
 import { API_BASE_URL } from '../config/api';
 
+interface ApiErrorPayload {
+  detail?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Parse API error responses into user-friendly strings
+ */
+export async function parseApiError(response?: Response): Promise<string> {
+  if (!response) {
+    return 'Request failed';
+  }
+
+  const statusLabel = response.status
+    ? `${response.status} ${response.statusText || ''}`.trim()
+    : undefined;
+
+  const contentType = response.headers?.get('content-type') ?? '';
+  const isJson = contentType.includes('application/json');
+
+  if (isJson && typeof response.json === 'function') {
+    try {
+      const payload = (await response.json()) as ApiErrorPayload;
+      if (payload.detail) return payload.detail;
+      if (payload.message) return payload.message;
+      if (payload.error) return payload.error;
+    } catch {
+      // Fall through to other strategies
+    }
+  }
+
+  if (typeof response.text === 'function') {
+    const text = await response.text();
+    if (text) {
+      return text;
+    }
+  }
+
+  return statusLabel || 'Request failed';
+}
+
 /**
  * Base API call function
  * Generic HTTP call dengan error handling
@@ -18,32 +60,29 @@ export async function apiCall<T>(
 ): Promise<T> {
   try {
     const response = await fetch(url, options);
-    
+    const contentType = response.headers?.get('content-type') ?? '';
+    const isJson = contentType.includes('application/json');
+
     // Handle non-OK responses
     if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-      
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.detail || errorJson.message || errorMessage;
-      } catch {
-        // If not JSON, use status text
-        errorMessage = errorText || errorMessage;
-      }
-      
-      throw new Error(errorMessage);
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || `HTTP ${response.status}: ${response.statusText}`);
     }
-    
-    // Parse response as JSON
-    const data = await response.json();
-    return data as T;
+
+    // Parse response as JSON when available
+    if (isJson && typeof response.json === 'function') {
+      const data = await response.json();
+      return data as T;
+    }
+
+    // Some endpoints may not return JSON body
+    return {} as T;
   } catch (error) {
     // Re-throw with more context
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error('Unknown error occurred');
+    throw new Error('Network error: Unable to reach server');
   }
 }
 

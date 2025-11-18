@@ -182,8 +182,12 @@ export const mockGetCurrentUser = async (token: string): Promise<{
     throw new Error('Invalid token');
   }
 
-  // Return default mock user
-  return MOCK_USERS[0].userData;
+  // Return default mock user (assume at least one mock user is defined)
+  const firstUser = MOCK_USERS[0];
+  if (!firstUser) {
+    throw new Error('No mock users configured');
+  }
+  return firstUser.userData;
 };
 
 /**

@@ -7,7 +7,7 @@
 
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { getReport } from '../services/reportService';
-import type { ReportData } from '../types/api';
+import type { Report } from '../types/api';
 
 interface UseReportOptions {
   /** Enable polling for report generation */
@@ -15,7 +15,7 @@ interface UseReportOptions {
   /** Polling interval in ms (default: 3000) */
   pollingInterval?: number;
   /** Stop polling when condition met */
-  stopPollingWhen?: (data: ReportData | undefined) => boolean;
+  stopPollingWhen?: (data: Report | undefined) => boolean;
 }
 
 /**
@@ -36,7 +36,7 @@ interface UseReportOptions {
 export function useReport(
   sessionId: string,
   options: UseReportOptions = {}
-): UseQueryResult<ReportData, Error> {
+): UseQueryResult<Report, Error> {
   const {
     enablePolling = false,
     pollingInterval = 3000,
@@ -47,16 +47,13 @@ export function useReport(
     queryKey: ['report', sessionId],
     queryFn: () => getReport(sessionId),
     // Polling configuration
-    refetchInterval: (query) => {
+    refetchInterval: (data: Report | undefined) => {
       if (!enablePolling) return false;
-      
-      const data = query.state.data;
-      
-      // Stop polling if condition met
-      if (stopPollingWhen && data && stopPollingWhen(data)) {
+
+      if (stopPollingWhen && stopPollingWhen(data)) {
         return false;
       }
-      
+
       return pollingInterval;
     },
     // Keep data fresh

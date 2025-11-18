@@ -29,6 +29,8 @@ interface TintedGlassButtonProps {
   type?: 'button' | 'submit' | 'reset';
   /** Disabled state */
   disabled?: boolean;
+  /** Visual variant token for tests/design system */
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   /** Tint color (CSS color value) */
   tintColor?: string;
   /** Tint intensity (0-1) */
@@ -87,6 +89,7 @@ export const TintedGlassButton: React.FC<TintedGlassButtonProps> = ({
   tintIntensity = 0.25,
   size = 'md',
   fullWidth = false,
+  variant = 'primary',
   icon,
   iconAfter,
   className = '',
@@ -139,6 +142,12 @@ export const TintedGlassButton: React.FC<TintedGlassButtonProps> = ({
     // Shadow for depth
     'shadow-lg hover:shadow-xl',
     sizeClasses[size],
+    {
+      primary: '',
+      secondary: 'text-secondary-foreground',
+      outline: 'border-white/40 text-white/90',
+      ghost: 'border-transparent text-white/80',
+    }[variant],
     fullWidth ? 'w-full' : '',
     className
   );

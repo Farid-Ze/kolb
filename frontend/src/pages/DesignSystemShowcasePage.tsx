@@ -15,7 +15,7 @@
  * 7. Anti-Patterns (§8.5.1, §8.5.2)
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { GlassPanel } from '../components/ui/GlassPanel';
 import { TintedGlassPanel } from '../components/ui/TintedGlassPanel';
@@ -30,8 +30,6 @@ import { WindowFocusDemo } from '../components/debug/WindowFocusIndicator';
 import { Separator } from '../components/ui/Separator';
 import { cn } from '../lib/utils';
 import {
-  Play,
-  Pause,
   Heart,
   Star,
   Palette,
@@ -46,6 +44,27 @@ import {
   Type,
   Zap,
 } from 'lucide-react';
+
+const FUSING_DEMO_NOTIFICATIONS = [
+  {
+    id: '1',
+    type: 'bell' as const,
+    content: 'Assessment insights ready to review',
+    timestamp: new Date(Date.now() - 60_000),
+  },
+  {
+    id: '2',
+    type: 'message' as const,
+    content: 'Coach feedback arrived',
+    timestamp: new Date(Date.now() - 120_000),
+  },
+  {
+    id: '3',
+    type: 'mail' as const,
+    content: 'Weekly summary emailed to your team',
+    timestamp: new Date(Date.now() - 180_000),
+  },
+];
 
 export default function DesignSystemShowcasePage() {
   const [activeSection, setActiveSection] = useState<string>('glass-panel');
@@ -149,7 +168,7 @@ export default function DesignSystemShowcasePage() {
 // Section 1: GlassPanel Showcase (Guidelines §4.2, §4.3)
 function GlassPanelSection() {
   const [material, setMaterial] = useState<'functional' | 'content'>('functional');
-  const [density, setDensity] = useState<'ultra-thin' | 'thin' | 'regular' | 'thick'>('regular');
+  const [density, setDensity] = useState<'ultra-thin' | 'thin' | 'regular' | 'spacious'>('regular');
   const [emphasis, setEmphasis] = useState<'low' | 'medium' | 'high'>('medium');
 
   return (
@@ -185,7 +204,7 @@ function GlassPanelSection() {
         <div className="space-y-2">
           <ShortLabel>Density</ShortLabel>
           <div className="flex flex-wrap gap-2">
-            {(['ultra-thin', 'thin', 'regular', 'thick'] as const).map((d) => (
+            {(['ultra-thin', 'thin', 'regular', 'spacious'] as const).map((d) => (
               <PrimaryButton
                 key={d}
                 onClick={() => setDensity(d)}
@@ -303,7 +322,7 @@ function VibrantTextSection() {
           </GlassPanel>
 
           {/* Content Material */}
-          <GlassPanel material="content" density="thick" className="p-6 space-y-4">
+          <GlassPanel material="content" density="spacious" className="p-6 space-y-4">
             <VibrantText preset="heading">Content Material</VibrantText>
             <VibrantText preset="description">
               Content material provides more opacity for better separation from
@@ -381,8 +400,7 @@ function MotionSection() {
             className="gap-2"
           >
             <MorphingIcon
-              iconA={Play}
-              iconB={Pause}
+              variant="play-pause"
               isActive={isPlaying}
               size={20}
             />
@@ -408,7 +426,9 @@ function MotionSection() {
           >
             {showFusing ? 'Hide' : 'Show'} Fusing Demo
           </PrimaryButton>
-          {showFusing && <FusingNotification />}
+          {showFusing && (
+            <FusingNotification notifications={FUSING_DEMO_NOTIFICATIONS} />
+          )}
         </div>
       </div>
 
@@ -421,19 +441,19 @@ function MotionSection() {
         </DescriptionText>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4">
           <div className="flex flex-col items-center gap-2">
-            <LayeredIcon icon={Heart} variant="primary" />
+            <LayeredIcon icon={Heart} color="primary" />
             <span className="text-sm text-muted-foreground">Primary</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <LayeredIcon icon={Star} variant="success" />
+            <LayeredIcon icon={Star} color="chart-2" />
             <span className="text-sm text-muted-foreground">Success</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <LayeredIcon icon={Sparkles} variant="warning" />
+            <LayeredIcon icon={Sparkles} color="chart-3" />
             <span className="text-sm text-muted-foreground">Warning</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <LayeredIcon icon={AlertTriangle} variant="error" />
+            <LayeredIcon icon={AlertTriangle} color="chart-4" />
             <span className="text-sm text-muted-foreground">Error</span>
           </div>
         </div>

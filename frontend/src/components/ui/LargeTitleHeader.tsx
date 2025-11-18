@@ -60,7 +60,7 @@ export const LargeTitleHeader: React.FC<LargeTitleHeaderProps> = ({
 
   // Fallback for reduced motion (Guidelines.md §2.5)
   const transition = reduceMotion
-    ? { duration: 0.2, ease: 'easeOut' }
+    ? { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const }
     : springConfig;
 
   return (

@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog@1.1.6";
-import { XIcon } from "lucide-react@0.487.0";
-import { motion, AnimatePresence } from "motion/react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { XIcon } from "lucide-react";
+import { motion } from "motion/react";
 
 import { cn } from "./utils";
 import { GlassPanel } from "./GlassPanel";
@@ -43,6 +43,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       asChild
+      {...props}
     >
       <motion.div
         initial={{ opacity: 0 }}
@@ -53,7 +54,6 @@ function DialogOverlay({
           "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm",
           className,
         )}
-        {...props}
       />
     </DialogPrimitive.Overlay>
   );
@@ -72,6 +72,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         asChild
+        {...props}
       >
         <motion.div
           initial={MOTION_VARIANTS.scale.initial}
@@ -82,7 +83,6 @@ function DialogContent({
             "fixed top-[50%] left-[50%] z-50 w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] sm:max-w-lg",
             className,
           )}
-          {...props}
         >
           <GlassPanel 
             material="functional" 

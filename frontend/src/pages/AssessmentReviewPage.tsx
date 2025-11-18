@@ -17,7 +17,7 @@ import { useAssessment } from '../hooks/useAssessment';
 import { finalizeSession } from '../services/sessionService';
 import { queryClient } from '../config/api';
 import { Skeleton } from '../components/ui/skeleton';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import {
   AlertCircle,
   CheckCircle2,
@@ -99,20 +99,20 @@ export const AssessmentReviewPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
         <header className="glass-regular sticky top-0 z-50 border-b border-border">
           <div className="mx-auto max-w-4xl p-4">
-            <Skeleton height="24px" width="150px" />
+            <Skeleton className="h-6 w-[150px]" />
           </div>
         </header>
         <main className="mx-auto max-w-4xl p-6 space-y-6">
           <div className="text-center space-y-2 py-6">
-            <Skeleton height="40px" width="300px" className="mx-auto" />
-            <Skeleton height="20px" width="400px" className="mx-auto" />
+            <Skeleton className="mx-auto h-10 w-[300px]" />
+            <Skeleton className="mx-auto h-5 w-[400px]" />
           </div>
-          <Skeleton height="150px" />
-          <Skeleton height="120px" />
+          <Skeleton className="h-[150px] w-full" />
+          <Skeleton className="h-[120px] w-full" />
           <div className="space-y-4">
-            <Skeleton height="100px" />
-            <Skeleton height="100px" />
-            <Skeleton height="100px" />
+            <Skeleton className="h-[100px] w-full" />
+            <Skeleton className="h-[100px] w-full" />
+            <Skeleton className="h-[100px] w-full" />
           </div>
         </main>
       </div>

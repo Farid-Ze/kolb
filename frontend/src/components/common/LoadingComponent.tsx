@@ -28,7 +28,8 @@ export const LoadingComponent: React.FC<LoadingComponentProps> = ({
       transition: {
         duration: 1,
         repeat: Infinity,
-        ease: "linear"
+        repeatType: "loop" as const,
+        ease: [0.25, 0.25, 0.75, 0.75] as const,
       }
     }
   };

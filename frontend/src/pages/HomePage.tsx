@@ -21,7 +21,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { ThemeToggle } from '../components/common/ThemeToggle';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';

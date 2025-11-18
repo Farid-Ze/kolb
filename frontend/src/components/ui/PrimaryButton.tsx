@@ -23,7 +23,7 @@ interface PrimaryButtonProps {
   /** Disabled state */
   disabled?: boolean;
   /** Visual variant */
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'default' | 'destructive';
   /** Size variant */
   size?: 'sm' | 'md' | 'lg';
   /** Loading state */
@@ -91,6 +91,8 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
     outline:
       'border-2 border-input bg-transparent hover:bg-accent hover:text-accent-foreground',
     ghost: 'hover:bg-accent hover:text-accent-foreground',
+    default: 'bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:bg-primary/90',
+    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
   };
 
   // Size styles (Guidelines.md §1.4.1 - 8px grid)

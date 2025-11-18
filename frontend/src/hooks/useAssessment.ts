@@ -122,13 +122,13 @@ export const useAssessment = ({
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
+      const nextResponses = {
+        ...responses,
+        [itemId]: newResponse,
+      };
       saveTimeoutRef.current = setTimeout(() => {
-        const allResponses = {
-          ...responses,
-          [itemId]: newResponse,
-        };
         const payload: SubmitAnswersRequest = {
-          responses: Object.values(allResponses),
+          responses: Object.values(nextResponses),
         };
         autosaveMutation.mutate(payload);
       }, 2000); // Autosave setelah 2 detik idle
@@ -157,13 +157,13 @@ export const useAssessment = ({
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
+      const nextResponses = {
+        ...responses,
+        [itemId]: newResponse,
+      };
       saveTimeoutRef.current = setTimeout(() => {
-        const allResponses = {
-          ...responses,
-          [itemId]: newResponse,
-        };
         const payload: SubmitAnswersRequest = {
-          responses: Object.values(allResponses),
+          responses: Object.values(nextResponses),
         };
         autosaveMutation.mutate(payload);
       }, 2000);
@@ -211,7 +211,7 @@ export const useAssessment = ({
       : false;
 
   // Calculate progress
-  const completedItems = items.filter((item) => {
+  const completedItems = items.filter((item: AssessmentItem) => {
     const response = responses[item.item_id];
     if (!response || !response.ranks) return false;
     const ranks = Object.values(response.ranks);

@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from 'react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { AppShell } from '../components/common/AppShell';
 import { Skeleton, RouteErrorBoundary } from '../components/common';
 import { Button } from '../components/ui/button';

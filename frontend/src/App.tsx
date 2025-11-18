@@ -6,7 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { UIPreferencesProvider } from './contexts/UIPreferencesContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
-import { Toaster } from 'sonner@2.0.3';
+import { Toaster } from 'sonner';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { HomePage } from './pages/HomePage';

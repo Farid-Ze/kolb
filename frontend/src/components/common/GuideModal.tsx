@@ -17,6 +17,7 @@ import { useGuide } from '../../hooks/useGuide';
 import { LoadingComponent } from './LoadingComponent';
 import { VibrantText } from '../ui/VibrantText';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 
 interface GuideModalProps {
   guideId: string;
@@ -26,6 +27,84 @@ interface GuideModalProps {
   locale?: string;
   context?: string;
 }
+
+const markdownComponents: Components = {
+  h1: ({ children }) => (
+    <h1 className="text-3xl mb-4 mt-8 first:mt-0">
+      <VibrantText hierarchy="primary" as="span">
+        {children}
+      </VibrantText>
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-2xl mb-3 mt-6">
+      <VibrantText hierarchy="primary" as="span">
+        {children}
+      </VibrantText>
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-xl mb-2 mt-4">
+      <VibrantText hierarchy="primary" as="span">
+        {children}
+      </VibrantText>
+    </h3>
+  ),
+  p: ({ children }) => (
+    <p className="text-muted-foreground mb-4 leading-relaxed text-left max-w-[70ch]">
+      {children}
+    </p>
+  ),
+  ul: ({ children }) => (
+    <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => (
+    <li className="text-muted-foreground">{children}</li>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-4 border-primary pl-4 py-2 my-4 italic text-muted-foreground">
+      {children}
+    </blockquote>
+  ),
+  code: ({ className, children, ...props }) => {
+    const isBlock = Boolean(className);
+    if (isBlock) {
+      return (
+        <code
+          className="block bg-secondary p-4 rounded-lg text-sm text-foreground overflow-x-auto"
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code
+        className="bg-secondary px-1.5 py-0.5 rounded text-sm text-foreground"
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  },
+  a: ({ children, href }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary hover:underline"
+    >
+      {children}
+    </a>
+  ),
+};
 
 /**
  * GuideModal - Display markdown guides in a modal with telemetry
@@ -99,7 +178,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={springConfig}
               className="glass-regular rounded-xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl pointer-events-auto"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
             >
               {/* Header - FIXED: material-regular untuk avoid glass-on-glass (Guidelines.md §8.5.1) */}
               <div className="sticky top-0 z-10 material-regular border-b border-border px-6 py-4">
@@ -144,77 +223,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({
                   </div>
                 ) : markdownContent ? (
                   <div className="prose prose-neutral dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                      components={{
-                        // Custom component renderers for better styling
-                        h1: ({ children }) => (
-                          <h1 className="text-3xl mb-4 mt-8 first:mt-0">
-                            <VibrantText hierarchy="primary" as="span">
-                              {children}
-                            </VibrantText>
-                          </h1>
-                        ),
-                        h2: ({ children }) => (
-                          <h2 className="text-2xl mb-3 mt-6">
-                            <VibrantText hierarchy="primary" as="span">
-                              {children}
-                            </VibrantText>
-                          </h2>
-                        ),
-                        h3: ({ children }) => (
-                          <h3 className="text-xl mb-2 mt-4">
-                            <VibrantText hierarchy="primary" as="span">
-                              {children}
-                            </VibrantText>
-                          </h3>
-                        ),
-                        p: ({ children }) => (
-                          <p className="text-muted-foreground mb-4 leading-relaxed text-left max-w-[70ch]">
-                            {children}
-                          </p>
-                        ),
-                        ul: ({ children }) => (
-                          <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2">
-                            {children}
-                          </ul>
-                        ),
-                        ol: ({ children }) => (
-                          <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2">
-                            {children}
-                          </ol>
-                        ),
-                        li: ({ children }) => (
-                          <li className="text-muted-foreground">{children}</li>
-                        ),
-                        blockquote: ({ children }) => (
-                          <blockquote className="border-l-4 border-primary pl-4 py-2 my-4 italic text-muted-foreground">
-                            {children}
-                          </blockquote>
-                        ),
-                        code: ({ children, className }) => {
-                          const isInline = !className;
-                          return isInline ? (
-                            <code className="bg-secondary px-1.5 py-0.5 rounded text-sm text-foreground">
-                              {children}
-                            </code>
-                          ) : (
-                            <code className="block bg-secondary p-4 rounded-lg text-sm text-foreground overflow-x-auto">
-                              {children}
-                            </code>
-                          );
-                        },
-                        a: ({ children, href }) => (
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            {children}
-                          </a>
-                        ),
-                      }}
-                    >
+                    <ReactMarkdown components={markdownComponents}>
                       {markdownContent}
                     </ReactMarkdown>
                   </div>

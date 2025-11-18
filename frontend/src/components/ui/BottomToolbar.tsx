@@ -11,7 +11,7 @@
  */
 
 import React, { ReactNode } from 'react';
-import { motion } from 'motion/react';
+import { motion, type HTMLMotionProps } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useMotionConfig, SPRING_FAST, CROSS_FADE_FAST } from '../../lib/motion';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
@@ -41,19 +41,27 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
 }) => {
   const reduceMotion = useReduceMotion();
   const transition = useMotionConfig();
+  const animation = {
+    initial: reduceMotion ? false : { y: 100 },
+    animate: { y: visible ? 0 : 100 },
+    transition: reduceMotion ? { duration: 0 } : transition,
+  } as const;
 
   return (
     <motion.div
-      className={`fixed bottom-0 left-0 right-0 z-40 glass-regular border-t border-border ${className}`.trim()}
+      className={cn(
+        'fixed bottom-0 left-0 right-0 z-40 glass-regular border-t border-border',
+        className
+      )}
       style={{
         /* Zona Hijau Ergonomis (Guidelines.md §1.3.2 - Task TODO2.md Phase 4.2) */
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
       }}
-      initial={{ y: 100 }}
-      animate={{ y: visible ? 0 : 100 }}
-      transition={transition}
+      initial={animation.initial}
+      animate={animation.animate}
+      transition={animation.transition}
     >
       <div className="mx-auto max-w-7xl px-4 py-3">
         {/* 
@@ -73,22 +81,17 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
  * BottomToolbarButton - Button khusus untuk BottomToolbar
  * Optimized untuk ergonomi mobile dengan touch target 48x48px minimum
  */
-interface BottomToolbarButtonProps {
-  children: ReactNode;
-  onClick?: () => void;
+interface BottomToolbarButtonProps extends HTMLMotionProps<'button'> {
   variant?: 'primary' | 'secondary' | 'ghost';
-  disabled?: boolean;
-  className?: string;
 }
 
 export const BottomToolbarButton: React.FC<BottomToolbarButtonProps> = ({
   children,
-  onClick,
   variant = 'primary',
   disabled = false,
   className = '',
+  ...props
 }) => {
-  const reduceMotion = useReduceMotion();
   const transition = useMotionConfig(SPRING_FAST, CROSS_FADE_FAST);
 
   const variantClasses = {
@@ -101,7 +104,6 @@ export const BottomToolbarButton: React.FC<BottomToolbarButtonProps> = ({
 
   return (
     <motion.button
-      onClick={onClick}
       disabled={disabled}
       className={`
         flex-1 
@@ -119,6 +121,7 @@ export const BottomToolbarButton: React.FC<BottomToolbarButtonProps> = ({
       whileHover={!disabled ? { scale: 1.02 } : undefined}
       whileTap={!disabled ? { scale: 0.98 } : undefined}
       transition={transition}
+      {...props}
     >
       {children}
     </motion.button>

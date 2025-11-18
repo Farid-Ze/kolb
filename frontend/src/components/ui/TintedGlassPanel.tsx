@@ -11,13 +11,12 @@
  */
 
 import React from 'react';
-import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { GlassPanel, type GlassPanelProps } from './GlassPanel';
 
 export interface TintedGlassPanelProps extends Omit<GlassPanelProps, 'material'> {
   /** Tint color (primary accent or chart colors) */
-  tintColor?: 'primary' | 'chart-1' | 'chart-2' | 'chart-3' | 'chart-4';
+  tintColor?: 'primary' | 'chart-1' | 'chart-2' | 'chart-3' | 'chart-4' | 'success' | 'warning';
   /** Tint intensity (0-100) */
   tintIntensity?: number;
 }
@@ -47,31 +46,33 @@ export const TintedGlassPanel = React.forwardRef<
   tintIntensity = 20,
   className,
   children,
-  ...props
+  style,
+  ...rest
 }, ref) => {
   // Tint color mapping
-  const tintColorMap = {
+  const tintColorMap: Record<'primary' | 'chart-1' | 'chart-2' | 'chart-3' | 'chart-4' | 'success' | 'warning', string> = {
     'primary': 'var(--primary)',
     'chart-1': 'var(--chart-1)',
     'chart-2': 'var(--chart-2)',
     'chart-3': 'var(--chart-3)',
     'chart-4': 'var(--chart-4)',
+    'success': 'var(--chart-success, #22c55e)',
+    'warning': 'var(--chart-warning, #f59e0b)',
   };
 
-  const tintColorVar = tintColorMap[tintColor];
+  const tintColorVar = tintColor ? tintColorMap[tintColor] : tintColorMap.primary;
+  const inlineStyle = {
+    background: `color-mix(in srgb, ${tintColorVar} ${tintIntensity}%, transparent)`,
+    ...style,
+  } satisfies React.CSSProperties;
 
   return (
     <GlassPanel
       ref={ref}
       material="functional"
       className={cn('relative overflow-hidden', className)}
-      style={{
-        // Volumetric tinting via backdrop-filter and background blend
-        // This creates the effect of color mixed into the glass itself
-        background: `color-mix(in srgb, ${tintColorVar} ${tintIntensity}%, transparent)`,
-        ...props.style,
-      }}
-      {...props}
+      style={inlineStyle}
+      {...rest}
     >
       {/* Subtle gradient overlay for depth (simulates light interaction) */}
       <div 

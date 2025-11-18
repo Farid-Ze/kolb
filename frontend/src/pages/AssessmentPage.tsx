@@ -21,7 +21,7 @@ import { ProgressBar } from '../components/assessment/ProgressBar';
 import { Skeleton } from '../components/ui/skeleton';
 import { GuideModal } from '../components/common/GuideModal';
 import { GUIDE_IDS } from '../services/guideService';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { MorphingIcon } from '../components/ui/MorphingIcon';
 import { BottomToolbar, BottomToolbarButton } from '../components/ui/BottomToolbar';
 import { 
@@ -162,19 +162,19 @@ export const AssessmentPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
         <header className="glass-regular sticky top-0 z-50 border-b border-border">
           <div className="mx-auto max-w-4xl p-4">
-            <Skeleton height="32px" width="200px" className="mb-2" />
-            <Skeleton height="20px" width="150px" className="mb-4" />
-            <Skeleton height="8px" />
+            <Skeleton className="mb-2 h-8 w-[200px]" />
+            <Skeleton className="mb-4 h-5 w-[150px]" />
+            <Skeleton className="h-2 w-full" />
           </div>
         </header>
         <main className="mx-auto max-w-4xl p-6 space-y-6">
-          <Skeleton height="100px" />
-          <Skeleton height="150px" />
+          <Skeleton className="h-[100px] w-full" />
+          <Skeleton className="h-[150px] w-full" />
           <div className="space-y-4">
-            <Skeleton height="120px" />
-            <Skeleton height="120px" />
-            <Skeleton height="120px" />
-            <Skeleton height="120px" />
+            <Skeleton className="h-[120px] w-full" />
+            <Skeleton className="h-[120px] w-full" />
+            <Skeleton className="h-[120px] w-full" />
+            <Skeleton className="h-[120px] w-full" />
           </div>
         </main>
       </div>
@@ -392,8 +392,9 @@ export const AssessmentPage: React.FC = () => {
         {/* Item Navigation Dots (Optional) */}
         <div className="mt-8 flex items-center justify-center gap-2">
           {items.slice(0, Math.min(totalItems, 12)).map((item, idx) => {
-            const isAnswered = responses[item.item_id] && 
-              Object.keys(responses[item.item_id].ranks || {}).length === 4;
+            const itemResponse = responses[item.item_id];
+            const isAnswered = itemResponse && 
+              Object.keys(itemResponse.ranks || {}).length === 4;
             const isCurrent = idx === currentItemIndex;
             
             return (
@@ -427,9 +428,6 @@ export const AssessmentPage: React.FC = () => {
           onClick={prevItem}
           disabled={!canGoPrev}
           className="inline-flex items-center gap-2 rounded-xl bg-secondary text-secondary-foreground px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
-          whileHover={canGoPrev ? { scale: 1.05 } : {}}
-          whileTap={canGoPrev ? { scale: 0.95 } : {}}
-          transition={springConfig}
         >
           <ChevronLeft className="h-5 w-5" />
           <span className="hidden sm:inline">Sebelumnya</span>
@@ -460,9 +458,6 @@ export const AssessmentPage: React.FC = () => {
           <BottomToolbarButton
             onClick={nextItem}
             className="inline-flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={springConfig}
           >
             <span className="hidden sm:inline">Selanjutnya</span>
             <ChevronRight className="h-5 w-5" />
@@ -472,9 +467,6 @@ export const AssessmentPage: React.FC = () => {
             onClick={handleReview}
             disabled={!isComplete}
             className="inline-flex items-center gap-2 rounded-xl bg-chart-4 text-primary-foreground px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
-            whileHover={isComplete ? { scale: 1.05 } : {}}
-            whileTap={isComplete ? { scale: 0.95 } : {}}
-            transition={springConfig}
           >
             <CheckCircle className="h-5 w-5" />
             <span>Review & Selesai</span>

@@ -221,9 +221,11 @@ export const FusingNotificationDemo: React.FC = () => {
 
   const addNotification = () => {
     const types: Notification['type'][] = ['bell', 'message', 'mail'];
+    const randomIndex = Math.floor(Math.random() * types.length);
+    const fallbackType: Notification['type'] = 'bell';
     const newNotification: Notification = {
       id: Date.now().toString(),
-      type: types[Math.floor(Math.random() * types.length)],
+      type: types[randomIndex] ?? fallbackType,
       content: `Notification #${notifications.length + 1}`,
       timestamp: new Date(),
     };
