@@ -12,7 +12,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useAssessment } from '../hooks/useAssessment';
 import { finalizeSession } from '../services/sessionService';
 import { queryClient } from '../config/api';

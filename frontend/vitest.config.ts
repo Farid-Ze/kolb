@@ -4,21 +4,21 @@ import path from 'path';
 
 /**
  * KLSI 4.0 - Vitest Configuration
- * Testing configuration untuk unit dan integration tests
+ * Shared unit + integration test setup.
  */
 export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './tests/setup.ts',
+    setupFiles: './src/tests/setup.ts',
     css: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
       exclude: [
         'node_modules/',
-        'tests/',
+        'src/tests/',
         '**/*.d.ts',
         '**/*.config.*',
         '**/mockData',
@@ -28,7 +28,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './'),
+      '@': path.resolve(__dirname, './src'),
     },
   },
 });

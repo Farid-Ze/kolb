@@ -8,11 +8,11 @@
  * - Adapts otomatis untuk light/dark mode
  */
 
-import React, { ReactNode } from 'react';
+import type { FC, ReactNode } from 'react';
 import { cn } from '../../lib/utils';
 
 interface LabelProps {
-  children: ReactNode;
+  children?: ReactNode;
   /** Hierarchy level - affects text color */
   hierarchy?: 'primary' | 'secondary' | 'tertiary';
   /** Semantic purpose */
@@ -59,7 +59,7 @@ interface LabelProps {
  *   Last updated 2 hours ago
  * </Label>
  */
-export const Label: React.FC<LabelProps> = ({
+export const Label: FC<LabelProps> = ({
   children,
   hierarchy = 'primary',
   variant = 'default',
@@ -74,7 +74,7 @@ export const Label: React.FC<LabelProps> = ({
     primary: 'text-foreground',
     secondary: 'text-muted-foreground',
     tertiary: 'text-muted-foreground/70',
-  };
+  } satisfies Record<NonNullable<LabelProps['hierarchy']>, string>;
 
   // Semantic variants (§3.5.1)
   const variantClasses = {
@@ -83,7 +83,7 @@ export const Label: React.FC<LabelProps> = ({
     destructive: 'text-destructive',
     success: 'text-success',
     warning: 'text-warning',
-  };
+  } satisfies Record<NonNullable<LabelProps['variant']>, string>;
 
   // Font weight
   const weightClasses = {
@@ -91,7 +91,7 @@ export const Label: React.FC<LabelProps> = ({
     medium: 'font-medium',
     semibold: 'font-semibold',
     bold: 'font-bold',
-  };
+  } satisfies Record<NonNullable<LabelProps['weight']>, string>;
 
   const Component = htmlFor ? 'label' : 'span';
 
@@ -123,27 +123,27 @@ export const Label: React.FC<LabelProps> = ({
 /**
  * FieldLabel - Preset for form field labels
  */
-export const FieldLabel: React.FC<Omit<LabelProps, 'hierarchy'>> = (props) => (
+export const FieldLabel: FC<Omit<LabelProps, 'hierarchy'>> = (props) => (
   <Label hierarchy="primary" weight="medium" {...props} />
 );
 
 /**
  * HelperText - Preset for form helper text
  */
-export const HelperText: React.FC<Omit<LabelProps, 'hierarchy'>> = (props) => (
+export const HelperText: FC<Omit<LabelProps, 'hierarchy'>> = (props) => (
   <Label hierarchy="secondary" className={cn('text-sm', props.className)} {...props} />
 );
 
 /**
  * MetadataLabel - Preset for tertiary metadata
  */
-export const MetadataLabel: React.FC<Omit<LabelProps, 'hierarchy'>> = (props) => (
+export const MetadataLabel: FC<Omit<LabelProps, 'hierarchy'>> = (props) => (
   <Label hierarchy="tertiary" className={cn('text-xs', props.className)} {...props} />
 );
 
 /**
  * SectionTitle - Bold primary label for sections
  */
-export const SectionTitle: React.FC<Omit<LabelProps, 'hierarchy' | 'weight'>> = (props) => (
+export const SectionTitle: FC<Omit<LabelProps, 'hierarchy' | 'weight'>> = (props) => (
   <Label hierarchy="primary" weight="semibold" {...props} />
 );

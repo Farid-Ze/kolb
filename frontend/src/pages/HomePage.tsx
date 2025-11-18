@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { AnimatedGrid, AnimatedListItem } from '../components/ui/AnimatedListItem';
-import { GlassPanel } from '../components/ui/GlassPanel';
-import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { LayeredIcon } from '../components/ui/LayeredIcon';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -9,20 +7,19 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { getSessions, startSession } from '../services/sessionService';
 import { queryClient } from '../config/api';
-import { 
-  BookOpen, 
-  FileText, 
-  HelpCircle, 
-  LogOut, 
-  PlayCircle, 
+import {
+  BookOpen,
+  FileText,
+  LogOut,
+  PlayCircle,
   BarChart3,
   Clock,
   Users,
-  CheckCircle
+  CheckCircle,
 } from 'lucide-react';
 import { ThemeToggle } from '../components/common/ThemeToggle';
 import { toast } from 'sonner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
@@ -46,14 +43,14 @@ export const HomePage: React.FC = () => {
   const [isStarting, setIsStarting] = useState(false);
 
   // Task 21: Query untuk fetch active sessions
-  const { data: sessions, isLoading: isLoadingSessions } = useQuery<Session[]>({
+  const { data: sessions } = useQuery<Session[]>({
     queryKey: ['sessions'],
     queryFn: () => getSessions({ status: 'ACTIVE' }),
     staleTime: 60 * 1000, // 1 minute
   });
 
   // Task 24: Query untuk fetch completed sessions (untuk tabel riwayat)
-  const { data: completedSessions, isLoading: isLoadingCompleted } = useQuery<Session[]>({
+  const { data: completedSessions } = useQuery<Session[]>({
     queryKey: ['sessions', 'completed'],
     queryFn: () => getSessions({ status: 'COMPLETED' }),
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -64,6 +61,7 @@ export const HomePage: React.FC = () => {
     mutationFn: () => startSession('S-KLSI-4'),
     onSuccess: (data) => {
       toast.success('Sesi asesmen baru dimulai!');
+      setIsStarting(false);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       // Navigate to assessment start page
       navigate(`/assessment/${data.session_id}/start`);
@@ -77,8 +75,11 @@ export const HomePage: React.FC = () => {
   const handleStartAssessment = async () => {
     // Check if there's an active session
     if (sessions && sessions.length > 0) {
-      const activeSession = sessions[0];
-      navigate(`/assessment/${activeSession.id}/start`);
+      const existingSession = sessions[0];
+      if (!existingSession) {
+        return;
+      }
+      navigate(`/assessment/${existingSession.id}/start`);
       return;
     }
 
@@ -163,7 +164,7 @@ export const HomePage: React.FC = () => {
                     Lanjutkan asesmen yang sudah dimulai
                   </p>
                   <p className="text-muted-foreground">
-                    Dimulai: {new Date(activeSession.created_at).toLocaleDateString('id-ID', { 
+                    Dimulai: {new Date(activeSession.started_at).toLocaleDateString('id-ID', {
                       day: 'numeric', 
                       month: 'long', 
                       year: 'numeric',
@@ -322,7 +323,7 @@ export const HomePage: React.FC = () => {
                   {completedSessions.map((session) => (
                     <TableRow key={session.id}>
                       <TableCell>
-                        {new Date(session.created_at).toLocaleDateString('id-ID', {
+                        {new Date(session.completed_at ?? session.started_at).toLocaleDateString('id-ID', {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric',

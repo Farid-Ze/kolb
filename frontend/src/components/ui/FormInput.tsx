@@ -17,7 +17,7 @@
 
 import React, { forwardRef, ReactNode } from 'react';
 import { Input } from './input';
-import { Label } from './label';
+import { Label } from './Label';
 import { AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 

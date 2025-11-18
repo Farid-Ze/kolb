@@ -9,12 +9,6 @@ import { toast } from 'sonner';
 import { registerUser } from '../services/authService';
 import { API_BASE_URL } from '../config/api';
 import { Eye, EyeOff, UserPlus, Info } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Checkbox } from '../components/ui/checkbox';
-import { Alert, AlertDescription } from '../components/ui/alert';
 
 /**
  * KLSI 4.0 - RegisterPage
@@ -46,7 +40,6 @@ export const RegisterPage: React.FC = () => {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
     watch,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),

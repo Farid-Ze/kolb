@@ -18,7 +18,7 @@ interface DeltaData {
   delta_acce: number;
   delta_aero: number;
   delta_lfi: number;
-  previous_session_id: number;
+  previous_session_id: number | string;
   previous_session_date: string;
 }
 

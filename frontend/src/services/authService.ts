@@ -4,7 +4,7 @@
  * Task 16-17: AuthService untuk loginWithEmail dan getCurrentUser
  */
 
-import { getApiUrl, API_CONFIG, API_BASE_URL } from '../config/api';
+import { getApiUrl, API_CONFIG } from '../config/api';
 import { apiCall } from '../utils/apiHelper';
 import { mockLogin, mockRegister, mockGetCurrentUser } from './mockAuthService';
 
@@ -27,26 +27,6 @@ interface UserResponse {
   role: 'STUDENT' | 'MEDIATOR' | 'ADMIN';
   created_at: string;
 }
-
-/**
- * Check if backend is available
- */
-const isBackendAvailable = async (): Promise<boolean> => {
-  // If API_BASE_URL is relative path or localhost not running, backend is likely unavailable
-  if (API_BASE_URL === '/api' || API_BASE_URL.includes('localhost')) {
-    try {
-      const response = await fetch(getApiUrl('/health'), {
-        method: 'GET',
-        signal: AbortSignal.timeout(2000), // 2 second timeout
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-  // For remote URLs, assume available
-  return true;
-};
 
 /**
  * Login dengan email dan password

@@ -214,6 +214,7 @@ export interface EnhancedAnalytics {
 export interface LongitudinalDelta {
   previous_report_id: string;
   previous_session_date: string;
+  previous_session_id: string | number;
   time_elapsed_days: number;
   delta_acce: number; // Change in AC-CE score
   delta_aero: number; // Change in AE-RO score
@@ -232,6 +233,7 @@ export interface Report {
   user_id: string;
   instrument_id: string;
   generated_at: string;
+  status?: ReportGenerationStatus['status'];
   raw_scores: RawScores;
   dialectic_scores: DialecticScores;
   learning_style: LearningStyle;
@@ -286,19 +288,41 @@ export interface AddMemberRequest {
 export interface TeamRollupMember {
   user_id: string;
   name: string;
-  learning_style: LearningStyleType;
-  dialectic_scores: DialecticScores;
-  raw_scores: RawScores;
+  email?: string;
+  learning_style?: LearningStyleType;
+  style_code?: string;
+  AC_CE?: number;
+  AE_RO?: number;
+  ac_ce?: number;
+  ae_ro?: number;
+  dialectic_scores?: DialecticScores;
+  raw_scores?: RawScores;
+}
+
+export interface TeamRollupBalanceMetrics {
+  CE_percentage: number;
+  RO_percentage: number;
+  AC_percentage: number;
+  AE_percentage: number;
+}
+
+export interface TeamRollupSummary {
+  total_members: number;
+  members_with_data: number;
+  avg_ac_ce: number;
+  avg_ae_ro: number;
+  style_distribution: Record<string, number>;
 }
 
 export interface TeamRollup {
   team_id: string;
-  members: TeamRollupMember[];
-  aggregated_stats: {
-    style_distribution: Record<LearningStyleType, number>;
-    average_scores: RawScores;
-    diversity_index?: number;
-  };
+  team_name?: string;
+  members?: TeamRollupMember[];
+  member_count?: number;
+  data_points?: TeamRollupMember[];
+  summary?: TeamRollupSummary;
+  diversity_score?: number;
+  balance_metrics?: TeamRollupBalanceMetrics;
 }
 
 // ============================================================================

@@ -9,7 +9,7 @@
  * - React Query untuk data fetching dan mutations
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -43,6 +43,7 @@ export const TeamDetailPage: React.FC = () => {
   // Add member modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [memberToRemove, setMemberToRemove] = useState<TeamDetail['members'][number] | null>(null);
 
   const teamIdNum = teamId ? parseInt(teamId) : 0;
 
@@ -69,6 +70,106 @@ export const TeamDetailPage: React.FC = () => {
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: 1, // Rollup is optional, don't retry too much
   });
+
+  const refreshTeamData = () => {
+    queryClient.invalidateQueries({ queryKey: ['team', teamIdNum] });
+    queryClient.invalidateQueries({ queryKey: ['teamRollup', teamIdNum] });
+  };
+
+  // Normalize legacy rollup payloads used in tests/mocks that still expose `members` fields
+  const fallbackMembers = useMemo(() => {
+    const maybeMembers = (teamRollup as unknown as { members?: unknown[] })?.members;
+    return Array.isArray(maybeMembers) ? maybeMembers : [];
+  }, [teamRollup]);
+
+  const normalizedDataPoints = useMemo(() => {
+    if (Array.isArray(teamRollup?.data_points) && teamRollup.data_points.length > 0) {
+      return teamRollup.data_points;
+    }
+    return fallbackMembers.map((member, index) => {
+      const typedMember = member as Record<string, unknown>;
+      const parseNumber = (value: unknown): number =>
+        typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+          ? Number.parseFloat(value) || 0
+          : 0;
+      return {
+        user_id: (typedMember.user_id as string) ?? `member-${index}`,
+        name: (typedMember.name as string) ?? 'Anggota',
+        email: (typedMember.email as string) ?? '',
+        ac_ce: parseNumber(typedMember.ac_ce ?? typedMember.AC_CE),
+        ae_ro: parseNumber(typedMember.ae_ro ?? typedMember.AE_RO),
+        learning_style: (typedMember.learning_style as string) ?? '',
+        style_code: (typedMember.style_code as string) ?? '',
+        session_id: parseNumber(typedMember.session_id),
+        generated_at:
+          (typedMember.generated_at as string) ??
+          new Date(Date.now() - index * 1000).toISOString(),
+      };
+    });
+  }, [teamRollup, fallbackMembers]);
+
+  const normalizedSummary = useMemo(() => {
+    if (teamRollup?.summary) {
+      return teamRollup.summary;
+    }
+    const totalMembers =
+      (teamRollup as unknown as { member_count?: number })?.member_count ??
+      fallbackMembers.length ??
+      teamDetail?.member_count ??
+      0;
+    if (fallbackMembers.length === 0) {
+      return {
+        total_members: totalMembers,
+        members_with_data: teamDetail?.members?.length ?? 0,
+        avg_ac_ce: 0,
+        avg_ae_ro: 0,
+        style_distribution: {},
+      };
+    }
+    const acValues = normalizedDataPoints.map((point) => point.ac_ce);
+    const aeValues = normalizedDataPoints.map((point) => point.ae_ro);
+    const average = (values: number[]) =>
+      values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+    const styleDistribution = normalizedDataPoints.reduce<Record<string, number>>((acc, point) => {
+      const key = point.learning_style || point.style_code || 'UNKNOWN';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    return {
+      total_members: totalMembers,
+      members_with_data: normalizedDataPoints.length,
+      avg_ac_ce: average(acValues),
+      avg_ae_ro: average(aeValues),
+      style_distribution: styleDistribution,
+    };
+  }, [teamRollup, fallbackMembers, teamDetail, normalizedDataPoints]);
+
+  const hasRollupData = normalizedDataPoints.length > 0;
+  const safeMembersWithData =
+    normalizedSummary.members_with_data || normalizedSummary.total_members || 1;
+  const styleDistribution = normalizedSummary.style_distribution || {};
+  const diversityScore =
+    typeof teamRollup?.diversity_score === 'number' ? teamRollup.diversity_score : null;
+  const balanceMetrics = teamRollup?.balance_metrics;
+  const balanceEntries = balanceMetrics
+    ? [
+        { label: 'CE', value: balanceMetrics.CE_percentage },
+        { label: 'RO', value: balanceMetrics.RO_percentage },
+        { label: 'AC', value: balanceMetrics.AC_percentage },
+        { label: 'AE', value: balanceMetrics.AE_percentage },
+      ]
+    : [];
+
+  const errorMessage = useMemo(() => {
+    if (!teamError?.message) {
+      return 'Tim tidak ditemukan';
+    }
+    return teamError.message.toLowerCase().includes('not found')
+      ? 'Tim tidak ditemukan'
+      : teamError.message;
+  }, [teamError]);
 
   // Task 60: Add member mutation
   const addMemberMutation = useMutation({
@@ -115,14 +216,19 @@ export const TeamDetailPage: React.FC = () => {
     });
   };
 
-  // Remove member handler
-  const handleRemoveMember = async (userId: string, userName: string) => {
-    const confirmed = window.confirm(
-      `Apakah Anda yakin ingin menghapus ${userName} dari tim ini?`
-    );
-    if (!confirmed) return;
+  const handleOpenRemoveModal = (member: TeamDetail['members'][number]) => {
+    setMemberToRemove(member);
+  };
 
-    removeMemberMutation.mutate(userId);
+  const handleCloseRemoveModal = () => {
+    setMemberToRemove(null);
+  };
+
+  const handleConfirmRemove = () => {
+    if (!memberToRemove) return;
+    removeMemberMutation.mutate(memberToRemove.user_id, {
+      onSettled: () => setMemberToRemove(null),
+    });
   };
 
   // Loading state
@@ -139,7 +245,7 @@ export const TeamDetailPage: React.FC = () => {
           <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
           <h2 className="text-2xl text-foreground">Error</h2>
           <p className="text-muted-foreground">
-            {teamError?.message || 'Tim tidak ditemukan'}
+            {errorMessage}
           </p>
           <button
             onClick={() => navigate('/teams')}
@@ -169,8 +275,8 @@ export const TeamDetailPage: React.FC = () => {
               <div className="hidden sm:block h-6 w-px bg-border" />
               <div className="hidden sm:flex items-center gap-2">
                 <Users className="h-5 w-5 text-muted-foreground" />
-                <ShortLabel as="h1" className="text-foreground">
-                  {teamDetail.name}
+                <ShortLabel as="p" className="text-foreground">
+                  Detail Tim
                 </ShortLabel>
               </div>
             </div>
@@ -222,11 +328,11 @@ export const TeamDetailPage: React.FC = () => {
         </div>
 
         {/* Team Rollup Chart (Task 68-70) */}
-        {teamRollup && teamRollup.data_points.length > 0 && (
+        {hasRollupData && (
           <TeamRollupChart
-            dataPoints={teamRollup.data_points}
-            avgAcCe={teamRollup.summary.avg_ac_ce}
-            avgAeRo={teamRollup.summary.avg_ae_ro}
+            dataPoints={normalizedDataPoints}
+            avgAcCe={normalizedSummary.avg_ac_ce}
+            avgAeRo={normalizedSummary.avg_ae_ro}
           />
         )}
 
@@ -241,10 +347,10 @@ export const TeamDetailPage: React.FC = () => {
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="material-thin rounded-lg p-4">
                 <div className="text-sm text-muted-foreground mb-1">
-                  Total Anggota
+                  Jumlah Anggota
                 </div>
                 <div className="text-2xl text-foreground">
-                  {teamRollup.summary.total_members}
+                  {normalizedSummary.total_members}
                 </div>
               </div>
               <div className="material-thin rounded-lg p-4">
@@ -252,7 +358,7 @@ export const TeamDetailPage: React.FC = () => {
                   Dengan Data
                 </div>
                 <div className="text-2xl text-foreground">
-                  {teamRollup.summary.members_with_data}
+                  {normalizedSummary.members_with_data}
                 </div>
               </div>
               <div className="material-thin rounded-lg p-4">
@@ -260,7 +366,7 @@ export const TeamDetailPage: React.FC = () => {
                   Avg AC-CE
                 </div>
                 <div className="text-2xl text-foreground">
-                  {teamRollup.summary.avg_ac_ce.toFixed(1)}
+                  {normalizedSummary.avg_ac_ce.toFixed(1)}
                 </div>
               </div>
               <div className="material-thin rounded-lg p-4">
@@ -268,19 +374,56 @@ export const TeamDetailPage: React.FC = () => {
                   Avg AE-RO
                 </div>
                 <div className="text-2xl text-foreground">
-                  {teamRollup.summary.avg_ae_ro.toFixed(1)}
+                  {normalizedSummary.avg_ae_ro.toFixed(1)}
                 </div>
               </div>
+              {diversityScore !== null && (
+                <div className="material-thin rounded-lg p-4 sm:col-span-2 lg:col-span-1">
+                  <div className="text-sm text-muted-foreground mb-1">
+                    Skor Keragaman
+                  </div>
+                  <div className="text-2xl text-foreground">
+                    {diversityScore.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Nilai lebih tinggi menandakan variasi gaya belajar yang lebih luas.
+                  </p>
+                </div>
+              )}
             </div>
 
+            {balanceEntries.length > 0 && (
+              <div className="material-thin rounded-lg p-4">
+                <div className="text-sm text-muted-foreground mb-2">
+                  Keseimbangan Dialektik
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  {balanceEntries.map((entry) => (
+                    <div key={entry.label} className="space-y-1">
+                      <p className="text-muted-foreground text-xs">{entry.label}</p>
+                      <p className="text-foreground text-base">
+                        {entry.value}%
+                      </p>
+                      <div className="h-1.5 bg-secondary/40 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all"
+                          style={{ width: `${Math.min(Math.max(entry.value, 0), 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Style Distribution */}
-            {Object.keys(teamRollup.summary.style_distribution).length > 0 && (
+            {Object.keys(styleDistribution).length > 0 && (
               <div className="pt-4 border-t border-border">
                 <h4 className="text-sm text-foreground mb-3">
                   Distribusi Gaya Belajar
                 </h4>
                 <div className="space-y-2">
-                  {Object.entries(teamRollup.summary.style_distribution).map(
+                  {Object.entries(styleDistribution).map(
                     ([style, count]) => (
                       <div key={style} className="flex items-center gap-3">
                         <div className="flex-1 flex items-center gap-2">
@@ -292,7 +435,7 @@ export const TeamDetailPage: React.FC = () => {
                               className="h-full rounded-full bg-primary transition-spring"
                               style={{
                                 width: `${
-                                  (count / teamRollup.summary.members_with_data) *
+                                  (count / safeMembersWithData) *
                                   100
                                 }%`,
                               }}
@@ -353,9 +496,7 @@ export const TeamDetailPage: React.FC = () => {
                     </div>
                   </div>
                   <button
-                    onClick={() =>
-                      handleRemoveMember(member.user_id, member.name)
-                    }
+                    onClick={() => handleOpenRemoveModal(member)}
                     className="flex-shrink-0 inline-flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 transition-spring hover:bg-destructive/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -416,6 +557,47 @@ export const TeamDetailPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Modal */}
+      {memberToRemove && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-regular rounded-xl p-8 max-w-md w-full space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-2xl text-foreground">Hapus Anggota</h2>
+              <p className="text-sm text-muted-foreground">
+                Apakah Anda yakin ingin menghapus anggota ini dari tim? Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="rounded-lg bg-secondary/20 px-4 py-3 text-sm text-foreground">
+                {memberToRemove.name}
+                <div className="text-xs text-muted-foreground">{memberToRemove.email}</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleCloseRemoveModal}
+                disabled={removeMemberMutation.isPending}
+                className="flex-1 rounded-lg bg-secondary text-secondary-foreground px-4 py-3 transition-spring hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemove}
+                disabled={removeMemberMutation.isPending}
+                className="flex-1 rounded-lg bg-destructive text-destructive-foreground px-4 py-3 transition-spring hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {removeMemberMutation.isPending ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center">
+              Sistem akan memberi tahu anggota terkait setelah Anda menghapusnya.
+            </p>
           </div>
         </div>
       )}

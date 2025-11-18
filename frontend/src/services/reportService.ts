@@ -8,16 +8,7 @@
 
 import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
-import type { 
-  Report, 
-  RawScores, 
-  DialecticScores, 
-  LearningStyle, 
-  NineStyle,
-  FlexibilityIndex, 
-  NormGroup,
-  PercentileScores 
-} from '../types/api';
+import type { Report } from '../types/api';
 
 // Re-export types from api.d.ts
 export type { 

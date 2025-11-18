@@ -5,9 +5,19 @@
  * Guidelines.md §6.1: Single Source of Truth for report state
  */
 
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useQuery,
+  type UseQueryOptions,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { getReport } from '../services/reportService';
 import type { Report } from '../types/api';
+
+type RefetchContext = {
+  state: {
+    data?: Report;
+  };
+};
 
 interface UseReportOptions {
   /** Enable polling for report generation */
@@ -43,22 +53,24 @@ export function useReport(
     stopPollingWhen,
   } = options;
 
-  return useQuery({
+  const queryOptions: UseQueryOptions<Report, Error, Report, [string, string]> = {
     queryKey: ['report', sessionId],
     queryFn: () => getReport(sessionId),
-    // Polling configuration
-    refetchInterval: (data: Report | undefined) => {
-      if (!enablePolling) return false;
+    staleTime: enablePolling ? 0 : 5 * 60 * 1000,
+    retry: 3,
+  };
+
+  if (enablePolling) {
+    queryOptions.refetchInterval = (query: RefetchContext) => {
+      const data = query.state.data;
 
       if (stopPollingWhen && stopPollingWhen(data)) {
         return false;
       }
 
       return pollingInterval;
-    },
-    // Keep data fresh
-    staleTime: enablePolling ? 0 : 5 * 60 * 1000, // 5 minutes if not polling
-    // Retry on error
-    retry: 3,
-  });
+    };
+  }
+
+  return useQuery(queryOptions);
 }

@@ -15,7 +15,7 @@ import { AppShell } from '../components/common/AppShell';
 import { Skeleton, RouteErrorBoundary } from '../components/common';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
+import { Label } from '../components/ui/Label';
 import {
   Select,
   SelectContent,

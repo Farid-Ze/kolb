@@ -2,13 +2,42 @@
  * KLSI 4.0 - Test Setup Configuration
  * Global test setup dan mocks
  */
-import { expect, afterEach, vi } from 'vitest';
+import React from 'react';
+import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 // Cleanup after each test case
 afterEach(() => {
   cleanup();
+});
+
+// Mock Recharts globally to simplify integration tests
+vi.mock('recharts', () => {
+  const createStub = (testId?: string) =>
+    ({ children }: { children?: React.ReactNode } = {}) =>
+      React.createElement('div', testId ? { 'data-testid': testId } : undefined, children);
+
+  return {
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => React.createElement('div', undefined, children),
+    ScatterChart: createStub('scatter-chart'),
+    Scatter: createStub('scatter'),
+    XAxis: createStub('x-axis'),
+    YAxis: createStub('y-axis'),
+    CartesianGrid: createStub('cartesian-grid'),
+    Tooltip: createStub('tooltip'),
+    ReferenceLine: createStub('reference-line'),
+    Label: createStub('label'),
+    Cell: createStub('cell'),
+    BarChart: createStub('bar-chart'),
+    Bar: createStub('bar'),
+    Legend: createStub('legend'),
+    RadarChart: createStub('radar-chart'),
+    Radar: createStub('radar'),
+    PolarGrid: createStub('polar-grid'),
+    PolarAngleAxis: createStub('polar-angle-axis'),
+    PolarRadiusAxis: createStub('polar-radius-axis'),
+  };
 });
 
 // Mock window.matchMedia untuk testing responsive behavior
@@ -27,7 +56,7 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
+globalThis.IntersectionObserver = class IntersectionObserver {
   constructor() {}
   disconnect() {}
   observe() {}
@@ -38,24 +67,31 @@ global.IntersectionObserver = class IntersectionObserver {
 } as any;
 
 // Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
+globalThis.ResizeObserver = class ResizeObserver {
   constructor() {}
   disconnect() {}
   observe() {}
   unobserve() {}
 } as any;
 
-// Mock localStorage
+// Mock localStorage with in-memory store for deterministic tests
+const storage = new Map<string, string>();
 const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
+  getItem: vi.fn((key: string) => (storage.has(key) ? storage.get(key)! : null)),
+  setItem: vi.fn((key: string, value: string) => {
+    storage.set(key, value);
+  }),
+  removeItem: vi.fn((key: string) => {
+    storage.delete(key);
+  }),
+  clear: vi.fn(() => {
+    storage.clear();
+  }),
 };
-global.localStorage = localStorageMock as any;
+globalThis.localStorage = localStorageMock as unknown as Storage;
 
 // Mock console methods untuk cleaner test output (optional)
-global.console = {
+globalThis.console = {
   ...console,
   error: vi.fn(),
   warn: vi.fn(),

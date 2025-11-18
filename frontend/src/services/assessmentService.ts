@@ -12,7 +12,6 @@ import type {
   GetAssessmentItemsResponse,
   SubmitAnswersRequest,
   SubmitAnswersResponse,
-  FinalizeSessionResponse,
 } from '../types/api';
 
 /**

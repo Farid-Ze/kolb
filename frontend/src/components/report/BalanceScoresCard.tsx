@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { Info, TrendingUp, Minus } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { Alert, AlertDescription } from '../ui/alert';
 
 interface BalanceScoresCardProps {

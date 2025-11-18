@@ -70,10 +70,10 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg text-foreground">Team Learning Space Distribution</h3>
+          <h3 className="text-lg text-foreground">Peta Gaya Belajar Tim</h3>
         </div>
         <p className="text-sm text-muted-foreground">
-          Posisi setiap anggota tim dalam Learning Space Grid berdasarkan gaya belajar mereka
+          Visualisasi sebaran anggota tim pada Learning Space Grid berdasarkan gaya belajar KLSI 4.0
         </p>
       </div>
 

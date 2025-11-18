@@ -16,7 +16,6 @@
  */
 
 import React, { ReactNode } from 'react';
-import { BottomToolbar } from '../ui/BottomToolbar';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';

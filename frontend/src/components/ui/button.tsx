@@ -48,7 +48,20 @@ const buttonVariants = cva(
   },
 );
 
-type ButtonProps = React.ComponentProps<"button"> &
+type ButtonProps = Omit<
+  React.ComponentProps<"button">,
+  | "onAnimationStart"
+  | "onAnimationEnd"
+  | "onAnimationIteration"
+  | "onDrag"
+  | "onDragStart"
+  | "onDragEnd"
+  | "onDragCapture"
+  | "onDragEnter"
+  | "onDragLeave"
+  | "onDragOver"
+  | "onDragExit"
+> &
   Pick<HTMLMotionProps<"button">, "whileTap" | "whileHover" | "transition"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
@@ -75,7 +88,6 @@ function Button({
   transition: transitionOverride,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot : "button";
   const transition = useMotionConfig(SPRING_FAST, CROSS_FADE_FAST);
 
   // Guidelines.md §2.2.1: Flexing (Melentur) untuk instant feedback
@@ -94,13 +106,13 @@ function Button({
         };
 
   if (asChild) {
-    // For Slot, we can't use motion directly
+    const slotProps = props as React.ComponentProps<typeof Slot>;
+    // For Slot, fall back to plain button props only
     return (
-      <Comp
+      <Slot
         data-slot="button"
         className={cn(buttonVariants({ variant, size, className }))}
-        disabled={disabled}
-        {...props}
+        {...slotProps}
       />
     );
   }

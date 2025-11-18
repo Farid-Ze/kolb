@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { useWindowFocus, getWindowFocusClasses } from '../../hooks/useWindowFocus';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../lib/utils';

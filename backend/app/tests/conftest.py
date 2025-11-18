@@ -1,5 +1,8 @@
 import os
 
+# Ensure critical settings exist for test imports before loading app modules
+os.environ.setdefault("JWT_SECRET_KEY", "local-test-secret")
+
 import pytest
 from fastapi.testclient import TestClient
 

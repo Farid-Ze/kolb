@@ -19,7 +19,6 @@ import { FlexibilityChart } from '../components/report/FlexibilityChart';
 import { ScoreDisplay } from '../components/report/ScoreDisplay';
 import { EnhancedAnalyticsPanel } from '../components/report/EnhancedAnalyticsPanel';
 import { DeltaChangesCard } from '../components/report/DeltaChangesCard';
-import { LoadingComponent } from '../components/common/LoadingComponent';
 import { GuideModal } from '../components/common/GuideModal';
 import { GUIDE_IDS } from '../services/guideService';
 import {
@@ -32,12 +31,10 @@ import {
   Users,
   Clock,
   HelpCircle,
-  BookOpen,
   GraduationCap,
   Target,
 } from 'lucide-react';
 
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { LayeredIcon } from '../components/ui/LayeredIcon';
 
 export const ReportPage: React.FC = () => {
@@ -50,7 +47,7 @@ export const ReportPage: React.FC = () => {
     sessionId!,
     {
       enablePolling: true,
-      stopPollingWhen: (data) => data?.status === 'completed',
+      stopPollingWhen: (data) => data?.status === 'COMPLETED',
     }
   );
 

@@ -42,7 +42,7 @@ export const LargeTitleHeader: React.FC<LargeTitleHeaderProps> = ({
   const { reduceMotion } = useUIPreferences();
   
   // Task TODO3.md Phase 3.15: Use ScrollEdgeHandler
-  const { isScrolled, scrollY } = useScrollEdge({ threshold: 20 });
+  const { isScrolled } = useScrollEdge({ threshold: 20 });
   const scrollProgress = useScrollProgress({ max: 100 });
 
   // Interpolate values based on scroll progress (0-1)

@@ -75,19 +75,6 @@ const mockTeamRollup = {
   },
 };
 
-// Mock Recharts
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  ScatterChart: ({ children }: any) => <div data-testid="scatter-chart">{children}</div>,
-  Scatter: () => <div data-testid="scatter" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  ReferenceLine: () => <div data-testid="reference-line" />,
-  Cell: () => <div data-testid="cell" />,
-}));
-
 // Mock services
 vi.mock('../../services/teamService', () => ({
   getTeamDetails: vi.fn(),

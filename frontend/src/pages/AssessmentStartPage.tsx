@@ -9,13 +9,11 @@
 
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import { getSession } from '../services/sessionService';
 import { getAssessmentItems } from '../services/assessmentService';
 import { BookOpen, Play } from 'lucide-react';
-import { Skeleton } from '../components/ui/skeleton';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/button';
 import { NonDiagnosticNotice } from '../components/report/NonDiagnosticNotice';
 import { LayeredIcon } from '../components/ui/LayeredIcon';
@@ -26,14 +24,14 @@ export const AssessmentStartPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
 
   // Task 24: Query untuk fetch session details
-  const { data: session, isLoading: isLoadingSession } = useQuery<Session>({
+  const { data: session } = useQuery<Session>({
     queryKey: ['session', sessionId],
     queryFn: () => getSession(sessionId!),
     enabled: !!sessionId,
   });
 
   // Task 26: Prefetch assessment items untuk performance
-  const { data: assessmentData, isLoading: isLoadingItems } = useQuery({
+  const { data: assessmentData } = useQuery({
     queryKey: ['assessment-items', sessionId],
     queryFn: () => getAssessmentItems(sessionId!),
     enabled: !!sessionId,
@@ -43,13 +41,6 @@ export const AssessmentStartPage: React.FC = () => {
     if (sessionId) {
       navigate(`/assessment/${sessionId}`);
     }
-  };
-
-  // Spring configuration (Guidelines.md Section 2.3.1)
-  const springConfig = {
-    type: "spring" as const,
-    stiffness: 300,
-    damping: 20,
   };
 
   return (

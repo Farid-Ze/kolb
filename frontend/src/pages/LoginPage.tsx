@@ -11,10 +11,10 @@ import { API_BASE_URL } from '../config/api';
 import { getDemoCredentials } from '../services/mockAuthService';
 import { loginWithEmail } from '../services/authService';
 import { Eye, EyeOff, LogIn, Info } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
+import { Label } from '../components/ui/Label';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 /**
@@ -40,14 +40,13 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { setAuthData } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [showDemoInfo, setShowDemoInfo] = useState(true);
+  const [showDemoInfo] = useState(true);
 
   // Task 14: react-hook-form + zod integration
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
@@ -114,12 +113,6 @@ export const LoginPage: React.FC = () => {
       email: trimmedEmail, 
       password: trimmedPassword 
     });
-  };
-
-  // Quick fill demo credentials
-  const fillDemoCredentials = (email: string, password: string) => {
-    setValue('email', email);
-    setValue('password', password);
   };
 
   // Spring configuration (Bagian 2.3.1 - Damped Harmonic Oscillation)

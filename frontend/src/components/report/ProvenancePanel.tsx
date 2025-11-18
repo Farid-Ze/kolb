@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { Database, Users, Calendar, Info } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import type { NormGroup } from '../../types/api';
 
 interface ProvenancePanelProps {

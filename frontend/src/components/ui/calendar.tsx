@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 
 import { cn } from "./utils";
@@ -58,16 +57,6 @@ function Calendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
-      }}
-      components={{
-        IconLeft: (iconProps: React.ComponentProps<typeof ChevronLeft>) => {
-          const { className, ...rest } = iconProps;
-          return <ChevronLeft className={cn("size-4", className)} {...rest} />;
-        },
-        IconRight: (iconProps: React.ComponentProps<typeof ChevronRight>) => {
-          const { className, ...rest } = iconProps;
-          return <ChevronRight className={cn("size-4", className)} {...rest} />;
-        },
       }}
       {...props}
     />

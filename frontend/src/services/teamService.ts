@@ -44,17 +44,42 @@ export interface TeamRollupDataPoint {
   generated_at: string;
 }
 
+export interface TeamRollupBalanceMetrics {
+  CE_percentage: number;
+  RO_percentage: number;
+  AC_percentage: number;
+  AE_percentage: number;
+}
+
+export interface TeamRollupLegacyMember {
+  user_id: string;
+  name: string;
+  email?: string;
+  learning_style?: string;
+  style_code?: string;
+  AC_CE?: number;
+  AE_RO?: number;
+  ac_ce?: number;
+  ae_ro?: number;
+  session_id?: number;
+  generated_at?: string;
+}
+
 export interface TeamRollup {
   team_id: number;
   team_name: string;
-  data_points: TeamRollupDataPoint[];
-  summary: {
+  data_points?: TeamRollupDataPoint[];
+  members?: TeamRollupLegacyMember[];
+  member_count?: number;
+  summary?: {
     total_members: number;
     members_with_data: number;
     avg_ac_ce: number;
     avg_ae_ro: number;
     style_distribution: Record<string, number>;
   };
+  diversity_score?: number;
+  balance_metrics?: TeamRollupBalanceMetrics;
 }
 
 /**

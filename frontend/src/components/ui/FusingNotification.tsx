@@ -104,7 +104,7 @@ export const FusingNotification: React.FC<FusingNotificationProps> = ({
         }
       >
         <AnimatePresence mode="popLayout">
-          {notifications.map((notification, index) => (
+          {notifications.map((notification) => (
             <motion.div
               key={notification.id}
               layout

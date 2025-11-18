@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -8,6 +9,8 @@ from app.models.klsi.enums import SessionStatus
 from app.models.klsi.instrument import Instrument
 from app.models.klsi.user import User
 from app.services.seeds import seed_assessment_items, seed_instruments, seed_learning_styles
+from app.core.errors import InvalidAssessmentData
+from app.i18n.id_messages import LogicMessages
 
 
 def _db_session():
@@ -38,9 +41,9 @@ def test_klsi_strategy_finalize_runs_pipeline():
         db.flush()
 
         # No responses inserted; expect strategy to raise due to missing data
-        try:
+        expected_phrase = LogicMessages.LFI_CONTEXT_COUNT_MISMATCH.split("{")[0].strip()
+        with pytest.raises(InvalidAssessmentData) as exc_info:
             strategy.finalize(db, session.id)
-        except Exception as exc:  # noqa: BLE001 - verifying strategy execution path
-            assert "Expected" in str(exc)
+        assert expected_phrase in str(exc_info.value)
     finally:
         db.close()

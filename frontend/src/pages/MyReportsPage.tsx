@@ -12,7 +12,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getSelfReports, type Report } from '../services/reportService';
+import { getSelfReports } from '../services/reportService';
 import { LoadingComponent } from '../components/common/LoadingComponent';
 import {
   FileText,

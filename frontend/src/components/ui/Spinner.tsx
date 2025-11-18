@@ -14,8 +14,7 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Loader2 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from './utils';
 import { VibrantText } from './VibrantText';
 import { useUIPreferences } from '../../contexts/UIPreferencesContext';
