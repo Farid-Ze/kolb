@@ -130,6 +130,23 @@ export const ResearchDetailPage: React.FC = () => {
 
   if (!studyDetail || !studyData) return null;
 
+  const formatDate = (
+    value?: string | null,
+    options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }
+  ) => {
+    if (!value) return 'Tidak tersedia';
+    return new Date(value).toLocaleDateString('id-ID', options);
+  };
+
+  const effectiveStartDate =
+    studyDetail.start_date ?? studyData.summary.date_range?.earliest ?? null;
+  const effectiveEndDate =
+    studyDetail.end_date ?? studyData.summary.date_range?.latest ?? null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
       {/* Header - Glass Material */}
@@ -219,29 +236,20 @@ export const ResearchDetailPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>
-                {new Date(studyDetail.start_date).toLocaleDateString('id-ID', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-                {studyDetail.end_date && (
+                {formatDate(effectiveStartDate)}
+                {effectiveEndDate && (
                   <>
                     {' - '}
-                    {new Date(studyDetail.end_date).toLocaleDateString(
-                      'id-ID',
-                      {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      }
-                    )}
+                    {formatDate(effectiveEndDate)}
                   </>
                 )}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span>{studyDetail.participant_count} partisipan</span>
+              <span>
+                {studyData.summary.unique_participants} partisipan
+              </span>
             </div>
           </div>
         </div>
@@ -389,9 +397,11 @@ export const ResearchDetailPage: React.FC = () => {
                 Tanggal Pertama
               </div>
               <div className="text-sm text-foreground">
-                {new Date(
-                  studyData.summary.date_range.earliest
-                ).toLocaleDateString('id-ID')}
+                {studyData.summary.date_range?.earliest
+                  ? new Date(
+                      studyData.summary.date_range.earliest
+                    ).toLocaleDateString('id-ID')
+                  : 'Tidak tersedia'}
               </div>
             </div>
             <div className="material-thin rounded-lg p-4">
@@ -399,9 +409,11 @@ export const ResearchDetailPage: React.FC = () => {
                 Tanggal Terakhir
               </div>
               <div className="text-sm text-foreground">
-                {new Date(
-                  studyData.summary.date_range.latest
-                ).toLocaleDateString('id-ID')}
+                {studyData.summary.date_range?.latest
+                  ? new Date(
+                      studyData.summary.date_range.latest
+                    ).toLocaleDateString('id-ID')
+                  : 'Tidak tersedia'}
               </div>
             </div>
           </div>

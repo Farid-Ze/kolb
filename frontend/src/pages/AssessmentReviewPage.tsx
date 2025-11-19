@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAssessment } from '../hooks/useAssessment';
+import { useSessionGuard } from '../hooks/useSessionGuard';
 import { finalizeSession, getSessionValidation } from '../services/sessionService';
 import { queryClient } from '../config/api';
 import { Skeleton } from '../components/ui/skeleton';
@@ -58,6 +59,8 @@ export const AssessmentReviewPage: React.FC = () => {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const sessionAccess = useSessionGuard(sessionId ?? null);
+  const normalizedSessionId = sessionId ?? '';
 
   // Task 32: useAssessment untuk mengambil data jawaban
   const {
@@ -67,8 +70,11 @@ export const AssessmentReviewPage: React.FC = () => {
     progress,
     isLoading,
     isComplete,
+    isError: assessmentHasError,
+    error: assessmentError,
   } = useAssessment({
-    sessionId: sessionId!,
+    sessionId: normalizedSessionId,
+    enabled: Boolean(sessionId) && sessionAccess.hasAccess,
   });
 
   const {
@@ -98,11 +104,11 @@ export const AssessmentReviewPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['session-validation', sessionId] });
-      // Navigate to report
       navigate(`/reports/${data.session_id}`);
     },
     onError: (error: Error) => {
       toast.error('Gagal finalisasi: ' + error.message);
+      void refetchValidation();
     },
   });
 
@@ -127,6 +133,58 @@ export const AssessmentReviewPage: React.FC = () => {
     setShowConfirmDialog(false);
   };
 
+  if (sessionAccess.isChecking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="material-regular rounded-xl p-8 text-center space-y-2">
+          <p className="text-sm text-muted-foreground">Memverifikasi akses sesi...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="material-regular rounded-xl p-8 max-w-md text-center space-y-4">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-foreground">ID sesi tidak valid</h2>
+          <p className="text-muted-foreground">Silakan kembali ke daftar asesmen dan pilih sesi yang benar.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
+          >
+            Kembali ke Beranda
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionAccess.hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="material-regular rounded-xl p-8 max-w-md text-center space-y-4">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+            <Lock className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-foreground">Akses review ditolak</h2>
+          <p className="text-muted-foreground">
+            {sessionAccess.reason ?? 'Anda tidak memiliki izin untuk meninjau sesi ini.'}
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
+          >
+            Kembali ke Beranda
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Loading state
   if (isLoading) {
     return (
@@ -149,6 +207,71 @@ export const AssessmentReviewPage: React.FC = () => {
             <Skeleton className="h-[100px] w-full" />
           </div>
         </main>
+      </div>
+    );
+  }
+
+  if (assessmentHasError) {
+    const message = assessmentError?.message || 'Gagal memuat data review.';
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="material-regular rounded-xl p-8 max-w-lg text-center space-y-4">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-foreground">Gagal Memuat Data Review</h2>
+          <p className="text-muted-foreground">
+            {message}
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-primary text-primary-foreground px-6 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Coba Lagi
+            </button>
+            <button
+              onClick={() => navigate(`/assessment/${sessionId}`)}
+              className="rounded-lg border border-border px-6 py-3 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Kembali ke Asesmen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!totalItems) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="material-regular rounded-xl p-8 max-w-lg text-center space-y-4">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-secondary/10 mx-auto">
+            <AlertTriangle className="h-8 w-8 text-secondary" />
+          </div>
+          <h2 className="text-foreground">Data Review Belum Tersedia</h2>
+          <p className="text-muted-foreground">
+            Sesi ini belum memiliki item asesmen yang lengkap sehingga halaman review belum dapat ditampilkan.
+          </p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>Pastikan sesi telah memuat item dari server dan coba buka ulang halaman ini.</p>
+            <p>Jika masalah berlanjut, hubungi fasilitator untuk memverifikasi status sesi.</p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              onClick={() => navigate(`/assessment/${sessionId}`)}
+              className="rounded-lg bg-primary text-primary-foreground px-6 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Kembali ke Asesmen
+            </button>
+            <button
+              onClick={() => navigate('/reports')}
+              className="rounded-lg border border-border px-6 py-3 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Ke Dashboard
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

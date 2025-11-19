@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
+
+import pytest
 
 from app.assessments.klsi_v4.definition import CONTEXT_NAMES
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.user import User
-from app.models.klsi.items import UserResponse
+from app.models.klsi.items import AssessmentItem, UserResponse
 from app.models.klsi.learning import LFIContextScore
-from app.schemas.session import ContextRank, ItemRank, SessionSubmissionPayload
+from app.schemas.session import (
+    AutosaveItemRank,
+    ContextRank,
+    ItemRank,
+    SessionAutosavePayload,
+    SessionSubmissionPayload,
+)
 from app.services.engine import EngineSessionService
 from app.models.klsi.enums import SessionStatus
-from app.tests.helpers import build_seeded_memory_db
+from app.tests.helpers import build_seeded_memory_db, seed_complete_session
+import app.services.engine as engine_module
 
 
 def _build_payload() -> SessionSubmissionPayload:
@@ -36,6 +46,36 @@ def _build_payload() -> SessionSubmissionPayload:
             )
         )
     return SessionSubmissionPayload(items=items, contexts=contexts[:8])
+
+
+def _serialize_delivery_payload(db) -> dict[str, Any]:
+    items = (
+        db.query(AssessmentItem)
+        .order_by(AssessmentItem.item_number.asc())
+        .all()
+    )
+    payload = []
+    for item in items:
+        payload.append(
+            {
+                "id": item.id,
+                "number": item.item_number,
+                "stem": item.item_stem,
+                "type": item.item_type.value,
+                "options": [
+                    {
+                        "id": choice.id,
+                        "learning_mode": choice.learning_mode.value,
+                        "text": choice.choice_text,
+                    }
+                    for choice in item.choices
+                ],
+            }
+        )
+    return {
+        "instrument": {"code": "KLSI", "version": "4.0"},
+        "items": payload,
+    }
 
 
 def test_persist_batch_payload_uses_repositories():
@@ -115,5 +155,72 @@ def test_validation_snapshot_includes_context_status():
         assert contexts["expected_total"] == len(CONTEXT_NAMES)
         assert all(entry["present"] for entry in contexts["status"])
         assert snapshot["ready"] is True
+    finally:
+        db.close()
+
+
+def test_session_state_exposes_responses_and_progress(monkeypatch):
+    db = build_seeded_memory_db()
+    try:
+        session = seed_complete_session(db)
+        user = db.get(User, session.user_id)
+        assert user is not None
+
+        delivery_payload = _serialize_delivery_payload(db)
+
+        def fake_delivery(_db, session_id, locale=None):  # noqa: ARG001
+            assert session_id == session.id
+            return delivery_payload
+
+        monkeypatch.setattr(engine_module.runtime, "delivery_package", fake_delivery)
+
+        service = EngineSessionService(db)
+        state = service.session_state(session.id, user)
+
+        assert state["total_items"] == len(delivery_payload["items"])
+        assert state["completed_items"] == state["total_items"]
+        assert pytest.approx(state["progress"], rel=1e-2) == 100.0
+        assert len(state["responses"]) == state["total_items"]
+        assert state["current_item_index"] == state["total_items"] - 1
+    finally:
+        db.close()
+
+
+def test_autosave_responses_maps_option_codes(monkeypatch):
+    db = build_seeded_memory_db()
+    try:
+        session = seed_complete_session(db)
+        user = db.get(User, session.user_id)
+        assert user is not None
+
+        delivery_payload = _serialize_delivery_payload(db)
+        submitted: list[dict[str, Any]] = []
+
+        def fake_delivery(_db, session_id, locale=None):  # noqa: ARG001
+            assert session_id == session.id
+            return delivery_payload
+
+        def fake_submit(_db, session_id, payload):  # noqa: ARG001
+            submitted.append(payload)
+
+        monkeypatch.setattr(engine_module.runtime, "delivery_package", fake_delivery)
+        monkeypatch.setattr(engine_module.runtime, "submit_payload", fake_submit)
+
+        first_item = delivery_payload["items"][0]
+        ranks = {option["learning_mode"]: idx + 1 for idx, option in enumerate(first_item["options"])}
+        autosave_payload = SessionAutosavePayload(
+            responses=[AutosaveItemRank(item_id=first_item["id"], ranks=ranks)]
+        )
+
+        service = EngineSessionService(db)
+        result = service.autosave_responses(session.id, user, autosave_payload)
+
+        assert result == {"saved_count": 1}
+        assert len(submitted) == 1
+        payload = submitted[0]
+        assert payload["kind"] == "item"
+        assert set(payload["ranks"].keys()) == {
+            option["id"] for option in first_item["options"]
+        }
     finally:
         db.close()

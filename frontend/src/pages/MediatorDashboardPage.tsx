@@ -9,8 +9,8 @@
  * - React Query untuk data fetching
  */
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,11 +27,14 @@ import {
   Search,
   HelpCircle,
 } from 'lucide-react';
+import { useTelemetry } from '../hooks/useTelemetry';
 
 export const MediatorDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { trackPageView } = useTelemetry();
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -90,6 +93,10 @@ export const MediatorDashboardPage: React.FC = () => {
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     team.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    trackPageView(location.pathname, 'Mediator Dashboard');
+  }, [location.pathname, trackPageView]);
 
   // Loading state
   if (isLoading) {

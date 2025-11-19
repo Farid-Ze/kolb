@@ -29,6 +29,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { VibrantText } from '../ui/VibrantText';
 import { useScrollEdge } from '../ui/ScrollEdgeHandler';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
+import { TelemetryConsentBanner } from './TelemetryConsentBanner';
 
 interface AppShellProps {
   children: ReactNode;
@@ -240,7 +241,8 @@ export const AppShell: React.FC<AppShellProps> = ({
       </header>
 
       {/* Main Content Area - 8px grid spacing (Bagian 1.4.1) */}
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
+      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12 space-y-6">
+        <TelemetryConsentBanner />
         {children}
       </main>
 

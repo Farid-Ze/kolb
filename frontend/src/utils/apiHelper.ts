@@ -6,8 +6,21 @@
  * dengan error handling dan authentication yang konsisten.
  */
 
+import { API_CONFIG } from '../config/api';
+import {
+  ApiError,
+  handleApiError,
+  isAuthError,
+  emitAuthUnauthorized,
+} from './errorHandler';
+
+interface ValidationIssue {
+  code?: string;
+  message?: string;
+}
+
 interface ApiErrorPayload {
-  detail?: string;
+  detail?: string | { issues?: ValidationIssue[]; message?: string; [key: string]: unknown };
   message?: string;
   error?: string;
 }
@@ -30,7 +43,23 @@ export async function parseApiError(response?: Response): Promise<string> {
   if (isJson && typeof response.json === 'function') {
     try {
       const payload = (await response.json()) as ApiErrorPayload;
-      if (payload.detail) return payload.detail;
+      if (typeof payload.detail === 'string') {
+        return payload.detail;
+      }
+      if (payload.detail && typeof payload.detail === 'object') {
+        const detail = payload.detail as { issues?: ValidationIssue[]; message?: string };
+        const issueMessages = Array.isArray(detail.issues)
+          ? detail.issues
+              .map((issue) => issue?.message || issue?.code)
+              .filter((value): value is string => Boolean(value))
+          : [];
+        if (issueMessages.length > 0) {
+          return issueMessages.join('; ');
+        }
+        if (detail.message) {
+          return detail.message;
+        }
+      }
       if (payload.message) return payload.message;
       if (payload.error) return payload.error;
     } catch {
@@ -52,19 +81,34 @@ export async function parseApiError(response?: Response): Promise<string> {
  * Base API call function
  * Generic HTTP call dengan error handling
  */
+const applyDefaultHeaders = (headers: Headers): void => {
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', API_CONFIG.headers['Content-Type']);
+  }
+  if (!headers.has('X-API-Version')) {
+    headers.set('X-API-Version', API_CONFIG.headers['X-API-Version']);
+  }
+};
+
 export async function apiCall<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const headers = new Headers(options.headers);
+  applyDefaultHeaders(headers);
+
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
     const contentType = response.headers?.get('content-type') ?? '';
     const isJson = contentType.includes('application/json');
 
     // Handle non-OK responses
     if (!response.ok) {
       const errorMessage = await parseApiError(response);
-      throw new Error(errorMessage || `HTTP ${response.status}: ${response.statusText}`);
+      throw new ApiError(errorMessage || `HTTP ${response.status}: ${response.statusText}`, response.status);
     }
 
     // Parse response as JSON when available
@@ -76,11 +120,11 @@ export async function apiCall<T>(
     // Some endpoints may not return JSON body
     return {} as T;
   } catch (error) {
-    // Re-throw with more context
-    if (error instanceof Error) {
+    if (error instanceof ApiError) {
       throw error;
     }
-    throw new Error('Network error: Unable to reach server');
+    const friendly = handleApiError(error);
+    throw new ApiError(friendly, undefined, { cause: error });
   }
 }
 
@@ -108,6 +152,13 @@ export async function authenticatedApiCall<T>(
     headers,
   };
   
-  return apiCall<T>(url, authenticatedOptions);
+  try {
+    return await apiCall<T>(url, authenticatedOptions);
+  } catch (error) {
+    if (error instanceof ApiError && isAuthError(error)) {
+      emitAuthUnauthorized(error.message);
+    }
+    throw error;
+  }
 }
 

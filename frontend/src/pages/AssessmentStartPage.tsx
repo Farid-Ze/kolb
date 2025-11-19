@@ -7,8 +7,8 @@
  * Implementasi sesuai Guidelines.md Section 1.4.3, 2.3.1
  */
 
-import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getSession } from '../services/sessionService';
 import { getAssessmentItems } from '../services/assessmentService';
@@ -18,10 +18,13 @@ import { Button } from '../components/ui/button';
 import { NonDiagnosticNotice } from '../components/report/NonDiagnosticNotice';
 import { LayeredIcon } from '../components/ui/LayeredIcon';
 import type { Session } from '../types/api';
+import { useTelemetry } from '../hooks/useTelemetry';
 
 export const AssessmentStartPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { trackPageView } = useTelemetry();
 
   // Task 24: Query untuk fetch session details
   const { data: session } = useQuery<Session>({
@@ -42,6 +45,10 @@ export const AssessmentStartPage: React.FC = () => {
       navigate(`/assessment/${sessionId}`);
     }
   };
+
+  useEffect(() => {
+    trackPageView(location.pathname, 'Assessment Start');
+  }, [location.pathname, trackPageView]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">

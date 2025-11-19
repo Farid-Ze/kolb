@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import type { Location } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -25,6 +26,7 @@ import {
   useMotionConfig,
   usePrefersReducedMotionSetting,
 } from '../lib/motion';
+import { consumeAuthIntent, consumeAuthErrorMessage } from '../utils/errorHandler';
 
 /**
  * KLSI 4.0 - LoginPage
@@ -56,11 +58,28 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setAuthData } = useAuth();
   const reduceTransparency = useReduceTransparency();
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoInfo] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const pendingMessage = consumeAuthErrorMessage();
+    if (pendingMessage) {
+      setFormError(pendingMessage);
+    }
+  }, []);
+
+  const resolveRedirectTarget = React.useCallback(() => {
+    const storedIntent = consumeAuthIntent();
+    const state = location.state as { from?: Location } | undefined;
+    const fromState = state?.from?.pathname && state.from.pathname !== '/auth/login'
+      ? `${state.from.pathname}${state.from.search ?? ''}${state.from.hash ?? ''}`
+      : undefined;
+    return storedIntent || fromState || '/';
+  }, [location.state]);
 
   // Task 14: react-hook-form + zod integration
   const {
@@ -96,8 +115,8 @@ export const LoginPage: React.FC = () => {
       
       toast.success('Login berhasil! Selamat datang ' + userData.name);
       
-      // Navigate to home page
-      navigate('/');
+      // Navigate to stored intent or home page
+      navigate(resolveRedirectTarget(), { replace: true });
     },
     // Task 15: toast.error on mutation error
     onError: (error: Error) => {

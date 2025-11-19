@@ -11,9 +11,29 @@ import { authenticatedApiCall } from '../utils/apiHelper';
 
 export interface GuideOpenEvent {
   guide_id: string;
-  locale: string;
+  language?: string | null;
+  surface?: 'modal' | 'tooltip' | 'drawer' | 'link';
   context?: string;
+  metadata?: Record<string, string>;
   timestamp?: string;
+  consent: boolean;
+}
+
+export interface PageViewEvent {
+  page_path: string;
+  page_title: string;
+  referrer?: string;
+  locale?: string | null;
+  consent: boolean;
+}
+
+export interface ActionEvent {
+  action_type: string;
+  action_target: string;
+  action_value?: string;
+  metadata?: Record<string, string>;
+  consent: boolean;
+  actor_role: 'STUDENT' | 'MEDIATOR' | 'ADMIN' | 'ANON';
 }
 
 /**
@@ -39,11 +59,7 @@ export const trackGuideOpen = async (
  * Track page view
  * POST /telemetry/page-view
  */
-export const trackPageView = async (data: {
-  page_path: string;
-  page_title: string;
-  referrer?: string;
-}): Promise<{ ok: boolean }> => {
+export const trackPageView = async (data: PageViewEvent): Promise<{ ok: boolean }> => {
   return authenticatedApiCall<{ ok: boolean }>(
     getApiUrl('/telemetry/page-view'),
     {
@@ -60,12 +76,7 @@ export const trackPageView = async (data: {
  * Track user action
  * POST /telemetry/action
  */
-export const trackAction = async (data: {
-  action_type: string;
-  action_target: string;
-  action_value?: string;
-  metadata?: Record<string, any>;
-}): Promise<{ ok: boolean }> => {
+export const trackAction = async (data: ActionEvent): Promise<{ ok: boolean }> => {
   return authenticatedApiCall<{ ok: boolean }>(
     getApiUrl('/telemetry/action'),
     {

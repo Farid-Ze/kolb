@@ -45,7 +45,7 @@ export interface RegisterResponse {
 // SESSION TYPES
 // ============================================================================
 
-export type SessionStatus = 'ACTIVE' | 'COMPLETED' | 'ABANDONED';
+export type SessionStatus = 'Started' | 'In Progress' | 'Completed' | 'Abandoned';
 
 export interface Session {
   id: string;
@@ -95,11 +95,26 @@ export interface ItemResponse {
   ranks: Record<string, number>; // option_code -> rank (1-4)
 }
 
+export interface AssessmentContextRank {
+  context_name: string;
+  CE: number;
+  RO: number;
+  AC: number;
+  AE: number;
+}
+
 export interface GetAssessmentItemsResponse {
   session_id: string;
   instrument_code: string;
+  instrument_version?: string;
+  status?: SessionStatus;
   total_items: number;
   items: AssessmentItem[];
+  responses: ItemResponse[];
+  contexts: AssessmentContextRank[];
+  progress?: number;
+  completed_items?: number;
+  current_item_index?: number;
   instructions?: string;
 }
 
@@ -109,18 +124,29 @@ export interface SubmitAnswersRequest {
 
 export interface SubmitAnswersResponse {
   saved_count: number;
-  message: string;
+  message?: string;
 }
 
 export interface FinalizeSessionRequest {
   confirm: boolean;
 }
 
+export interface FinalizeResultPayload {
+  ACCE: number | null;
+  AERO: number | null;
+  style_primary_id: number | null;
+  LFI: number | null;
+  delta?: Record<string, unknown> | null;
+  percentile_sources?: Record<string, unknown> | null;
+  validation?: SessionValidationSnapshot | null;
+  override?: boolean;
+  override_reason?: string | null;
+}
+
 export interface FinalizeSessionResponse {
   session_id: string;
-  status: SessionStatus;
-  completed_at: string;
-  message: string;
+  ok: boolean;
+  result: FinalizeResultPayload | null;
 }
 
 export interface SessionValidationIssue {
@@ -475,7 +501,7 @@ export interface Report {
 // ============================================================================
 
 export interface TeamMember {
-  user_id: string;
+  user_id: number;
   name: string;
   email: string;
   joined_at: string;
@@ -503,7 +529,7 @@ export interface AddMemberRequest {
 }
 
 export interface TeamRollupMember {
-  user_id: string;
+  user_id: number;
   name: string;
   email?: string;
   learning_style?: LearningStyleType;
@@ -512,6 +538,8 @@ export interface TeamRollupMember {
   AE_RO?: number;
   ac_ce?: number;
   ae_ro?: number;
+  session_id?: number;
+  generated_at?: string;
   dialectic_scores?: DialecticScores;
   raw_scores?: RawScores;
 }
@@ -532,14 +560,14 @@ export interface TeamRollupSummary {
 }
 
 export interface TeamRollup {
-  team_id: string;
-  team_name?: string;
-  members?: TeamRollupMember[];
-  member_count?: number;
-  data_points?: TeamRollupMember[];
-  summary?: TeamRollupSummary;
-  diversity_score?: number;
-  balance_metrics?: TeamRollupBalanceMetrics;
+  team_id: number;
+  team_name: string;
+  member_count: number;
+  members: TeamRollupMember[];
+  data_points: TeamRollupMember[];
+  summary: TeamRollupSummary;
+  diversity_score?: number | null;
+  balance_metrics: TeamRollupBalanceMetrics;
 }
 
 // ============================================================================

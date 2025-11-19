@@ -8,7 +8,13 @@
 
 import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
-import type { StartSessionResponse, Session, SessionValidationSnapshot } from '../types/api';
+import type {
+  FinalizeResultPayload,
+  FinalizeSessionResponse,
+  StartSessionResponse,
+  Session,
+  SessionValidationSnapshot,
+} from '../types/api';
 
 /**
  * Task 22: Start new assessment session
@@ -66,16 +72,27 @@ export const getSessions = async (params?: {
  * Task 33: Finalize assessment session
  * POST /engine/sessions/:id/finalize
  */
+type EngineFinalizeResponse = {
+  ok?: boolean;
+  result?: FinalizeResultPayload | null;
+};
+
 export const finalizeSession = async (
   sessionId: string
-): Promise<{ session_id: string; status: string; completed_at: string; message: string }> => {
-  return authenticatedApiCall(
+): Promise<FinalizeSessionResponse> => {
+  const payload = await authenticatedApiCall<EngineFinalizeResponse>(
     getApiUrl(`/engine/sessions/${sessionId}/finalize`),
     {
       method: 'POST',
       body: JSON.stringify({ confirm: true }),
     }
   );
+
+  return {
+    session_id: sessionId,
+    ok: Boolean(payload?.ok),
+    result: payload?.result ?? null,
+  };
 };
 
 /**

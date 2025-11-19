@@ -11,9 +11,10 @@
  * - Responsible use notice
  */
 
-import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useReport } from '../hooks/useReport';
+import { useSessionGuard } from '../hooks/useSessionGuard';
 import { LearningStyleChart } from '../components/report/LearningStyleChart';
 import { FlexibilityChart } from '../components/report/FlexibilityChart';
 import { ScoreDisplay } from '../components/report/ScoreDisplay';
@@ -33,6 +34,7 @@ import {
   Target,
   ListChecks,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 
 import { getReportById } from '../services/reportService';
@@ -40,13 +42,27 @@ import {
   NonDiagnosticNotice,
   ResponsibleUseFooter,
 } from '../components/report/NonDiagnosticNotice';
+import { useTelemetry } from '../hooks/useTelemetry';
 
 export const ReportPage: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams<{ sessionId?: string; reportId?: string }>();
   const sessionIdentifier = params.sessionId ?? params.reportId;
+  const guardRequired = Boolean(params.sessionId);
+  const sessionAccess = useSessionGuard(params.sessionId ?? null, {
+    enforce: guardRequired,
+  });
+  const canFetchReport = Boolean(sessionIdentifier) && (!guardRequired || sessionAccess.hasAccess);
   const [showGuideModal, setShowGuideModal] = React.useState(false); // Task 8.9: Guide modal state
   const { user } = useAuth();
+  const location = useLocation();
+  const { trackPageView } = useTelemetry();
+
+  useEffect(() => {
+    if (sessionIdentifier) {
+      trackPageView(location.pathname, 'Report View');
+    }
+  }, [location.pathname, sessionIdentifier, trackPageView]);
 
   // Task 6.9-6.10: Use dedicated useReport hook (SSOT pattern)
   const { data: report, isLoading, error, isRefetching } = useReport(
@@ -57,6 +73,7 @@ export const ReportPage: React.FC = () => {
       fetcher: params.reportId ? getReportById : undefined,
       pollingInterval: 1000,
       retry: false,
+      enabled: canFetchReport,
     }
   );
 
@@ -96,6 +113,38 @@ export const ReportPage: React.FC = () => {
           <button
             onClick={() => navigate('/reports')}
             className="rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:opacity-90"
+          >
+            Kembali ke Beranda
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (guardRequired && sessionAccess.isChecking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-2">
+          <p className="text-sm text-muted-foreground">Memverifikasi akses laporan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (guardRequired && !sessionAccess.hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+            <Lock className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-foreground">Akses laporan ditolak</h2>
+          <p className="text-muted-foreground">
+            {sessionAccess.reason ?? 'Anda tidak memiliki izin untuk melihat laporan ini.'}
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
           >
             Kembali ke Beranda
           </button>

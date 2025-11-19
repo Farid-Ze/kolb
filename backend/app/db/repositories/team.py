@@ -1,21 +1,25 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.repositories.base import Repository
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.enums import SessionStatus
 from app.models.klsi.learning import (
+    CombinationScore,
     LearningFlexibilityIndex,
     LearningStyleType,
+    ScaleScore,
     UserLearningStyle,
 )
 from app.models.klsi.team import Team, TeamAssessmentRollup, TeamMember
+from app.models.klsi.user import User
 
 
 @dataclass(slots=True)
@@ -26,6 +30,20 @@ class TeamSessionRow:
     style_name: Optional[str]
 
 
+@dataclass(slots=True)
+class TeamRollupMemberPoint:
+    user_id: int
+    name: Optional[str]
+    email: Optional[str]
+    session_id: Optional[int]
+    completed_at: Optional[datetime]
+    ac_ce: Optional[int]
+    ae_ro: Optional[int]
+    raw_scores: Dict[str, Optional[int]]
+    learning_style: Optional[str]
+    style_code: Optional[str]
+
+
 @dataclass(slots=True, repr=True)
 class TeamRepository(Repository[Session]):
     """Repository for team CRUD operations."""
@@ -33,6 +51,14 @@ class TeamRepository(Repository[Session]):
     def get(self, team_id: int) -> Optional[Team]:
         return (
             self.db.query(Team)
+            .filter(Team.id == team_id)
+            .first()
+        )
+
+    def get_with_members(self, team_id: int) -> Optional[Team]:
+        return (
+            self.db.query(Team)
+            .options(selectinload(Team.members).selectinload(TeamMember.user))
             .filter(Team.id == team_id)
             .first()
         )
@@ -246,3 +272,66 @@ class TeamAnalyticsRepository(Repository[Session]):
             )
             for row in rows
         ]
+
+    def fetch_latest_member_points(self, team_id: int) -> List[TeamRollupMemberPoint]:
+        member_user_ids_subq = (
+            self.db.query(TeamMember.user_id)
+            .filter(TeamMember.team_id == team_id)
+            .subquery()
+        )
+
+        query = (
+            self.db.query(
+                AssessmentSession.user_id.label("user_id"),
+                User.full_name.label("user_name"),
+                User.email.label("email"),
+                AssessmentSession.id.label("session_id"),
+                AssessmentSession.start_time.label("start_time"),
+                AssessmentSession.end_time.label("end_time"),
+                CombinationScore.ACCE_raw.label("acce"),
+                CombinationScore.AERO_raw.label("aero"),
+                ScaleScore.CE_raw.label("ce"),
+                ScaleScore.RO_raw.label("ro"),
+                ScaleScore.AC_raw.label("ac"),
+                ScaleScore.AE_raw.label("ae"),
+                LearningStyleType.style_name.label("style_name"),
+                LearningStyleType.style_code.label("style_code"),
+            )
+            .join(User, User.id == AssessmentSession.user_id)
+            .outerjoin(CombinationScore, CombinationScore.session_id == AssessmentSession.id)
+            .outerjoin(ScaleScore, ScaleScore.session_id == AssessmentSession.id)
+            .outerjoin(UserLearningStyle, UserLearningStyle.session_id == AssessmentSession.id)
+            .outerjoin(LearningStyleType, LearningStyleType.id == UserLearningStyle.primary_style_type_id)
+            .filter(
+                AssessmentSession.user_id.in_(select(member_user_ids_subq.c.user_id)),
+                AssessmentSession.status == SessionStatus.completed,
+            )
+            .order_by(AssessmentSession.end_time.desc().nullslast())
+        )
+
+        rows = query.all()
+        latest_by_user: Dict[int, TeamRollupMemberPoint] = {}
+        for row in rows:
+            user_id = row.user_id
+            if user_id in latest_by_user:
+                continue
+            completed_at: Optional[datetime] = row.end_time or row.start_time
+            latest_by_user[user_id] = TeamRollupMemberPoint(
+                user_id=user_id,
+                name=row.user_name,
+                email=row.email,
+                session_id=row.session_id,
+                completed_at=completed_at,
+                ac_ce=row.acce,
+                ae_ro=row.aero,
+                raw_scores={
+                    "CE": row.ce,
+                    "RO": row.ro,
+                    "AC": row.ac,
+                    "AE": row.ae,
+                },
+                learning_style=row.style_name,
+                style_code=row.style_code,
+            )
+
+        return list(latest_by_user.values())

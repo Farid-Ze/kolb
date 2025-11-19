@@ -17,6 +17,7 @@ interface UIPreferences {
   theme: 'light' | 'dark' | 'system';
   reduceMotion: boolean;
   reduceTransparency: boolean;
+  telemetryEnabled: boolean;
 }
 
 export interface UIPreferencesContextType extends UIPreferences {
@@ -24,6 +25,7 @@ export interface UIPreferencesContextType extends UIPreferences {
   toggleTheme: () => void;
   setReduceMotion: (value: boolean) => void;
   setReduceTransparency: (value: boolean) => void;
+  setTelemetryEnabled: (value: boolean) => void;
 }
 
 export const UIPreferencesContext = createContext<
@@ -43,6 +45,7 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
       theme: 'system',
       reduceMotion: false,
       reduceTransparency: false,
+      telemetryEnabled: false,
     }
   );
   const [systemReduceMotion, setSystemReduceMotion] = useState(false);
@@ -146,6 +149,10 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
     setPreferences((prev) => ({ ...prev, reduceTransparency: value }));
   };
 
+  const setTelemetryEnabled = (value: boolean) => {
+    setPreferences((prev) => ({ ...prev, telemetryEnabled: value }));
+  };
+
   const reduceMotion = preferences.reduceMotion || systemReduceMotion;
   const reduceTransparency =
     preferences.reduceTransparency || systemReduceTransparency;
@@ -174,10 +181,12 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
     ...preferences,
     reduceMotion,
     reduceTransparency,
+    telemetryEnabled: preferences.telemetryEnabled,
     setTheme,
     toggleTheme,
     setReduceMotion,
     setReduceTransparency,
+    setTelemetryEnabled,
   };
 
   return (

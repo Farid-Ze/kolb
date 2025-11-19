@@ -3,69 +3,104 @@
  * Integration test untuk halaman detail tim dengan team rollup chart
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { TeamDetailPage } from '../../pages/TeamDetailPage';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { TeamRollup } from '../../services/teamService';
 
 // Mock data
 const mockTeam = {
-  team_id: 'team-1',
+  id: 1,
   name: 'Team Alpha',
   description: 'Engineering team focused on backend development',
   created_by: 'mediator-1',
   created_at: '2024-01-10T10:00:00Z',
+  member_count: 3,
   members: [
     {
-      user_id: 'user-1',
+      user_id: 1,
       name: 'John Doe',
       email: 'john@example.com',
       role: 'STUDENT',
+      joined_at: '2024-01-05T10:00:00Z',
     },
     {
-      user_id: 'user-2',
+      user_id: 2,
       name: 'Jane Smith',
       email: 'jane@example.com',
       role: 'STUDENT',
+      joined_at: '2024-01-06T10:00:00Z',
     },
     {
-      user_id: 'user-3',
+      user_id: 3,
       name: 'Bob Wilson',
       email: 'bob@example.com',
       role: 'STUDENT',
+      joined_at: '2024-01-07T10:00:00Z',
     },
   ],
 };
 
-const mockTeamRollup = {
-  team_id: 'team-1',
+const mockTeamRollup: TeamRollup = {
+  team_id: 1,
   team_name: 'Team Alpha',
   member_count: 3,
-  members: [
+  data_points: [
     {
-      user_id: 'user-1',
+      user_id: 1,
       name: 'John Doe',
+      email: 'john@example.com',
       learning_style: 'Diverger',
-      AC_CE: -8,
-      AE_RO: 12,
+      ac_ce: -8,
+      ae_ro: 12,
+      style_code: 'DIV',
+      raw_scores: { CE: 32, RO: 20, AC: 24, AE: 28 },
     },
     {
-      user_id: 'user-2',
+      user_id: 2,
       name: 'Jane Smith',
+      email: 'jane@example.com',
       learning_style: 'Assimilator',
-      AC_CE: 10,
-      AE_RO: -6,
+      ac_ce: 10,
+      ae_ro: -6,
+      style_code: 'ASM',
+      raw_scores: { CE: 22, RO: 30, AC: 36, AE: 18 },
     },
     {
-      user_id: 'user-3',
+      user_id: 3,
       name: 'Bob Wilson',
+      email: 'bob@example.com',
       learning_style: 'Converger',
-      AC_CE: 9,
-      AE_RO: 8,
+      ac_ce: 9,
+      ae_ro: 8,
+      style_code: 'CON',
+      raw_scores: { CE: 24, RO: 26, AC: 38, AE: 30 },
     },
   ],
+  members: [],
+  legacy_members: [
+    {
+      user_id: 4,
+      name: 'Legacy User',
+      email: 'legacy@example.com',
+      status: 'missing_data',
+      status_reason: 'Belum ada sesi asesmen tuntas untuk anggota ini.',
+    },
+  ],
+  summary: {
+    total_members: 3,
+    members_with_data: 3,
+    avg_ac_ce: 3.67,
+    avg_ae_ro: 4.67,
+    style_distribution: {
+      Diverger: 1,
+      Assimilator: 1,
+      Converger: 1,
+    },
+  },
   diversity_score: 0.85,
   balance_metrics: {
     CE_percentage: 33,
@@ -119,7 +154,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 // Helper untuk render dengan providers
-const renderWithProviders = (teamId: string = 'team-1') => {
+const renderWithProviders = (teamId: string = '1') => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -128,24 +163,21 @@ const renderWithProviders = (teamId: string = 'team-1') => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <MemoryRouter initialEntries={[`/teams/${teamId}`]}>
         <AuthProvider>
           <Routes>
             <Route path="/teams/:teamId" element={<TeamDetailPage />} />
           </Routes>
         </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>,
-    {
-      initialEntries: [`/teams/${teamId}`],
-    }
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 };
 
 describe('Team Detail Page Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    window.history.pushState({}, '', '/teams/team-1');
+    window.history.pushState({}, '', '/teams/1');
   });
 
   it('should render loading state initially', async () => {
@@ -254,7 +286,7 @@ describe('Team Detail Page Integration', () => {
     );
     vi.mocked(getTeamDetails).mockResolvedValue(mockTeam);
     vi.mocked(getTeamRollup).mockResolvedValue(mockTeamRollup);
-    vi.mocked(addMemberToTeam).mockResolvedValue(undefined);
+    vi.mocked(addMemberToTeam).mockResolvedValue({ ok: true, message: 'added' });
 
     const user = userEvent.setup();
     renderWithProviders();
@@ -277,7 +309,7 @@ describe('Team Detail Page Integration', () => {
       await import('../../services/teamService');
     vi.mocked(getTeamDetails).mockResolvedValue(mockTeam);
     vi.mocked(getTeamRollup).mockResolvedValue(mockTeamRollup);
-    vi.mocked(removeMemberFromTeam).mockResolvedValue(undefined);
+    vi.mocked(removeMemberFromTeam).mockResolvedValue({ ok: true, message: 'removed' });
 
     const user = userEvent.setup();
     renderWithProviders();
@@ -308,8 +340,16 @@ describe('Team Detail Page Integration', () => {
     vi.mocked(getTeamDetails).mockResolvedValue(emptyTeam);
     vi.mocked(getTeamRollup).mockResolvedValue({
       ...mockTeamRollup,
+      data_points: [],
       members: [],
       member_count: 0,
+      summary: {
+        total_members: 0,
+        members_with_data: 0,
+        avg_ac_ce: 0,
+        avg_ae_ro: 0,
+        style_distribution: {},
+      },
     });
 
     renderWithProviders();
@@ -422,8 +462,9 @@ describe('Team Detail Page Integration', () => {
       expect(screen.getByText('Statistik Tim')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/jumlah anggota/i)).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    const totalMembersLabel = screen.getByText(/jumlah anggota/i);
+    const totalMembersCard = totalMembersLabel.parentElement as HTMLElement;
+    expect(within(totalMembersCard).getByText('3')).toBeInTheDocument();
   });
 
   it('should have proper accessibility attributes', async () => {
@@ -458,7 +499,7 @@ describe('Team Detail Page Integration', () => {
     const getTeamDetailsSpy = vi.mocked(getTeamDetails);
     getTeamDetailsSpy.mockResolvedValue(mockTeam);
     vi.mocked(getTeamRollup).mockResolvedValue(mockTeamRollup);
-    vi.mocked(addMemberToTeam).mockResolvedValue(undefined);
+    vi.mocked(addMemberToTeam).mockResolvedValue({ ok: true, message: 'added' });
 
     const user = userEvent.setup();
     renderWithProviders();
@@ -481,5 +522,40 @@ describe('Team Detail Page Integration', () => {
     await waitFor(() => {
       expect(getTeamDetailsSpy).toHaveBeenCalled();
     });
+  });
+
+  it('should surface legacy members needing updated data', async () => {
+    const { getTeamDetails, getTeamRollup } = await import(
+      '../../services/teamService'
+    );
+    vi.mocked(getTeamDetails).mockResolvedValue(mockTeam);
+    vi.mocked(getTeamRollup).mockResolvedValue(mockTeamRollup);
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Anggota Perlu Pembaruan Data/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Legacy User')).toBeInTheDocument();
+    expect(screen.getByText(/Bukan evaluasi performa individu/i)).toBeInTheDocument();
+  });
+
+  it('should describe diversity metrics without normative labels', async () => {
+    const { getTeamDetails, getTeamRollup } = await import(
+      '../../services/teamService'
+    );
+    vi.mocked(getTeamDetails).mockResolvedValue(mockTeam);
+    vi.mocked(getTeamRollup).mockResolvedValue(mockTeamRollup);
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Statistik Tim')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText(/Metrik ini deskriptif, bukan label baik\/buruk/i)
+    ).toBeInTheDocument();
   });
 });

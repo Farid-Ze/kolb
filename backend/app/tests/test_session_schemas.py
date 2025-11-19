@@ -7,8 +7,10 @@ from pydantic import ValidationError
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES
 from app.schemas.session import (
+    AutosaveItemRank,
     LegacyContextSubmissionPayload,
     LegacyItemSubmissionPayload,
+    SessionAutosavePayload,
 )
 
 
@@ -57,4 +59,29 @@ def test_legacy_context_submission_payload_rejects_unknown_context():
             RO=2,
             AC=3,
             AE=4,
+        )
+
+
+def test_autosave_item_rank_normalizes_option_codes():
+    payload = AutosaveItemRank(
+        item_id=1,
+        ranks={"ce": 1, "Ro": 2, "AC": 3, "AE": 4},
+    )
+
+    assert set(payload.ranks.keys()) == {"CE", "RO", "AC", "AE"}
+
+
+def test_session_autosave_payload_rejects_duplicate_items():
+    with pytest.raises(ValidationError):
+        SessionAutosavePayload(
+            responses=[
+                AutosaveItemRank(
+                    item_id=1,
+                    ranks={"CE": 1, "RO": 2, "AC": 3, "AE": 4},
+                ),
+                AutosaveItemRank(
+                    item_id=1,
+                    ranks={"CE": 1, "RO": 2, "AC": 3, "AE": 4},
+                ),
+            ]
         )

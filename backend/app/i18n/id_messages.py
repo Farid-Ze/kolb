@@ -50,6 +50,7 @@ class ValidationMessages:
     DUPLICATE_CONTEXT_NAMES: str = "Nama konteks LFI duplikat dalam payload batch"
     CONTEXT_RANK_UNIQUE: str = "Setiap konteks harus menggunakan peringkat unik 1..4"
     CONTEXT_COUNT_REQUIRED: str = "Jumlah konteks harus tepat 8"
+    ITEM_OPTION_NOT_FOUND: str = "Pilihan item tidak ditemukan"
 
 
 class BatchPayloadMessages:

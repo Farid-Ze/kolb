@@ -16,6 +16,7 @@ import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAssessment } from '../hooks/useAssessment';
+import { useSessionGuard } from '../hooks/useSessionGuard';
 import { RankingItem } from '../components/assessment/RankingItem';
 import { ProgressBar } from '../components/assessment/ProgressBar';
 import { Skeleton } from '../components/ui/skeleton';
@@ -32,6 +33,7 @@ import {
   CheckCircle,
   AlertCircle,
   ArrowLeft,
+  Lock,
 } from 'lucide-react';
 import {
   DndContext,
@@ -52,6 +54,8 @@ import {
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
+  const sessionAccess = useSessionGuard(sessionId ?? null);
+  const normalizedSessionId = sessionId ?? '';
   const [dragMode, setDragMode] = useState(false); // Toggle drag mode
   const [showGuideModal, setShowGuideModal] = useState(false); // Task 8.9: Guide modal state
 
@@ -75,10 +79,11 @@ export const AssessmentPage: React.FC = () => {
     canGoPrev,
     isCurrentItemComplete,
   } = useAssessment({
-    sessionId: sessionId!,
+    sessionId: normalizedSessionId,
     onComplete: () => {
       toast.success('Semua item telah dijawab! Silahkan review jawaban Anda.');
     },
+    enabled: Boolean(sessionId) && sessionAccess.hasAccess,
   });
 
   // Spring configuration (Guidelines.md Section 2.3.1)
@@ -155,6 +160,74 @@ export const AssessmentPage: React.FC = () => {
   const handleOpenGuide = useCallback(() => {
     setShowGuideModal(true);
   }, []);
+
+  if (sessionAccess.isChecking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <div className="material-regular rounded-xl p-8 text-center space-y-2">
+          <p className="text-sm text-muted-foreground">Memverifikasi akses sesi...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={springConfig}
+          className="material-regular rounded-xl p-8 max-w-md text-center space-y-4"
+        >
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-foreground">ID sesi tidak valid</h2>
+          <p className="text-muted-foreground">Tidak dapat memuat asesmen tanpa ID sesi.</p>
+          <motion.button
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-6 py-3"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Beranda
+          </motion.button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!sessionAccess.hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={springConfig}
+          className="material-regular rounded-xl p-8 max-w-md text-center space-y-4"
+        >
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+            <Lock className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-foreground">Akses sesi ditolak</h2>
+          <p className="text-muted-foreground">
+            {sessionAccess.reason ?? 'Anda tidak diizinkan mengakses sesi asesmen ini.'}
+          </p>
+          <motion.button
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-6 py-3"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Beranda
+          </motion.button>
+        </motion.div>
+      </div>
+    );
+  }
 
   // Loading state
   if (isLoading) {

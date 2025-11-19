@@ -30,6 +30,8 @@ interface UseReportOptions {
   fetcher?: (identifier: string) => Promise<Report>;
   /** Override retry behaviour (default: 3 attempts) */
   retry?: number | boolean;
+  /** Additional toggle to control query execution */
+  enabled?: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export function useReport(
     stopPollingWhen,
     fetcher,
     retry = 3,
+    enabled,
   } = options;
 
   const queryOptions: UseQueryOptions<Report, Error, Report, [string, string | undefined]> = {
@@ -70,7 +73,7 @@ export function useReport(
     },
     staleTime: enablePolling ? 0 : 5 * 60 * 1000,
     retry,
-    enabled: Boolean(sessionId),
+    enabled: enabled ?? Boolean(sessionId),
   };
 
   if (enablePolling) {

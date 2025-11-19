@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field
@@ -47,3 +47,60 @@ class TeamRollupOut(BaseModel):
     avg_lfi: Optional[float]
     style_counts: Optional[Dict[str, int]]
     model_config = {"from_attributes": True}
+
+
+class TeamRollupMemberOut(BaseModel):
+    user_id: int
+    name: Optional[str]
+    email: Optional[str]
+    session_id: Optional[int]
+    generated_at: Optional[datetime]
+    ac_ce: Optional[int]
+    ae_ro: Optional[int]
+    learning_style: Optional[str]
+    style_code: Optional[str]
+    raw_scores: Optional[Dict[str, Optional[int]]]
+    dialectic_scores: Optional[Dict[str, Optional[int]]]
+
+
+class TeamRollupSummaryOut(BaseModel):
+    total_members: int
+    members_with_data: int
+    avg_ac_ce: float
+    avg_ae_ro: float
+    style_distribution: Dict[str, int]
+
+
+class TeamRollupBalanceMetricsOut(BaseModel):
+    CE_percentage: float
+    RO_percentage: float
+    AC_percentage: float
+    AE_percentage: float
+
+
+class TeamRollupLegacyMemberOut(BaseModel):
+    user_id: int
+    name: Optional[str]
+    email: Optional[str]
+    role_in_team: Optional[str]
+    joined_at: Optional[datetime]
+    status: Optional[str]
+    status_reason: Optional[str]
+    session_id: Optional[int]
+    generated_at: Optional[datetime]
+    ac_ce: Optional[int]
+    ae_ro: Optional[int]
+    learning_style: Optional[str]
+    style_code: Optional[str]
+
+
+class TeamRollupDetail(BaseModel):
+    team_id: int
+    team_name: str
+    member_count: int
+    data_points: list[TeamRollupMemberOut]
+    members: list[TeamRollupMemberOut]
+    legacy_members: list[TeamRollupLegacyMemberOut]
+    summary: TeamRollupSummaryOut
+    diversity_score: Optional[float]
+    balance_metrics: TeamRollupBalanceMetricsOut

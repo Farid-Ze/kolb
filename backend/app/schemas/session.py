@@ -100,3 +100,37 @@ class LegacyContextSubmissionPayload(ContextRank):
             "AE": self.AE,
             "overwrite": self.overwrite,
         }
+
+
+class AutosaveItemRank(BaseModel):
+    item_id: int = Field(gt=0)
+    ranks: dict[str, int]
+
+    @field_validator("ranks")
+    @classmethod
+    def validate_autosave_ranks(cls, value: dict[str, int]):  # noqa: D401
+        if len(value) != 4:
+            raise ValueError(ValidationMessages.ITEM_RANK_COUNT)
+        normalized: dict[str, int] = {}
+        for option_code, rank in value.items():
+            if not isinstance(option_code, str):
+                raise ValueError(ValidationMessages.ITEM_OPTION_NOT_FOUND)
+            code = option_code.strip().upper()
+            if code not in {"CE", "RO", "AC", "AE"}:
+                raise ValueError(ValidationMessages.ITEM_OPTION_NOT_FOUND)
+            normalized[code] = rank
+        if sorted(normalized.values()) != [1, 2, 3, 4]:
+            raise ValueError(ValidationMessages.ITEM_RANK_PERMUTATION)
+        return normalized
+
+
+class SessionAutosavePayload(BaseModel):
+    responses: list[AutosaveItemRank] = Field(default_factory=list)
+
+    @field_validator("responses")
+    @classmethod
+    def ensure_unique_item_ids(cls, value: list[AutosaveItemRank]):  # noqa: D401
+        ids = [entry.item_id for entry in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError(ValidationMessages.DUPLICATE_ITEM_IDS)
+        return value

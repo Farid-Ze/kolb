@@ -20,6 +20,10 @@ import {
   removeMemberFromTeam,
   type TeamDetail,
   type TeamRollup,
+  type TeamRollupDataPoint,
+  type TeamRollupLegacyMember,
+  type TeamRollupLegacyMemberStatus,
+  type TeamRollupSummary,
 } from '../services/teamService';
 import { TeamRollupChart } from '../components/teams/TeamRollupChart';
 import { LoadingComponent } from '../components/common/LoadingComponent';
@@ -34,6 +38,12 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { ShortLabel } from '../components/ui/DynamicType';
+
+const LEGACY_STATUS_LABELS: Record<TeamRollupLegacyMemberStatus, string> = {
+  missing_data: 'Belum Ada Data',
+  partial: 'Data Parsial',
+  stale: 'Perlu Pembaruan',
+};
 
 export const TeamDetailPage: React.FC = () => {
   const navigate = useNavigate();
@@ -81,61 +91,55 @@ export const TeamDetailPage: React.FC = () => {
   }, [queryClient, teamQueryKey, rollupQueryKey]);
 
   // Normalize legacy rollup payloads used in tests/mocks that still expose `members` fields
-  const fallbackMembers = useMemo(() => {
-    const maybeMembers = (teamRollup as unknown as { members?: unknown[] })?.members;
-    return Array.isArray(maybeMembers) ? maybeMembers : [];
+  const legacyMembers = useMemo(() => {
+    if (Array.isArray(teamRollup?.legacy_members)) {
+      return teamRollup.legacy_members;
+    }
+    if (Array.isArray(teamRollup?.members) && teamRollup.members.length) {
+      return teamRollup.members as unknown as TeamRollupLegacyMember[];
+    }
+    return [];
   }, [teamRollup]);
 
-  const normalizedDataPoints = useMemo(() => {
-    if (Array.isArray(teamRollup?.data_points) && teamRollup.data_points.length > 0) {
+  const normalizedDataPoints = useMemo<TeamRollupDataPoint[]>(() => {
+    if (Array.isArray(teamRollup?.data_points) && teamRollup.data_points.length) {
       return teamRollup.data_points;
     }
-    return fallbackMembers.map((member, index) => {
-      const typedMember = member as Record<string, unknown>;
-      const parseNumber = (value: unknown): number =>
-        typeof value === 'number'
-          ? value
-          : typeof value === 'string'
-          ? Number.parseFloat(value) || 0
-          : 0;
-      return {
-        user_id: (typedMember.user_id as string) ?? `member-${index}`,
-        name: (typedMember.name as string) ?? 'Anggota',
-        email: (typedMember.email as string) ?? '',
-        ac_ce: parseNumber(typedMember.ac_ce ?? typedMember.AC_CE),
-        ae_ro: parseNumber(typedMember.ae_ro ?? typedMember.AE_RO),
-        learning_style: (typedMember.learning_style as string) ?? '',
-        style_code: (typedMember.style_code as string) ?? '',
-        session_id: parseNumber(typedMember.session_id),
-        generated_at:
-          (typedMember.generated_at as string) ??
-          new Date(Date.now() - index * 1000).toISOString(),
-      };
-    });
-  }, [teamRollup, fallbackMembers]);
+    if (!legacyMembers.length) {
+      return [];
+    }
+    const parseNumber = (value: unknown): number | undefined => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') {
+        const parsed = Number.parseFloat(value);
+        return Number.isNaN(parsed) ? undefined : parsed;
+      }
+      return undefined;
+    };
+    return legacyMembers.map((member, index) => ({
+      user_id: typeof member.user_id === 'number' ? member.user_id : index,
+      name: member.name ?? 'Anggota',
+      email: member.email,
+      ac_ce: parseNumber(member.ac_ce ?? member.AC_CE),
+      ae_ro: parseNumber(member.ae_ro ?? member.AE_RO),
+      learning_style: member.learning_style,
+      style_code: member.style_code,
+      session_id: parseNumber(member.session_id),
+      generated_at: member.generated_at,
+    }));
+  }, [teamRollup, legacyMembers]);
 
-  const normalizedSummary = useMemo(() => {
+  const normalizedSummary = useMemo<TeamRollupSummary>(() => {
     if (teamRollup?.summary) {
       return teamRollup.summary;
     }
-    const totalMembers =
-      (teamRollup as unknown as { member_count?: number })?.member_count ??
-      fallbackMembers.length ??
-      teamDetail?.member_count ??
-      0;
-    if (fallbackMembers.length === 0) {
-      return {
-        total_members: totalMembers,
-        members_with_data: teamDetail?.members?.length ?? 0,
-        avg_ac_ce: 0,
-        avg_ae_ro: 0,
-        style_distribution: {},
-      };
-    }
-    const acValues = normalizedDataPoints.map((point) => point.ac_ce);
-    const aeValues = normalizedDataPoints.map((point) => point.ae_ro);
-    const average = (values: number[]) =>
-      values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+    const totalMembers = teamDetail?.member_count ?? legacyMembers.length ?? 0;
+    const fallbackMembersWithData = normalizedDataPoints.length || teamDetail?.members?.length || 0;
+    const avg = (values: Array<number | undefined>) => {
+      const filtered = values.filter((value): value is number => typeof value === 'number');
+      if (!filtered.length) return 0;
+      return filtered.reduce((sum, value) => sum + value, 0) / filtered.length;
+    };
     const styleDistribution = normalizedDataPoints.reduce<Record<string, number>>((acc, point) => {
       const key = point.learning_style || point.style_code || 'UNKNOWN';
       acc[key] = (acc[key] ?? 0) + 1;
@@ -143,14 +147,15 @@ export const TeamDetailPage: React.FC = () => {
     }, {});
     return {
       total_members: totalMembers,
-      members_with_data: normalizedDataPoints.length,
-      avg_ac_ce: average(acValues),
-      avg_ae_ro: average(aeValues),
+      members_with_data: fallbackMembersWithData,
+      avg_ac_ce: avg(normalizedDataPoints.map((point) => point.ac_ce)),
+      avg_ae_ro: avg(normalizedDataPoints.map((point) => point.ae_ro)),
       style_distribution: styleDistribution,
     };
-  }, [teamRollup, fallbackMembers, teamDetail, normalizedDataPoints]);
+  }, [teamRollup, teamDetail, legacyMembers, normalizedDataPoints]);
 
   const hasRollupData = normalizedDataPoints.length > 0;
+  const hasLegacyMembers = legacyMembers.length > 0;
   const safeMembersWithData =
     normalizedSummary.members_with_data || normalizedSummary.total_members || 1;
   const styleDistribution = normalizedSummary.style_distribution || {};
@@ -322,7 +327,7 @@ export const TeamDetailPage: React.FC = () => {
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="h-5 w-5" />
               <span className="text-2xl text-foreground">
-                {teamDetail.member_count}
+                {teamRollup?.member_count ?? teamDetail.member_count}
               </span>
             </div>
           </div>
@@ -401,7 +406,7 @@ export const TeamDetailPage: React.FC = () => {
                     {diversityScore.toFixed(2)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Nilai lebih tinggi menandakan variasi gaya belajar yang lebih luas.
+                    Nilai lebih tinggi menandakan variasi gaya belajar yang lebih luas. Metrik ini deskriptif, bukan label baik/buruk.
                   </p>
                 </div>
               )}
@@ -466,6 +471,57 @@ export const TeamDetailPage: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {hasLegacyMembers && (
+          <div className="material-regular rounded-xl p-6 space-y-4" aria-live="polite">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg text-foreground">Anggota Perlu Pembaruan Data</h3>
+                <p className="text-sm text-muted-foreground">
+                  Daftar ini menampilkan anggota tanpa koordinat lengkap atau sesi asesmen terbaru. Informasi ini bersifat kontekstual untuk fasilitator.
+                </p>
+              </div>
+              <ShortLabel intent="neutral">Bukan evaluasi performa individu</ShortLabel>
+            </div>
+
+            <div className="space-y-3">
+              {legacyMembers.map((member, index) => {
+                const statusLabel = member.status
+                  ? LEGACY_STATUS_LABELS[member.status] ?? 'Data Terbatas'
+                  : 'Data Terbatas';
+                const reason = member.status_reason ?? 'Informasi asesmen belum lengkap.';
+                return (
+                  <div
+                    key={`legacy-${member.user_id}-${index}`}
+                    className="material-thin rounded-lg p-4 flex items-center justify-between gap-4"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-foreground font-medium">
+                        {member.name || 'Anggota Tim'}
+                      </p>
+                      {member.email && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {member.email}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">{reason}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="inline-flex items-center rounded-full bg-secondary/40 px-3 py-1 text-xs text-foreground">
+                        {statusLabel}
+                      </span>
+                      {typeof member.ac_ce === 'number' && typeof member.ae_ro === 'number' && (
+                        <p className="text-xs text-muted-foreground">
+                          AC-CE {member.ac_ce} · AE-RO {member.ae_ro}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, time
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -15,12 +16,14 @@ from app.models.klsi.user import User
 from app.schemas.research import (
     ReliabilityCreate,
     ResearchStudyCreate,
+    ResearchStudyDataOut,
     ResearchStudyOut,
     ResearchStudyUpdate,
     ValidityCreate,
 )
 from app.core.logging import get_logger
 from app.i18n.id_messages import AuthorizationMessages, ResearchMessages
+from app.services.research import StudyDataFilters, build_study_dataset
 from app.services.security import get_current_user, require_mediator
 
 router = APIRouter(prefix="/research", tags=["research"])
@@ -35,6 +38,18 @@ def _log_db_failure(event: str, *, user: User, operation: str, **structured: Any
     }
     payload.update(structured)
     logger.exception(event, extra={"structured_data": payload})
+
+
+def _start_of_day(value: Optional[date]) -> Optional[datetime]:
+    if value is None:
+        return None
+    return datetime.combine(value, time.min)
+
+
+def _end_of_day(value: Optional[date]) -> Optional[datetime]:
+    if value is None:
+        return None
+    return datetime.combine(value, time.max)
 
 
 @router.post("/studies", response_model=ResearchStudyOut)
@@ -267,3 +282,34 @@ def list_validity(
         }
         for r in rows
     ]
+
+
+@router.get("/studies/{study_id}/data", response_model=ResearchStudyDataOut)
+def get_study_data(
+    study_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    learning_style: Optional[str] = Query(default=None),
+    norm_group: Optional[str] = Query(default=None),
+    user_email: Optional[str] = Query(default=None),
+):
+    user = get_current_user(authorization, db)
+    require_mediator(user, AuthorizationMessages.MEDIATOR_REQUIRED)
+    study_repo = ResearchStudyRepository(db)
+    study = study_repo.get(study_id)
+    if not study:
+        raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
+    start_at = _start_of_day(start_date)
+    end_at = _end_of_day(end_date)
+    if start_at and end_at and start_at > end_at:
+        raise HTTPException(status_code=400, detail="Invalid date range")
+    filters = StudyDataFilters(
+        start_at=start_at,
+        end_at=end_at,
+        learning_style=learning_style,
+        norm_group=norm_group,
+        user_email=user_email,
+    )
+    return build_study_dataset(db, study, filters)

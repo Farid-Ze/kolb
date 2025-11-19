@@ -37,6 +37,14 @@ const STATUS_CONFIG: Record<Study['status'], { label: string; className: string 
 
 export const StudyCard: React.FC<StudyCardProps> = ({ study, onClick }) => {
   const statusConfig = STATUS_CONFIG[study.status];
+  const formatDate = (value?: string | null) => {
+    if (!value) return 'Tidak tersedia';
+    return new Date(value).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   // Spring configuration (Guidelines.md Section 2.3.1)
   const springConfig = {
@@ -87,21 +95,8 @@ export const StudyCard: React.FC<StudyCardProps> = ({ study, onClick }) => {
         <div className="flex items-center gap-2 text-muted-foreground">
           <Calendar className="h-4 w-4" />
           <span>
-            {new Date(study.start_date).toLocaleDateString('id-ID', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
-            {study.end_date && (
-              <>
-                {' - '}
-                {new Date(study.end_date).toLocaleDateString('id-ID', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </>
-            )}
+            {formatDate(study.start_date)}
+            {study.end_date && <>{' - '}{formatDate(study.end_date)}</>}
           </span>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">

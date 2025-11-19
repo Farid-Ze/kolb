@@ -16,6 +16,7 @@ import type { AssessmentItem, ItemResponse, SubmitAnswersRequest } from '../type
 interface UseAssessmentParams {
   sessionId: string;
   onComplete?: () => void;
+  enabled?: boolean;
 }
 
 interface UseAssessmentReturn {
@@ -31,6 +32,8 @@ interface UseAssessmentReturn {
   isComplete: boolean;
   isLoading: boolean;
   isSaving: boolean;
+  isError: boolean;
+  error: Error | null;
   
   // Actions
   setRank: (itemId: string, optionCode: string, rank: number) => void;
@@ -51,26 +54,38 @@ interface UseAssessmentReturn {
 export const useAssessment = ({
   sessionId,
   onComplete,
+  enabled = true,
 }: UseAssessmentParams): UseAssessmentReturn => {
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [responses, setResponses] = useState<Record<string, ItemResponse>>({});
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hydrationRef = useRef(false);
+  const itemsRef = useRef<AssessmentItem[]>([]);
 
   // Task 27: Query untuk fetch assessment items
-  const { data: assessmentData, isLoading } = useQuery({
+  const {
+    data: assessmentData,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['assessment-items', sessionId],
     queryFn: () => getAssessmentItems(sessionId),
     staleTime: Infinity, // Items don't change during session
+    enabled,
   });
 
   const items = assessmentData?.items || [];
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
   const totalItems = items.length;
   const currentItem = items[currentItemIndex] || null;
 
   // Task 30: Autosave mutation dengan debounce
   const autosaveMutation = useMutation({
     mutationFn: (payload: SubmitAnswersRequest) => 
-      submitAnswers(sessionId, payload),
+      submitAnswers(sessionId, payload, itemsRef.current),
     onSuccess: () => {
       // Silent success untuk autosave
     },
@@ -79,61 +94,61 @@ export const useAssessment = ({
     },
   });
 
+  const scheduleAutosave = useCallback(
+    (nextResponses: Record<string, ItemResponse>) => {
+      if (!itemsRef.current.length) {
+        return;
+      }
+      const completed = Object.values(nextResponses).some((response) => isCompleteRanks(response.ranks));
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      if (!completed) {
+        return;
+      }
+      const payload: SubmitAnswersRequest = {
+        responses: Object.values(nextResponses),
+      };
+      saveTimeoutRef.current = setTimeout(() => {
+        autosaveMutation.mutate(payload);
+      }, 2000);
+    },
+    [autosaveMutation]
+  );
+
   /**
    * Task 31: Set ranking untuk option tertentu dengan validation
    * React 19: Optimistic update for <100ms perceived speed
    */
   const setRank = useCallback(
     (itemId: string, optionCode: string, rank: number) => {
-      // Validate rank (1-4)
       if (rank < 1 || rank > 4) {
         toast.error('Ranking harus antara 1-4');
         return;
       }
 
-      const currentResponse = responses[itemId] || {
-        item_id: itemId,
-        ranks: {},
-      };
-
-      // Remove any existing option with this rank (swap logic)
-      const newRanks = { ...currentResponse.ranks };
-      Object.keys(newRanks).forEach((key) => {
-        if (newRanks[key] === rank && key !== optionCode) {
-          delete newRanks[key]; // Clear duplicate rank
-        }
-      });
-
-      // Set new rank
-      newRanks[optionCode] = rank;
-
-      const newResponse: ItemResponse = {
-        item_id: itemId,
-        ranks: newRanks,
-      };
-
-      // Apply optimistic update immediately (<100ms perceived speed)
-      setResponses((prev) => ({
-        ...prev,
-        [itemId]: newResponse,
-      }));
-
-      // Task 30: Trigger autosave (debounced)
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      const nextResponses = {
-        ...responses,
-        [itemId]: newResponse,
-      };
-      saveTimeoutRef.current = setTimeout(() => {
-        const payload: SubmitAnswersRequest = {
-          responses: Object.values(nextResponses),
+      setResponses((prev) => {
+        const currentResponse = prev[itemId] || { item_id: itemId, ranks: {} };
+        const newRanks = { ...currentResponse.ranks };
+        Object.keys(newRanks).forEach((key) => {
+          if (newRanks[key] === rank && key !== optionCode) {
+            delete newRanks[key];
+          }
+        });
+        newRanks[optionCode] = rank;
+        const next = {
+          ...prev,
+          [itemId]: {
+            item_id: itemId,
+            ranks: newRanks,
+          },
         };
-        autosaveMutation.mutate(payload);
-      }, 2000); // Autosave setelah 2 detik idle
+        scheduleAutosave(next);
+        return next;
+      });
     },
-    [responses, autosaveMutation]
+    [scheduleAutosave]
   );
 
   /**
@@ -142,33 +157,19 @@ export const useAssessment = ({
    */
   const setItemRanks = useCallback(
     (itemId: string, newRanks: Record<string, number>) => {
-      const newResponse: ItemResponse = {
-        item_id: itemId,
-        ranks: newRanks,
-      };
-
-      // Apply optimistic update immediately
-      setResponses((prev) => ({
-        ...prev,
-        [itemId]: newResponse,
-      }));
-
-      // Trigger autosave (debounced)
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      const nextResponses = {
-        ...responses,
-        [itemId]: newResponse,
-      };
-      saveTimeoutRef.current = setTimeout(() => {
-        const payload: SubmitAnswersRequest = {
-          responses: Object.values(nextResponses),
+      setResponses((prev) => {
+        const next = {
+          ...prev,
+          [itemId]: {
+            item_id: itemId,
+            ranks: newRanks,
+          },
         };
-        autosaveMutation.mutate(payload);
-      }, 2000);
+        scheduleAutosave(next);
+        return next;
+      });
     },
-    [responses, autosaveMutation]
+    [scheduleAutosave]
   );
 
   /**
@@ -230,6 +231,30 @@ export const useAssessment = ({
     }
   }, [isComplete, onComplete]);
 
+  useEffect(() => {
+    setResponses({});
+    setCurrentItemIndex(0);
+    hydrationRef.current = false;
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!assessmentData || hydrationRef.current) {
+      return;
+    }
+    if (typeof assessmentData.current_item_index === 'number') {
+      const clamped = Math.max(0, Math.min(assessmentData.current_item_index, Math.max(totalItems - 1, 0)));
+      setCurrentItemIndex(clamped);
+    }
+    if (assessmentData.responses?.length) {
+      const mapped = assessmentData.responses.reduce<Record<string, ItemResponse>>((acc, response) => {
+        acc[response.item_id] = response;
+        return acc;
+      }, {});
+      setResponses(mapped);
+    }
+    hydrationRef.current = true;
+  }, [assessmentData, totalItems]);
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -251,6 +276,8 @@ export const useAssessment = ({
     responses,
     isComplete,
     isLoading,
+    isError,
+    error: (error as Error) ?? null,
     isSaving: autosaveMutation.isPending,
     
     // Actions
@@ -265,4 +292,11 @@ export const useAssessment = ({
     canGoPrev,
     isCurrentItemComplete,
   };
+};
+
+const isCompleteRanks = (ranks: Record<string, number>): boolean => {
+  const values = Object.values(ranks ?? {});
+  if (values.length !== 4) return false;
+  if (new Set(values).size !== 4) return false;
+  return values.every((value) => value >= 1 && value <= 4);
 };

@@ -50,14 +50,15 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
 }) => {
   // Transform data for scatter plot
   const chartData = dataPoints.map((point) => ({
-    x: point.ac_ce,
-    y: point.ae_ro,
+    x: point.ac_ce ?? null,
+    y: point.ae_ro ?? null,
     name: point.name,
     email: point.email,
     style: point.learning_style,
     styleCode: point.style_code,
     userId: point.user_id,
   }));
+  const filteredData = chartData.filter((point) => typeof point.x === 'number' && typeof point.y === 'number');
 
   // Average point if provided
   const avgPoint = avgAcCe !== undefined && avgAeRo !== undefined
@@ -78,7 +79,11 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
       </div>
 
       {/* Chart Container */}
-      <div className="material-regular rounded-xl p-6">
+      <div
+        className="material-regular rounded-xl p-6"
+        role="img"
+        aria-label="Sebaran koordinat AC-CE dan AE-RO anggota tim"
+      >
         <ResponsiveContainer width="100%" height={500}>
           <ScatterChart
             margin={{ top: 20, right: 20, bottom: 40, left: 40 }}
@@ -144,10 +149,10 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
                           <strong>Team Average</strong>
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          AC-CE: {point.x.toFixed(1)}
+                          AC-CE: {typeof point.x === 'number' ? point.x.toFixed(1) : '—'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          AE-RO: {point.y.toFixed(1)}
+                          AE-RO: {typeof point.y === 'number' ? point.y.toFixed(1) : '—'}
                         </p>
                       </div>
                     );
@@ -166,10 +171,10 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
                           <span className="text-foreground">{point.style}</span>
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          AC-CE: {point.x.toFixed(1)}
+                          AC-CE: {typeof point.x === 'number' ? point.x.toFixed(1) : '—'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          AE-RO: {point.y.toFixed(1)}
+                          AE-RO: {typeof point.y === 'number' ? point.y.toFixed(1) : '—'}
                         </p>
                       </div>
                     </div>
@@ -180,11 +185,13 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
             />
 
             {/* Team Members */}
-            <Scatter data={chartData} shape="circle">
+            <Scatter data={filteredData} shape="circle">
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={getStyleColor(entry.styleCode)}
+                  stroke="hsl(var(--background))"
+                  strokeWidth={1.5}
                 />
               ))}
             </Scatter>

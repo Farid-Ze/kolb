@@ -9,10 +9,30 @@
 import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
 import type {
+  AssessmentItem,
   GetAssessmentItemsResponse,
+  ItemResponse,
   SubmitAnswersRequest,
   SubmitAnswersResponse,
 } from '../types/api';
+
+type EngineSessionItemsResponse = {
+  session_id: number;
+  instrument_code: string;
+  instrument_version?: string;
+  status?: string;
+  total_items?: number;
+  delivery: Record<string, any>;
+  responses?: Array<{ item_id: number; ranks: Record<string, number> }>;
+  contexts?: Array<Record<string, any>>;
+  progress?: number;
+  completed_items?: number;
+  current_item_index?: number;
+};
+
+type AutosaveBackendPayload = {
+  responses: Array<{ item_id: number; ranks: Record<number, number> }>;
+};
 
 /**
  * Task 25: Get assessment items untuk session
@@ -21,12 +41,37 @@ import type {
 export const getAssessmentItems = async (
   sessionId: string
 ): Promise<GetAssessmentItemsResponse> => {
-  return authenticatedApiCall<GetAssessmentItemsResponse>(
+  const payload = await authenticatedApiCall<EngineSessionItemsResponse>(
     getApiUrl(`/engine/sessions/${sessionId}/items`),
     {
       method: 'GET',
     }
   );
+
+  const items = normalizeAssessmentItems(payload?.delivery?.items ?? []);
+  const responses = normalizeResponses(payload.responses ?? []);
+  const contexts = (payload.contexts ?? []).map((ctx) => ({
+    context_name: String(ctx.context_name ?? ''),
+    CE: Number(ctx.CE ?? 0),
+    RO: Number(ctx.RO ?? 0),
+    AC: Number(ctx.AC ?? 0),
+    AE: Number(ctx.AE ?? 0),
+  }));
+
+  return {
+    session_id: String(payload.session_id ?? sessionId),
+    instrument_code: payload.instrument_code ?? 'KLSI',
+    instrument_version: payload.instrument_version,
+    status: payload.status as GetAssessmentItemsResponse['status'],
+    total_items: payload.total_items ?? items.length,
+    items,
+    responses,
+    contexts,
+    progress: payload.progress,
+    completed_items: payload.completed_items,
+    current_item_index: payload.current_item_index,
+    instructions: extractInstructions(payload.delivery),
+  };
 };
 
 /**
@@ -35,14 +80,114 @@ export const getAssessmentItems = async (
  */
 export const submitAnswers = async (
   sessionId: string,
-  payload: SubmitAnswersRequest
+  payload: SubmitAnswersRequest,
+  items: AssessmentItem[],
 ): Promise<SubmitAnswersResponse> => {
+  const backendPayload = buildAutosavePayload(payload.responses, items);
+  if (!backendPayload.responses.length) {
+    return { saved_count: 0 };
+  }
+
   return authenticatedApiCall<SubmitAnswersResponse>(
     getApiUrl(`/engine/sessions/${sessionId}/items`),
     {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(backendPayload),
     }
   );
+};
+
+const normalizeAssessmentItems = (items: any[]): AssessmentItem[] =>
+  items.map((item, index) => {
+    const prompt = item.stem_localized ?? item.stem ?? '';
+    const options = Array.isArray(item.options)
+      ? item.options.map((option: any) => {
+          const code = normalizeLearningMode(option.learning_mode ?? option.option_code);
+          return {
+            id: String(option.id ?? `${item.id}-${code}`),
+            option_code: code,
+            text: option.text ?? '',
+            dimension: code,
+          };
+        })
+      : [];
+
+    return {
+      item_id: String(item.id ?? index),
+      order: Number(item.number ?? index + 1),
+      prompt,
+      options,
+    };
+  });
+
+const normalizeLearningMode = (value: any): 'CE' | 'RO' | 'AC' | 'AE' => {
+  const normalized = String(value ?? '').toUpperCase();
+  if (['CE', 'RO', 'AC', 'AE'].includes(normalized)) {
+    return normalized as 'CE' | 'RO' | 'AC' | 'AE';
+  }
+  return 'CE';
+};
+
+const normalizeResponses = (
+  responses: Array<{ item_id: number; ranks: Record<string, number> }>,
+): ItemResponse[] =>
+  responses.map((response) => ({
+    item_id: String(response.item_id),
+    ranks: response.ranks ?? {},
+  }));
+
+const extractInstructions = (delivery: Record<string, any> | undefined): string | undefined => {
+  if (!delivery || typeof delivery !== 'object') return undefined;
+  const manifest = delivery.manifest || delivery?.instrument?.manifest;
+  if (manifest && typeof manifest.instructions === 'string') {
+    return manifest.instructions;
+  }
+  const resources = delivery?.i18n?.metadata;
+  if (resources && typeof resources.instructions === 'string') {
+    return resources.instructions;
+  }
+  return undefined;
+};
+
+export const buildAutosavePayload = (
+  responses: ItemResponse[],
+  items: AssessmentItem[],
+): AutosaveBackendPayload => {
+  const itemLookup = new Map(items.map((item) => [item.item_id, item]));
+  const transformed = responses
+    .map((response) => {
+      if (!isCompleteRanks(response.ranks)) {
+        return null;
+      }
+      const item = itemLookup.get(response.item_id);
+      if (!item) {
+        return null;
+      }
+      const ranks: Record<number, number> = {};
+      Object.entries(response.ranks).forEach(([optionCode, rank]) => {
+        const option = item.options.find((opt) => opt.option_code === optionCode);
+        if (option) {
+          ranks[Number(option.id)] = rank;
+        }
+      });
+      if (Object.keys(ranks).length !== 4) {
+        return null;
+      }
+      return {
+        item_id: Number(response.item_id),
+        ranks,
+      };
+    })
+    .filter(Boolean) as AutosaveBackendPayload['responses'];
+
+  return { responses: transformed };
+};
+
+const isCompleteRanks = (ranks: Record<string, number>): boolean => {
+  const values = Object.values(ranks ?? {});
+  if (values.length !== 4) return false;
+  const unique = new Set(values);
+  if (unique.size !== 4) return false;
+  return values.every((value) => value >= 1 && value <= 4);
 };
 

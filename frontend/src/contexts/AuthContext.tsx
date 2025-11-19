@@ -7,11 +7,13 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
  * Guidelines.md §6: SSOT architecture
  */
 
+export type Role = 'STUDENT' | 'MEDIATOR' | 'ADMIN';
+
 interface User {
   id: string;
   email: string;
   name: string;
-  role: 'STUDENT' | 'MEDIATOR' | 'ADMIN';
+  role: Role;
   created_at: string;
 }
 
@@ -47,12 +49,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const parsedUser = JSON.parse(storedUser);
           setAccessToken(storedToken);
-          setUser(parsedUser);
+          setUser(normalizeUserRole(parsedUser));
           
           // Task 18: Verifikasi token masih valid dengan getCurrentUser
           try {
             const { getCurrentUser } = await import('../services/authService');
-            const currentUser = await getCurrentUser(storedToken);
+            const currentUser = normalizeUserRole(await getCurrentUser(storedToken));
             
             // Update user data if changed
             if (JSON.stringify(currentUser) !== storedUser) {
@@ -101,12 +103,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await loginWithEmail(email, password);
       const { access_token, user: userData } = data;
 
+      const normalized = normalizeUserRole(userData);
       setAccessToken(access_token);
-      setUser(userData);
+      setUser(normalized);
 
       // Persist ke localStorage
       localStorage.setItem('accessToken', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(normalized));
     } catch (error) {
       // Log error untuk debugging (ini normal untuk validasi)
       if (error instanceof Error) {
@@ -134,10 +137,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Set auth data function
   const setAuthData = (token: string, userData: User) => {
+    const normalized = normalizeUserRole(userData);
     setAccessToken(token);
-    setUser(userData);
+    setUser(normalized);
     localStorage.setItem('accessToken', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('user', JSON.stringify(normalized));
   };
 
   const value: AuthContextType = {
@@ -154,6 +158,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+export const normalizeUserRole = (userData: User): User => {
+  const incoming = (userData?.role as string | undefined) ?? 'STUDENT';
+  const normalizedRole: Role = incoming === 'MAHASISWA' ? 'STUDENT' : (incoming as Role);
+  if (normalizedRole === userData.role) {
+    return userData;
+  }
+  return {
+    ...userData,
+    role: normalizedRole,
+  };
+};
 // Custom hook - React 19: use() API (TODO3.md Phase 4)
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);

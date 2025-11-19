@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, type Role } from '../../contexts/AuthContext';
 import { LoadingComponent } from '../common/LoadingComponent';
 
 /**
@@ -12,15 +12,20 @@ import { LoadingComponent } from '../common/LoadingComponent';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'STUDENT' | 'MEDIATOR' | 'ADMIN';
+  requiredRole?: Role;
+  allowedRoles?: Role[];
+  redirectTo?: string;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requiredRole,
+  allowedRoles,
+  redirectTo = '/unauthorized',
 }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
+  const acceptedRoles = allowedRoles ?? (requiredRole ? [requiredRole] : undefined);
 
   if (isLoading) {
     return <LoadingComponent message="Memverifikasi autentikasi..." />;
@@ -32,9 +37,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // Check role jika diperlukan
-  if (requiredRole && user?.role !== requiredRole) {
-    // Redirect ke unauthorized atau home jika role tidak sesuai
-    return <Navigate to="/unauthorized" replace />;
+  if (acceptedRoles && (!user?.role || !acceptedRoles.includes(user.role))) {
+    return <Navigate to={redirectTo} replace state={{ from: location }} />;
   }
 
   return <>{children}</>;

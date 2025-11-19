@@ -42,7 +42,10 @@ export const useGuide = ({
   // Track guide open when successfully loaded
   useEffect(() => {
     if (trackOpen && query.isSuccess && query.data) {
-      trackGuideOpen(guideId, locale, context);
+      trackGuideOpen(guideId, locale, context, {
+        surface: 'modal',
+        metadata: { hook: 'useGuide' },
+      });
     }
   }, [trackOpen, query.isSuccess, query.data, guideId, locale, context, trackGuideOpen]);
 

@@ -7,13 +7,15 @@ from app.db.database import Base
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.enums import SessionStatus
 from app.models.klsi.learning import (
+    CombinationScore,
     LearningFlexibilityIndex,
     LearningStyleType,
+    ScaleScore,
     UserLearningStyle,
 )
 from app.models.klsi.team import Team, TeamMember
 from app.models.klsi.user import User
-from app.services.rollup import compute_team_rollup
+from app.services.rollup import build_team_rollup_snapshot, compute_team_rollup
 
 
 def _make_db():
@@ -23,24 +25,24 @@ def _make_db():
     return SessionLocal
 
 
-def test_team_rollup_single_session():
-    SessionLocal = _make_db()
-    db = SessionLocal()
-    # Create user, team, member
-    u = User(full_name="U", email="u@mahasiswa.unikom.ac.id")
-    db.add(u)
+def _seed_user_team(db):
+    user = User(full_name="Tester", email="tester@example.com")
+    db.add(user)
     db.commit()
-    db.refresh(u)
-    t = Team(name="Team X")
-    db.add(t)
-    db.commit()
-    db.refresh(t)
-    tm = TeamMember(team_id=t.id, user_id=u.id)
-    db.add(tm)
-    db.commit()
+    db.refresh(user)
 
-    # Seed a style type used in user style
-    st = LearningStyleType(
+    team = Team(name="Team Test")
+    db.add(team)
+    db.commit()
+    db.refresh(team)
+
+    db.add(TeamMember(team_id=team.id, user_id=user.id))
+    db.commit()
+    return user, team
+
+
+def _seed_style(db):
+    style = LearningStyleType(
         style_name="Balancing",
         style_code="BAL",
         ACCE_min=6,
@@ -50,19 +52,87 @@ def test_team_rollup_single_session():
         quadrant="Mid",
         description=None,
     )
-    db.add(st)
+    db.add(style)
     db.commit()
-    db.refresh(st)
+    db.refresh(style)
+    return style
 
-    # Create completed session with LFI and style on a specific date
-    d = datetime(2025, 1, 2)
-    s = AssessmentSession(user_id=u.id, status=SessionStatus.completed, start_time=d, end_time=d)
-    db.add(s)
+
+def _seed_completed_session(db, user_id: int, style_id: int):
+    completed_at = datetime(2025, 1, 2)
+    session = AssessmentSession(
+        user_id=user_id,
+        status=SessionStatus.completed,
+        start_time=completed_at,
+        end_time=completed_at,
+    )
+    db.add(session)
     db.commit()
-    db.refresh(s)
+    db.refresh(session)
+
     db.add(
         LearningFlexibilityIndex(
-            session_id=s.id,
+            session_id=session.id,
+            W_coefficient=0.5,
+            LFI_score=0.5,
+            LFI_percentile=None,
+            flexibility_level=None,
+        )
+    )
+    db.add(
+        ScaleScore(
+            session_id=session.id,
+            CE_raw=30,
+            RO_raw=28,
+            AC_raw=32,
+            AE_raw=34,
+        )
+    )
+    db.add(
+        CombinationScore(
+            session_id=session.id,
+            ACCE_raw=10,
+            AERO_raw=6,
+            assimilation_accommodation=0,
+            converging_diverging=0,
+            balance_acce=5,
+            balance_aero=4,
+        )
+    )
+    db.add(
+        UserLearningStyle(
+            session_id=session.id,
+            primary_style_type_id=style_id,
+            ACCE_raw=10,
+            AERO_raw=6,
+            kite_coordinates=None,
+            style_intensity_score=16,
+        )
+    )
+    db.commit()
+    return session
+
+
+def test_team_rollup_single_session():
+    SessionLocal = _make_db()
+    db = SessionLocal()
+
+    user, team = _seed_user_team(db)
+    style = _seed_style(db)
+
+    session = AssessmentSession(
+        user_id=user.id,
+        status=SessionStatus.completed,
+        start_time=datetime(2025, 1, 2),
+        end_time=datetime(2025, 1, 2),
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    db.add(
+        LearningFlexibilityIndex(
+            session_id=session.id,
             W_coefficient=0.5,
             LFI_score=0.5,
             LFI_percentile=None,
@@ -71,8 +141,8 @@ def test_team_rollup_single_session():
     )
     db.add(
         UserLearningStyle(
-            session_id=s.id,
-            primary_style_type_id=st.id,
+            session_id=session.id,
+            primary_style_type_id=style.id,
             ACCE_raw=10,
             AERO_raw=6,
             kite_coordinates=None,
@@ -82,8 +152,53 @@ def test_team_rollup_single_session():
     db.commit()
 
     with db.begin():
-        roll = compute_team_rollup(db, team_id=t.id, for_date=date(2025, 1, 2))
+        roll = compute_team_rollup(db, team_id=team.id, for_date=date(2025, 1, 2))
+
     assert roll.total_sessions == 1
     assert roll.avg_lfi is not None and abs(roll.avg_lfi - 0.5) < 1e-9
     assert roll.style_counts is not None and roll.style_counts.get("Balancing") == 1
     db.close()
+
+
+def test_team_rollup_snapshot_payload_contains_points():
+    SessionLocal = _make_db()
+    db = SessionLocal()
+
+    user, team = _seed_user_team(db)
+    style = _seed_style(db)
+    _seed_completed_session(db, user.id, style.id)
+
+    snapshot = build_team_rollup_snapshot(db, team.id)
+
+    assert snapshot["team_id"] == team.id
+    assert snapshot["summary"]["members_with_data"] == 1
+    assert snapshot["data_points"][0]["ac_ce"] == 10
+    assert snapshot["data_points"][0]["raw_scores"]["CE"] == 30
+    assert snapshot["balance_metrics"]["CE_percentage"] > 0
+    assert snapshot["legacy_members"] == []
+    db.close()
+
+
+def test_team_rollup_snapshot_marks_members_without_sessions():
+    SessionLocal = _make_db()
+    db = SessionLocal()
+
+    user, team = _seed_user_team(db)
+    style = _seed_style(db)
+    _seed_completed_session(db, user.id, style.id)
+
+    legacy_user = User(full_name="Legacy", email="legacy@example.com")
+    db.add(legacy_user)
+    db.commit()
+    db.refresh(legacy_user)
+
+    db.add(TeamMember(team_id=team.id, user_id=legacy_user.id))
+    db.commit()
+
+    snapshot = build_team_rollup_snapshot(db, team.id)
+    legacy_members = snapshot["legacy_members"]
+
+    assert any(entry["user_id"] == legacy_user.id for entry in legacy_members)
+    assert any(entry["status"] == "missing_data" for entry in legacy_members)
+    db.close()
+

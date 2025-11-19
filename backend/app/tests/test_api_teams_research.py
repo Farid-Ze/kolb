@@ -5,11 +5,14 @@ from app.db.database import SessionLocal
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.enums import SessionStatus
 from app.models.klsi.learning import (
+    CombinationScore,
     LearningFlexibilityIndex,
     LearningStyleType,
+    ScaleScore,
     UserLearningStyle,
 )
-from app.models.klsi.research import ReliabilityResult, ValidityEvidence
+from app.models.klsi.norms import PercentileScore
+from app.models.klsi.research import ReliabilityResult, ResearchStudy, ValidityEvidence
 from app.models.klsi.team import TeamAssessmentRollup
 from app.models.klsi.user import User
 
@@ -245,3 +248,129 @@ def test_research_crud_and_children(client):
         headers=mediator_headers,
     )
     assert r.status_code == 200
+
+
+def test_research_study_data_endpoint(client):
+    with SessionLocal() as db:
+        mediator = db.query(User).filter(User.email == 'mediator@mahasiswa.unikom.ac.id').first()
+        if mediator is None:
+            mediator = User(
+                full_name='Mediator',
+                email='mediator@mahasiswa.unikom.ac.id',
+                role='MEDIATOR',
+            )
+            db.add(mediator)
+            db.commit()
+            db.refresh(mediator)
+        participant = db.query(User).filter(User.email == 'participant@unikom.ac.id').first()
+        if participant is None:
+            participant = User(
+                full_name='Participant One',
+                email='participant@unikom.ac.id',
+                role='MAHASISWA',
+            )
+            db.add(participant)
+            db.commit()
+            db.refresh(participant)
+        study = ResearchStudy(
+            title='Dataset Study',
+            description='Export contract',
+            started_at=datetime(2025, 1, 1, tzinfo=UTC),
+            completed_at=datetime(2025, 12, 31, tzinfo=UTC),
+        )
+        db.add(study)
+        db.commit()
+        db.refresh(study)
+        style_type = db.query(LearningStyleType).first()
+        assert style_type is not None
+        now = datetime(2025, 6, 1, tzinfo=UTC)
+        session = AssessmentSession(
+            user_id=participant.id,
+            status=SessionStatus.completed,
+            start_time=now,
+            end_time=now,
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        db.add(
+            ScaleScore(
+                session_id=session.id,
+                CE_raw=28,
+                RO_raw=30,
+                AC_raw=32,
+                AE_raw=34,
+            )
+        )
+        db.add(
+            CombinationScore(
+                session_id=session.id,
+                ACCE_raw=4,
+                AERO_raw=2,
+                assimilation_accommodation=0,
+                converging_diverging=0,
+                balance_acce=3,
+                balance_aero=2,
+            )
+        )
+        db.add(
+            UserLearningStyle(
+                session_id=session.id,
+                primary_style_type_id=style_type.id,
+                ACCE_raw=4,
+                AERO_raw=2,
+                kite_coordinates=None,
+                style_intensity_score=10,
+            )
+        )
+        db.add(
+            PercentileScore(
+                session_id=session.id,
+                norm_group_used='Total',
+                CE_percentile=50,
+                RO_percentile=55,
+                AC_percentile=60,
+                AE_percentile=65,
+                ACCE_percentile=50,
+                AERO_percentile=50,
+                CE_source='DB',
+                RO_source='DB',
+                AC_source='DB',
+                AE_source='DB',
+                ACCE_source='DB',
+                AERO_source='DB',
+                used_fallback_any=False,
+                norm_provenance=None,
+                raw_outside_norm_range=False,
+                truncated_scales=None,
+            )
+        )
+        db.commit()
+        mediator_id = mediator.id
+        study_id = study.id
+
+    token_mediator = _issue_token(mediator_id)
+    headers = {'Authorization': f'Bearer {token_mediator}'}
+    r = client.get(f'/research/studies/{study_id}/data', headers=headers)
+    assert r.status_code == 200, r.text
+    payload = r.json()
+    assert payload['summary']['total_sessions'] == 1
+    assert payload['summary']['unique_participants'] == 1
+    assert len(payload['data_points']) == 1
+    assert payload['data_points'][0]['norm_group'] == 'Total'
+
+    style_name = payload['data_points'][0]['learning_style']
+    assert style_name
+    r_filtered = client.get(
+        f"/research/studies/{study_id}/data?learning_style={style_name}",
+        headers=headers,
+    )
+    assert r_filtered.status_code == 200
+    assert len(r_filtered.json()['data_points']) == 1
+
+    r_empty = client.get(
+        f"/research/studies/{study_id}/data?learning_style=Nonexistent",
+        headers=headers,
+    )
+    assert r_empty.status_code == 200
+    assert r_empty.json()['summary']['total_sessions'] == 0

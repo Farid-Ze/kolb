@@ -15,7 +15,7 @@ from app.engine.authoring import (
     list_instrument_specs,
 )
 from app.services.security import get_current_user
-from app.schemas.session import SessionSubmissionPayload
+from app.schemas.session import SessionAutosavePayload, SessionSubmissionPayload
 from app.core.errors import InstrumentNotFoundError, PermissionDeniedError
 from app.core.metrics import (
     get_metrics,
@@ -122,6 +122,32 @@ def get_delivery(
     user = get_current_user(authorization, db)
     service = EngineSessionService(db)
     return service.delivery_package(session_id, user, locale=locale)
+
+
+@router.get("/sessions/{session_id}/items", response_model=dict)
+def get_session_items(
+    session_id: int,
+    locale: str | None = None,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    service = EngineSessionService(db)
+    return service.session_state(session_id, user, locale=locale)
+
+
+@router.post("/sessions/{session_id}/items", response_model=dict)
+def autosave_session_items(
+    session_id: int,
+    payload: SessionAutosavePayload,
+    locale: str | None = None,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    service = EngineSessionService(db)
+    result = service.autosave_responses(session_id, user, payload, locale=locale)
+    return {"ok": True, "result": result}
 
 
 @router.post("/sessions/{session_id}/submit_all", response_model=dict)

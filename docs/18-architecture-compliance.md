@@ -173,6 +173,20 @@ Recommended CI pipeline steps:
 2. **Coverage Report:** `pytest tests/ --cov=backend/app --cov-report=html`
 3. **Type Checking:** `mypy backend/app/`
 4. **Linting:** `ruff check backend/app/ tests/`
+
+## 10. Research Data Export Dictionary
+
+- **Endpoint:** `GET /research/studies/{id}/data` (router delegates to `services/research.build_study_dataset`).
+- **Primary Sources:** `assessment_sessions` (user/timestamps), `scale_scores` (CE/RO/AC/AE), `combination_scores` (ACCE/AERO), `user_learning_styles` + `learning_style_types` (style metadata), `percentile_scores` (norm provenance), and `research_studies` (window metadata).
+- **filters_applied:** normalized ISO-8601 `start_date`/`end_date` plus optional `learning_style`, `norm_group`, `user_email` mirrors CSV export filters for reproducibility.
+- **data_points columns:**
+  - Identity: `session_id`, `user_id`, `user_email`, `user_name`, `generated_at`, `assessment_duration_seconds` ← `assessment_sessions`.
+  - Raw modes: `ce_score`, `ro_score`, `ac_score`, `ae_score` ← `scale_scores`.
+  - Dialectics: `ac_ce`, `ae_ro` ← `combination_scores`.
+  - Style metadata: `learning_style`, `style_code` ← `learning_style_types` via `user_learning_styles`.
+  - Norm provenance: `norm_group` ← `percentile_scores.norm_group_used`.
+- **summary:** `total_sessions`, `unique_participants`, `date_range`, and `style_distribution` are derived aggregates backing both the preview table and CSV dictionary references.
+
 ## 11. Maintenance Guidelines
 
 ### When adding new norm groups:

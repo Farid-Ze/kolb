@@ -7,17 +7,28 @@
 import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
 
-// Types
+// API payloads --------------------------------------------------------------
+
+interface ResearchStudyPayload {
+  id: number;
+  title: string;
+  description?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  notes?: string | null;
+}
+
+// Types consumed by UI ------------------------------------------------------
+
 export interface Study {
   id: number;
   title: string;
-  description: string;
-  created_by: string;
-  created_at: string;
-  start_date: string;
-  end_date?: string;
+  description?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   participant_count: number;
   status: 'ACTIVE' | 'COMPLETED' | 'DRAFT';
+  notes?: string | null;
 }
 
 export interface StudyParticipant {
@@ -41,7 +52,7 @@ export interface StudyDetail extends Study {
 
 export interface StudyDataPoint {
   session_id: number;
-  user_id: string;
+  user_id: number;
   user_email: string;
   user_name: string;
   generated_at: string;
@@ -57,25 +68,26 @@ export interface StudyDataPoint {
   ae_ro: number;
   
   // Results
-  learning_style: string;
-  style_code: string;
+  learning_style?: string | null;
+  style_code?: string | null;
   
   // Metadata
-  norm_group?: string;
-  assessment_duration_seconds?: number;
+  norm_group?: string | null;
+  assessment_duration_seconds?: number | null;
 }
 
 export interface StudyData {
   study_id: number;
   study_title: string;
+  filters_applied: Record<string, string | null>;
   data_points: StudyDataPoint[];
   summary: {
     total_sessions: number;
     unique_participants: number;
-    date_range: {
+    date_range?: {
       earliest: string;
       latest: string;
-    };
+    } | null;
     style_distribution: Record<string, number>;
   };
 }
@@ -94,9 +106,10 @@ export interface ExportFilters {
  * Task 66
  */
 export const getStudies = async (): Promise<Study[]> => {
-  return authenticatedApiCall<Study[]>(getApiUrl('research/studies'), {
+  const response = await authenticatedApiCall<ResearchStudyPayload[]>(getApiUrl('research/studies'), {
     method: 'GET',
   });
+  return response.map(mapStudyPayload);
 };
 
 /**
@@ -110,10 +123,16 @@ export const createStudy = async (data: {
   start_date: string;
   end_date?: string;
 }): Promise<Study> => {
-  return authenticatedApiCall<Study>(getApiUrl('research/studies'), {
+  const payload = await authenticatedApiCall<ResearchStudyPayload>(getApiUrl('research/studies'), {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      title: data.title,
+      description: data.description,
+      started_at: data.start_date ? `${data.start_date}T00:00:00Z` : null,
+      completed_at: data.end_date ? `${data.end_date}T23:59:59Z` : null,
+    }),
   });
+  return mapStudyPayload(payload);
 };
 
 /**
@@ -121,9 +140,13 @@ export const createStudy = async (data: {
  * GET /research/studies/:id
  */
 export const getStudyDetails = async (studyId: number): Promise<StudyDetail> => {
-  return authenticatedApiCall<StudyDetail>(getApiUrl(`research/studies/${studyId}`), {
+  const payload = await authenticatedApiCall<ResearchStudyPayload>(getApiUrl(`research/studies/${studyId}`), {
     method: 'GET',
   });
+  return {
+    ...mapStudyPayload(payload),
+    participants: [],
+  };
 };
 
 /**
@@ -185,23 +208,26 @@ export const exportStudyDataToCSV = (
   ];
 
   // Convert data points to CSV rows
-  const rows = studyData.data_points.map((point) => [
-    point.session_id.toString(),
-    point.user_id,
-    point.user_email,
-    point.user_name,
-    new Date(point.generated_at).toLocaleString('id-ID'),
-    point.ce_score.toFixed(2),
-    point.ro_score.toFixed(2),
-    point.ac_score.toFixed(2),
-    point.ae_score.toFixed(2),
-    point.ac_ce.toFixed(2),
-    point.ae_ro.toFixed(2),
-    point.learning_style,
-    point.style_code,
-    point.norm_group || 'N/A',
-    point.assessment_duration_seconds?.toString() || 'N/A',
-  ]);
+  const rows = studyData.data_points.map((point) => {
+    const row: string[] = [
+      point.session_id.toString(),
+      point.user_id.toString(),
+      point.user_email,
+      point.user_name,
+      new Date(point.generated_at).toLocaleString('id-ID'),
+      point.ce_score.toFixed(2),
+      point.ro_score.toFixed(2),
+      point.ac_score.toFixed(2),
+      point.ae_score.toFixed(2),
+      point.ac_ce.toFixed(2),
+      point.ae_ro.toFixed(2),
+      point.learning_style || 'N/A',
+      point.style_code || 'N/A',
+      point.norm_group || 'N/A',
+      point.assessment_duration_seconds?.toString() || 'N/A',
+    ];
+    return row;
+  });
 
   // Combine headers and rows
   const csvContent = [
@@ -233,4 +259,24 @@ export const exportStudyDataToCSV = (
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+};
+
+// Helpers ------------------------------------------------------------------
+
+const mapStudyPayload = (payload: ResearchStudyPayload): Study => {
+  const status: Study['status'] = payload.completed_at
+    ? 'COMPLETED'
+    : payload.started_at
+    ? 'ACTIVE'
+    : 'DRAFT';
+  return {
+    id: payload.id,
+    title: payload.title,
+    description: payload.description ?? null,
+    start_date: payload.started_at ?? null,
+    end_date: payload.completed_at ?? null,
+    participant_count: 0,
+    status,
+    notes: payload.notes ?? null,
+  };
 };

@@ -7,6 +7,9 @@
 
 import { API_CONFIG } from '../config/api';
 
+const POST_LOGIN_REDIRECT_KEY = 'auth:postLoginRedirect';
+const LAST_AUTH_ERROR_KEY = 'auth:lastAuthErrorMessage';
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -45,6 +48,74 @@ export const isAuthError = (error: unknown): boolean => {
     return error.statusCode === 401 || error.statusCode === 403;
   }
   return false;
+};
+
+const safeSessionStorage = () => {
+  if (typeof window === 'undefined' || typeof window.sessionStorage === 'undefined') {
+    return null;
+  }
+  return window.sessionStorage;
+};
+
+const safeWindowLocation = () => {
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+    return null;
+  }
+  return window.location;
+};
+
+export const rememberAuthIntent = () => {
+  const storage = safeSessionStorage();
+  const location = safeWindowLocation();
+  if (!storage || !location) return;
+  const redirectPath = `${location.pathname || ''}${location.search || ''}${location.hash || ''}` || '/';
+  try {
+    storage.setItem(POST_LOGIN_REDIRECT_KEY, redirectPath);
+  } catch {}
+};
+
+export const consumeAuthIntent = (): string | null => {
+  const storage = safeSessionStorage();
+  if (!storage) return null;
+  try {
+    const value = storage.getItem(POST_LOGIN_REDIRECT_KEY);
+    if (value) {
+      storage.removeItem(POST_LOGIN_REDIRECT_KEY);
+      return value;
+    }
+  } catch {}
+  return null;
+};
+
+export const rememberAuthErrorMessage = (message?: string) => {
+  if (!message) return;
+  const storage = safeSessionStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(LAST_AUTH_ERROR_KEY, message);
+  } catch {}
+};
+
+export const consumeAuthErrorMessage = (): string | null => {
+  const storage = safeSessionStorage();
+  if (!storage) return null;
+  try {
+    const value = storage.getItem(LAST_AUTH_ERROR_KEY);
+    if (value) {
+      storage.removeItem(LAST_AUTH_ERROR_KEY);
+      return value;
+    }
+  } catch {}
+  return null;
+};
+
+export const emitAuthUnauthorized = (message?: string) => {
+  if (typeof window === 'undefined') return;
+  rememberAuthIntent();
+  rememberAuthErrorMessage(message ?? 'Sesi Anda telah berakhir. Silakan login kembali.');
+  try {
+    window.dispatchEvent(new CustomEvent('auth:unauthorized', { detail: { message } }));
+  } catch {}
 };
 
 /**

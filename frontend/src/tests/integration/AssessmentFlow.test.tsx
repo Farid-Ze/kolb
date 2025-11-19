@@ -15,6 +15,8 @@ import type { GetAssessmentItemsResponse, SubmitAnswersResponse } from '../../ty
 const mockDeliveryPackage: GetAssessmentItemsResponse = {
   session_id: '1',
   instrument_code: 'KLSI',
+  instrument_version: '4.0',
+  status: 'Started',
   total_items: 2,
   items: [
     {
@@ -40,6 +42,11 @@ const mockDeliveryPackage: GetAssessmentItemsResponse = {
       ],
     },
   ],
+  responses: [],
+  contexts: [],
+  progress: 0,
+  completed_items: 0,
+  current_item_index: 0,
   instructions:
     'Urutkan pernyataan berikut dari 1 (paling sesuai) hingga 4 (paling tidak sesuai) dengan cara Anda belajar.',
 };
@@ -48,6 +55,10 @@ const mockDeliveryPackage: GetAssessmentItemsResponse = {
 vi.mock('../../services/assessmentService', () => ({
   getAssessmentItems: vi.fn(),
   submitAnswers: vi.fn(),
+}));
+
+vi.mock('../../services/sessionService', () => ({
+  getSession: vi.fn(),
 }));
 
 // Mock useAuth
@@ -108,10 +119,17 @@ const renderWithProviders = (sessionId: string = '1') => {
 };
 
 describe('Assessment Flow Integration', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.clear();
     window.history.pushState({}, '', '/assessment/1');
+
+    const { getSession } = await import('../../services/sessionService');
+    vi.mocked(getSession).mockResolvedValue({
+      session_id: '1',
+      user_id: mockAuth.user.id,
+      status: 'STARTED',
+    } as any);
   });
 
   it('should render loading state initially', async () => {
@@ -127,7 +145,11 @@ describe('Assessment Flow Integration', () => {
 
     renderWithProviders();
 
-    expect(screen.getByText('Memuat asesmen...')).toBeInTheDocument();
+    expect(screen.getByText('Memverifikasi akses sesi...')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('Memuat asesmen...')).toBeInTheDocument();
+    });
   });
 
   it('should load and display assessment items', async () => {
@@ -236,7 +258,7 @@ describe('Assessment Flow Integration', () => {
       '../../services/assessmentService'
     );
     vi.mocked(getAssessmentItems).mockResolvedValue(mockDeliveryPackage);
-    const mockSubmitResponse: SubmitAnswersResponse = { saved_count: 1, message: 'ok' };
+    const mockSubmitResponse: SubmitAnswersResponse = { saved_count: 1 };
     vi.mocked(submitAnswers).mockResolvedValue(mockSubmitResponse);
 
     const user = userEvent.setup();

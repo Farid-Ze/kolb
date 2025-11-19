@@ -2,7 +2,7 @@ import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './config/api';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, type Role } from './contexts/AuthContext';
 import { UIPreferencesProvider } from './contexts/UIPreferencesContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -33,6 +33,21 @@ const AccessibilityTester = import.meta.env.DEV
 const DesignSystemShowcasePage = import.meta.env.DEV
   ? React.lazy(() => import('./pages/DesignSystemShowcasePage'))
   : null;
+
+type GuardOptions = {
+  allowedRoles?: Role[];
+  requiredRole?: Role;
+  redirectTo?: string;
+};
+
+const withProtection = (
+  element: React.ReactNode,
+  options?: GuardOptions,
+) => (
+  <ProtectedRoute {...options}>
+    {element}
+  </ProtectedRoute>
+);
 
 /**
  * KLSI 4.0 - Aplikasi Tes Psikometri Learning Style Inventory
@@ -69,95 +84,60 @@ const App: React.FC = () => {
           <Route path="/auth/register" element={<RegisterPage />} />
 
           {/* Protected Routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/" element={withProtection(<HomePage />)} />
 
           {/* Assessment Flow - Phase 2 */}
           <Route
             path="/assessment/start"
-            element={
-              <ProtectedRoute>
-                <AssessmentStartPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<AssessmentStartPage />)}
           />
 
           <Route
             path="/assessment/:sessionId"
-            element={
-              <ProtectedRoute>
-                <AssessmentPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<AssessmentPage />)}
           />
 
           <Route
             path="/assessment/:sessionId/review"
-            element={
-              <ProtectedRoute>
-                <AssessmentReviewPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<AssessmentReviewPage />)}
           />
 
           <Route
             path="/assessment/:sessionId/report"
-            element={
-              <ProtectedRoute>
-                <ReportPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<ReportPage />)}
           />
 
           <Route
             path="/reports/self"
-            element={
-              <ProtectedRoute>
-                <MyReportsPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<MyReportsPage />)}
           />
 
           <Route
             path="/teams"
-            element={
-              <ProtectedRoute requiredRole="MEDIATOR">
-                <MediatorDashboardPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<MediatorDashboardPage />, {
+              allowedRoles: ['MEDIATOR'],
+            })}
           />
 
           <Route
             path="/teams/:teamId"
-            element={
-              <ProtectedRoute requiredRole="MEDIATOR">
-                <TeamDetailPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<TeamDetailPage />, {
+              allowedRoles: ['MEDIATOR'],
+            })}
           />
 
           <Route
             path="/research"
-            element={
-              <ProtectedRoute requiredRole="MEDIATOR">
-                <ResearchDashboardPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<ResearchDashboardPage />, {
+              allowedRoles: ['MEDIATOR'],
+            })}
           />
 
           <Route
             path="/research/studies/:studyId"
-            element={
-              <ProtectedRoute requiredRole="MEDIATOR">
-                <ResearchDetailPage />
-              </ProtectedRoute>
-            }
+            element={withProtection(<ResearchDetailPage />, {
+              allowedRoles: ['MEDIATOR'],
+            })}
           />
 
           {/* Dev Tools - Design System Showcase (Development only) */}

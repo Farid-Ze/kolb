@@ -19,11 +19,12 @@ from app.schemas.team import (
     TeamMemberAdd,
     TeamMemberOut,
     TeamOut,
+    TeamRollupDetail,
     TeamRollupOut,
     TeamUpdate,
 )
 from app.i18n.id_messages import AuthorizationMessages, TeamMessages
-from app.services.rollup import compute_team_rollup
+from app.services.rollup import build_team_rollup_snapshot, compute_team_rollup
 from app.services.security import get_current_user
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -226,6 +227,14 @@ def remove_member(
 def list_rollups(team_id: int, db: Session = Depends(get_db)):
     repo = TeamRollupRepository(db)
     return repo.list_by_team(team_id)
+
+
+@router.get("/{team_id}/rollup", response_model=TeamRollupDetail)
+def get_rollup(team_id: int, db: Session = Depends(get_db)):
+    try:
+        return build_team_rollup_snapshot(db, team_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND) from None
 
 
 @router.post("/{team_id}/rollup/run", response_model=TeamRollupOut)

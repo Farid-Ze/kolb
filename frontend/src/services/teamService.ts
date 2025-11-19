@@ -20,7 +20,7 @@ export interface Team {
 }
 
 export interface TeamMember {
-  user_id: string;
+  user_id: number;
   email: string;
   name: string;
   joined_at: string;
@@ -33,15 +33,25 @@ export interface TeamDetail extends Team {
 }
 
 export interface TeamRollupDataPoint {
-  user_id: string;
+  user_id: number;
   name: string;
-  email: string;
-  ac_ce: number; // X-axis: Abstract-Concrete
-  ae_ro: number; // Y-axis: Active-Reflective
-  learning_style: string;
-  style_code: string;
-  session_id: number;
-  generated_at: string;
+  email?: string;
+  session_id?: number;
+  generated_at?: string;
+  ac_ce?: number;
+  ae_ro?: number;
+  learning_style?: string;
+  style_code?: string;
+  raw_scores?: {
+    CE?: number;
+    RO?: number;
+    AC?: number;
+    AE?: number;
+  };
+  dialectic_scores?: {
+    ACCE?: number;
+    AERO?: number;
+  };
 }
 
 export interface TeamRollupBalanceMetrics {
@@ -51,35 +61,44 @@ export interface TeamRollupBalanceMetrics {
   AE_percentage: number;
 }
 
+export type TeamRollupLegacyMemberStatus = 'missing_data' | 'partial' | 'stale';
+
 export interface TeamRollupLegacyMember {
-  user_id: string;
+  user_id: number | string;
   name: string;
-  email?: string;
-  learning_style?: string;
-  style_code?: string;
-  AC_CE?: number;
-  AE_RO?: number;
-  ac_ce?: number;
-  ae_ro?: number;
-  session_id?: number;
-  generated_at?: string;
+  email?: string | null;
+  role_in_team?: string | null;
+  joined_at?: string | null;
+  status?: TeamRollupLegacyMemberStatus;
+  status_reason?: string | null;
+  learning_style?: string | null;
+  style_code?: string | null;
+  AC_CE?: number | null;
+  AE_RO?: number | null;
+  ac_ce?: number | null;
+  ae_ro?: number | null;
+  session_id?: number | null;
+  generated_at?: string | null;
+}
+
+export interface TeamRollupSummary {
+  total_members: number;
+  members_with_data: number;
+  avg_ac_ce: number;
+  avg_ae_ro: number;
+  style_distribution: Record<string, number>;
 }
 
 export interface TeamRollup {
   team_id: number;
   team_name: string;
-  data_points?: TeamRollupDataPoint[];
-  members?: TeamRollupLegacyMember[];
-  member_count?: number;
-  summary?: {
-    total_members: number;
-    members_with_data: number;
-    avg_ac_ce: number;
-    avg_ae_ro: number;
-    style_distribution: Record<string, number>;
-  };
-  diversity_score?: number;
-  balance_metrics?: TeamRollupBalanceMetrics;
+  member_count: number;
+  data_points: TeamRollupDataPoint[];
+  members: TeamRollupDataPoint[];
+  legacy_members?: TeamRollupLegacyMember[];
+  summary: TeamRollupSummary;
+  diversity_score?: number | null;
+  balance_metrics: TeamRollupBalanceMetrics;
 }
 
 /**
@@ -146,10 +165,10 @@ export const addMemberToTeam = async (
  */
 export const removeMemberFromTeam = async (
   teamId: number,
-  userId: string
+  userId: number | string
 ): Promise<{ ok: boolean; message: string }> => {
   return authenticatedApiCall<{ ok: boolean; message: string }>(
-    getApiUrl(`teams/${teamId}/members/${userId}`),
+    getApiUrl(`teams/${teamId}/members/${String(userId)}`),
     {
       method: 'DELETE',
     }
