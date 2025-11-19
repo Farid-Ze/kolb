@@ -38,6 +38,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { ShortLabel } from '../components/ui/DynamicType';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 const LEGACY_STATUS_LABELS: Record<TeamRollupLegacyMemberStatus, string> = {
   missing_data: 'Belum Ada Data',
@@ -259,28 +260,35 @@ export const TeamDetailPage: React.FC = () => {
   if (teamError || !teamDetail) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+        <GlassPanel
+          as="section"
+          material="content"
+          density="spacious"
+          className="max-w-md w-full text-center space-y-4"
+        >
           <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
           <h2 className="text-2xl text-foreground">Error</h2>
-          <p className="text-muted-foreground">
-            {errorMessage}
-          </p>
+          <p className="text-muted-foreground">{errorMessage}</p>
           <button
             onClick={() => navigate('/teams')}
             className="rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:opacity-90"
           >
             Kembali ke Daftar Tim
           </button>
-        </div>
+        </GlassPanel>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-      {/* Header - Glass Material */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-7xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -300,7 +308,6 @@ export const TeamDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Add Member Button */}
             <button
               onClick={handleOpenAddModal}
               className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -311,7 +318,7 @@ export const TeamDetailPage: React.FC = () => {
             </button>
           </div>
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-6 space-y-8">
@@ -583,7 +590,12 @@ export const TeamDetailPage: React.FC = () => {
       {/* Add Member Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-regular rounded-xl p-8 max-w-md w-full space-y-6">
+          <GlassPanel
+            as="section"
+            material="functional"
+            density="spacious"
+            className="w-full max-w-md space-y-6"
+          >
             <div className="space-y-2">
               <h2 className="text-2xl text-foreground">Tambah Anggota</h2>
               <p className="text-sm text-muted-foreground">
@@ -628,14 +640,19 @@ export const TeamDetailPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
+          </GlassPanel>
         </div>
       )}
 
       {/* Remove Member Modal */}
       {memberToRemove && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-regular rounded-xl p-8 max-w-md w-full space-y-6">
+          <GlassPanel
+            as="section"
+            material="functional"
+            density="spacious"
+            className="w-full max-w-md space-y-6"
+          >
             <div className="space-y-2">
               <h2 className="text-2xl text-foreground">Hapus Anggota</h2>
               <p className="text-sm text-muted-foreground">
@@ -669,7 +686,7 @@ export const TeamDetailPage: React.FC = () => {
             <p className="text-xs text-muted-foreground text-center">
               Sistem akan memberi tahu anggota terkait setelah Anda menghapusnya.
             </p>
-          </div>
+          </GlassPanel>
         </div>
       )}
     </div>

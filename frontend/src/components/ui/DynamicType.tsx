@@ -13,7 +13,7 @@
  * <DynamicType as="p" level="body">Body text</DynamicType>
  */
 
-import React, { ElementType, ReactNode } from 'react';
+import React, { ElementType, ReactNode, HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 import { useTextScaleFactor } from '../../lib/accessibility';
 
@@ -34,7 +34,7 @@ export type TypographyLevel =
   | 'caption1'      // 0.75rem base
   | 'caption2';     // 0.6875rem base
 
-interface DynamicTypeProps {
+interface DynamicTypeProps extends HTMLAttributes<HTMLElement> {
   /** HTML element to render */
   as?: ElementType;
   /** Typography level from scale */
@@ -102,6 +102,7 @@ export const DynamicType: React.FC<DynamicTypeProps> = ({
   children,
   className,
   weight,
+  ...rest
 }) => {
   return (
     <Component
@@ -112,6 +113,7 @@ export const DynamicType: React.FC<DynamicTypeProps> = ({
         'break-words',
         className
       )}
+      {...rest}
     >
       {children}
     </Component>

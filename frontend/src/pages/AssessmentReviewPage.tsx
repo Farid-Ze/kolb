@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '../components/ui/alert-dialog';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 const LFI_CONTEXT_LABELS: Record<string, string> = {
   Starting_Something_New: 'Memulai hal baru',
@@ -189,11 +190,16 @@ export const AssessmentReviewPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-        <header className="glass-regular sticky top-0 z-50 border-b border-border">
-          <div className="mx-auto max-w-4xl p-4">
+        <GlassPanel
+          as="header"
+          material="functional"
+          density="compact"
+          className="sticky top-0 z-50 border-b border-border"
+        >
+          <div className="mx-auto max-w-4xl w-full">
             <Skeleton className="h-6 w-[150px]" />
           </div>
-        </header>
+        </GlassPanel>
         <main className="mx-auto max-w-4xl p-6 space-y-6">
           <div className="text-center space-y-2 py-6">
             <Skeleton className="mx-auto h-10 w-[300px]" />
@@ -304,8 +310,13 @@ export const AssessmentReviewPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
       {/* Header */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-4xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-4xl w-full">
           <motion.button
             onClick={() => navigate(`/assessment/${sessionId}`)}
             className="inline-flex items-center gap-2 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded touch-manipulation"
@@ -316,7 +327,7 @@ export const AssessmentReviewPage: React.FC = () => {
             Kembali ke Asesmen
           </motion.button>
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl p-6 pb-32 space-y-8">
@@ -572,8 +583,13 @@ export const AssessmentReviewPage: React.FC = () => {
       </main>
 
       {/* Bottom Toolbar (Zona Hijau - Guidelines §1.3.2) */}
-      <div className="glass-regular fixed bottom-0 left-0 right-0 border-t border-border safe-area-bottom">
-        <div className="mx-auto max-w-4xl p-4">
+      <GlassPanel
+        as="div"
+        material="functional"
+        density="compact"
+        className="fixed bottom-0 left-0 right-0 border-t border-border safe-area-bottom"
+      >
+        <div className="mx-auto max-w-4xl w-full">
           <div className="flex items-center justify-between gap-4">
             <motion.button
               onClick={() => navigate(`/assessment/${sessionId}`)}
@@ -629,7 +645,7 @@ export const AssessmentReviewPage: React.FC = () => {
             </AlertDialog>
           </div>
         </div>
-      </div>
+      </GlassPanel>
     </div>
   );
 };

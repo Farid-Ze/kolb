@@ -19,6 +19,7 @@ import { NonDiagnosticNotice } from '../components/report/NonDiagnosticNotice';
 import { LayeredIcon } from '../components/ui/LayeredIcon';
 import type { Session } from '../types/api';
 import { useTelemetry } from '../hooks/useTelemetry';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 export const AssessmentStartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,8 +54,13 @@ export const AssessmentStartPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
       {/* Header */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-4xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-4xl w-full">
           <button
             onClick={() => navigate('/')}
             className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
@@ -62,7 +68,7 @@ export const AssessmentStartPage: React.FC = () => {
             ← Kembali ke Beranda
           </button>
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl p-6 space-y-6">

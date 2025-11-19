@@ -3,7 +3,7 @@
  * Task 36: Implementasi useQuery untuk fetch completed sessions
  * 
  * Implementasi sesuai Guidelines.md:
- * - Glass-regular untuk navigation
+ * - GlassPanel untuk navigation
  * - Material-regular untuk content cards
  * - Grid layout responsive
  * - React Query untuk data fetching
@@ -23,6 +23,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { DescriptionText } from '../components/ui/DynamicType';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 export const MyReportsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,8 +54,13 @@ export const MyReportsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
       {/* Header */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-6xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-6xl w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -71,7 +77,7 @@ export const MyReportsPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-6xl p-6 space-y-6">

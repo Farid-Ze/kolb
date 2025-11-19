@@ -4,7 +4,7 @@
  * 
  * Implementasi sesuai Guidelines.md & frontend_blueprint.md:
  * - AssessmentLayout dengan LargeTitleHeader
- * - Navigation & control layer menggunakan glass-regular
+ * - Navigation & control layer menggunakan GlassPanel functional material
  * - Content layer menggunakan material-regular
  * - BottomToolbar untuk navigasi (Zona Hijau)
  * - Spring-based animations
@@ -50,6 +50,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { GlassPanel } from '../components/ui/GlassPanel';
+import { AccessibleHeading } from '../components/ui/AccessibleHeading';
 
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
@@ -183,7 +185,9 @@ export const AssessmentPage: React.FC = () => {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
             <AlertCircle className="h-8 w-8 text-destructive" />
           </div>
-          <h2 className="text-foreground">ID sesi tidak valid</h2>
+          <AccessibleHeading variant="section" className="text-foreground">
+            ID sesi tidak valid
+          </AccessibleHeading>
           <p className="text-muted-foreground">Tidak dapat memuat asesmen tanpa ID sesi.</p>
           <motion.button
             onClick={() => navigate('/')}
@@ -211,7 +215,9 @@ export const AssessmentPage: React.FC = () => {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
             <Lock className="h-8 w-8 text-destructive" />
           </div>
-          <h2 className="text-foreground">Akses sesi ditolak</h2>
+          <AccessibleHeading variant="section" className="text-foreground">
+            Akses sesi ditolak
+          </AccessibleHeading>
           <p className="text-muted-foreground">
             {sessionAccess.reason ?? 'Anda tidak diizinkan mengakses sesi asesmen ini.'}
           </p>
@@ -234,13 +240,18 @@ export const AssessmentPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
         <div role="status" aria-live="polite" className="sr-only">Memuat asesmen...</div>
-        <header className="glass-regular sticky top-0 z-50 border-b border-border">
-          <div className="mx-auto max-w-4xl p-4">
+        <GlassPanel
+          as="header"
+          material="functional"
+          density="compact"
+          className="sticky top-0 z-50 border-b border-border"
+        >
+          <div className="mx-auto max-w-4xl w-full">
             <Skeleton className="mb-2 h-8 w-[200px]" />
             <Skeleton className="mb-4 h-5 w-[150px]" />
             <Skeleton className="h-2 w-full" />
           </div>
-        </header>
+        </GlassPanel>
         <main className="mx-auto max-w-4xl p-6 space-y-6">
           <Skeleton className="h-[100px] w-full" />
           <Skeleton className="h-[150px] w-full" />
@@ -268,7 +279,9 @@ export const AssessmentPage: React.FC = () => {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
             <AlertCircle className="h-8 w-8 text-destructive" />
           </div>
-          <h2 className="text-foreground">Data Tidak Ditemukan</h2>
+          <AccessibleHeading variant="section" className="text-foreground">
+            Data Tidak Ditemukan
+          </AccessibleHeading>
           <p className="text-muted-foreground">
             Tidak ada item asesmen yang tersedia untuk sesi ini.
           </p>
@@ -290,8 +303,13 @@ export const AssessmentPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
       {/* Header dengan Glass Material (Guidelines §4.2 - Navigation Layer) */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-4xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-4xl w-full">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <motion.button
@@ -304,7 +322,9 @@ export const AssessmentPage: React.FC = () => {
                 <ArrowLeft className="h-5 w-5" />
               </motion.button>
               <div>
-                <h1 className="text-foreground">KLSI 4.0 Assessment</h1>
+                <AccessibleHeading variant="section" className="text-foreground">
+                  KLSI 4.0 Assessment
+                </AccessibleHeading>
                 <p className="text-muted-foreground">
                   Item {currentItemIndex + 1} dari {totalItems}
                 </p>
@@ -334,7 +354,7 @@ export const AssessmentPage: React.FC = () => {
             label={`Progress: ${Math.round(progress)}%`}
           />
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content - Material Regular (Guidelines §4.3 - Content Layer) */}
       <main className="mx-auto max-w-4xl p-6 pb-32">
@@ -349,7 +369,9 @@ export const AssessmentPage: React.FC = () => {
             <div className="flex items-start gap-3 flex-1">
               <HelpCircle className="h-5 w-5 text-chart-2 flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <h3 className="text-foreground">Instruksi</h3>
+                <AccessibleHeading variant="subsection" className="text-foreground">
+                  Instruksi
+                </AccessibleHeading>
                 <p className="text-muted-foreground">
                   {dragMode ? (
                     <>
@@ -412,9 +434,9 @@ export const AssessmentPage: React.FC = () => {
                 {currentItemIndex + 1}
               </div>
               <div className="flex-1">
-                <h2 className="text-foreground">
+                <AccessibleHeading variant="section" className="text-foreground">
                   {currentItem.prompt || 'Ketika saya belajar...'}
-                </h2>
+                </AccessibleHeading>
               </div>
             </div>
           </div>

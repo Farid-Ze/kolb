@@ -25,6 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge';
 import type { Session } from '../types/api';
 import { cn } from '../lib/utils';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 /**
  * KLSI 4.0 - HomePage / Dashboard
@@ -105,8 +106,13 @@ export const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
       {/* Header dengan Glass Material (Bagian 4.2 - Navigation Layer) */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <nav className="mx-auto flex max-w-7xl items-center justify-between">
           <div>
             <h1 className="text-primary">KLSI 4.0</h1>
             <p className="text-muted-foreground">{user?.email}</p>
@@ -129,7 +135,7 @@ export const HomePage: React.FC = () => {
             </motion.button>
           </div>
         </nav>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-6 space-y-8">
@@ -196,7 +202,7 @@ export const HomePage: React.FC = () => {
             hoverScale
             onClick={handleStartAssessment}
             className={cn(
-              "glass-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation",
+              "material-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation",
               (isStarting || startSessionMutation.isPending) && "opacity-50 cursor-not-allowed pointer-events-none"
             )}
           >
@@ -230,7 +236,7 @@ export const HomePage: React.FC = () => {
           <AnimatedListItem
             hoverScale
             onClick={() => navigate('/reports/self')}
-            className="glass-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
+            className="material-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
           >
             <LayeredIcon 
               icon={BarChart3}
@@ -255,7 +261,7 @@ export const HomePage: React.FC = () => {
               <AnimatedListItem
                 hoverScale
                 onClick={() => navigate('/teams')}
-                className="glass-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
+                className="material-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
               >
                 <LayeredIcon 
                   icon={Users}
@@ -278,7 +284,7 @@ export const HomePage: React.FC = () => {
               <AnimatedListItem
                 hoverScale
                 onClick={() => navigate('/research')}
-                className="glass-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
+                className="material-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
               >
                 <LayeredIcon 
                   icon={FileText}

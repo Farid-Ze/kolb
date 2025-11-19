@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Home, ArrowLeft } from 'lucide-react';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 /**
  * KLSI 4.0 - NotFoundPage (404)
@@ -23,7 +24,7 @@ export const NotFoundPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="glass-regular rounded-xl p-8 max-w-md w-full text-center space-y-6">
+      <GlassPanel as="section" material="content" density="spacious" className="max-w-md w-full text-center space-y-6">
         {/* Error Code */}
         <div className="space-y-2">
           {/* FIXED §3.4.2: Large decorative text, bukan interaktif */}
@@ -67,7 +68,7 @@ export const NotFoundPage: React.FC = () => {
         <div className="pt-6 opacity-50">
           <div className="skeleton h-32 rounded-lg" />
         </div>
-      </div>
+      </GlassPanel>
     </div>
   );
 };

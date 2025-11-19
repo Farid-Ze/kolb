@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { registerUser } from '../services/authService';
 import { API_BASE_URL } from '../config/api';
 import { Eye, EyeOff, UserPlus, Info } from 'lucide-react';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 /**
  * KLSI 4.0 - RegisterPage
@@ -88,7 +89,7 @@ export const RegisterPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="glass-regular rounded-xl p-8 space-y-6">
+        <GlassPanel as="section" material="content" density="spacious" className="space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-foreground">
@@ -288,7 +289,7 @@ export const RegisterPage: React.FC = () => {
               </Link>
             </p>
           </div>
-        </div>
+        </GlassPanel>
       </div>
     </div>
   );

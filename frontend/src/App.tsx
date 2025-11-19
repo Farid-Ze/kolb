@@ -169,7 +169,7 @@ const App: React.FC = () => {
             path="/unauthorized"
             element={
               <div className="min-h-screen bg-background flex items-center justify-center p-6">
-                <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+                <div className="material-regular rounded-xl p-8 max-w-md text-center space-y-4">
                   <h2>Akses Ditolak</h2>
                   <p className="text-muted-foreground">
                     Anda tidak memiliki izin untuk mengakses halaman ini.

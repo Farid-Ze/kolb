@@ -49,8 +49,10 @@ import {
   NonDiagnosticNotice,
   ResponsibleUseFooter,
 } from '../components/report/NonDiagnosticNotice';
+import { AccessibleHeading } from '../components/ui/AccessibleHeading';
 import { useTelemetry } from '../hooks/useTelemetry';
 import { ModalLayer } from '../components/ui/ModalLayer';
+import { GlassPanel } from '../components/ui/GlassPanel';
 import type { CreateReportShareResponse } from '../types/api';
 
 export const ReportPage: React.FC = () => {
@@ -218,9 +220,16 @@ export const ReportPage: React.FC = () => {
   if (!sessionIdentifier) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+        <GlassPanel
+          as="section"
+          material="content"
+          density="spacious"
+          className="max-w-md w-full text-center space-y-4"
+        >
           <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-          <h2 className="text-2xl text-foreground">Error</h2>
+          <AccessibleHeading variant="section" className="text-foreground text-2xl">
+            Error
+          </AccessibleHeading>
           <p className="text-muted-foreground">ID sesi laporan tidak ditemukan.</p>
           <button
             onClick={() => navigate('/reports')}
@@ -228,7 +237,7 @@ export const ReportPage: React.FC = () => {
           >
             Kembali ke Beranda
           </button>
-        </div>
+        </GlassPanel>
       </div>
     );
   }
@@ -236,9 +245,14 @@ export const ReportPage: React.FC = () => {
   if (guardRequired && sessionAccess.isChecking) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-2">
+        <GlassPanel
+          as="section"
+          material="content"
+          density="regular"
+          className="max-w-md w-full text-center space-y-2"
+        >
           <p className="text-sm text-muted-foreground">Memverifikasi akses laporan...</p>
-        </div>
+        </GlassPanel>
       </div>
     );
   }
@@ -246,11 +260,18 @@ export const ReportPage: React.FC = () => {
   if (guardRequired && !sessionAccess.hasAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+        <GlassPanel
+          as="section"
+          material="content"
+          density="spacious"
+          className="max-w-md w-full text-center space-y-4"
+        >
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
             <Lock className="h-8 w-8 text-destructive" />
           </div>
-          <h2 className="text-foreground">Akses laporan ditolak</h2>
+          <AccessibleHeading variant="section" className="text-foreground">
+            Akses laporan ditolak
+          </AccessibleHeading>
           <p className="text-muted-foreground">
             {sessionAccess.reason ?? 'Anda tidak memiliki izin untuk melihat laporan ini.'}
           </p>
@@ -260,7 +281,7 @@ export const ReportPage: React.FC = () => {
           >
             Kembali ke Beranda
           </button>
-        </div>
+        </GlassPanel>
       </div>
     );
   }
@@ -269,7 +290,12 @@ export const ReportPage: React.FC = () => {
   if (isLoading && !error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-6">
+        <GlassPanel
+          as="section"
+          material="content"
+          density="spacious"
+          className="max-w-md w-full text-center space-y-6"
+        >
           <div className="flex justify-center">
             <div className="relative">
               <Clock className="h-16 w-16 text-primary animate-pulse" />
@@ -277,14 +303,16 @@ export const ReportPage: React.FC = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl text-foreground">Memproses Laporan</h2>
+            <AccessibleHeading variant="section" className="text-foreground text-xl">
+              Memproses Laporan
+            </AccessibleHeading>
             <p className="text-muted-foreground">
               {isRefetching
                 ? 'Menyiapkan hasil asesmen Anda...'
                 : 'Memuat laporan...'}
             </p>
           </div>
-        </div>
+        </GlassPanel>
       </div>
     );
   }
@@ -294,9 +322,16 @@ export const ReportPage: React.FC = () => {
     const message = friendlyErrorMessage ?? 'Laporan tidak ditemukan';
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+        <GlassPanel
+          as="section"
+          material="content"
+          density="spacious"
+          className="max-w-md w-full text-center space-y-4"
+        >
           <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-          <h2 className="text-2xl text-foreground">Error</h2>
+          <AccessibleHeading variant="section" className="text-foreground text-2xl">
+            Error
+          </AccessibleHeading>
           <p className="text-muted-foreground">{message}</p>
           <button
             onClick={() => navigate('/reports')}
@@ -304,7 +339,7 @@ export const ReportPage: React.FC = () => {
           >
             Kembali ke Beranda
           </button>
-        </div>
+        </GlassPanel>
       </div>
     );
   }
@@ -335,9 +370,13 @@ export const ReportPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background print:bg-white">
-      {/* Header - Glass Material (Guidelines §4.2) */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border print:hidden">
-        <div className="mx-auto max-w-6xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border print:hidden"
+      >
+        <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -357,7 +396,6 @@ export const ReportPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex items-center gap-2">
               {canShare && (
                 <button
@@ -395,15 +433,18 @@ export const ReportPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-6xl p-6 space-y-12 print:p-4">
         {/* Report Header - Guidelines §8.4.1: Increased padding & line-height */}
         <div className="text-center space-y-6 py-8 print:py-4">
-          <h1 className="text-3xl text-foreground print:text-2xl leading-relaxed">
+          <AccessibleHeading
+            variant="page"
+            className="print:text-2xl leading-relaxed text-foreground"
+          >
             Laporan Hasil Asesmen
-          </h1>
+          </AccessibleHeading>
           <p className="text-lg text-muted-foreground print:text-base leading-relaxed">
             Kolb Learning Style Inventory 4.0
           </p>
@@ -472,7 +513,9 @@ export const ReportPage: React.FC = () => {
         {/* Learning Style Classification (Task 46, 50) - Guidelines §8.4.1 */}
         <div className="grid lg:grid-cols-2 gap-8">
           <div className="material-regular rounded-xl p-8 space-y-6 print:border print:border-gray-300">
-            <h3 className="text-lg text-foreground leading-relaxed">Gaya Belajar Utama</h3>
+            <AccessibleHeading variant="subsection" className="text-foreground">
+              Gaya Belajar Utama
+            </AccessibleHeading>
             {styleBlock ? (
               <>
                 <div className="flex items-center gap-4">
@@ -500,7 +543,9 @@ export const ReportPage: React.FC = () => {
           </div>
 
           <div className="material-regular rounded-xl p-8 space-y-4 print:border print:border-gray-300">
-            <h3 className="text-lg text-foreground leading-relaxed">Cadangan & Intensitas</h3>
+            <AccessibleHeading variant="subsection" className="text-foreground">
+              Cadangan & Intensitas
+            </AccessibleHeading>
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Intensitas Polaritas</span>
@@ -544,7 +589,9 @@ export const ReportPage: React.FC = () => {
           <div className="material-regular rounded-xl p-6 space-y-6 print:break-inside-avoid">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-chart-2" />
-              <h3 className="text-lg text-foreground">Learning Space Insights</h3>
+              <AccessibleHeading variant="subsection" className="text-foreground">
+                Learning Space Insights
+              </AccessibleHeading>
             </div>
             <p className="text-sm text-muted-foreground">{learningSpace.meta.note}</p>
             {developmentBlock && (
@@ -642,7 +689,9 @@ export const ReportPage: React.FC = () => {
           <div className="material-regular rounded-xl p-6 space-y-4 print:break-inside-avoid">
             <div className="flex items-center gap-2">
               <ListChecks className="h-5 w-5 text-primary" />
-              <h3 className="text-lg text-foreground">Rekomendasi Sesi</h3>
+              <AccessibleHeading variant="subsection" className="text-foreground">
+                Rekomendasi Sesi
+              </AccessibleHeading>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               {sessionDesigns.map((design) => (
@@ -674,7 +723,9 @@ export const ReportPage: React.FC = () => {
         )}
 
         <div className="material-thin rounded-xl p-6 space-y-3 print:border print:border-gray-300">
-          <h3 className="text-lg text-foreground">Informasi Norma & Provenance</h3>
+          <AccessibleHeading variant="subsection" className="text-foreground">
+            Informasi Norma & Provenance
+          </AccessibleHeading>
           <div className="grid sm:grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Kelompok Norm</p>
@@ -693,7 +744,9 @@ export const ReportPage: React.FC = () => {
 
         {notes && (
           <div className="material-thin rounded-xl p-6 space-y-3 print:border print:border-gray-300">
-            <h3 className="text-lg text-foreground">Catatan Interpretasi</h3>
+            <AccessibleHeading variant="subsection" className="text-foreground">
+              Catatan Interpretasi
+            </AccessibleHeading>
             <ul className="space-y-2 text-sm text-muted-foreground">
               {notes.interpretation_summary && <li>{notes.interpretation_summary}</li>}
               {notes.psychometric_terms && <li>{notes.psychometric_terms}</li>}

@@ -1,9 +1,9 @@
 /**
  * KLSI 4.0 - MediatorDashboardPage
  * Task 52, 55: Dashboard untuk mediator mengelola teams
- * 
+ *
  * Implementasi sesuai Guidelines.md:
- * - Glass-regular untuk navigation
+ * - GlassPanel untuk navigation
  * - Material-regular untuk content cards
  * - Grid layout responsive
  * - React Query untuk data fetching
@@ -28,6 +28,8 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useTelemetry } from '../hooks/useTelemetry';
+import { AccessibleHeading } from '../components/ui/AccessibleHeading';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 export const MediatorDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,15 +40,12 @@ export const MediatorDashboardPage: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Create team modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamDescription, setNewTeamDescription] = useState('');
 
-  // Task Phase 6: Guide modal for educator onboarding
   const [showGuideModal, setShowGuideModal] = useState(false);
 
-  // Task 52: Fetch teams with React Query
   const {
     data: teams = [],
     isLoading,
@@ -54,33 +53,28 @@ export const MediatorDashboardPage: React.FC = () => {
   } = useQuery<Team[], Error>({
     queryKey: ['teams'],
     queryFn: getTeams,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 
-  // Task 55: Create team mutation
   const createTeamMutation = useMutation({
     mutationFn: createTeam,
     onSuccess: () => {
-      // Invalidate and refetch teams
       queryClient.invalidateQueries({ queryKey: ['teams'] });
-      
-      // Show success toast
       toast.success('Tim berhasil dibuat!');
-      
-      // Reset form
       setNewTeamName('');
       setNewTeamDescription('');
       setShowCreateModal(false);
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Gagal membuat tim');
+    onError: (err: Error) => {
+      toast.error(err.message || 'Gagal membuat tim');
     },
   });
 
-  // Create team handler
-  const handleCreateTeam = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTeamName.trim()) return;
+  const handleCreateTeam = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newTeamName.trim()) {
+      return;
+    }
 
     createTeamMutation.mutate({
       name: newTeamName.trim(),
@@ -88,7 +82,6 @@ export const MediatorDashboardPage: React.FC = () => {
     });
   };
 
-  // Filter teams
   const filteredTeams = teams.filter((team) =>
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     team.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -98,21 +91,25 @@ export const MediatorDashboardPage: React.FC = () => {
     trackPageView(location.pathname, 'Mediator Dashboard');
   }, [location.pathname, trackPageView]);
 
-  // Loading state
   if (isLoading) {
     return <LoadingComponent message="Memuat tim..." />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-      {/* Header - Glass Material */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-7xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate('/')}
                 className="inline-flex items-center gap-2 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                aria-label="Kembali ke beranda"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Beranda
@@ -120,11 +117,12 @@ export const MediatorDashboardPage: React.FC = () => {
               <div className="hidden sm:block h-6 w-px bg-border" />
               <div className="hidden sm:flex items-center gap-2">
                 <Users className="h-5 w-5 text-muted-foreground" />
-                <h1 className="text-lg text-foreground">Kelola Tim</h1>
+                <AccessibleHeading variant="subsection" className="text-foreground">
+                  Kelola Tim
+                </AccessibleHeading>
               </div>
             </div>
 
-            {/* Create Team Button */}
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -134,25 +132,24 @@ export const MediatorDashboardPage: React.FC = () => {
             </button>
           </div>
         </div>
-      </header>
+      </GlassPanel>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-7xl p-6 space-y-6">
-        {/* Page Header */}
         <div className="space-y-2">
-          <h1 className="text-3xl text-foreground">Dashboard Mediator</h1>
+          <AccessibleHeading variant="page" className="text-foreground">
+            Dashboard Mediator
+          </AccessibleHeading>
           <p className="text-muted-foreground">
             Kelola tim dan lihat analisis agregat gaya belajar
           </p>
         </div>
 
-        {/* User Info Banner */}
         {user?.role === 'MEDIATOR' && (
           <div className="material-thin rounded-xl p-4 border-l-4 border-l-chart-4">
             <div className="flex items-start justify-between gap-4">
               <p className="text-sm text-muted-foreground flex-1">
-                <strong className="text-foreground">Selamat datang, {user.name}!</strong>
-                {' '}Sebagai mediator, Anda dapat membuat tim, mengelola anggota, dan melihat analisis gaya belajar tim.
+                <strong className="text-foreground">Selamat datang, {user.name}!</strong>{' '}
+                Sebagai mediator, Anda dapat membuat tim, mengelola anggota, dan melihat analisis gaya belajar tim.
               </p>
               <button
                 onClick={() => setShowGuideModal(true)}
@@ -166,20 +163,20 @@ export const MediatorDashboardPage: React.FC = () => {
           </div>
         )}
 
-        {/* Error State */}
         {error && (
           <div className="material-regular rounded-xl p-6 bg-destructive/10 border border-destructive/20">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-foreground mb-1">Error</h3>
+                <AccessibleHeading variant="subsection" className="text-foreground mb-1">
+                  Error
+                </AccessibleHeading>
                 <p className="text-sm text-muted-foreground">{error.message}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Search Bar */}
         {teams.length > 0 && (
           <div className="material-regular rounded-xl p-4">
             <div className="relative">
@@ -195,7 +192,6 @@ export const MediatorDashboardPage: React.FC = () => {
           </div>
         )}
 
-        {/* Teams Grid */}
         {filteredTeams.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTeams.map((team) => (
@@ -209,7 +205,9 @@ export const MediatorDashboardPage: React.FC = () => {
         ) : teams.length > 0 ? (
           <div className="material-regular rounded-xl p-12 text-center">
             <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl text-foreground mb-2">Tidak Ada Hasil</h3>
+            <AccessibleHeading variant="subsection" className="text-foreground mb-2">
+              Tidak Ada Hasil
+            </AccessibleHeading>
             <p className="text-muted-foreground">
               Tidak ada tim yang cocok dengan pencarian "{searchQuery}"
             </p>
@@ -217,7 +215,9 @@ export const MediatorDashboardPage: React.FC = () => {
         ) : (
           <div className="material-regular rounded-xl p-12 text-center">
             <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl text-foreground mb-2">Belum Ada Tim</h3>
+            <AccessibleHeading variant="subsection" className="text-foreground mb-2">
+              Belum Ada Tim
+            </AccessibleHeading>
             <p className="text-muted-foreground mb-6">
               Buat tim pertama Anda untuk mulai mengelola gaya belajar kelompok
             </p>
@@ -232,19 +232,24 @@ export const MediatorDashboardPage: React.FC = () => {
         )}
       </main>
 
-      {/* Create Team Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-regular rounded-xl p-8 max-w-md w-full space-y-6">
+          <GlassPanel
+            as="section"
+            material="functional"
+            density="spacious"
+            className="w-full max-w-md space-y-6"
+          >
             <div className="space-y-2">
-              <h2 className="text-2xl text-foreground">Buat Tim Baru</h2>
+              <AccessibleHeading variant="section" className="text-foreground">
+                Buat Tim Baru
+              </AccessibleHeading>
               <p className="text-sm text-muted-foreground">
                 Masukkan informasi tim untuk membuat grup pembelajaran baru
               </p>
             </div>
 
             <form onSubmit={handleCreateTeam} className="space-y-4">
-              {/* Team Name */}
               <div className="space-y-2">
                 <label htmlFor="teamName" className="block text-foreground">
                   Nama Tim
@@ -260,7 +265,6 @@ export const MediatorDashboardPage: React.FC = () => {
                 />
               </div>
 
-              {/* Team Description */}
               <div className="space-y-2">
                 <label htmlFor="teamDescription" className="block text-foreground">
                   Deskripsi (Opsional)
@@ -275,7 +279,6 @@ export const MediatorDashboardPage: React.FC = () => {
                 />
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="button"
@@ -298,11 +301,10 @@ export const MediatorDashboardPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
+          </GlassPanel>
         </div>
       )}
 
-      {/* Guide Modal */}
       <GuideModal
         guideId={GUIDE_IDS.MEDIATOR_ONBOARDING}
         title="Panduan Mediator"

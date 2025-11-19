@@ -35,6 +35,7 @@ import {
   X,
   ShieldAlert,
 } from 'lucide-react';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 export const ResearchDetailPage: React.FC = () => {
   const navigate = useNavigate();
@@ -111,7 +112,12 @@ export const ResearchDetailPage: React.FC = () => {
   if (detailError && !studyDetail) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="glass-regular rounded-xl p-8 max-w-md text-center space-y-4">
+        <GlassPanel
+          as="section"
+          material="content"
+          density="spacious"
+          className="max-w-md w-full text-center space-y-4"
+        >
           <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
           <h2 className="text-2xl text-foreground">Error</h2>
           <p className="text-muted-foreground">
@@ -123,7 +129,7 @@ export const ResearchDetailPage: React.FC = () => {
           >
             Kembali ke Daftar Studi
           </button>
-        </div>
+        </GlassPanel>
       </div>
     );
   }
@@ -149,9 +155,13 @@ export const ResearchDetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-      {/* Header - Glass Material */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-7xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -170,7 +180,6 @@ export const ResearchDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Export Button */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -196,7 +205,7 @@ export const ResearchDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-6 space-y-8">

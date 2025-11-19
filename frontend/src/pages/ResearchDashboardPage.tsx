@@ -29,6 +29,8 @@ import {
   Search,
   Filter,
 } from 'lucide-react';
+import { AccessibleHeading } from '../components/ui/AccessibleHeading';
+import { GlassPanel } from '../components/ui/GlassPanel';
 
 export const ResearchDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -109,9 +111,13 @@ export const ResearchDashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-      {/* Header - Glass Material */}
-      <header className="glass-regular sticky top-0 z-50 border-b border-border">
-        <div className="mx-auto max-w-7xl p-4">
+      <GlassPanel
+        as="header"
+        material="functional"
+        density="compact"
+        className="sticky top-0 z-50 border-b border-border"
+      >
+        <div className="mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -124,11 +130,12 @@ export const ResearchDashboardPage: React.FC = () => {
               <div className="hidden sm:block h-6 w-px bg-border" />
               <div className="hidden sm:flex items-center gap-2">
                 <FileText className="h-5 w-5 text-muted-foreground" />
-                <h1 className="text-lg text-foreground">Kelola Penelitian</h1>
+                <AccessibleHeading variant="subsection" className="text-foreground">
+                  Kelola Penelitian
+                </AccessibleHeading>
               </div>
             </div>
 
-            {/* Create Study Button */}
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -138,13 +145,15 @@ export const ResearchDashboardPage: React.FC = () => {
             </button>
           </div>
         </div>
-      </header>
+      </GlassPanel>
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-6 space-y-6">
         {/* Page Header */}
         <div className="space-y-2">
-          <h1 className="text-3xl text-foreground">Dashboard Penelitian</h1>
+          <AccessibleHeading variant="page" className="text-foreground">
+            Dashboard Penelitian
+          </AccessibleHeading>
           <p className="text-muted-foreground">
             Kelola studi penelitian, kumpulkan data, dan ekspor hasil analisis
           </p>
@@ -169,7 +178,9 @@ export const ResearchDashboardPage: React.FC = () => {
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-foreground mb-1">Error</h3>
+                <AccessibleHeading variant="subsection" className="text-foreground mb-1">
+                  Error
+                </AccessibleHeading>
                 <p className="text-sm text-muted-foreground">{error.message}</p>
               </div>
             </div>
@@ -236,7 +247,9 @@ export const ResearchDashboardPage: React.FC = () => {
         ) : studies.length > 0 ? (
           <div className="material-regular rounded-xl p-12 text-center">
             <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl text-foreground mb-2">Tidak Ada Hasil</h3>
+            <AccessibleHeading variant="subsection" className="text-foreground mb-2">
+              Tidak Ada Hasil
+            </AccessibleHeading>
             <p className="text-muted-foreground">
               Tidak ada studi yang cocok dengan filter "{searchQuery}"
             </p>
@@ -244,9 +257,9 @@ export const ResearchDashboardPage: React.FC = () => {
         ) : (
           <div className="material-regular rounded-xl p-12 text-center">
             <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl text-foreground mb-2">
+            <AccessibleHeading variant="subsection" className="text-foreground mb-2">
               Belum Ada Studi Penelitian
-            </h3>
+            </AccessibleHeading>
             <p className="text-muted-foreground mb-6">
               Buat studi pertama Anda untuk mulai mengumpulkan data penelitian
             </p>
@@ -264,9 +277,16 @@ export const ResearchDashboardPage: React.FC = () => {
       {/* Create Study Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-regular rounded-xl p-8 max-w-md w-full space-y-6">
+          <GlassPanel
+            as="section"
+            material="functional"
+            density="spacious"
+            className="w-full max-w-md space-y-6"
+          >
             <div className="space-y-2">
-              <h2 className="text-2xl text-foreground">Buat Studi Baru</h2>
+              <AccessibleHeading variant="section" className="text-foreground">
+                Buat Studi Baru
+              </AccessibleHeading>
               <p className="text-sm text-muted-foreground">
                 Masukkan informasi studi penelitian untuk mulai mengumpulkan data
               </p>
@@ -370,7 +390,7 @@ export const ResearchDashboardPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
+          </GlassPanel>
         </div>
       )}
     </div>
