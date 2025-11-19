@@ -1,7 +1,6 @@
 import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from './config/api';
+import { QueryProvider } from './app/providers/QueryProvider';
 import { AuthProvider, type Role } from './contexts/AuthContext';
 import { UIPreferencesProvider } from './contexts/UIPreferencesContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -20,6 +19,7 @@ import { TeamDetailPage } from './pages/TeamDetailPage';
 import { ResearchDashboardPage } from './pages/ResearchDashboardPage';
 import { ResearchDetailPage } from './pages/ResearchDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { SceneController } from './scenes/SceneController';
 
 // Dev Tools (only in development)
 const AccessibilityTester = import.meta.env.DEV
@@ -71,7 +71,7 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+      <QueryProvider>
         <BrowserRouter>
           <UIPreferencesProvider>
             <AuthProvider>
@@ -82,6 +82,9 @@ const App: React.FC = () => {
           {/* Public Routes */}
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
+          
+          {/* Experience Room Route */}
+          <Route path="/experience" element={<SceneController />} />
 
           {/* Protected Routes */}
           <Route path="/" element={withProtection(<HomePage />)} />
@@ -198,7 +201,7 @@ const App: React.FC = () => {
             </AuthProvider>
           </UIPreferencesProvider>
         </BrowserRouter>
-      </QueryClientProvider>
+      </QueryProvider>
     </ErrorBoundary>
   );
 };
