@@ -141,5 +141,11 @@
     "balance_definition": "Definisi BAL",
     "interpretation_summary": "Ringkasan interpretasi"
   },
+  "owner": {
+    "id": 42,
+    "name": "Alya N.",
+    "email": "alya@example.com"
+  },
+  "share_context": null,
   "responsible_use_notice": "Laporan ini bersifat formatif dan tidak menggantikan penilaian profesional."
 }

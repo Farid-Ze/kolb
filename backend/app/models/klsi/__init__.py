@@ -23,6 +23,7 @@ from .learning import (
     UserLearningStyle,
 )
 from .norms import NormativeConversionTable, NormativeStatistics, PercentileScore
+from .report_share import ReportShareLink
 from .research import ReliabilityResult, ResearchStudy, ValidityEvidence
 from .team import Team, TeamAssessmentRollup, TeamMember
 from .user import User
@@ -62,4 +63,5 @@ __all__ = [
     "ResearchStudy",
     "ReliabilityResult",
     "ValidityEvidence",
+    "ReportShareLink",
 ]

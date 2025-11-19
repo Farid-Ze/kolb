@@ -13,7 +13,9 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useReport } from '../hooks/useReport';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useReport, useSharedReport } from '../hooks/useReport';
 import { useSessionGuard } from '../hooks/useSessionGuard';
 import { LearningStyleChart } from '../components/report/LearningStyleChart';
 import { FlexibilityChart } from '../components/report/FlexibilityChart';
@@ -35,25 +37,42 @@ import {
   ListChecks,
   Sparkles,
   Lock,
+  Share2,
+  Copy,
+  CheckCircle2,
+  Info,
+  UserRound,
 } from 'lucide-react';
 
-import { getReportById } from '../services/reportService';
+import { createReportShare, getReportById } from '../services/reportService';
 import {
   NonDiagnosticNotice,
   ResponsibleUseFooter,
 } from '../components/report/NonDiagnosticNotice';
 import { useTelemetry } from '../hooks/useTelemetry';
+import { ModalLayer } from '../components/ui/ModalLayer';
+import type { CreateReportShareResponse } from '../types/api';
 
 export const ReportPage: React.FC = () => {
   const navigate = useNavigate();
-  const params = useParams<{ sessionId?: string; reportId?: string }>();
-  const sessionIdentifier = params.sessionId ?? params.reportId;
-  const guardRequired = Boolean(params.sessionId);
+  const params = useParams<{ sessionId?: string; reportId?: string; shareToken?: string }>();
+  const shareToken = params.shareToken;
+  const isSharedView = Boolean(shareToken);
+  const sessionIdentifier = shareToken ?? params.sessionId ?? params.reportId;
+  const guardRequired = Boolean(params.sessionId) && !isSharedView;
   const sessionAccess = useSessionGuard(params.sessionId ?? null, {
     enforce: guardRequired,
   });
   const canFetchReport = Boolean(sessionIdentifier) && (!guardRequired || sessionAccess.hasAccess);
   const [showGuideModal, setShowGuideModal] = React.useState(false); // Task 8.9: Guide modal state
+  const [showShareModal, setShowShareModal] = React.useState(false);
+  const [shareForm, setShareForm] = React.useState({
+    mediator_email: '',
+    expires_in_hours: 72,
+    note: '',
+  });
+  const [latestShare, setLatestShare] = React.useState<CreateReportShareResponse | null>(null);
+  const [copySuccess, setCopySuccess] = React.useState(false);
   const { user } = useAuth();
   const location = useLocation();
   const { trackPageView } = useTelemetry();
@@ -64,18 +83,21 @@ export const ReportPage: React.FC = () => {
     }
   }, [location.pathname, sessionIdentifier, trackPageView]);
 
-  // Task 6.9-6.10: Use dedicated useReport hook (SSOT pattern)
-  const { data: report, isLoading, error, isRefetching } = useReport(
-    sessionIdentifier,
-    {
-      enablePolling: true,
-      stopPollingWhen: (data) => Boolean(data?.raw || data?.style || data?.percentiles),
-      fetcher: params.reportId ? getReportById : undefined,
-      pollingInterval: 1000,
-      retry: false,
-      enabled: canFetchReport,
-    }
-  );
+  const reportQuery = isSharedView
+    ? useSharedReport(sessionIdentifier, {
+        retry: false,
+        enabled: canFetchReport,
+      })
+    : useReport(sessionIdentifier, {
+        enablePolling: true,
+        stopPollingWhen: (data) => Boolean(data?.raw || data?.style || data?.percentiles),
+        fetcher: params.reportId ? getReportById : undefined,
+        pollingInterval: 1000,
+        retry: false,
+        enabled: canFetchReport,
+      });
+
+  const { data: report, isLoading, error, isRefetching } = reportQuery;
 
   const friendlyErrorMessage = React.useMemo(() => {
     if (!error) {
@@ -91,6 +113,96 @@ export const ReportPage: React.FC = () => {
       ? 'Laporan tidak ditemukan'
       : baseMessage;
   }, [error]);
+
+  const shareMutation = useMutation({
+    mutationFn: async (payload: {
+      mediator_email: string;
+      expires_in_hours?: number;
+      note?: string;
+    }) => {
+      if (!report) {
+        throw new Error('Laporan belum siap untuk dibagikan');
+      }
+      return createReportShare(report.session_id, payload);
+    },
+    onSuccess: (response) => {
+      setLatestShare(response);
+      setCopySuccess(false);
+      toast.success('Tautan aman siap dibagikan ke mediator');
+    },
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : 'Gagal membuat tautan';
+      toast.error(message);
+    },
+  });
+
+  const resetShareState = () => {
+    setLatestShare(null);
+    setCopySuccess(false);
+    setShareForm({
+      mediator_email: '',
+      expires_in_hours: 72,
+      note: '',
+    });
+  };
+
+  const openShareModal = () => {
+    resetShareState();
+    setShowShareModal(true);
+  };
+
+  const closeShareModal = () => {
+    setShowShareModal(false);
+  };
+
+  const handleShareSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const email = shareForm.mediator_email.trim();
+    if (!email) {
+      toast.error('Email mediator wajib diisi');
+      return;
+    }
+    const expires = Number(shareForm.expires_in_hours);
+    const payload = {
+      mediator_email: email,
+      expires_in_hours: Number.isFinite(expires) && expires > 0 ? expires : undefined,
+      note: shareForm.note?.trim() ? shareForm.note.trim() : undefined,
+    };
+    shareMutation.mutate(payload);
+  };
+
+  const shareLink = latestShare
+    ? `${window.location.origin}/reports/shared/${latestShare.share_token}`
+    : '';
+
+  const handleCopyShareLink = async () => {
+    if (!shareLink) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopySuccess(true);
+      toast.success('Tautan berhasil disalin');
+      setTimeout(() => setCopySuccess(false), 2400);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Clipboard tidak tersedia';
+      toast.error(message);
+    }
+  };
+
+  const formatSharedDate = (value?: string | null) => {
+    if (!value) {
+      return '-';
+    }
+    try {
+      return new Intl.DateTimeFormat('id-ID', {
+        dateStyle: 'long',
+        timeStyle: 'short',
+      }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  };
 
   // Print functionality (Task 49)
   const handlePrint = () => {
@@ -211,8 +323,15 @@ export const ReportPage: React.FC = () => {
   const developmentBlock = learningSpace?.development ?? null;
   const suggestions = suggestionsBlock?.items ?? [];
   const metaLearning = metaLearningBlock?.items ?? [];
+  const ownerBlock = report.owner;
+  const ownerDisplay = ownerBlock?.name ?? ownerBlock?.email ?? 'Peserta';
+  const isOwner = Boolean(ownerBlock?.id && user?.id && String(ownerBlock.id) === String(user.id));
+  const canShare = !isSharedView && user?.role === 'STUDENT' && isOwner;
+  const shareContext = report.share_context ?? null;
+  const shareExpiryLabel = shareContext ? formatSharedDate(shareContext.expires_at) : null;
   const isMediator = user?.role === 'MEDIATOR';
   const showEnhancedAnalytics = isMediator && Boolean(report.enhanced_analytics);
+  const nonDiagNoticeClass = `print:border print:border-gray-300 ${isSharedView ? 'ring-2 ring-chart-3/60 shadow-lg' : ''}`.trim();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background print:bg-white">
@@ -240,6 +359,16 @@ export const ReportPage: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
+              {canShare && (
+                <button
+                  onClick={openShareModal}
+                  className="inline-flex items-center gap-2 rounded-lg bg-accent text-accent-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Bagikan laporan untuk mediator"
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bagikan</span>
+                </button>
+              )}
               <button
                 onClick={handleDownload}
                 className="inline-flex items-center gap-2 rounded-lg bg-secondary text-secondary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -293,14 +422,52 @@ export const ReportPage: React.FC = () => {
               <ListChecks className="h-4 w-4" />
               <span>Norm: {normGroupLabel}</span>
             </div>
+            {ownerBlock && (
+              <div className="inline-flex items-center gap-2">
+                <UserRound className="h-4 w-4" />
+                <span>Peserta: {ownerDisplay}</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* NonDiagnosticNotice (Task 53 - Responsible Use) */}
         <NonDiagnosticNotice
-          className="print:border print:border-gray-300"
+          className={nonDiagNoticeClass}
           message={responsibleUseNotice}
         />
+
+        {shareContext && (
+          <div className="material-regular rounded-xl border border-chart-3/40 p-6 space-y-4 print:hidden">
+            <div className="flex items-center gap-3 text-chart-3">
+              <Info className="h-5 w-5" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Tautan Khusus Mediator</p>
+                <p className="text-sm text-muted-foreground">
+                  Laporan ini dibagikan oleh {shareContext.owner_name ?? shareContext.owner_email ?? 'peserta'} untuk mediator {shareContext.mediator_name ?? shareContext.mediator_email}. Jangan meneruskan tautan ini.
+                </p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Pemilik Laporan</p>
+                <p className="text-foreground font-medium">{shareContext.owner_name ?? shareContext.owner_email ?? 'Peserta'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Mediator</p>
+                <p className="text-foreground font-medium">{shareContext.mediator_name ?? shareContext.mediator_email}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Berlaku Sampai</p>
+                <p className="text-foreground font-medium">{shareExpiryLabel ?? '-'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Catatan</p>
+                <p className="text-foreground font-medium">{shareContext.note ?? 'Tidak ada catatan tambahan'}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Learning Style Classification (Task 46, 50) - Guidelines §8.4.1 */}
         <div className="grid lg:grid-cols-2 gap-8">
@@ -554,6 +721,136 @@ export const ReportPage: React.FC = () => {
         onClose={() => setShowGuideModal(false)}
         context="report_page"
       />
+
+      <ModalLayer
+        isOpen={showShareModal}
+        onClose={closeShareModal}
+        title="Bagikan Laporan ke Mediator"
+        size="lg"
+      >
+        <form className="space-y-5" onSubmit={handleShareSubmit}>
+          <div>
+            <label className="text-sm font-medium text-foreground" htmlFor="mediator-email">
+              Email mediator <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="mediator-email"
+              type="email"
+              required
+              className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="mediator@kampus.ac.id"
+              value={shareForm.mediator_email}
+              onChange={(event) =>
+                setShareForm((prev) => ({
+                  ...prev,
+                  mediator_email: event.target.value,
+                }))
+              }
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Tautan hanya dapat dibuka oleh akun mediator yang email-nya cocok.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground" htmlFor="share-expiry">
+                Masa berlaku (jam)
+              </label>
+              <input
+                id="share-expiry"
+                type="number"
+                min={1}
+                max={168}
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={shareForm.expires_in_hours}
+                onChange={(event) =>
+                  setShareForm((prev) => ({
+                    ...prev,
+                    expires_in_hours: Number(event.target.value),
+                  }))
+                }
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Maksimal 168 jam (7 hari). Default 72 jam.
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="share-note">
+                Catatan untuk mediator (opsional)
+              </label>
+              <textarea
+                id="share-note"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-[110px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Tambahkan konteks pembelajaran atau instruksi singkat"
+                value={shareForm.note}
+                onChange={(event) =>
+                  setShareForm((prev) => ({
+                    ...prev,
+                    note: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex-1 text-xs text-muted-foreground">
+              Laporan KLSI tetap bersifat formatif; pastikan interpretasi dilakukan bersama mediator atau fasilitator terlatih.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={closeShareModal}
+                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                disabled={shareMutation.isPending}
+              >
+                {shareMutation.isPending ? 'Membuat...' : 'Buat Tautan Aman'}
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {latestShare && (
+          <div className="mt-6 space-y-3 border-t border-border/60 pt-6">
+            <p className="text-sm text-foreground font-medium">Tautan siap dibagikan</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                readOnly
+                className="flex-1 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-foreground"
+                value={shareLink}
+              />
+              <button
+                type="button"
+                onClick={handleCopyShareLink}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm text-secondary-foreground transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {copySuccess ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Disalin
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Salin
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tautan hanya dapat diakses oleh {latestShare.mediator_email}. Kami mencatat setiap akses sebagai audit trail.
+            </p>
+          </div>
+        )}
+      </ModalLayer>
     </div>
   );
 };

@@ -18,6 +18,12 @@ const clone = <T,>(payload: T): T => JSON.parse(JSON.stringify(payload));
 
 const normalizeReportPayload = (report: Report): Report => {
   const normalized = report;
+  if (!('owner' in normalized)) {
+    normalized.owner = null;
+  }
+  if (!('share_context' in normalized)) {
+    normalized.share_context = null;
+  }
   const styleBlock = normalized.style as Report['style'];
   if (styleBlock) {
     const detailValue = styleBlock.primary_detail as unknown;
@@ -49,4 +55,6 @@ export const buildMinimalReport = (): Report => ({
   notes: null,
   enhanced_analytics: null,
   responsible_use_notice: RAW_SAMPLE.responsible_use_notice ?? RESPONSIBLE_FALLBACK,
+  owner: null,
+  share_context: null,
 });

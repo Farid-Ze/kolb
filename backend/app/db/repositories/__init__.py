@@ -14,6 +14,7 @@ from app.db.repositories.research import (
     ValidityRepository,
 )
 from app.db.repositories.user import UserRepository
+from app.db.repositories.report_share import ReportShareRepository
 from app.db.repositories.assessment import (
     AssessmentItemRepository,
     UserResponseRepository,
@@ -40,6 +41,7 @@ __all__ = [
     "ReliabilityRepository",
     "ValidityRepository",
     "UserRepository",
+    "ReportShareRepository",
     "AssessmentItemRepository",
     "UserResponseRepository",
     "LFIContextRepository",

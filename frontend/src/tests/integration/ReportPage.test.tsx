@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ReportPage } from '../../pages/ReportPage';
 import { AuthProvider } from '../../contexts/AuthContext';
+import { UIPreferencesProvider } from '../../contexts/UIPreferencesContext';
 import type { Report } from '../../types/api';
 import { getSampleReport, buildMinimalReport } from '../fixtures/reportSample';
 
@@ -31,9 +32,13 @@ const buildFullReport = (): Report => getSampleReport();
 // ---------------------------------------------------------------------------
 vi.mock('../../services/reportService', () => {
   const getReport = vi.fn();
+  const getSharedReport = vi.fn();
+  const createReportShare = vi.fn();
   return {
     getReport,
     getReportById: getReport,
+    getSharedReport,
+    createReportShare,
   };
 });
 
@@ -83,11 +88,13 @@ const renderWithProviders = (reportId: string = '1') => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/report/${reportId}`]}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/report/:reportId" element={<ReportPage />} />
-          </Routes>
-        </AuthProvider>
+        <UIPreferencesProvider>
+          <AuthProvider>
+            <Routes>
+              <Route path="/report/:reportId" element={<ReportPage />} />
+            </Routes>
+          </AuthProvider>
+        </UIPreferencesProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );

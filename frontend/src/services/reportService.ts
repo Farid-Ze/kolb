@@ -8,7 +8,11 @@
 
 import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
-import type { Report } from '../types/api';
+import type {
+  CreateReportShareRequest,
+  CreateReportShareResponse,
+  Report,
+} from '../types/api';
 
 /**
  * Task 37: Get report for a session (backend: GET /reports/{session_id})
@@ -36,6 +40,31 @@ export const getReportById = async (reportId: string | number): Promise<Report> 
 export const getSelfReports = async (): Promise<Report[]> => {
   return authenticatedApiCall<Report[]>(
     getApiUrl('/reports/self'),
+    {
+      method: 'GET',
+    }
+  );
+};
+
+export const createReportShare = async (
+  sessionId: string | number,
+  payload: CreateReportShareRequest
+): Promise<CreateReportShareResponse> => {
+  return authenticatedApiCall<CreateReportShareResponse>(
+    getApiUrl(`/reports/${sessionId}/share`),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+};
+
+export const getSharedReport = async (token: string): Promise<Report> => {
+  return authenticatedApiCall<Report>(
+    getApiUrl(`/reports/shared/${token}`),
     {
       method: 'GET',
     }

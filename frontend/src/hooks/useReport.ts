@@ -10,7 +10,7 @@ import {
   type UseQueryOptions,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { getReport } from '../services/reportService';
+import { getReport, getSharedReport } from '../services/reportService';
 import type { Report } from '../types/api';
 
 type RefetchContext = {
@@ -74,6 +74,46 @@ export function useReport(
     staleTime: enablePolling ? 0 : 5 * 60 * 1000,
     retry,
     enabled: enabled ?? Boolean(sessionId),
+  };
+
+  if (enablePolling) {
+    queryOptions.refetchInterval = (query: RefetchContext) => {
+      const data = query.state.data;
+
+      if (stopPollingWhen && stopPollingWhen(data)) {
+        return false;
+      }
+
+      return pollingInterval;
+    };
+  }
+
+  return useQuery(queryOptions);
+}
+
+export function useSharedReport(
+  shareToken: string | undefined,
+  options: Omit<UseReportOptions, 'fetcher'> = {}
+): UseQueryResult<Report, Error> {
+  const {
+    enablePolling = false,
+    pollingInterval = 3000,
+    stopPollingWhen,
+    retry = 3,
+    enabled,
+  } = options;
+
+  const queryOptions: UseQueryOptions<Report, Error, Report, [string, string | undefined]> = {
+    queryKey: ['shared-report', shareToken],
+    queryFn: () => {
+      if (!shareToken) {
+        return Promise.reject(new Error('Share token tidak tersedia'));
+      }
+      return getSharedReport(shareToken);
+    },
+    staleTime: enablePolling ? 0 : 5 * 60 * 1000,
+    retry,
+    enabled: enabled ?? Boolean(shareToken),
   };
 
   if (enablePolling) {

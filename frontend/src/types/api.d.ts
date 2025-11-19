@@ -433,6 +433,23 @@ export interface ReportNotes {
   interpretation_summary?: string;
 }
 
+export interface ReportOwnerSummary {
+  id: number | string;
+  name?: string | null;
+  email?: string | null;
+}
+
+export interface ReportShareContext {
+  share_id: number;
+  session_id: number;
+  mediator_email: string;
+  mediator_name?: string | null;
+  owner_name?: string | null;
+  owner_email?: string | null;
+  expires_at: string;
+  note?: string | null;
+}
+
 export interface ContextStyleEntry {
   context: string;
   style: string;
@@ -494,6 +511,24 @@ export interface Report {
   notes: ReportNotes | null;
   enhanced_analytics: EnhancedAnalyticsPayload | null; // MEDIATOR-only
   responsible_use_notice?: string | null;
+  owner?: ReportOwnerSummary | null;
+  share_context?: ReportShareContext | null;
+}
+
+export interface CreateReportShareRequest {
+  mediator_email: string;
+  expires_in_hours?: number;
+  note?: string;
+}
+
+export interface CreateReportShareResponse {
+  share_id: number;
+  session_id: number;
+  mediator_email: string;
+  mediator_name?: string | null;
+  expires_at: string;
+  share_token: string;
+  note?: string | null;
 }
 
 // ============================================================================

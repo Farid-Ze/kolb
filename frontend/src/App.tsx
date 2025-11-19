@@ -113,6 +113,18 @@ const App: React.FC = () => {
           />
 
           <Route
+            path="/reports/:reportId"
+            element={withProtection(<ReportPage />)}
+          />
+
+          <Route
+            path="/reports/shared/:shareToken"
+            element={withProtection(<ReportPage />, {
+              allowedRoles: ['MEDIATOR'],
+            })}
+          />
+
+          <Route
             path="/teams"
             element={withProtection(<MediatorDashboardPage />, {
               allowedRoles: ['MEDIATOR'],

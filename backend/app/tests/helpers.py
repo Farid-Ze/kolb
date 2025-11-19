@@ -36,8 +36,11 @@ def seed_complete_session(
     *,
     assessment_id: str = "KLSI",
     assessment_version: str = "4.0",
+    user_email: str | None = None,
+    user_name: str = "Tester",
 ) -> AssessmentSession:
-    user = User(full_name="Tester", email="tester@example.com")
+    email = user_email or "tester@example.com"
+    user = User(full_name=user_name, email=email)
     db.add(user)
     db.flush()
 

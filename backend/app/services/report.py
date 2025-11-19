@@ -561,6 +561,14 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
         },
     }
 
+    owner_block = None
+    if s.user:
+        owner_block = {
+            "id": s.user.id,
+            "name": getattr(s.user, "full_name", None),
+            "email": getattr(s.user, "email", None),
+        }
+
     return {
         "session_id": session_id,
         "raw": {
@@ -612,4 +620,5 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "interpretation_summary": ReportNotesMessages.INTERPRETATION_SUMMARY,
         },
         "responsible_use_notice": ReportMessages.RESPONSIBLE_USE_NOTICE,
+        "owner": owner_block,
     }
