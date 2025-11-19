@@ -92,3 +92,28 @@ def test_transform_finalize_result_preserves_validation_sections():
         assert "MIXED_PROVENANCE" in payload["validation"].get("anomalies", [])
     finally:
         db.close()
+
+
+def test_validation_snapshot_includes_context_status():
+    db = build_seeded_memory_db()
+    try:
+        user = User(full_name="Snapshot User", email="snapshot@example.com")
+        db.add(user)
+        db.flush()
+
+        session = AssessmentSession(user_id=user.id, status=SessionStatus.started)
+        db.add(session)
+        db.flush()
+
+        service = EngineSessionService(db)
+        payload = _build_payload()
+        service._persist_batch_payload(session.id, payload)
+        db.commit()
+
+        snapshot = service.validation_snapshot(session.id, user)
+        contexts = snapshot["diagnostics"]["contexts"]
+        assert contexts["expected_total"] == len(CONTEXT_NAMES)
+        assert all(entry["present"] for entry in contexts["status"])
+        assert snapshot["ready"] is True
+    finally:
+        db.close()

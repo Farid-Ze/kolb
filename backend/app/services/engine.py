@@ -16,7 +16,7 @@ from app.db.repositories.sessions import SessionRepository
 from app.engine.runtime import runtime
 from app.models.klsi.enums import SessionStatus
 from app.schemas.session import SessionSubmissionPayload
-from app.services.validation import validate_full_submission_payload
+from app.services.validation import run_session_validations, validate_full_submission_payload
 from app.i18n.id_messages import SessionErrorMessages
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -93,7 +93,9 @@ class EngineSessionService:
         runtime.submit_payload(self.db, session_id, payload)
 
     def finalize_session(self, session_id: int, user: "User") -> Dict[str, Any]:
-        self._load_authorized_session(session_id, user)
+        session = self._load_authorized_session(session_id, user)
+        if session.status == SessionStatus.completed:
+            raise SessionFinalizedError(SessionErrorMessages.ALREADY_COMPLETED)
         result = runtime.finalize_with_audit(
             self.db,
             session_id,
@@ -137,6 +139,12 @@ class EngineSessionService:
         """Expose access guard for routers needing pre-flight checks."""
 
         self._load_authorized_session(session_id, user)
+
+    def validation_snapshot(self, session_id: int, user: "User") -> Dict[str, Any]:
+        """Return validation diagnostics once access is confirmed."""
+
+        self._load_authorized_session(session_id, user)
+        return run_session_validations(self.db, session_id)
 
     def _load_authorized_session(
         self,

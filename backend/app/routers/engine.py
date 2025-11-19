@@ -202,6 +202,19 @@ def finalize_session(
     return {"ok": True, "result": result}
 
 
+@router.get("/sessions/{session_id}/validation", response_model=dict)
+def validation_snapshot(
+    session_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """Expose run_session_validations snapshot via engine router."""
+
+    user = get_current_user(authorization, db)
+    service = EngineSessionService(db)
+    return service.validation_snapshot(session_id, user)
+
+
 @router.get("/sessions/{session_id}/report", response_model=dict)
 def engine_report(
     session_id: int,

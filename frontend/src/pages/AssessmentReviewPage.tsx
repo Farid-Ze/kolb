@@ -9,12 +9,12 @@
  * - Material hierarchy dan spring animations
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAssessment } from '../hooks/useAssessment';
-import { finalizeSession } from '../services/sessionService';
+import { finalizeSession, getSessionValidation } from '../services/sessionService';
 import { queryClient } from '../config/api';
 import { Skeleton } from '../components/ui/skeleton';
 import { toast } from 'sonner';
@@ -38,6 +38,22 @@ import {
   AlertDialogTrigger,
 } from '../components/ui/alert-dialog';
 
+const LFI_CONTEXT_LABELS: Record<string, string> = {
+  Starting_Something_New: 'Memulai hal baru',
+  Influencing_Someone: 'Mempengaruhi seseorang',
+  Getting_To_Know_Someone: 'Mengenal seseorang',
+  Learning_In_A_Group: 'Belajar dalam kelompok',
+  Planning_Something: 'Merencanakan sesuatu',
+  Analyzing_Something: 'Menganalisis sesuatu',
+  Evaluating_An_Opportunity: 'Mengevaluasi peluang',
+  Choosing_Between_Alternatives: 'Memilih alternatif',
+};
+
+const LFI_CONTEXT_ORDER = Object.keys(LFI_CONTEXT_LABELS);
+
+const formatContextLabel = (contextName: string): string =>
+  LFI_CONTEXT_LABELS[contextName] || contextName.replace(/_/g, ' ');
+
 export const AssessmentReviewPage: React.FC = () => {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -55,6 +71,18 @@ export const AssessmentReviewPage: React.FC = () => {
     sessionId: sessionId!,
   });
 
+  const {
+    data: validationData,
+    isLoading: isValidationLoading,
+    isError: isValidationError,
+    refetch: refetchValidation,
+  } = useQuery({
+    queryKey: ['session-validation', sessionId],
+    queryFn: () => getSessionValidation(sessionId!),
+    enabled: Boolean(sessionId),
+    refetchOnWindowFocus: false,
+  });
+
   // Spring configuration (Guidelines.md Section 2.3.1)
   const springConfig = {
     type: "spring" as const,
@@ -69,6 +97,7 @@ export const AssessmentReviewPage: React.FC = () => {
       toast.success('Asesmen berhasil diselesaikan!');
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['session-validation', sessionId] });
       // Navigate to report
       navigate(`/reports/${data.session_id}`);
     },
@@ -83,6 +112,11 @@ export const AssessmentReviewPage: React.FC = () => {
       const completedCount = Math.floor(progress / 100 * totalItems);
       const unansweredCount = totalItems - completedCount;
       toast.error(`Masih ada ${unansweredCount} item yang belum dijawab lengkap`);
+      return;
+    }
+    if (hasMissingContexts) {
+      toast.error('Semua 8 konteks LFI harus diisi sebelum finalisasi.');
+      void refetchValidation();
       return;
     }
     setShowConfirmDialog(true);
@@ -126,6 +160,23 @@ export const AssessmentReviewPage: React.FC = () => {
     const ranks = Object.values(response.ranks);
     return ranks.length === 4 && new Set(ranks).size === 4;
   }).length;
+
+  const contextStatus = useMemo(() => {
+    const serverStatus = validationData?.diagnostics?.contexts?.status;
+    if (serverStatus && serverStatus.length > 0) {
+      return LFI_CONTEXT_ORDER.map((name) =>
+        serverStatus.find((entry) => entry.name === name) || { name, present: false }
+      );
+    }
+    return LFI_CONTEXT_ORDER.map((name) => ({ name, present: false }));
+  }, [validationData]);
+
+  const completedContexts = contextStatus.filter((context) => context.present).length;
+  const hasMissingContexts = contextStatus.some((context) => !context.present);
+  const missingContextNames: string[] = validationData?.diagnostics?.contexts?.missing_names || [];
+  const contextIssues = (validationData?.issues || []).filter((issue) =>
+    issue.code?.startsWith('LFI_CONTEXT')
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
@@ -236,6 +287,101 @@ export const AssessmentReviewPage: React.FC = () => {
               </span>
             </div>
           </div>
+        </motion.div>
+
+        {/* LFI Context Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springConfig}
+          className="material-regular rounded-xl p-6 space-y-6"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-foreground">Status Konteks LFI</h2>
+              <p className="text-muted-foreground text-sm">
+                8 konteks wajib untuk menghitung Learning Flexibility Index (LFI) secara valid.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <motion.div
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                transition={springConfig}
+                className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                  hasMissingContexts ? 'bg-chart-3/10 text-chart-3' : 'bg-chart-4/10 text-chart-4'
+                }`}
+              >
+                {isValidationLoading ? 'Memuat…' : `${completedContexts}/8 lengkap`}
+              </motion.div>
+              <motion.button
+                type="button"
+                onClick={() => refetchValidation()}
+                disabled={isValidationLoading}
+                className="rounded-lg border border-border/60 px-4 py-2 text-sm text-foreground disabled:opacity-50"
+                whileHover={!isValidationLoading ? { scale: 1.05 } : {}}
+                whileTap={!isValidationLoading ? { scale: 0.95 } : {}}
+                transition={springConfig}
+              >
+                Perbarui
+              </motion.button>
+            </div>
+          </div>
+
+          {isValidationError ? (
+            <div className="rounded-lg border border-chart-3/40 bg-chart-3/10 p-4 text-sm text-chart-3">
+              Gagal memuat status konteks. Coba perbarui kembali.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {contextStatus.map((context) => (
+                  <div
+                    key={context.name}
+                    className={`rounded-xl border p-4 flex items-center gap-3 ${
+                      context.present
+                        ? 'border-chart-4/40 bg-chart-4/10'
+                        : 'border-chart-3/40 bg-chart-3/10'
+                    }`}
+                  >
+                    {context.present ? (
+                      <CheckCircle2 className="h-5 w-5 text-chart-4" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-chart-3" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {formatContextLabel(context.name)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {context.present ? 'Lengkap' : 'Belum diisi'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {hasMissingContexts && (
+                <div className="rounded-lg border border-chart-3/40 bg-chart-3/10 p-4 text-sm text-chart-3 space-y-2">
+                  <p>
+                    Lengkapi konteks berikut agar sistem dapat menghitung fleksibilitas lintas konteks:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {missingContextNames.map((name) => (
+                      <span key={name} className="rounded-full bg-background/60 px-3 py-1 text-xs font-medium">
+                        {formatContextLabel(name)}
+                      </span>
+                    ))}
+                  </div>
+                  {contextIssues.map((issue) => (
+                    <p key={issue.code} className="text-xs">
+                      {issue.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </motion.div>
 
         {/* Items List - Task 32: Display read-only answers */}

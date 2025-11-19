@@ -219,6 +219,8 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
     sess = repo.get_for_user(session_id, user.id)
     if not sess or sess.user_id != user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
+    if sess.status == SessionStatus.completed:
+        raise HTTPException(status_code=409, detail=SessionErrorMessages.ALREADY_COMPLETED)
     # Explicit guard: require all 8 LFI contexts present before finalize,
     # even if engine validation would catch it. Gives clearer 400 with detail.
     validation_snapshot = run_session_validations(db, session_id)

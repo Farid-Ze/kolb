@@ -8,7 +8,7 @@
 
 import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
-import type { StartSessionResponse, Session } from '../types/api';
+import type { StartSessionResponse, Session, SessionValidationSnapshot } from '../types/api';
 
 /**
  * Task 22: Start new assessment session
@@ -74,6 +74,21 @@ export const finalizeSession = async (
     {
       method: 'POST',
       body: JSON.stringify({ confirm: true }),
+    }
+  );
+};
+
+/**
+ * Get validation snapshot (items + contexts) for a session
+ * GET /engine/sessions/:id/validation
+ */
+export const getSessionValidation = async (
+  sessionId: string
+): Promise<SessionValidationSnapshot> => {
+  return authenticatedApiCall<SessionValidationSnapshot>(
+    getApiUrl(`/engine/sessions/${sessionId}/validation`),
+    {
+      method: 'GET',
     }
   );
 };

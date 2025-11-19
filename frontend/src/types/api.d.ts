@@ -123,6 +123,54 @@ export interface FinalizeSessionResponse {
   message: string;
 }
 
+export interface SessionValidationIssue {
+  code: string;
+  message: string;
+  fatal: boolean;
+  item_ids?: number[];
+  details?: Record<string, any>;
+  contexts?: string[];
+}
+
+export interface SessionValidationContextStatus {
+  name: string;
+  present: boolean;
+}
+
+export interface SessionValidationContextsDiagnostics {
+  expected_total: number;
+  submitted_total: number;
+  submitted_names: string[];
+  status: SessionValidationContextStatus[];
+  missing_names: string[];
+  unknown_names: string[];
+  duplicate_names: string[];
+}
+
+export interface SessionValidationItemDiagnostics {
+  session_exists: boolean;
+  status: string | null;
+  total_items: number;
+  responded_items: number;
+  missing_item_ids: number[];
+  items_with_rank_conflict: number[];
+  items_with_missing_ranks: { item_id: number; present: number[]; missing: number[] }[];
+  duplicate_choice_ids: number[];
+  ready_to_complete: boolean;
+}
+
+export interface SessionValidationDiagnostics {
+  items: SessionValidationItemDiagnostics;
+  context_count?: number;
+  contexts?: SessionValidationContextsDiagnostics;
+}
+
+export interface SessionValidationSnapshot {
+  ready: boolean;
+  issues: SessionValidationIssue[];
+  diagnostics: SessionValidationDiagnostics;
+}
+
 // ============================================================================
 // REPORT TYPES
 // ============================================================================

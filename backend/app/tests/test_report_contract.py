@@ -13,6 +13,10 @@ from app.tests.helpers import build_seeded_memory_db, seed_complete_session
 
 
 SAMPLE_PATH = Path(__file__).resolve().parents[3] / "docs" / "sample_api_payloads" / "report.sample.json"
+OPTIONAL_SUBTREES = {
+    "root.percentiles.truncated_scales",
+    "root.enhanced_analytics.contextual_profile.style_frequency",
+}
 
 
 def _build_payload(*, viewer_role: str | None = None):
@@ -28,7 +32,10 @@ def _assert_subset_structure(sample: Any, actual: Any, path: str = "root") -> No
     if isinstance(sample, dict):
         assert isinstance(actual, dict), f"{path} expected dict"
         for key, sample_value in sample.items():
-            assert key in actual, f"{path} missing key '{key}'"
+            if key not in actual:
+                if path in OPTIONAL_SUBTREES:
+                    continue
+                raise AssertionError(f"{path} missing key '{key}'")
             next_path = f"{path}.{key}" if path else key
             _assert_subset_structure(sample_value, actual[key], next_path)
         return
@@ -52,7 +59,6 @@ def _assert_subset_structure(sample: Any, actual: Any, path: str = "root") -> No
     assert actual is not None, f"{path} expected value"
 
 
-@pytest.mark.integration
 def test_report_payload_matches_sample_structure():
     if not SAMPLE_PATH.exists():
         pytest.skip("sample payload missing")

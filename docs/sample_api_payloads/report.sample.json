@@ -96,9 +96,34 @@
     "contextual_profile": {
       "context_styles": [{"context": "Starting", "style": "Imagining"}],
       "flexibility_pattern": "moderate",
-      "style_frequency": {"Imagining": 3, "Thinking": 5, "Acting": 2}
+      "style_frequency": {"Imagining": 4, "Experiencing": 4},
+      "mode_usage": {
+        "CE": {"count": 2, "contexts": ["Influencing", "Analyzing"]},
+        "RO": {"count": 2, "contexts": ["GettingToKnow", "LearningInGroup"]},
+        "AC": {"count": 2, "contexts": ["Starting", "Planning"]},
+        "AE": {"count": 2, "contexts": ["Evaluating", "Choosing"]}
+      }
     },
-    "heatmap": [{"context": "Starting", "CE": 2, "RO": 3, "AC": 1, "AE": 4}],
+    "heatmap": {
+      "style_matrix": {
+        "Imagining": 4,
+        "Experiencing": 4,
+        "Initiating": 0,
+        "Reflecting": 0,
+        "Balancing": 0,
+        "Acting": 0,
+        "Analyzing": 0,
+        "Thinking": 0,
+        "Deciding": 0
+      },
+      "region_coverage": {
+        "Experiencing_quadrant": 8,
+        "Reflecting_quadrant": 0,
+        "Thinking_quadrant": 0,
+        "Acting_quadrant": 0
+      },
+      "lfi_percentile_band": "moderate"
+    },
     "integrative_development": {
       "predicted_score": 0.64,
       "interpretation": "Prediksi latihan integratif",

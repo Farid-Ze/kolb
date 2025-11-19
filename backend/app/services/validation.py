@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
@@ -152,6 +152,17 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
     # LFI context validations
     context_repo = LFIContextRepository(db)
     contexts = context_repo.list_for_session(session_id)
+    submitted_context_names = [ctx.context_name for ctx in contexts]
+    allowed_contexts = set(CONTEXT_NAMES)
+    unknown_context_names = sorted({name for name in submitted_context_names if name not in allowed_contexts})
+    context_status = [
+        {
+            "name": context_name,
+            "present": context_name in submitted_context_names,
+        }
+        for context_name in CONTEXT_NAMES
+    ]
+    missing_contexts = [name for name in CONTEXT_NAMES if name not in submitted_context_names]
     if len(contexts) != len(CONTEXT_NAMES):
         issues.append(
             {
@@ -163,8 +174,7 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
         )
     else:
         unique_names = {ctx.context_name for ctx in contexts}
-        allowed_names = set(CONTEXT_NAMES)
-        unknown = sorted(unique_names - allowed_names)
+        unknown = sorted(unique_names - allowed_contexts)
         if unknown:
             issues.append(
                 {
@@ -209,6 +219,15 @@ def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
         "diagnostics": {
             "items": core,
             "context_count": len(contexts),
+            "contexts": {
+                "expected_total": len(CONTEXT_NAMES),
+                "submitted_total": len(contexts),
+                "submitted_names": submitted_context_names,
+                "status": context_status,
+                "missing_names": missing_contexts,
+                "unknown_names": unknown_context_names,
+                "duplicate_names": [name for name, count in Counter(submitted_context_names).items() if count > 1],
+            },
         },
     }
 
