@@ -11,7 +11,7 @@
  * - React Query untuk data fetching
  */
 
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -36,12 +36,14 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { GlassPanel } from '../components/ui/GlassPanel';
+import { NonDiagnosticNotice } from '../components/report/NonDiagnosticNotice';
 
 export const ResearchDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { studyId } = useParams<{ studyId: string }>();
 
   const [isExporting, setIsExporting] = useState(false);
+  const noticeId = useId();
 
   // Filter state
   const [showFilters, setShowFilters] = useState(false);
@@ -233,6 +235,12 @@ export const ResearchDetailPage: React.FC = () => {
                     : 'Draft'}
                 </span>
               </div>
+
+              <NonDiagnosticNotice
+                id={noticeId}
+                variant="compact"
+                className="material-regular rounded-xl p-4"
+              />
               {studyDetail.description && (
                 <p className="text-muted-foreground">
                   {studyDetail.description}
@@ -378,7 +386,12 @@ export const ResearchDetailPage: React.FC = () => {
         )}
 
         {/* Statistics */}
-        <div className="material-regular rounded-xl p-6 space-y-4">
+        <div
+          className="material-regular rounded-xl p-6 space-y-4"
+          role="region"
+          aria-describedby={noticeId}
+          data-testid="study-stats-block"
+        >
           <div className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-muted-foreground" />
             <h3 className="text-lg text-foreground">Statistik Data</h3>
@@ -467,7 +480,12 @@ export const ResearchDetailPage: React.FC = () => {
         </div>
 
         {/* Data Preview - Task 73 */}
-        <div className="material-regular rounded-xl p-6 space-y-4">
+        <div
+          className="material-regular rounded-xl p-6 space-y-4"
+          role="region"
+          aria-describedby={noticeId}
+          data-testid="study-data-preview"
+        >
           <div className="flex items-center justify-between">
             <h3 className="text-lg text-foreground">Data Preview</h3>
             <span className="text-sm text-muted-foreground">

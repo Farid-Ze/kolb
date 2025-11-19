@@ -28,6 +28,7 @@ interface TeamRollupChartProps {
   dataPoints: TeamRollupDataPoint[];
   avgAcCe?: number;
   avgAeRo?: number;
+  ariaDescribedById?: string;
 }
 
 // Color mapping untuk learning styles
@@ -47,6 +48,7 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
   dataPoints,
   avgAcCe,
   avgAeRo,
+  ariaDescribedById,
 }) => {
   // Transform data for scatter plot
   const chartData = dataPoints.map((point) => ({
@@ -83,6 +85,8 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
         className="material-regular rounded-xl p-6"
         role="img"
         aria-label="Sebaran koordinat AC-CE dan AE-RO anggota tim"
+        aria-describedby={ariaDescribedById}
+        data-testid="team-rollup-analytics"
       >
         <ResponsiveContainer width="100%" height={500}>
           <ScatterChart

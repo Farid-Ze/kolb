@@ -43,7 +43,7 @@
 - [x] **Reduce Motion (Guidelines §2.5):** Audit semua komponen yang memakai spring/motion (`PrimaryButton`, `BottomToolbar`, `LayeredIcon`, `MorphingIcon`, `NotificationBadge`, `Spinner`, transisi halaman) agar membaca preferensi dari `useReduceMotion` + `UIPreferencesContext` dan selalu menyediakan fallback cross-fade/slide sederhana ketika reduce motion aktif; tambah test snapshot untuk kedua mode.
 - [x] **Reduce Transparency Fallback (Guidelines §8.5.3):** Pastikan semua glass components (`GlassPanel`, `TintedGlassButton`, `ModalLayer`, navigation bars) mengikuti pola `GlassPanel` saat preferensi reduce transparency aktif: `backdrop-filter: none`, mengganti blur dengan `bg-background border-border` opaque, dan lulus seluruh skenario di `frontend/src/tests/accessibility/reduceTransparency.test.tsx`.
 - [x] **Dynamic Type & Contrast (Guidelines §1.4.3, §3.4):** Integrasikan utilitas aksesibilitas (dynamic text size & contrast checks) pada header/section penting (Assessment pages, Report, Dashboards) dan uji bahwa pada ukuran teks terbesar tidak ada teks yang clipping atau overlap, serta warna foreground/background memenuhi rasio kontras 4.5:1 (teks normal) dan 3:1 (teks besar).
-- [ ] **Glass Hierarchy & Anti-Patterns (Guidelines §4.2–4.3, §8.5.1–8.5.2):** Audit pemakaian `GlassPanel` dan material lain untuk memastikan glass hanya digunakan di lapisan fungsional (nav bar, toolbar, modal/sheet), bukan sebagai background area konten; hindari glass-on-glass (popover di atas sidebar glass, sheet di atas tabbar glass), dan pastikan varian `clear` selalu digabung dengan `withDimming` sehingga teks di atasnya tetap memenuhi kontras WCAG.
+- [x] **Glass Hierarchy & Anti-Patterns (Guidelines §4.2–4.3, §8.5.1–8.5.2):** Audit pemakaian `GlassPanel` dan material lain untuk memastikan glass hanya digunakan di lapisan fungsional (nav bar, toolbar, modal/sheet), bukan sebagai background area konten; hindari glass-on-glass (popover di atas sidebar glass, sheet di atas tabbar glass), dan pastikan varian `clear` selalu digabung dengan `withDimming` sehingga teks di atasnya tetap memenuhi kontras WCAG.
 - [ ] **Keyboard-Only & Screen Reader Audit:** Tambah test aksesibilitas untuk halaman Assessment, Report, TeamDetail, ResearchDetail yang memverifikasi jalur fokus keyboard, `aria-label`/`aria-describedby` kritis, dan bahwa `NonDiagnosticNotice` dibaca secara berurutan oleh screen reader sebelum grafik atau panel analitik.
 
 ## F. Teams & Research: Data Flow & Visualization
@@ -68,3 +68,4 @@
 ---
 
 Ini adalah backlog full stack (backend ↔ frontend). Setiap poin sebaiknya dibuatkan ticket/issue terpisah dengan detail lebih lanjut dan dikaitkan dengan referensi dokumen di `docs/` dan/atau `tests/` yang relevan.
+

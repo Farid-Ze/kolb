@@ -9,7 +9,7 @@
  * - React Query untuk data fetching dan mutations
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useId } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { ShortLabel } from '../components/ui/DynamicType';
 import { GlassPanel } from '../components/ui/GlassPanel';
+import { NonDiagnosticNotice } from '../components/report/NonDiagnosticNotice';
 
 const LEGACY_STATUS_LABELS: Record<TeamRollupLegacyMemberStatus, string> = {
   missing_data: 'Belum Ada Data',
@@ -50,6 +51,7 @@ export const TeamDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { teamId } = useParams<{ teamId: string }>();
   const queryClient = useQueryClient();
+  const noticeId = useId();
 
   // Add member modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -354,18 +356,30 @@ export const TeamDetailPage: React.FC = () => {
           </div>
         </div>
 
+        <NonDiagnosticNotice
+          id={noticeId}
+          variant="compact"
+          className="material-regular rounded-xl p-4"
+        />
+
         {/* Team Rollup Chart (Task 68-70) */}
         {hasRollupData && (
           <TeamRollupChart
             dataPoints={normalizedDataPoints}
             avgAcCe={normalizedSummary.avg_ac_ce}
             avgAeRo={normalizedSummary.avg_ae_ro}
+            ariaDescribedById={noticeId}
           />
         )}
 
         {/* Team Statistics */}
         {teamRollup && (
-          <div className="material-regular rounded-xl p-6 space-y-4">
+          <div
+            className="material-regular rounded-xl p-6 space-y-4"
+            role="region"
+            aria-describedby={noticeId}
+            data-testid="team-stats-block"
+          >
             <div className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-muted-foreground" />
               <h3 className="text-lg text-foreground">Statistik Tim</h3>

@@ -11,7 +11,7 @@
  * - Responsible use notice
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useId } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -78,6 +78,7 @@ export const ReportPage: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
   const { trackPageView } = useTelemetry();
+  const nonDiagNoticeId = useId();
 
   useEffect(() => {
     if (sessionIdentifier) {
@@ -474,6 +475,7 @@ export const ReportPage: React.FC = () => {
 
         {/* NonDiagnosticNotice (Task 53 - Responsible Use) */}
         <NonDiagnosticNotice
+          id={nonDiagNoticeId}
           className={nonDiagNoticeClass}
           message={responsibleUseNotice}
         />
@@ -572,12 +574,16 @@ export const ReportPage: React.FC = () => {
 
         {/* Learning Style Chart (Task 44-45) */}
         <div className="print:break-inside-avoid">
-          <LearningStyleChart visualization={report.visualization} style={styleBlock ?? null} />
+          <LearningStyleChart
+            visualization={report.visualization}
+            style={styleBlock ?? null}
+            ariaDescribedById={nonDiagNoticeId}
+          />
         </div>
 
         {/* Flexibility Chart (Task 49) */}
         <div className="print:break-inside-avoid">
-          <FlexibilityChart lfi={report.lfi} />
+          <FlexibilityChart lfi={report.lfi} ariaDescribedById={nonDiagNoticeId} />
         </div>
 
         {/* Score Display (Task 47-48) */}

@@ -23,6 +23,7 @@ interface NonDiagnosticNoticeProps {
   className?: string;
   /** Optional override for the lead paragraph to display custom backend notice text */
   message?: string;
+  id?: string;
 }
 
 const DEFAULT_NOTICE =
@@ -40,12 +41,14 @@ export const NonDiagnosticNotice: React.FC<NonDiagnosticNoticeProps> = ({
   variant = 'default',
   className = '',
   message,
+  id,
 }) => {
   const resolvedMessage = message?.trim() ? message.trim() : DEFAULT_NOTICE;
 
   if (variant === 'compact') {
     return (
       <div
+        id={id}
         role="note"
         aria-label="Catatan penggunaan bertanggung jawab"
         className={cn(
@@ -68,6 +71,7 @@ export const NonDiagnosticNotice: React.FC<NonDiagnosticNoticeProps> = ({
 
   return (
     <Alert
+      id={id}
       role="note"
       className={cn(
         'border border-chart-3/40 border-l-4 border-l-chart-3 bg-card text-foreground shadow-md',

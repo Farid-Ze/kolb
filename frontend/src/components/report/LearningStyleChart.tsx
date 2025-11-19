@@ -25,11 +25,13 @@ import type { ReportVisualizationBlock, ReportStyleBlock } from '../../types/api
 interface LearningStyleChartProps {
   visualization: ReportVisualizationBlock | null;
   style: ReportStyleBlock | null;
+  ariaDescribedById?: string;
 }
 
 export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
   visualization,
   style,
+  ariaDescribedById,
 }) => {
   const acce = visualization?.dialectic?.ACCE ?? 0;
   const aero = visualization?.dialectic?.AERO ?? 0;
@@ -60,7 +62,12 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
       </div>
 
       {/* Chart Container */}
-      <div className="material-regular rounded-xl p-6">
+      <div
+        className="material-regular rounded-xl p-6"
+        role="region"
+        aria-describedby={ariaDescribedById}
+        data-testid="learning-style-analytics"
+      >
         <ResponsiveContainer width="100%" height={400}>
           <ScatterChart
             data-testid="learning-style-scatter"

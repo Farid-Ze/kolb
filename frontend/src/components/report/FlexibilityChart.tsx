@@ -15,10 +15,12 @@ import { Activity } from 'lucide-react';
 
 interface FlexibilityChartProps {
   lfi: ReportLfiBlock | null;
+  ariaDescribedById?: string;
 }
 
 export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
   lfi,
+  ariaDescribedById,
 }) => {
   const rawScore = lfi?.value ?? 0;
   const percentageScore = Math.max(0, Math.min(100, rawScore * 100));
@@ -56,7 +58,12 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
       </div>
 
       {/* Overall LFI Score */}
-      <div className="material-regular rounded-xl p-6">
+      <div
+        className="material-regular rounded-xl p-6"
+        role="region"
+        aria-describedby={ariaDescribedById}
+        data-testid="flexibility-analytics"
+      >
         {/* Score Badge */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
