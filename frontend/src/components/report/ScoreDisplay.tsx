@@ -11,23 +11,21 @@
 
 import React from 'react';
 import type {
-  RawScores,
-  DialecticScores,
-  PercentileScores,
+  ReportRawBlock,
+  ReportPercentiles,
 } from '../../types/api';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Info } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface ScoreDisplayProps {
-  rawScores: RawScores;
-  dialecticScores: DialecticScores;
-  percentileScores: PercentileScores;
+  raw: ReportRawBlock | null;
+  percentiles: ReportPercentiles | null;
 }
 
 export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
-  rawScores,
-  dialecticScores,
-  percentileScores,
+  raw,
+  percentiles,
 }) => {
   // Mode descriptions
   const modeDescriptions: Record<string, { label: string; description: string }> = {
@@ -49,6 +47,58 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
     },
   };
 
+  const primaryModes = ['CE', 'RO', 'AC', 'AE'] as const;
+  type PrimaryMode = typeof primaryModes[number];
+
+  const getModeScore = (key: PrimaryMode) => {
+    const value = raw?.[key];
+    return typeof value === 'number' ? value : null;
+  };
+
+  const getPercentile = (key: 'CE' | 'RO' | 'AC' | 'AE' | 'ACCE' | 'AERO') => {
+    const value = percentiles?.[key];
+    return typeof value === 'number' ? value : null;
+  };
+
+  const getNormSource = (key: string) => {
+    const perScaleSources = percentiles?.per_scale_sources as Record<string, string | null> | undefined;
+    const source = perScaleSources?.[key] ?? null;
+    if (source && source.trim().length > 0) {
+      return source.trim();
+    }
+    const fallback = percentiles?.source_provenance;
+    return fallback && fallback.trim().length > 0 ? fallback.trim() : null;
+  };
+
+  const renderNormBadge = (key: string, label?: string) => {
+    const source = getNormSource(key);
+    if (!source) {
+      return null;
+    }
+    const targetLabel = label ?? key;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded-full bg-secondary/50 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`Sumber norm ${targetLabel}`}
+          >
+            <Info className="h-3.5 w-3.5" />
+            <span>Norma</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="text-xs max-w-xs">
+          <p className="font-semibold text-foreground">{targetLabel}</p>
+          <p className="text-muted-foreground">{source}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const formatPercentile = (value: number | null | undefined) =>
+    typeof value === 'number' ? `${value.toFixed(0)}%` : '–';
+
   return (
     <div className="space-y-6">
       {/* Raw Scores */}
@@ -59,51 +109,46 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
         </div>
         
         <div className="grid sm:grid-cols-2 gap-4">
-          {(Object.entries(rawScores) as [keyof RawScores, number][]).map(
-            ([mode, score]) => {
-              const info = modeDescriptions[mode as keyof typeof modeDescriptions];
-              if (!info) {
-                return null;
-              }
-              const percentile = percentileScores[mode] ?? 0;
-              
+          {primaryModes.map((mode) => {
+            const info = modeDescriptions[mode];
+            const score = getModeScore(mode);
+            const percentile = getPercentile(mode);
               return (
                 <div
                   key={mode}
                   className="material-regular rounded-xl p-4 space-y-3"
                 >
-                  {/* Mode Header */}
                   <div className="flex items-center justify-between">
-                    <div className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1">
-                      <span className="text-primary">{mode}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1">
+                        <span className="text-primary">{mode}</span>
+                      </div>
+                      {renderNormBadge(mode, info?.label)}
                     </div>
                     <div className="text-foreground">
-                      <span className="sr-only">{`${mode}: ${score}`}</span>
-                      {score}
+                      <span className="sr-only">{`${mode}: ${score ?? 'Tidak tersedia'}`}</span>
+                      {typeof score === 'number' ? score : '–'}
                     </div>
                   </div>
 
-                  {/* Mode Info */}
                   <div>
                     <div className="text-foreground mb-1">
-                      {info.label}
+                      {info?.label}
                     </div>
                     <div className="text-muted-foreground">
-                      {info.description}
+                      {info?.description}
                     </div>
                   </div>
 
-                  {/* Percentile - Guidelines.md §1.5: Use negative space instead of separator */}
                   <div className="pt-6 mt-2 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Persentil</span>
-                      <span className="text-foreground">{percentile}%</span>
+                      <span className="text-foreground">{formatPercentile(percentile)}</span>
                     </div>
-                    {/* Percentile bar */}
                     <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${percentile}%` }}
+                        animate={{ width: `${Math.max(0, Math.min(100, percentile ?? 0))}%` }}
                         transition={{
                           type: 'spring',
                           stiffness: 200,
@@ -115,8 +160,7 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
                   </div>
                 </div>
               );
-            }
-          )}
+          })}
         </div>
       </div>
 
@@ -128,38 +172,43 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
         </p>
         
         <div className="grid sm:grid-cols-2 gap-4">
-          {(
-            Object.entries(dialecticScores) as [keyof DialecticScores, number][]
-          ).map(([dimension, score]) => {
-            const percentile = percentileScores[dimension] ?? 0;
-            const isPositive = score > 0;
-            const [pole1, pole2] = dimension.split('-');
-            const preciseScore = Number.isInteger(score)
-              ? score.toFixed(0)
-              : score.toFixed(1);
+          {([
+            {
+              key: 'ACCE' as const,
+              label: 'AC-CE',
+              poles: ['Abstract', 'Concrete'],
+            },
+            {
+              key: 'AERO' as const,
+              label: 'AE-RO',
+              poles: ['Active', 'Reflective'],
+            },
+          ]).map(({ key, label, poles }) => {
+            const score = raw?.[key] ?? null;
+            const percentile = getPercentile(key);
+            const numericScore = typeof score === 'number' ? score : 0;
+            const isPositive = numericScore > 0;
+            const preciseScore = numericScore.toFixed(1);
             const signedDisplay = isPositive ? `+${preciseScore}` : preciseScore;
-            
+
             return (
               <div
-                key={dimension}
+                key={key}
                 className="material-regular rounded-xl p-4 space-y-3"
               >
-                {/* Dimension Header */}
                 <div className="flex items-center justify-between">
-                  <div className="text-foreground">{dimension}</div>
-                  <div className="text-foreground">
-                    {signedDisplay}
+                  <div className="flex items-center gap-2 text-foreground">
+                    <span>{label}</span>
+                    {renderNormBadge(key, label)}
                   </div>
+                  <div className="text-foreground">{signedDisplay}</div>
                 </div>
-                <span className="sr-only">
-                  {`${dimension}: ${preciseScore}`}
-                </span>
+                <span className="sr-only">{`${label}: ${preciseScore}`}</span>
 
-                {/* Visual Bar (bi-directional) */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-muted-foreground">
-                    <span>{pole1}</span>
-                    <span>{pole2}</span>
+                    <span>{poles[0]}</span>
+                    <span>{poles[1]}</span>
                   </div>
                   <div className="relative h-2 rounded-full bg-secondary overflow-hidden">
                     <div className="absolute inset-y-0 left-1/2 w-0.5 bg-border z-10" />
@@ -168,7 +217,7 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
                         className="absolute inset-y-0 bg-primary transition-spring"
                         style={{
                           left: '50%',
-                          right: `${50 - (Math.abs(score) / 2)}%`,
+                          right: `${50 - Math.min(50, Math.abs(numericScore) / 2)}%`,
                         }}
                       />
                     ) : (
@@ -176,20 +225,17 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
                         className="absolute inset-y-0 bg-primary transition-spring"
                         style={{
                           right: '50%',
-                          left: `${50 - (Math.abs(score) / 2)}%`,
+                          left: `${50 - Math.min(50, Math.abs(numericScore) / 2)}%`,
                         }}
                       />
                     )}
                   </div>
                 </div>
 
-                {/* Percentile - Guidelines.md §1.5: Use negative space instead of separator */}
                 <div className="pt-4 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Persentil</span>
-                    <span className="text-foreground">
-                      {percentile.toFixed(0)}th
-                    </span>
+                    <span className="text-foreground">{formatPercentile(percentile)}</span>
                   </div>
                 </div>
               </div>

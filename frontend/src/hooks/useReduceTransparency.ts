@@ -12,12 +12,24 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useUIPreferencesOptional } from '../contexts/UIPreferencesContext';
 
 export const useReduceTransparency = (): boolean => {
-  const [reduceTransparency, setReduceTransparency] = useState<boolean>(() => {
-    // Initialize dengan media query check
+  const context = useUIPreferencesOptional();
+  const [systemPreference, setSystemPreference] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-reduced-transparency: reduce)').matches;
+      return window
+        .matchMedia('(prefers-reduced-transparency: reduce)')
+        .matches;
+    }
+    return false;
+  });
+  const [attributePreference, setAttributePreference] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return (
+        document.documentElement.getAttribute('data-reduce-transparency') ===
+        'true'
+      );
     }
     return false;
   });
@@ -30,7 +42,7 @@ export const useReduceTransparency = (): boolean => {
 
     // Handler untuk perubahan preference
     const handleChange = (event: MediaQueryListEvent | MediaQueryList) => {
-      setReduceTransparency(event.matches);
+      setSystemPreference(event.matches);
     };
 
     // Set initial value
@@ -54,5 +66,34 @@ export const useReduceTransparency = (): boolean => {
     };
   }, []);
 
-  return reduceTransparency;
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
+      return;
+    }
+
+    const root = document.documentElement;
+    const updateFromAttribute = () => {
+      setAttributePreference(
+        root.getAttribute('data-reduce-transparency') === 'true'
+      );
+    };
+
+    updateFromAttribute();
+    const observer = new MutationObserver(updateFromAttribute);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['data-reduce-transparency'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const effectivePreference =
+    attributePreference || systemPreference;
+
+  if (context) {
+    return context.reduceTransparency || effectivePreference;
+  }
+
+  return effectivePreference;
 };

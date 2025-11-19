@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
 /**
@@ -39,6 +45,8 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
       reduceTransparency: false,
     }
   );
+  const [systemReduceMotion, setSystemReduceMotion] = useState(false);
+  const [systemReduceTransparency, setSystemReduceTransparency] = useState(false);
 
   // Detect system preferences
   useEffect(() => {
@@ -63,37 +71,60 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
 
   // Detect prefers-reduced-motion (Guidelines.md Bagian 2.5)
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    
-    const updateMotion = () => {
-      if (motionQuery.matches) {
-        setPreferences((prev) => ({ ...prev, reduceMotion: true }));
-      }
+
+    const updateMotion = (event: MediaQueryList | MediaQueryListEvent) => {
+      setSystemReduceMotion(event.matches);
     };
 
-    updateMotion();
-    motionQuery.addEventListener('change', updateMotion);
+    updateMotion(motionQuery);
 
-    return () => motionQuery.removeEventListener('change', updateMotion);
+    if (motionQuery.addEventListener) {
+      motionQuery.addEventListener('change', updateMotion);
+    } else {
+      motionQuery.addListener(updateMotion);
+    }
+
+    return () => {
+      if (motionQuery.removeEventListener) {
+        motionQuery.removeEventListener('change', updateMotion);
+      } else {
+        motionQuery.removeListener(updateMotion);
+      }
+    };
   }, []);
 
   // Detect prefers-reduced-transparency (Guidelines.md Bagian 8.5.3)
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const transparencyQuery = window.matchMedia(
       '(prefers-reduced-transparency: reduce)'
     );
-    
-    const updateTransparency = () => {
-      if (transparencyQuery.matches) {
-        setPreferences((prev) => ({ ...prev, reduceTransparency: true }));
-      }
+
+    const updateTransparency = (
+      event: MediaQueryList | MediaQueryListEvent
+    ) => {
+      setSystemReduceTransparency(event.matches);
     };
 
-    updateTransparency();
-    transparencyQuery.addEventListener('change', updateTransparency);
+    updateTransparency(transparencyQuery);
 
-    return () =>
-      transparencyQuery.removeEventListener('change', updateTransparency);
+    if (transparencyQuery.addEventListener) {
+      transparencyQuery.addEventListener('change', updateTransparency);
+    } else {
+      transparencyQuery.addListener(updateTransparency);
+    }
+
+    return () => {
+      if (transparencyQuery.removeEventListener) {
+        transparencyQuery.removeEventListener('change', updateTransparency);
+      } else {
+        transparencyQuery.removeListener(updateTransparency);
+      }
+    };
   }, []);
 
   const setTheme = (theme: 'light' | 'dark' | 'system') => {
@@ -115,8 +146,34 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
     setPreferences((prev) => ({ ...prev, reduceTransparency: value }));
   };
 
+  const reduceMotion = preferences.reduceMotion || systemReduceMotion;
+  const reduceTransparency =
+    preferences.reduceTransparency || systemReduceTransparency;
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    if (reduceMotion) {
+      root.setAttribute('data-reduce-motion', 'true');
+    } else {
+      root.removeAttribute('data-reduce-motion');
+    }
+  }, [reduceMotion]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    if (reduceTransparency) {
+      root.setAttribute('data-reduce-transparency', 'true');
+    } else {
+      root.removeAttribute('data-reduce-transparency');
+    }
+  }, [reduceTransparency]);
+
   const value: UIPreferencesContextType = {
     ...preferences,
+    reduceMotion,
+    reduceTransparency,
     setTheme,
     toggleTheme,
     setReduceMotion,

@@ -1,37 +1,120 @@
 {
   "session_id": 123,
-  "user_id": 45,
-  "style": {
-    "primary_style": "Thinking",
-    "backup_style": "Acting",
-    "ACCE_raw": 16,
-    "AERO_raw": 9,
-    "kite_coordinates": {"CE": 22, "RO": 24, "AC": 38, "AE": 33}
+  "raw": {
+    "CE": 44,
+    "RO": 36,
+    "AC": 28,
+    "AE": 20,
+    "ACCE": -16,
+    "AERO": -16,
+    "ACC_ASSM": 12,
+    "CONV_DIV": -8,
+    "BALANCE": {"ACCE": 12, "AERO": 8}
   },
   "percentiles": {
-    "CE": 35.2,
-    "RO": 41.0,
-    "AC": 78.4,
-    "AE": 69.1,
-    "ACCE": 82.0,
-    "AERO": 57.3,
-    "norm_group_used": "EDU:University Degree"
+    "CE": 88.5,
+    "RO": 74.2,
+    "AC": 61.8,
+    "AE": 49.0,
+    "ACCE": 32.0,
+    "AERO": 45.0,
+    "bands": {"ACCE": "Low", "AERO": "Mid"},
+    "BALANCE": {
+      "ACCE": 46.7,
+      "AERO": 52.4,
+      "levels": {"ACCE": "Moderate", "AERO": "High"},
+      "note": "BALANCE percentiles bersifat turunan teoritis dari jarak ke pusat normatif (ACCE≈9, AERO≈6); ini bukan persentil normatif populasi.",
+      "heuristic": true,
+      "kind": "heuristic_distance",
+      "reference": {
+        "centers": {"ACCE": 9, "AERO": 6},
+        "max_distance": {"ACCE": 45.0, "AERO": 42.0}
+      }
+    },
+    "source_provenance": "EDU:University Degree",
+    "norm_group_used": "EDU:University Degree",
+    "per_scale_provenance": {
+      "CE": {"percentile": 88.5, "source": "DB:EDU", "truncated": false},
+      "RO": {"percentile": 74.2, "source": "DB:EDU", "truncated": false},
+      "AC": {"percentile": 61.8, "source": "DB:EDU", "truncated": false},
+      "AE": {"percentile": 49.0, "source": "Appendix:AE", "truncated": true},
+      "ACCE": {"percentile": 32.0, "source": "DB:EDU", "truncated": false},
+      "AERO": {"percentile": 45.0, "source": "Appendix:AERO", "truncated": true}
+    },
+    "per_scale_sources": {
+      "CE": "DB:EDU",
+      "RO": "DB:EDU",
+      "AC": "DB:EDU",
+      "AE": "Appendix:AE",
+      "ACCE": "DB:EDU",
+      "AERO": "Appendix:AERO"
+    },
+    "used_fallback_any": true,
+    "raw_outside_norm_range": true,
+    "truncated_scales": {
+      "AE": {"raw": 20, "min": 22, "max": 40},
+      "AERO": {"raw": -16, "min": -12, "max": 18}
+    }
+  },
+  "style": {
+    "primary_code": "THNK",
+    "primary_name": "Berpikir Analitis",
+    "primary_brief": "Mengutamakan analisis konsep dan pengambilan keputusan rasional.",
+    "primary_detail": {"overview": "Ringkasan gaya", "strengths": "Kekuatan", "challenges": "Tantangan"},
+    "backup_name": "Bertindak",
+    "backup_code": "ACTG",
+    "backup_brief": "Mendorong eksekusi cepat.",
+    "intensity": 36,
+    "educator_reco": "Mulai dari pengalaman konkrit sebelum abstraksi berat."
   },
   "lfi": {
-    "W": 0.12,
-    "LFI": 0.88,
-    "percentile": 93.0,
-    "level": "High"
+    "value": 0.78,
+    "percentile": 87.0,
+    "level": "High",
+    "level_label": "Fleksibilitas tinggi"
   },
-  "provenance": {
-    "finalization_hash": "d2a9710d…",
-    "finalized_at": "2025-11-08T09:15:17Z"
+  "visualization": {
+    "kite": {"CE": 44, "RO": 36, "AC": 28, "AE": 20},
+    "dialectic": {"ACCE": -16, "AERO": -16, "CONV_DIV": -8, "intensity": 36}
   },
-  "analytics_mediator_only": {
-    "context_heatmap": [
-      {"context": "Starting_Something_New", "CE": 2, "RO": 3, "AC": 1, "AE": 4},
-      {"context": "Influencing_Someone", "CE": 3, "RO": 1, "AC": 4, "AE": 2}
-    ],
-    "style_distribution": {"Imagining": 2, "Thinking": 5, "Acting": 3}
-  }
+  "session_designs": [
+    {"code": "GW-REF-ANL", "title": "Gallery Walk", "summary": "Aktivitas lintas gaya", "activates": ["Imagining", "Reflecting"], "duration_min": 45}
+  ],
+  "analytics": {
+    "predicted_lfi_curve": [{"acc_assm": -20, "pred_lfi": 0.62}, {"acc_assm": 0, "pred_lfi": 0.71}],
+    "acc_assm_peak_note": "Catatan interpretasi",
+    "meta": {"heuristic": true, "note": "Analitik berbasis regresi, bukan diagnosis."}
+  },
+  "learning_space": {
+    "meta": {"heuristic": true, "note": "Tips ruang belajar bersifat heuristik."},
+    "suggestions": {"items": ["Fasilitasi refleksi sebelum analisis"], "is_heuristic": true, "label": "Heuristik"},
+    "development": {"spiral_stage": "Specialization", "is_heuristic": true, "label": "Heuristik"},
+    "meta_learning": {"items": ["Catat observasi CE→RO→AC→AE"], "is_heuristic": true, "label": "Heuristik"},
+    "educator_roles": [{"step": 1, "role": "Facilitator", "focus": "Bangun konteks", "actions": ["Curate pengalaman"]}]
+  },
+  "enhanced_analytics": {
+    "contextual_profile": {
+      "context_styles": [{"context": "Starting", "style": "Imagining"}],
+      "flexibility_pattern": "moderate",
+      "style_frequency": {"Imagining": 3, "Thinking": 5, "Acting": 2}
+    },
+    "heatmap": [{"context": "Starting", "CE": 2, "RO": 3, "AC": 1, "AE": 4}],
+    "integrative_development": {
+      "predicted_score": 0.64,
+      "interpretation": "Prediksi latihan integratif",
+      "model_info": "Regresi linier campuran",
+      "heuristic": true,
+      "note": "Model regresi bersifat heuristik."
+    },
+    "flexibility_narrative": "Narasi fleksibilitas",
+    "meta": {"heuristic": true, "note": "Butuh 8 konteks valid"}
+  },
+  "notes": {
+    "psychometric_terms": "Glosarium istilah",
+    "acc_assm_definition": "Definisi ACC-ASSM",
+    "conv_div_definition": "Definisi CONV-DIV",
+    "balance_definition": "Definisi BAL",
+    "interpretation_summary": "Ringkasan interpretasi"
+  },
+  "responsible_use_notice": "Laporan ini bersifat formatif dan tidak menggantikan penilaian profesional."
 }

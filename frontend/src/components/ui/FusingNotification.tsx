@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { SPRING_SMOOTH } from '../../lib/motion';
 import { X, Bell, MessageCircle, Mail } from 'lucide-react';
+import { useReduceTransparency } from '../../hooks/useReduceTransparency';
 
 interface Notification {
   id: string;
@@ -68,6 +69,8 @@ export const FusingNotification: React.FC<FusingNotificationProps> = ({
   className = '',
 }) => {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const reduceTransparency = useReduceTransparency();
+  const allowFusing = enableFusing && !reduceTransparency;
 
   const getIcon = (type: Notification['type']) => {
     const iconClasses = 'h-5 w-5';
@@ -91,10 +94,10 @@ export const FusingNotification: React.FC<FusingNotificationProps> = ({
         className={cn(
           'space-y-2',
           // CRITICAL: High contrast + child blur = fusing
-          enableFusing && 'fusing-container'
+          allowFusing && 'fusing-container'
         )}
         style={
-          enableFusing
+          allowFusing
             ? {
                 // Backdrop contrast amplifies blur effect
                 backdropFilter: 'contrast(20)',
@@ -122,10 +125,10 @@ export const FusingNotification: React.FC<FusingNotificationProps> = ({
               className={cn(
                 'relative',
                 // Blur for fusing (only when fusing enabled)
-                enableFusing && 'fusing-element'
+                allowFusing && 'fusing-element'
               )}
               style={
-                enableFusing
+                allowFusing
                   ? {
                       // Blur makes elements "soft" so they can fuse
                       filter: 'blur(1px)',
@@ -183,8 +186,17 @@ export const FusingNotification: React.FC<FusingNotificationProps> = ({
           className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20"
         >
           <p className="text-xs text-muted-foreground">
-            <strong>Fusing Effect Active:</strong> Notifications akan "bergabung" seperti
-            liquid saat berdekatan. Hover untuk melihat detail.
+            {allowFusing ? (
+              <>
+                <strong>Fusing Effect Active:</strong> Notifications akan "bergabung"
+                seperti liquid saat berdekatan. Hover untuk melihat detail.
+              </>
+            ) : (
+              <>
+                <strong>Fusing Effect Dinonaktifkan:</strong> Preferensi Reduce Transparency
+                aktif, sehingga efek blur/contrast dimatikan demi aksesibilitas.
+              </>
+            )}
           </p>
         </motion.div>
       )}

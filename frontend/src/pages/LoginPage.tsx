@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion } from 'motion/react';
+import { useReduceTransparency } from '../hooks/useReduceTransparency';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,6 +17,14 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/Label';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { cn } from '../lib/utils';
+import { NonDiagnosticNotice } from '../components/report/NonDiagnosticNotice';
+import {
+  CROSS_FADE,
+  SPRING_SMOOTH,
+  useMotionConfig,
+  usePrefersReducedMotionSetting,
+} from '../lib/motion';
 
 /**
  * KLSI 4.0 - LoginPage
@@ -48,6 +57,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { setAuthData } = useAuth();
+  const reduceTransparency = useReduceTransparency();
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoInfo] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
@@ -137,23 +147,32 @@ export const LoginPage: React.FC = () => {
     });
   };
 
-  // Spring configuration (Bagian 2.3.1 - Damped Harmonic Oscillation)
-  const springConfig = {
-    type: "spring" as const,
-    stiffness: 300,
-    damping: 20,
-  };
+  const prefersReducedMotion = usePrefersReducedMotionSetting();
+  const cardTransition = useMotionConfig(SPRING_SMOOTH, CROSS_FADE);
+  const infoTransition = React.useMemo(
+    () => ({ ...cardTransition, delay: prefersReducedMotion ? 0 : 0.15 }),
+    [cardTransition, prefersReducedMotion]
+  );
+  const cardInitial = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 20 };
+  const cardAnimate = prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
+  const infoInitial = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 10 };
+  const infoAnimate = prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
-      {/* Main Glass Panel - Task 11: shadcn Card */}
-      <motion.div 
+      {/* Main Auth Card */}
+      <motion.div
         className="w-full max-w-md"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={springConfig}
+        initial={cardInitial}
+        animate={cardAnimate}
+        transition={cardTransition}
       >
-        <Card className="glass-regular border-border/50">
+        <Card
+          className={cn(
+            'border border-border/80 shadow-2xl ring-1 ring-border/40 backdrop-blur-sm',
+            reduceTransparency ? 'bg-background' : 'material-thick'
+          )}
+        >
           <CardHeader className="space-y-1">
             <CardTitle className="text-center">
               KLSI 4.0
@@ -173,8 +192,8 @@ export const LoginPage: React.FC = () => {
               )}
               {/* Demo Mode Info */}
               {isDemoMode && showDemoInfo && (
-                <Alert>
-                  <Info className="h-4 w-4" />
+                <Alert variant="info" showIcon={false}>
+                  <Info className="h-4 w-4" aria-hidden="true" />
                   <AlertDescription className="space-y-3">
                     <p className="font-medium">Mode Demo - Backend tidak tersedia</p>
                     <p className="text-sm">Klik tombol di bawah untuk login langsung:</p>
@@ -185,7 +204,10 @@ export const LoginPage: React.FC = () => {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="w-full justify-between h-auto py-3 glass-regular hover:glass-thick transition-all"
+                          className={cn(
+                            'w-full justify-between h-auto py-3 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-ring',
+                            reduceTransparency ? 'bg-background' : 'bg-card hover:bg-muted'
+                          )}
                           onClick={() => quickLogin(cred.email, cred.password)}
                           disabled={loginMutation.isPending}
                         >
@@ -295,15 +317,17 @@ export const LoginPage: React.FC = () => {
           </CardContent>
         </Card>
 
+        <NonDiagnosticNotice variant="compact" className="mt-4 text-left" />
+
         {/* Additional Info */}
-        <motion.div 
-          className="mt-6 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, ...springConfig }}
+        <motion.div
+          className="mt-4 text-center"
+          initial={infoInitial}
+          animate={infoAnimate}
+          transition={infoTransition}
         >
           <p className="text-muted-foreground">
-            Instrumen formatif untuk refleksi belajar
+            Instrumen formatif untuk refleksi belajar; bukan alat seleksi atau diagnosis.
           </p>
         </motion.div>
       </motion.div>

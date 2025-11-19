@@ -11,12 +11,11 @@ import { authenticatedApiCall } from '../utils/apiHelper';
 import type { Report } from '../types/api';
 
 /**
- * Task 37: Get report for a session
- * GET /reports/sessions/:id
+ * Task 37: Get report for a session (backend: GET /reports/{session_id})
  */
-export const getReport = async (sessionId: string): Promise<Report> => {
+export const getReport = async (sessionId: string | number): Promise<Report> => {
   return authenticatedApiCall<Report>(
-    getApiUrl(`/reports/sessions/${sessionId}`),
+    getApiUrl(`/reports/${sessionId}`),
     {
       method: 'GET',
     }
@@ -24,15 +23,10 @@ export const getReport = async (sessionId: string): Promise<Report> => {
 };
 
 /**
- * Get report detail by report_id (used in shared links / report route)
+ * Alias for report detail (kept for backward compatibility with shared-link routes)
  */
-export const getReportById = async (reportId: string): Promise<Report> => {
-  return authenticatedApiCall<Report>(
-    getApiUrl(`/reports/${reportId}`),
-    {
-      method: 'GET',
-    }
-  );
+export const getReportById = async (reportId: string | number): Promise<Report> => {
+  return getReport(reportId);
 };
 
 /**

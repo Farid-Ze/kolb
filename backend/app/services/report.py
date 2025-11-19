@@ -496,36 +496,54 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "truncated_scales": p.truncated_scales,
         }
 
+    suggestions_list = _derive_learning_space_suggestions(
+        combo.ACCE_raw if combo else None,
+        combo.AERO_raw if combo else None,
+        combo.assimilation_accommodation if combo else None,
+        combo.converging_diverging if combo else None,
+        None if not lfi else lfi.LFI_score,
+        intensity
+    )
+    meta_learning_list = _derive_meta_learning(
+        scale.AC_raw if scale else None,
+        scale.CE_raw if scale else None,
+        scale.AE_raw if scale else None,
+        scale.RO_raw if scale else None,
+        combo.ACCE_raw if combo else None,
+        combo.AERO_raw if combo else None,
+        None if not lfi else lfi.LFI_score
+    )
+    development_block = _classify_development(
+        combo.ACCE_raw if combo else None,
+        combo.AERO_raw if combo else None,
+        combo.assimilation_accommodation if combo else None,
+        combo.converging_diverging if combo else None,
+        None if not lfi else lfi.LFI_score,
+        intensity
+    )
+    if development_block is not None:
+        development_block = {
+            **development_block,
+            "is_heuristic": True,
+            "label": ReportMessages.HEURISTIC_BADGE,
+        }
+
     learning_space_block = {
         "meta": {
             "heuristic": True,
             "note": ReportMessages.LEARNING_SPACE_HEURISTIC_NOTE,
         },
-        "suggestions": _derive_learning_space_suggestions(
-            combo.ACCE_raw if combo else None,
-            combo.AERO_raw if combo else None,
-            combo.assimilation_accommodation if combo else None,
-            combo.converging_diverging if combo else None,
-            None if not lfi else lfi.LFI_score,
-            intensity
-        ),
-        "development": _classify_development(
-            combo.ACCE_raw if combo else None,
-            combo.AERO_raw if combo else None,
-            combo.assimilation_accommodation if combo else None,
-            combo.converging_diverging if combo else None,
-            None if not lfi else lfi.LFI_score,
-            intensity
-        ),
-        "meta_learning": _derive_meta_learning(
-            scale.AC_raw if scale else None,
-            scale.CE_raw if scale else None,
-            scale.AE_raw if scale else None,
-            scale.RO_raw if scale else None,
-            combo.ACCE_raw if combo else None,
-            combo.AERO_raw if combo else None,
-            None if not lfi else lfi.LFI_score
-        ),
+        "suggestions": {
+            "items": suggestions_list,
+            "is_heuristic": True,
+            "label": ReportMessages.HEURISTIC_BADGE,
+        },
+        "development": development_block,
+        "meta_learning": {
+            "items": meta_learning_list,
+            "is_heuristic": True,
+            "label": ReportMessages.HEURISTIC_BADGE,
+        },
         "educator_roles": _educator_role_suggestions(
             None if not primary else primary.style_name,
             combo.ACCE_raw if combo else None,
@@ -592,5 +610,6 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "conv_div_definition": ReportNotesMessages.CONV_DIV_DEFINITION,
             "balance_definition": ReportNotesMessages.BALANCE_DEFINITION,
             "interpretation_summary": ReportNotesMessages.INTERPRETATION_SUMMARY,
-        }
+        },
+        "responsible_use_notice": ReportMessages.RESPONSIBLE_USE_NOTICE,
     }

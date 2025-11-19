@@ -187,30 +187,6 @@ export interface PercentileScores {
   'AE-RO': number;
 }
 
-export interface EnhancedAnalytics {
-  contextual_profile?: {
-    context_name: string;
-    style_code: string;
-    style_name: string;
-  }[];
-  heatmap?: {
-    context_name: string;
-    kendall_w: number;
-    flexibility_level: 'High' | 'Moderate' | 'Low';
-  }[];
-  integrative_development?: {
-    phase: 'Acquisition' | 'Specialization' | 'Integration';
-    interpretation: string;
-    recommendation?: string;
-  };
-  flexibility_narrative?: string;
-  educator_role_suggestions?: {
-    role: 'Facilitator' | 'Expert' | 'Evaluator' | 'Coach';
-    description: string;
-  }[];
-  validation_error?: string;
-}
-
 export interface LongitudinalDelta {
   previous_report_id: string;
   previous_session_date: string;
@@ -227,30 +203,223 @@ export interface LongitudinalDelta {
   interpretation?: string;
 }
 
-export interface Report {
-  report_id: string;
-  session_id: string;
-  user_id: string;
-  instrument_id: string;
-  generated_at: string;
-  status?: ReportGenerationStatus['status'];
-  raw_scores: RawScores;
-  dialectic_scores: DialecticScores;
-  learning_style: LearningStyle;
-  nine_style: NineStyle;
-  flexibility: FlexibilityIndex;
-  norm_group: NormGroup;
-  percentile_scores: PercentileScores;
-  reliability_flags?: string[];
-  responsible_use_notice?: string;
-  enhanced_analytics?: EnhancedAnalytics | null; // MEDIATOR-only
-  delta?: LongitudinalDelta | null; // Longitudinal changes
+export interface ReportRawBlock {
+  CE: number | null;
+  RO: number | null;
+  AC: number | null;
+  AE: number | null;
+  ACCE: number | null;
+  AERO: number | null;
+  ACC_ASSM: number | null;
+  CONV_DIV: number | null;
+  BALANCE?: {
+    ACCE: number | null;
+    AERO: number | null;
+  } | null;
 }
 
-export interface ReportGenerationStatus {
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-  progress?: number;
+export type ReportPercentileBand = 'LOW' | 'MID' | 'HIGH';
+
+export interface ReportBalanceLevels {
+  ACCE: 'HIGH' | 'MODERATE' | 'LOW';
+  AERO: 'HIGH' | 'MODERATE' | 'LOW';
+}
+
+export interface ReportBalanceBlock {
+  ACCE: number | null;
+  AERO: number | null;
+  levels: ReportBalanceLevels;
+  note: string;
+  heuristic: boolean;
+  kind: string;
+  reference: {
+    centers: { ACCE: number; AERO: number };
+    max_distance: { ACCE: number; AERO: number };
+  };
+}
+
+export interface ReportPercentiles {
+  CE: number | null;
+  RO: number | null;
+  AC: number | null;
+  AE: number | null;
+  ACCE: number | null;
+  AERO: number | null;
+  bands?: {
+    ACCE: ReportPercentileBand;
+    AERO: ReportPercentileBand;
+  } | null;
+  BALANCE?: ReportBalanceBlock | null;
+  source_provenance?: string | null;
+  norm_group_used?: string | null;
+  per_scale_provenance?: Record<string, any> | null;
+  per_scale_sources?: {
+    CE?: string | null;
+    RO?: string | null;
+    AC?: string | null;
+    AE?: string | null;
+    ACCE?: string | null;
+    AERO?: string | null;
+  } | null;
+  used_fallback_any?: boolean;
+  raw_outside_norm_range?: boolean;
+  truncated_scales?: Record<string, any> | null;
+}
+
+export interface ReportStyleBlock {
+  primary_code?: string | null;
+  primary_name?: string | null;
+  primary_brief?: string | null;
+  primary_detail?: string | null;
+  backup_name?: string | null;
+  backup_code?: string | null;
+  backup_brief?: string | null;
+  backup_detail?: string | null;
+  intensity?: number | null;
+  educator_reco?: string | null;
+}
+
+export interface ReportLfiBlock {
+  value: number | null;
+  percentile: number | null;
+  level: string | null;
+  level_label: string | null;
+}
+
+export interface ReportVisualizationBlock {
+  kite?: Record<string, number> | null;
+  dialectic?: {
+    ACCE: number | null;
+    AERO: number | null;
+    CONV_DIV: number | null;
+    intensity: number | null;
+  } | null;
+}
+
+export interface SessionDesignRecommendation {
+  code: string;
+  title: string;
+  summary: string;
+  activates: string[];
+  duration_min: number;
+}
+
+export interface ReportAnalyticsMeta {
+  heuristic?: boolean;
+  note?: string;
+}
+
+export interface ReportAnalytics {
+  predicted_lfi_curve?: { acc_assm: number; pred_lfi: number }[] | null;
+  acc_assm_peak_note?: string | null;
+  meta?: ReportAnalyticsMeta | null;
+}
+
+export interface LearningSpaceMeta {
+  heuristic: boolean;
+  note: string;
+}
+
+export interface LearningSpaceDevelopment {
+  spiral_stage: string;
+  deep_learning_level: string;
+  rationale: string;
+  disclaimer: string;
+  is_heuristic?: boolean;
+  label?: string;
+}
+
+export interface LearningSpaceEducatorRole {
+  step?: number;
+  role?: string;
+  focus?: string;
+  actions?: string[];
+  note?: string;
+}
+
+export interface HeuristicListBlock {
+  items: string[];
+  is_heuristic: boolean;
+  label?: string;
+}
+
+export interface LearningSpaceBlock {
+  meta: LearningSpaceMeta;
+  suggestions: HeuristicListBlock | null;
+  development: LearningSpaceDevelopment | null;
+  meta_learning: HeuristicListBlock | null;
+  educator_roles: LearningSpaceEducatorRole[];
+}
+
+export interface ReportNotes {
+  psychometric_terms?: string;
+  acc_assm_definition?: string;
+  conv_div_definition?: string;
+  balance_definition?: string;
+  interpretation_summary?: string;
+}
+
+export interface ContextStyleEntry {
+  context: string;
+  style: string;
+  ACCE: number;
+  AERO: number;
+  CE: number;
+  RO: number;
+  AC: number;
+  AE: number;
+}
+
+export interface ContextualProfileSummary {
+  context_styles: ContextStyleEntry[];
+  style_frequency: Record<string, number>;
+  mode_usage: Record<string, { count: number; contexts: string[] }>;
+  flexibility_pattern: string;
+}
+
+export interface HeatmapSummary {
+  lfi_percentile_band: string;
+  style_matrix: Record<string, number>;
+  region_coverage: Record<string, number>;
+}
+
+export interface IntegrativeDevelopmentInsight {
+  predicted_score: number;
+  interpretation: string;
+  model_info: string;
+  heuristic: boolean;
+  note: string;
+}
+
+export interface EnhancedAnalyticsMeta {
+  heuristic: boolean;
+  note: string;
+}
+
+export interface EnhancedAnalyticsPayload {
+  validation_error?: string;
+  context_count?: number;
   message?: string;
+  contextual_profile?: ContextualProfileSummary;
+  heatmap?: HeatmapSummary;
+  integrative_development?: IntegrativeDevelopmentInsight;
+  flexibility_narrative?: string;
+  meta?: EnhancedAnalyticsMeta;
+}
+
+export interface Report {
+  session_id: string | number;
+  raw: ReportRawBlock | null;
+  percentiles: ReportPercentiles | null;
+  style: ReportStyleBlock | null;
+  lfi: ReportLfiBlock | null;
+  visualization: ReportVisualizationBlock | null;
+  session_designs: SessionDesignRecommendation[];
+  analytics: ReportAnalytics | null;
+  learning_space: LearningSpaceBlock | null;
+  notes: ReportNotes | null;
+  enhanced_analytics: EnhancedAnalyticsPayload | null; // MEDIATOR-only
+  responsible_use_notice?: string | null;
 }
 
 // ============================================================================

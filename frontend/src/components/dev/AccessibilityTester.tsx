@@ -25,6 +25,7 @@ import {
   isWCAGCompliant,
   WCAGLevel,
 } from '../../lib/accessibility';
+import { useUIPreferences } from '../../contexts/UIPreferencesContext';
 
 interface AccessibilityTesterProps {
   /** Show/hide tester panel */
@@ -90,8 +91,12 @@ export const AccessibilityTester: React.FC<AccessibilityTesterProps> = ({
   const [isOpen, setIsOpen] = useState(initialOpen);
   const [fontScale, setFontScale] = useState(100);
   const [showBoundaries, setShowBoundaries] = useState(false);
-  const [forceReduceMotion, setForceReduceMotion] = useState(false);
-  const [forceReduceTransparency, setForceReduceTransparency] = useState(false);
+  const {
+    reduceMotion,
+    reduceTransparency,
+    setReduceMotion,
+    setReduceTransparency,
+  } = useUIPreferences();
   
   const { scale: detectedScale, isXXXL } = useFontScale();
 
@@ -104,24 +109,6 @@ export const AccessibilityTester: React.FC<AccessibilityTesterProps> = ({
       root.style.fontSize = '100%';
     };
   }, [fontScale]);
-
-  // Apply reduce motion
-  React.useEffect(() => {
-    if (forceReduceMotion) {
-      document.documentElement.setAttribute('data-reduce-motion', 'true');
-    } else {
-      document.documentElement.removeAttribute('data-reduce-motion');
-    }
-  }, [forceReduceMotion]);
-
-  // Apply reduce transparency
-  React.useEffect(() => {
-    if (forceReduceTransparency) {
-      document.documentElement.setAttribute('data-reduce-transparency', 'true');
-    } else {
-      document.documentElement.removeAttribute('data-reduce-transparency');
-    }
-  }, [forceReduceTransparency]);
 
   // Show element boundaries
   React.useEffect(() => {
@@ -219,9 +206,10 @@ export const AccessibilityTester: React.FC<AccessibilityTesterProps> = ({
           </div>
           <input
             type="checkbox"
-            checked={forceReduceMotion}
-            onChange={(e) => setForceReduceMotion(e.target.checked)}
+            checked={reduceMotion}
+            onChange={(e) => setReduceMotion(e.target.checked)}
             className="h-4 w-4"
+            aria-label="Toggle reduce motion preference"
           />
         </label>
 
@@ -233,9 +221,10 @@ export const AccessibilityTester: React.FC<AccessibilityTesterProps> = ({
           </div>
           <input
             type="checkbox"
-            checked={forceReduceTransparency}
-            onChange={(e) => setForceReduceTransparency(e.target.checked)}
+            checked={reduceTransparency}
+            onChange={(e) => setReduceTransparency(e.target.checked)}
             className="h-4 w-4"
+            aria-label="Toggle reduce transparency preference"
           />
         </label>
 
@@ -300,8 +289,8 @@ export const AccessibilityTester: React.FC<AccessibilityTesterProps> = ({
         <button
           onClick={() => {
             setFontScale(100);
-            setForceReduceMotion(false);
-            setForceReduceTransparency(false);
+            setReduceMotion(false);
+            setReduceTransparency(false);
             setShowBoundaries(false);
           }}
           className="w-full py-2 text-sm text-primary hover:bg-secondary rounded-lg transition-colors"

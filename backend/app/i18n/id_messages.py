@@ -241,6 +241,11 @@ class ReportMessages:
         "Pertahankan keseimbangan aksi–refleksi dan pengalaman–konsep; sediakan ruang aman namun menantang untuk "
         "percakapan bermakna."
     )
+    HEURISTIC_BADGE: str = "Heuristik • Non-normatif"
+    RESPONSIBLE_USE_NOTICE: str = (
+        "Kolb Learning Style Inventory (KLSI) 4.0 adalah instrumen formatif untuk refleksi dan dialog terarah bersama fasilitator;"
+        " tidak boleh dipakai untuk seleksi, penempatan kerja, evaluasi kinerja, ataupun diagnostik klinis."
+    )
 
 
 class ReportDevelopmentLabels:

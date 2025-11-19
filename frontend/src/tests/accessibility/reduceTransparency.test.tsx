@@ -10,12 +10,17 @@
 
 import React from 'react';
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, renderHook, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GlassPanel } from '../../components/ui/GlassPanel';
 import { TintedGlassButton } from '../../components/ui/TintedGlassButton';
 import { ModalLayer } from '../../components/ui/ModalLayer';
-import { UIPreferencesProvider } from '../../contexts/UIPreferencesContext';
+import {
+  UIPreferencesProvider,
+  UIPreferencesContext,
+  UIPreferencesContextType,
+} from '../../contexts/UIPreferencesContext';
+import { useReduceTransparency } from '../../hooks/useReduceTransparency';
 
 interface TestScenario {
   name: string;
@@ -220,18 +225,14 @@ const renderWithUIPreferences = (ui: React.ReactElement) =>
 describe('ReduceTransparencyTests playground', () => {
   it('renders instructional copy and scenarios', () => {
     renderWithUIPreferences(<ReduceTransparencyTests />);
+    expect(screen.queryByText('Reduce Transparency Fallback Tests')).not.toBeNull();
+    expect(screen.queryByText(/Guidelines\.md §8\.5\.3/i)).not.toBeNull();
     expect(
-      screen.getByText('Reduce Transparency Fallback Tests')
-    ).toBeInTheDocument();
+      screen.queryByRole('heading', { name: /GlassPanel Functional/i })
+    ).not.toBeNull();
     expect(
-      screen.getByText(/Guidelines\.md §8\.5\.3/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: /GlassPanel Functional/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: /TintedGlassButton/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('heading', { name: /TintedGlassButton/i })
+    ).not.toBeNull();
   });
 
   it('shows modal instructions without crashing', async () => {
@@ -239,7 +240,45 @@ describe('ReduceTransparencyTests playground', () => {
     renderWithUIPreferences(<ReduceTransparencyTests />);
     await user.click(screen.getByRole('button', { name: /open modal/i }));
     expect(
-      screen.getByText(/Modal backdrop should have no blur/i)
-    ).toBeInTheDocument();
+      screen.queryByText(/Modal backdrop should have no blur/i)
+    ).not.toBeNull();
+  });
+});
+
+describe('useReduceTransparency integration', () => {
+  it('returns true when context preference is enabled', () => {
+    let contextValue: UIPreferencesContextType = {
+      theme: 'system',
+      reduceMotion: false,
+      reduceTransparency: true,
+      setTheme: () => {},
+      toggleTheme: () => {},
+      setReduceMotion: () => {},
+      setReduceTransparency: () => {},
+    };
+
+    const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+      <UIPreferencesContext.Provider value={contextValue}>
+        {children}
+      </UIPreferencesContext.Provider>
+    );
+
+    const { result } = renderHook(() => useReduceTransparency(), { wrapper });
+    expect(result.current).toBe(true);
+  });
+
+  it('tracks data attribute toggles when context absent', async () => {
+    const { result } = renderHook(() => useReduceTransparency());
+    expect(result.current).toBe(false);
+
+    act(() => {
+      document.documentElement.setAttribute('data-reduce-transparency', 'true');
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+
+    act(() => {
+      document.documentElement.removeAttribute('data-reduce-transparency');
+    });
+    await waitFor(() => expect(result.current).toBe(false));
   });
 });

@@ -3624,6 +3624,19 @@
     }
   }
 
+  html[data-reduce-transparency='true'] .glass-regular,
+  html[data-reduce-transparency='true'] .glass-thick,
+  html[data-reduce-transparency='true'] .glass-clear,
+  html[data-reduce-transparency='true'] .material-thin,
+  html[data-reduce-transparency='true'] .material-regular {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-image: none !important;
+    background-color: var(--background) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  }
+
   .transition-spring {
     transition-property: all;
     transition-duration: .2s;

@@ -20,23 +20,25 @@ import {
   ReferenceLine,
   Label,
 } from 'recharts';
-import type { DialecticScores, LearningStyle } from '../../types/api';
+import type { ReportVisualizationBlock, ReportStyleBlock } from '../../types/api';
 
 interface LearningStyleChartProps {
-  dialecticScores: DialecticScores;
-  learningStyle: LearningStyle;
+  visualization: ReportVisualizationBlock | null;
+  style: ReportStyleBlock | null;
 }
 
 export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
-  dialecticScores,
-  learningStyle,
+  visualization,
+  style,
 }) => {
-  // Data point for the scatter plot
+  const acce = visualization?.dialectic?.ACCE ?? 0;
+  const aero = visualization?.dialectic?.AERO ?? 0;
+
   const data = [
     {
-      x: dialecticScores['AC-CE'], // X-axis: Abstract-Concrete
-      y: dialecticScores['AE-RO'], // Y-axis: Active-Reflective
-      name: 'Your Position',
+      x: acce,
+      y: aero,
+      name: 'Posisi Anda',
     },
   ];
 
@@ -61,6 +63,7 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
       <div className="material-regular rounded-xl p-6">
         <ResponsiveContainer width="100%" height={400}>
           <ScatterChart
+            data-testid="learning-style-scatter"
             margin={{ top: 20, right: 20, bottom: 40, left: 40 }}
           >
             {/* Grid */}
@@ -73,6 +76,7 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
               domain={[-50, 50]}
               ticks={[-40, -20, 0, 20, 40]}
               stroke="hsl(var(--muted-foreground))"
+              data-testid="learning-style-x-axis"
             >
               <Label
                 value="Abstract ← AC-CE → Concrete"
@@ -89,6 +93,7 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
               domain={[-50, 50]}
               ticks={[-40, -20, 0, 20, 40]}
               stroke="hsl(var(--muted-foreground))"
+              data-testid="learning-style-y-axis"
             >
               <Label
                 value="Reflective ← AE-RO → Active"
@@ -120,7 +125,7 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
                   return (
                     <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
                       <p className="text-foreground mb-2">
-                        {learningStyle.style_name}
+                        {style?.primary_name ?? 'Posisi saat ini'}
                       </p>
                       <p className="text-muted-foreground">
                         AC-CE: {point.x.toFixed(1)}
@@ -136,11 +141,7 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
             />
 
             {/* User Position */}
-            <Scatter
-              data={data}
-              fill="hsl(var(--primary))"
-              shape="circle"
-            />
+            <Scatter data={data} fill="hsl(var(--primary))" shape="circle" />
           </ScatterChart>
         </ResponsiveContainer>
 
@@ -159,14 +160,15 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
       <div className="material-thin rounded-xl p-4 border-l-4 border-l-primary">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            Q{learningStyle.quadrant}
+            {style?.primary_code ?? 'LS'}
           </div>
           <div className="flex-1">
             <h4 className="text-foreground mb-1">
-              {`Profil ${learningStyle.style_name}`}
+              {style?.primary_name ?? 'Profil gaya belajar tidak tersedia'}
             </h4>
             <p className="text-sm text-muted-foreground">
-              {`Koordinat ACCE ${dialecticScores['AC-CE']} dan AERO ${dialecticScores['AE-RO']} menempatkan Anda di kuadran ${learningStyle.quadrant}.`}
+              {style?.primary_detail ??
+                `Koordinat ACCE ${acce.toFixed(1)} dan AERO ${aero.toFixed(1)} menempatkan Anda dalam posisi unik pada learning space.`}
             </p>
           </div>
         </div>

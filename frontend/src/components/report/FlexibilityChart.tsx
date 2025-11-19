@@ -9,64 +9,37 @@
  */
 
 import React from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  Legend,
-} from 'recharts';
-import type { FlexibilityIndex } from '../../types/api';
-import { Activity, Layers } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import type { ReportLfiBlock } from '../../types/api';
+import { Activity } from 'lucide-react';
 
 interface FlexibilityChartProps {
-  flexibility: FlexibilityIndex;
+  lfi: ReportLfiBlock | null;
 }
 
 export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
-  flexibility,
+  lfi,
 }) => {
-  // Data for bar chart (overall LFI)
+  const rawScore = lfi?.value ?? 0;
+  const percentageScore = Math.max(0, Math.min(100, rawScore * 100));
+
   const lfiData = [
     {
       name: 'Learning Flexibility',
-      score: flexibility.lfi_score,
+      score: percentageScore,
       max: 100,
     },
   ];
 
-  // Data for radar chart (9-region style distribution)
-  // Mock data - in real implementation this would come from API
-  const radarData = [
-    { style: 'Initiating', score: flexibility.lfi_score * 0.8 },
-    { style: 'Experiencing', score: flexibility.lfi_score * 0.9 },
-    { style: 'Imagining', score: flexibility.lfi_score * 0.7 },
-    { style: 'Reflecting', score: flexibility.lfi_score * 0.85 },
-    { style: 'Analyzing', score: flexibility.lfi_score * 0.75 },
-    { style: 'Thinking', score: flexibility.lfi_score * 0.8 },
-    { style: 'Deciding', score: flexibility.lfi_score * 0.9 },
-    { style: 'Acting', score: flexibility.lfi_score * 0.95 },
-    { style: 'Balancing', score: flexibility.lfi_score },
-  ];
-
   // Color based on category
   const getColor = () => {
-    switch (flexibility.category) {
+    switch (lfi?.level) {
       case 'High':
-        return 'hsl(var(--chart-4))'; // Green
+        return 'hsl(var(--chart-4))';
       case 'Moderate':
-        return 'hsl(var(--chart-2))'; // Blue
+        return 'hsl(var(--chart-2))';
       case 'Low':
-        return 'hsl(var(--chart-3))'; // Orange
+        return 'hsl(var(--chart-3))';
       default:
         return 'hsl(var(--primary))';
     }
@@ -91,17 +64,14 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
               className="flex h-12 w-12 items-center justify-center rounded-xl"
               style={{ backgroundColor: `${getColor()}20` }}
             >
-              <Activity
-                className="h-6 w-6"
-                style={{ color: getColor() }}
-              />
+              <Activity className="h-6 w-6" style={{ color: getColor() }} />
             </div>
             <div>
               <div className="text-2xl text-foreground">
-                {flexibility.lfi_score.toFixed(1)}
+                {percentageScore.toFixed(1)}
               </div>
               <div className="text-muted-foreground">
-                {flexibility.category} Flexibility
+                {lfi?.level_label ?? 'Level tidak tersedia'}
               </div>
             </div>
           </div>
@@ -114,13 +84,14 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
               color: getColor(),
             }}
           >
-            <span>{flexibility.category}</span>
+            <span>{lfi?.level ?? '–'}</span>
           </div>
         </div>
 
         {/* Bar Chart */}
         <ResponsiveContainer width="100%" height={120}>
           <BarChart
+            data-testid="lfi-bar-chart"
             data={lfiData}
             layout="vertical"
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
@@ -143,9 +114,9 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
                 if (active && payload && payload.length) {
                   return (
                     <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
-                      <p className="text-foreground">
-                        LFI Score: {payload[0].value}
-                      </p>
+                        <p className="text-foreground">
+                          LFI Score: {payload[0].value?.toFixed(1)}%
+                        </p>
                     </div>
                   );
                 }
@@ -161,70 +132,9 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
         {/* Interpretation */}
         <div className="mt-6 p-4 rounded-lg bg-secondary/20">
           <p className="text-muted-foreground">
-            {flexibility.interpretation}
-          </p>
-        </div>
-      </div>
-
-      {/* 9-Region Radar Chart */}
-      <div className="material-regular rounded-xl p-6 print:break-inside-avoid">
-        <div className="flex items-center gap-2 mb-4">
-          <Layers className="h-5 w-5 text-muted-foreground" />
-          <h4 className="text-foreground">9-Style Flexibility Profile</h4>
-        </div>
-        <p className="text-sm text-muted-foreground mb-6">
-          Distribusi kemampuan Anda di 9 gaya belajar berbasis Kolb
-        </p>
-        
-        <ResponsiveContainer width="100%" height={400}>
-          <RadarChart data={radarData}>
-            <PolarGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <PolarAngleAxis 
-              dataKey="style" 
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-            />
-            <PolarRadiusAxis 
-              angle={90} 
-              domain={[0, 100]}
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            />
-            <Radar
-              name="Flexibility Score"
-              dataKey="score"
-              stroke={getColor()}
-              fill={getColor()}
-              fillOpacity={0.3}
-            />
-            <Tooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const data = payload[0].payload;
-                  return (
-                    <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
-                      <p className="text-foreground mb-1">{data.style}</p>
-                      <p className="text-muted-foreground">
-                        Score: {data.score.toFixed(1)}
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Legend 
-              wrapperStyle={{ 
-                paddingTop: '20px',
-                fontSize: '14px',
-                color: 'hsl(var(--foreground))'
-              }}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-
-        <div className="mt-4 p-4 rounded-lg bg-secondary/10">
-          <p className="text-xs text-muted-foreground">
-            Radar chart menunjukkan seberapa fleksibel Anda beradaptasi di 9 gaya belajar. 
-            Semakin besar area yang terisi, semakin tinggi fleksibilitas belajar Anda.
+            {lfi?.level_label
+              ? `Level ${lfi.level_label} dengan persentil ${lfi.percentile ?? '–'}`
+              : 'Interpretasi fleksibilitas akan muncul setelah sesi lengkap.'}
           </p>
         </div>
       </div>

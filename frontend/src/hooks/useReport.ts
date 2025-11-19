@@ -10,7 +10,7 @@ import {
   type UseQueryOptions,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { getReport, getReportById } from '../services/reportService';
+import { getReport } from '../services/reportService';
 import type { Report } from '../types/api';
 
 type RefetchContext = {
@@ -65,8 +65,7 @@ export function useReport(
       if (!sessionId) {
         return Promise.reject(new Error('Session ID tidak tersedia'));
       }
-      const fetchReport =
-        fetcher ?? (sessionId.startsWith('report-') ? getReportById : getReport);
+      const fetchReport = fetcher ?? getReport;
       return fetchReport(sessionId);
     },
     staleTime: enablePolling ? 0 : 5 * 60 * 1000,
