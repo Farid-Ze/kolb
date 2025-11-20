@@ -32,6 +32,7 @@ type EngineSessionItemsResponse = {
 
 type AutosaveBackendPayload = {
   responses: Array<{ item_id: number; ranks: Record<number, number> }>;
+  contexts: Array<{ context_name: string; CE: number; RO: number; AC: number; AE: number }>;
 };
 
 /**
@@ -83,8 +84,8 @@ export const submitAnswers = async (
   payload: SubmitAnswersRequest,
   items: AssessmentItem[],
 ): Promise<SubmitAnswersResponse> => {
-  const backendPayload = buildAutosavePayload(payload.responses, items);
-  if (!backendPayload.responses.length) {
+  const backendPayload = buildAutosavePayload(payload.responses, items, payload.contexts);
+  if (!backendPayload.responses.length && !backendPayload.contexts.length) {
     return { saved_count: 0 };
   }
 
@@ -152,6 +153,7 @@ const extractInstructions = (delivery: Record<string, any> | undefined): string 
 export const buildAutosavePayload = (
   responses: ItemResponse[],
   items: AssessmentItem[],
+  contexts: any[] = []
 ): AutosaveBackendPayload => {
   const itemLookup = new Map(items.map((item) => [item.item_id, item]));
   const transformed = responses
@@ -180,7 +182,7 @@ export const buildAutosavePayload = (
     })
     .filter(Boolean) as AutosaveBackendPayload['responses'];
 
-  return { responses: transformed };
+  return { responses: transformed, contexts: contexts || [] };
 };
 
 const isCompleteRanks = (ranks: Record<string, number>): boolean => {

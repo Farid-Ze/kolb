@@ -120,6 +120,7 @@ export interface GetAssessmentItemsResponse {
 
 export interface SubmitAnswersRequest {
   responses: ItemResponse[];
+  contexts?: AssessmentContextRank[];
 }
 
 export interface SubmitAnswersResponse {

@@ -185,7 +185,6 @@ def submit_all_responses(
                     AE_rank=ctx.AE,
                 )
             )
-        db.commit()
         # After data persisted, run finalize using the engine runtime helper with audit
         def _payload_builder(res: dict) -> bytes:
             combination = res.get("combination")
@@ -204,6 +203,7 @@ def submit_all_responses(
             action="FINALIZE_SESSION_USER_BATCH",
             build_payload=_payload_builder,
         )
+        db.commit()
 
         combination = result.get("combination")
         lfi = result.get("lfi")
@@ -263,6 +263,8 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
         action="FINALIZE_SESSION_USER",
         build_payload=_payload_builder,
     )
+    db.commit()
+
     combination = result.get("combination")
     lfi = result.get("lfi")
     style = result.get("style")
@@ -337,6 +339,8 @@ def force_finalize(
         build_payload=_payload_builder_override,
         skip_validation=True,
     )
+    db.commit()
+
     combination = result.get("combination")
     lfi = result.get("lfi")
     style = result.get("style")

@@ -126,6 +126,7 @@ class AutosaveItemRank(BaseModel):
 
 class SessionAutosavePayload(BaseModel):
     responses: list[AutosaveItemRank] = Field(default_factory=list)
+    contexts: list[ContextRank] = Field(default_factory=list)
 
     @field_validator("responses")
     @classmethod

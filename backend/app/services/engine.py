@@ -102,7 +102,7 @@ class EngineSessionService:
         locale: str | None = None,
     ) -> Dict[str, Any]:
         self._load_authorized_session(session_id, user)
-        if not payload.responses:
+        if not payload.responses and not payload.contexts:
             return {"saved_count": 0}
         delivery = runtime.delivery_package(self.db, session_id, locale=locale)
         items = delivery.get("items", []) if isinstance(delivery, dict) else []
@@ -113,6 +113,20 @@ class EngineSessionService:
             submission = LegacyItemSubmissionPayload(item_id=entry.item_id, ranks=normalized)
             runtime.submit_payload(self.db, session_id, submission.runtime_payload())
             saved += 1
+        
+        for ctx in payload.contexts:
+            from app.schemas.session import LegacyContextSubmissionPayload
+            submission = LegacyContextSubmissionPayload(
+                context_name=ctx.context_name,
+                CE=ctx.CE,
+                RO=ctx.RO,
+                AC=ctx.AC,
+                AE=ctx.AE,
+                overwrite=True
+            )
+            runtime.submit_payload(self.db, session_id, submission.runtime_payload())
+            saved += 1
+
         return {"saved_count": saved}
 
     def submit_full_batch(
@@ -130,22 +144,22 @@ class EngineSessionService:
             validate_full_submission_payload(self.db, payload)
 
             self._persist_batch_payload(session_id, payload)
+            
+            result = runtime.finalize_with_audit(
+                self.db,
+                session_id,
+                actor_email=user.email,
+                action="FINALIZE_SESSION_ENGINE_BATCH",
+                build_payload=self._build_standard_audit_payload(user.email, session_id),
+            )
             self.db.commit()
+            return self._transform_finalize_result(result, override=result.get("override", False))
         except DomainError:
             self.db.rollback()
             raise
         except Exception as exc:  # pragma: no cover - defensive guard for DB errors
             self.db.rollback()
             raise ConfigurationError(SessionErrorMessages.BATCH_FAILURE) from exc
-
-        result = runtime.finalize_with_audit(
-            self.db,
-            session_id,
-            actor_email=user.email,
-            action="FINALIZE_SESSION_ENGINE_BATCH",
-            build_payload=self._build_standard_audit_payload(user.email, session_id),
-        )
-        return self._transform_finalize_result(result, override=result.get("override", False))
 
     def submit_interaction(
         self,
