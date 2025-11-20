@@ -350,6 +350,17 @@ export const LoginPage: React.FC = () => {
                   Daftar
                 </Link>
               </p>
+              {/* Show "Continue as Guest" option if user came from a page via returnTo */}
+              {location.search.includes('returnTo') && (
+                <p className="text-muted-foreground">
+                  <Link
+                    to="/"
+                    className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1"
+                  >
+                    Continue as Guest
+                  </Link>
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
