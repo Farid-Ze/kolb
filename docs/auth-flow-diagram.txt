@@ -1,0 +1,224 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                     KLSI 4.0 Authentication Flow                           ║
+║                     with ReturnTo Parameter Support                        ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO 1: User Starts Assessment Without Login                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   User                ActiveExperimentationRoom         AuthNotice           LoginPage
+    │                          │                            │                     │
+    │  Navigate to             │                            │                     │
+    │  /experience            │                            │                     │
+    ├─────────────────────────>│                            │                     │
+    │                          │                            │                     │
+    │                          │  Click "Start Assessment"  │                     │
+    │                          ├────────────────────────────>│                     │
+    │                          │                            │                     │
+    │                          │  Unauthorized (401)        │                     │
+    │                          │<───────────────────────────┤                     │
+    │                          │                            │                     │
+    │                          │  Show AuthNotice           │                     │
+    │                          │  autoNavigateToLogin=true  │                     │
+    │<─────────────────────────┤                            │                     │
+    │                          │                            │                     │
+    │  Click "Sign In"         │                            │                     │
+    ├──────────────────────────┼────────────────────────────>│                     │
+    │                          │                            │                     │
+    │                          │                            │  Navigate with      │
+    │                          │                            │  returnTo param     │
+    │                          │                            │  /auth/login?       │
+    │                          │                            │  returnTo=%2F       │
+    │                          │                            │  experience         │
+    │                          │                            ├────────────────────>│
+    │                          │                            │                     │
+    │  LoginPage displayed                                  │                     │
+    │<──────────────────────────────────────────────────────┼─────────────────────┤
+    │                          │                            │                     │
+    │  Enter credentials       │                            │                     │
+    │  and submit             │                            │                     │
+    ├──────────────────────────┼────────────────────────────┼────────────────────>│
+    │                          │                            │                     │
+    │                          │                            │  Login Success      │
+    │                          │                            │  resolveRedirect    │
+    │                          │                            │  Target():          │
+    │                          │                            │  1. Check URL       │
+    │                          │                            │     returnTo        │
+    │                          │                            │  2. Decode:         │
+    │                          │                            │     /experience     │
+    │                          │                            │  3. Navigate        │
+    │                          │<───────────────────────────┼─────────────────────┤
+    │                          │                            │                     │
+    │  Back on /experience    │                            │                     │
+    │  Now authenticated      │                            │                     │
+    │<─────────────────────────┤                            │                     │
+    │                          │                            │                     │
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO 2: Session Expires Mid-Assessment                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   User             ActiveExperimentationRoom    AuthContext          LoginPage
+    │                          │                      │                   │
+    │  Working on assessment   │                      │                   │
+    │  at /assessment/123     │                      │                   │
+    ├─────────────────────────>│                      │                   │
+    │                          │                      │                   │
+    │  [Session expires]       │                      │                   │
+    │                          │                      │                   │
+    │  Submit assessment       │                      │                   │
+    ├─────────────────────────>│                      │                   │
+    │                          │                      │                   │
+    │                          │  API call returns    │                   │
+    │                          │  401 Unauthorized    │                   │
+    │                          ├─────────────────────>│                   │
+    │                          │                      │                   │
+    │                          │                      │  handleUnauth():  │
+    │                          │                      │  1. logout()      │
+    │                          │                      │  2. Save current  │
+    │                          │                      │     location to   │
+    │                          │                      │     sessionStorage│
+    │                          │                      │  3. Build returnTo│
+    │                          │                      │  4. Save error msg│
+    │                          │                      │  5. Navigate to   │
+    │                          │                      │     login with    │
+    │                          │                      │     returnTo      │
+    │                          │                      ├──────────────────>│
+    │                          │                      │                   │
+    │  LoginPage with error                           │                   │
+    │  "Session expired"                              │                   │
+    │<────────────────────────────────────────────────┼───────────────────┤
+    │                          │                      │                   │
+    │  Login again            │                      │                   │
+    ├─────────────────────────┼──────────────────────┼──────────────────>│
+    │                          │                      │                   │
+    │                          │                      │  resolveRedirect  │
+    │                          │                      │  1. URL returnTo  │
+    │                          │                      │  2. sessionStorage│
+    │                          │                      │  3. Return to:    │
+    │                          │                      │     /assessment/  │
+    │                          │                      │     123           │
+    │                          │<─────────────────────┼───────────────────┤
+    │                          │                      │                   │
+    │  Resume assessment      │                      │                   │
+    │<─────────────────────────┤                      │                   │
+    │                          │                      │                   │
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO 3: Protected Route Access                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   User             ProtectedRoute           LoginPage        HomePage
+    │                     │                      │                │
+    │  Navigate to       │                      │                │
+    │  /reports/self     │                      │                │
+    ├────────────────────>│                      │                │
+    │                     │                      │                │
+    │                     │  Check auth:         │                │
+    │                     │  !isAuthenticated    │                │
+    │                     │                      │                │
+    │                     │  Build returnTo:     │                │
+    │                     │  /reports/self       │                │
+    │                     │                      │                │
+    │                     │  Navigate to login   │                │
+    │                     │  with returnTo       │                │
+    │                     ├─────────────────────>│                │
+    │                     │                      │                │
+    │  LoginPage shown                           │                │
+    │<───────────────────────────────────────────┤                │
+    │                     │                      │                │
+    │  [User chooses      │                      │                │
+    │  Continue as Guest] │                      │                │
+    ├────────────────────────────────────────────>│                │
+    │                     │                      │                │
+    │                     │                      │  Navigate to   │
+    │                     │                      │  home (/)      │
+    │                     │                      ├───────────────>│
+    │                     │                      │                │
+    │  HomePage as guest                         │                │
+    │<───────────────────────────────────────────┼────────────────┤
+    │                     │                      │                │
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ KEY COMPONENTS & RESPONSIBILITIES                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐
+│   AuthNotice         │  • Shows sign-in prompt
+│                      │  • Handles navigation with returnTo
+│   autoNavigateToLogin│  • Encodes current URL as returnTo parameter
+└──────────────────────┘
+
+┌──────────────────────┐
+│   ProtectedRoute     │  • Guards protected routes
+│                      │  • Builds returnTo from location
+│   Checks auth status │  • Redirects to login if not authenticated
+└──────────────────────┘
+
+┌──────────────────────┐
+│   LoginPage          │  • Handles authentication
+│                      │  • Multi-tier redirect resolution:
+│   resolveRedirect    │    1. URL param returnTo
+│   Target()           │    2. sessionStorage
+│                      │    3. location.state
+│                      │    4. Default to /
+│                      │  • Infinite loop prevention
+│                      │  • "Continue as Guest" option
+└──────────────────────┘
+
+┌──────────────────────┐
+│   AuthContext        │  • Global auth state
+│                      │  • Session expiry handling
+│   handleUnauthorized │  • Saves returnTo to sessionStorage
+│                      │  • Stores error messages
+│                      │  • Navigates to login
+└──────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ REDIRECT RESOLUTION PRIORITY                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Priority 1: URL Query Parameter
+  ├─ /auth/login?returnTo=%2Fassessment%2Fstart
+  ├─ Most explicit and debuggable
+  └─ Safety: Rejects /auth/login, /auth/register
+
+  Priority 2: SessionStorage
+  ├─ sessionStorage.getItem('auth:postLoginRedirect')
+  ├─ Set by auth:unauthorized event
+  └─ Safety: Rejects any /auth/* path
+
+  Priority 3: Location State
+  ├─ location.state.from (React Router)
+  ├─ Passed by ProtectedRoute
+  └─ Safety: Rejects any /auth/* path
+
+  Priority 4: Default
+  └─ Navigate to / (home page)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SECURITY FEATURES                                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ✓ Infinite Loop Prevention
+    • Filters returnTo pointing to /auth/login or /auth/register
+    • Prevents endless redirect cycles
+
+  ✓ XSS Prevention
+    • Proper URL encoding with encodeURIComponent()
+    • Safe parameter handling
+
+  ✓ Open Redirect Prevention
+    • Only relative URLs accepted (starting with /)
+    • Absolute URLs should be filtered
+
+  ✓ Graceful Degradation
+    • SessionStorage fallback if unavailable
+    • Multiple fallback layers for robustness
+
