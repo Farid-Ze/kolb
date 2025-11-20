@@ -9,6 +9,8 @@ export const useLatestAssessmentSession = () => {
     retry: false,
   });
 
+  // 404 is handled in client.ts to return null (no data), so it won't be an error here.
+  // 401 throws ApiError, so we check for that.
   const isUnauthorized = query.error instanceof ApiError && (query.error as ApiError).isUnauthorized;
 
   return {

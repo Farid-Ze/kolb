@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error to error reporting service (e.g., Sentry)
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     this.setState({
       error,
       errorInfo,
@@ -119,7 +119,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw className="h-4 w-4" />
                 Coba Lagi
               </motion.button>
-              
+
               <motion.button
                 onClick={() => window.location.href = '/'}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary text-secondary-foreground px-6 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"

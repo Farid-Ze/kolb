@@ -1,9 +1,8 @@
-from datetime import datetime, timezone
+from datetime import timezone
 from email.utils import format_datetime
-from hashlib import sha256
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -13,8 +12,6 @@ from app.models.klsi.user import User
 from app.services.security import get_current_user
 from app.services.validation import run_session_validations
 from app.schemas.session import (
-    LegacyContextSubmissionPayload,
-    LegacyItemSubmissionPayload,
     SessionSubmissionPayload,
 )
 from app.core.config import settings
