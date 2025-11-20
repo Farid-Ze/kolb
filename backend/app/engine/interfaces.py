@@ -98,6 +98,7 @@ class ItemDTO:
     type: str
     stem: str
     options: Optional[List[Dict[str, Any]]] = None
+    category: Optional[str] = None
 
 
 @dataclass(frozen=True)

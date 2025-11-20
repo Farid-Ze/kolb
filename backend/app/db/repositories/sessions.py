@@ -109,3 +109,19 @@ class SessionRepository(Repository[Session]):
             .order_by(AssessmentSession.end_time.desc())
             .first()
         )
+
+    def get_latest_completed_for_user(self, user_id: int) -> Optional[AssessmentSession]:
+        """Fetch the most recent completed session for a user with all details."""
+        return (
+            self.db.query(AssessmentSession)
+            .options(
+                joinedload(AssessmentSession.scale_score),
+                joinedload(AssessmentSession.combination_score),
+                joinedload(AssessmentSession.learning_style).joinedload(UserLearningStyle.style_type),
+                joinedload(AssessmentSession.lfi_index),
+            )
+            .filter(AssessmentSession.user_id == user_id)
+            .filter(AssessmentSession.status == SessionStatus.completed)
+            .order_by(AssessmentSession.end_time.desc())
+            .first()
+        )

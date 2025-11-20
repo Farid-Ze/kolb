@@ -106,6 +106,11 @@ const App: React.FC = () => {
           />
 
           <Route
+            path="/report/:sessionId"
+            element={withProtection(<ReportPage />)}
+          />
+
+          <Route
             path="/assessment/:sessionId/report"
             element={withProtection(<ReportPage />)}
           />

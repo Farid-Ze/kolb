@@ -5,6 +5,7 @@ import { ROOM_REGISTRY } from './registry';
 import { springs } from '../core/physics/springs';
 import { RoomFallback } from '../core/design-system/RoomFallback';
 import { BackgroundVignette } from '../core/design-system/Background';
+import { useAuthStatus } from '../core/auth/useAuthStatus';
 
 // Placeholder for IntroRoom
 const IntroRoom = React.lazy(() => import('./IntroRoom/IntroRoom'));
@@ -24,6 +25,7 @@ const RoomComponents: Record<string, React.ComponentType<any>> = {
 export const SceneController: React.FC = () => {
   const { currentRoomIndex, direction } = useExperienceStore();
   const { nextRoom, prevRoom, goToRoom } = useExperienceActions();
+  const { status } = useAuthStatus();
 
   const currentRoom = ROOM_REGISTRY[currentRoomIndex] || ROOM_REGISTRY[0];
   const CurrentRoomComponent = RoomComponents[currentRoom.id] || (() => <div>Room not found</div>);
@@ -55,6 +57,28 @@ export const SceneController: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden bg-black text-white">
       <BackgroundVignette />
       
+      {/* Global Auth Indicator (HUD) */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-2 pointer-events-none">
+        {status === 'loading' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+            <div className="w-2 h-2 rounded-full bg-white/50 animate-pulse" />
+            <span className="text-xs font-medium text-white/50">Checking...</span>
+          </div>
+        )}
+        {status === 'authenticated' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-md">
+            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="text-xs font-medium text-emerald-200">Signed In</span>
+          </div>
+        )}
+        {status === 'guest' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+            <div className="w-2 h-2 rounded-full bg-amber-400/50" />
+            <span className="text-xs font-medium text-white/50">Guest</span>
+          </div>
+        )}
+      </div>
+
       <AnimatePresence initial={false} custom={direction} mode="popLayout">
         <motion.div
           key={currentRoomIndex}

@@ -155,6 +155,7 @@ class KLSI4Plugin(
                     type=item.item_type.value,
                     stem=item.item_stem,
                     options=options,
+                    category=item.item_category,
                 )
             )
         return result

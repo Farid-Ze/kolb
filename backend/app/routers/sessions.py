@@ -45,7 +45,27 @@ def start_session(db: Session = Depends(get_db), authorization: str | None = Hea
     return {"session_id": session.id}
 
 @router.get("/{session_id}/items", response_model=list)
-def get_items(session_id: int, db: Session = Depends(get_db)):
+def get_items(
+    session_id: int, 
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None)
+):
+    """
+    Fetch assessment items for a specific session.
+    
+    Security:
+    - Requires authentication.
+    - Enforces strict ownership: users can only access their own sessions.
+    - Returns 403 Forbidden if accessing another user's session.
+    """
+    user = get_current_user(authorization, db)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, user.id)
+    
+    # Prevent users from accessing sessions that do not belong to them
+    if not sess or sess.user_id != user.id:
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
+
     # Return all items (20): 12 learning style + 8 LFI
     delivery = runtime.delivery_package(db, session_id)
     items = delivery.get("items", [])
@@ -55,6 +75,8 @@ def get_items(session_id: int, db: Session = Depends(get_db)):
             "number": item["number"],
             "type": item["type"],
             "stem": item["stem"],
+            "options": item.get("options", []),
+            "category": item.get("category"),
         }
         for item in items
     ]

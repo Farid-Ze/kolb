@@ -16,6 +16,7 @@ from app.db.database import Base, engine, get_db, transactional_session
 from app.i18n import preload_i18n_resources
 from app.core.sentinels import UNKNOWN
 from app.routers.admin import router as admin_router
+from app.routers.assessments import router as assessments_router
 from app.routers.auth import router as auth_router
 from app.routers.exceptions import register_exception_handlers
 from app.routers.reports import router as reports_router
@@ -104,6 +105,7 @@ register_exception_handlers(app)
 
 # Register routers at import time so tests see routes without requiring startup
 app.include_router(auth_router)
+app.include_router(assessments_router)
 app.include_router(engine_router)
 app.include_router(admin_router)
 app.include_router(reports_router)

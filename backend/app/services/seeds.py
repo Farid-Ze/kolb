@@ -97,6 +97,28 @@ ITEM_STEMS = [
     "Saya belajar dengan melakukan eksperimen singkat.",
 ]
 
+LFI_CONTEXTS = [
+    "Starting_Something_New",
+    "Influencing_Someone",
+    "Getting_To_Know_Someone",
+    "Learning_In_A_Group",
+    "Planning_Something",
+    "Analyzing_Something",
+    "Evaluating_An_Opportunity",
+    "Choosing_Between_Alternatives",
+]
+
+LFI_STEMS = {
+    "Starting_Something_New": "Ketika memulai sesuatu yang baru...",
+    "Influencing_Someone": "Ketika mempengaruhi orang lain...",
+    "Getting_To_Know_Someone": "Ketika mengenal seseorang...",
+    "Learning_In_A_Group": "Ketika belajar dalam kelompok...",
+    "Planning_Something": "Ketika merencanakan sesuatu...",
+    "Analyzing_Something": "Ketika menganalisis sesuatu...",
+    "Evaluating_An_Opportunity": "Ketika mengevaluasi peluang...",
+    "Choosing_Between_Alternatives": "Ketika memilih antara alternatif...",
+}
+
 
 CHOICE_TEXT = {
     LearningMode.CE: "Saya mengandalkan perasaan saya",
@@ -328,6 +350,28 @@ def seed_assessment_items(db: Session):
                 item_number=idx,
                 item_type=ItemType.learning_style,
                 item_stem=stem,
+                language="ID",
+            )
+            db.add(item)
+            db.flush()
+            for mode in (LearningMode.CE, LearningMode.RO, LearningMode.AC, LearningMode.AE):
+                db.add(
+                    ItemChoice(
+                        item_id=item.id,
+                        learning_mode=mode,
+                        choice_text=CHOICE_TEXT[mode],
+                    )
+                )
+            db.flush()
+
+    # Seed LFI items if they don't exist
+    if db.query(AssessmentItem).filter(AssessmentItem.item_type == ItemType.learning_flex).count() == 0:
+        for idx, context_name in enumerate(LFI_CONTEXTS, start=13):
+            item = AssessmentItem(
+                item_number=idx,
+                item_type=ItemType.learning_flex,
+                item_stem=LFI_STEMS.get(context_name, context_name),
+                item_category=context_name, # Store context name for mapping
                 language="ID",
             )
             db.add(item)
