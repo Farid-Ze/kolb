@@ -136,7 +136,14 @@ export const ReportPage: React.FC = () => {
 		};
 	}, [resolvedId]);
 
-	const normLabel = useMemo(() => `Norm: ${report?.percentiles?.norm_group_used ?? 'Tidak tersedia'}`, [report?.percentiles?.norm_group_used]);
+	const normLabel = useMemo(() => {
+		const group = report?.percentiles?.norm_group_used ?? 'Tidak tersedia';
+		const version = report?.percentiles?.norm_version_used;
+		if (version) {
+			return `Norm: ${group} (versi ${version})`;
+		}
+		return `Norm: ${group}`;
+	}, [report?.percentiles?.norm_group_used, report?.percentiles?.norm_version_used]);
 
 	if (!resolvedId) {
 		return <ErrorCard message="ID sesi tidak ditemukan" onBack={() => navigate('/')} />;
@@ -316,6 +323,7 @@ interface NormInfoProps {
 
 const NormInfoCard: React.FC<NormInfoProps> = ({ percentiles }) => {
 	const normGroup = percentiles?.norm_group_used ?? 'Tidak tersedia';
+	const normVersion = percentiles?.norm_version_used ?? 'default';
 	const usedFallback = percentiles?.used_fallback_any ? 'Ya, menggunakan fallback' : 'Tidak';
 	const rawOutside = percentiles?.raw_outside_norm_range ? 'Ya' : 'Tidak';
 	const truncatedList = Object.keys(percentiles?.truncated_scales ?? {});
@@ -327,6 +335,10 @@ const NormInfoCard: React.FC<NormInfoProps> = ({ percentiles }) => {
 				<div className="flex items-center justify-between">
 					<dt className="text-muted-foreground">Kelompok Norm</dt>
 					<dd className="text-foreground font-medium">{normGroup}</dd>
+				</div>
+				<div className="flex items-center justify-between">
+					<dt className="text-muted-foreground">Versi Norma</dt>
+					<dd className="text-foreground font-medium">{normVersion}</dd>
 				</div>
 				<div className="flex items-center justify-between">
 					<dt className="text-muted-foreground">Gunakan fallback</dt>

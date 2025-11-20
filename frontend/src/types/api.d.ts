@@ -330,6 +330,7 @@ export interface ReportPercentiles {
   BALANCE?: ReportBalanceBlock | null;
   source_provenance?: string | null;
   norm_group_used?: string | null;
+  norm_version_used?: string | null;
   per_scale_provenance?: Record<string, any> | null;
   per_scale_sources?: {
     CE?: string | null;

@@ -16,20 +16,24 @@ ScaleDict = Dict[str, float | int | None]
 _VERSION_DELIM = "|"
 
 
-def _split_norm_payload(payload: str) -> str:
+def _split_norm_payload(payload: str) -> tuple[str, Optional[str]]:
     if _VERSION_DELIM in payload:
-        group, _version = payload.split(_VERSION_DELIM, 1)
-        return group
-    return payload
+        group, version = payload.split(_VERSION_DELIM, 1)
+        return group, version or None
+    return payload, None
 
 
-def _normalize_provenance(tag: str) -> tuple[str, Optional[str]]:
+def _normalize_provenance(tag: str) -> tuple[str, Optional[str], Optional[str]]:
     if tag.startswith("DB:"):
-        group = _split_norm_payload(tag[3:])
-        return "database", group
+        group, version = _split_norm_payload(tag[3:])
+        return "database", group, version or "default"
+    if tag.startswith("External:"):
+        payload = tag.split(":", 1)[1]
+        group, version = _split_norm_payload(payload)
+        return "external", group, version or None
     if tag.startswith("Appendix:"):
-        return "appendix", tag.split(":", 1)[1]
-    return UNKNOWN, None
+        return "appendix", tag.split(":", 1)[1], None
+    return UNKNOWN, None, None
 
 
 def upsert_scale_provenance(
@@ -49,7 +53,7 @@ def upsert_scale_provenance(
         raw_value = raw_scores[scale_code]
         if raw_value is None:
             continue
-        source_kind, norm_group = _normalize_provenance(provenance_map[scale_code])
+        source_kind, norm_group, norm_version = _normalize_provenance(provenance_map[scale_code])
         db.add(
             ScaleProvenance(
                 session_id=session_id,
@@ -59,6 +63,7 @@ def upsert_scale_provenance(
                 provenance_tag=provenance_map[scale_code],
                 source_kind=source_kind,
                 norm_group=norm_group,
+                norm_version=norm_version,
                 truncated=bool(truncations.get(scale_code, False)),
             )
         )

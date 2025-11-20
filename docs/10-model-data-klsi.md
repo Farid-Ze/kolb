@@ -101,7 +101,10 @@ Tabel inti (PK → primary key, FK → foreign key; tipe data dibahas di bagian 
   - UNIQUE(norm_group, scale_name, raw_score).
 
 - percentile_scores (PK id, FK session_id UNIQUE → assessment_sessions.id)
-  - Atribut: norm_group_used, CE_percentile, RO_percentile, AC_percentile, AE_percentile, ACCE_percentile, AERO_percentile.
+  - Atribut: norm_group_used, norm_version_used, CE_percentile, RO_percentile, AC_percentile, AE_percentile, ACCE_percentile, AERO_percentile; JSON `norm_provenance` menyimpan detail per skala.
+
+- scale_provenance (PK id, FK session_id → assessment_sessions.id)
+  - Atribut: scale_code, raw_score, percentile_value, provenance_tag, source_kind, norm_group, **norm_version**, truncated. Digunakan auditor untuk melacak setiap persentil ke input mentah & versi norma.
 
 - normative_statistics (PK id)
   - Atribut: norm_group, sample_size, mean/stdev untuk CE/RO/AC/AE/ACCE/AERO.

@@ -78,6 +78,7 @@ def _build_percentiles_context(percentiles, combo_entity):
         "raw_outside_norm_range": percentiles.raw_outside_norm_range,
         "used_fallback_any": percentiles.used_fallback_any,
         "norm_group_used": percentiles.norm_group_used,
+        "norm_version_used": percentiles.norm_version_used,
         "per_scale_sources": {
             "CE": percentiles.CE_source,
             "RO": percentiles.RO_source,
@@ -393,6 +394,7 @@ def finalize_assessment(
                     "raw_outside_norm_range": pct_ctx.get("raw_outside_norm_range"),
                     "truncated_scales": pct_ctx.get("truncated"),
                     "norm_group_used": pct_ctx.get("norm_group_used"),
+                    "norm_version_used": pct_ctx.get("norm_version_used"),
                 }
             )
             validation_result.provenance = provenance

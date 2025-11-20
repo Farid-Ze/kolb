@@ -482,6 +482,7 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
             "BALANCE": balance_block,
             "source_provenance": p.norm_group_used,
             "norm_group_used": p.norm_group_used,
+            "norm_version_used": p.norm_version_used,
             "per_scale_provenance": p.norm_provenance,
             "per_scale_sources": {
                 "CE": p.CE_source,

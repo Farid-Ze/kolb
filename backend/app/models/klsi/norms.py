@@ -22,6 +22,7 @@ class PercentileScore(Base):
         ForeignKey("assessment_sessions.id"), unique=True, index=True
     )
     norm_group_used: Mapped[str] = mapped_column(String(50))
+    norm_version_used: Mapped[str | None] = mapped_column(String(40), nullable=True)
     CE_percentile: Mapped[float] = mapped_column(Float)
     RO_percentile: Mapped[float] = mapped_column(Float)
     AC_percentile: Mapped[float] = mapped_column(Float)

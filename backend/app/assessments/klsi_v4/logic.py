@@ -165,6 +165,10 @@ def _describe_provenance(tag: str) -> Tuple[str, Optional[str], Optional[str]]:
         payload = tag[3:]
         group, version = _split_norm_group_token(payload)
         return "database", group, version
+    if tag.startswith("External:"):
+        payload = tag.split(":", 1)[1]
+        group, version = _split_norm_group_token(payload)
+        return "external", group, version
     if tag.startswith("Appendix:"):
         appendix_group = tag.split(":", 1)[1]
         return "appendix", appendix_group, None
@@ -627,9 +631,13 @@ def apply_percentiles(
                     return f"DB:{base}"
         return "Appendix:Fallback"
 
+    session_norm_group = _session_norm_group()
+    _, _, session_norm_version = _describe_provenance(session_norm_group)
+
     entity = PercentileScore(
         session_id=session_id,
-        norm_group_used=_session_norm_group(),
+        norm_group_used=session_norm_group,
+        norm_version_used=session_norm_version,
         CE_percentile=percentiles["CE"],
         RO_percentile=percentiles["RO"],
         AC_percentile=percentiles["AC"],

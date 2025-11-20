@@ -430,6 +430,8 @@ class EngineSessionService:
             "LFI": getattr(lfi, "LFI_score", None) if lfi else None,
             "delta": result.get("delta"),
             "percentile_sources": per_scale_provenance,
+            "norm_group_used": getattr(percentiles, "norm_group_used", None) if percentiles else None,
+            "norm_version_used": getattr(percentiles, "norm_version_used", None) if percentiles else None,
             "validation": result.get("validation"),
             "override": override,
         }

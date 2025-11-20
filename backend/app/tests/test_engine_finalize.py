@@ -7,15 +7,18 @@ import pytest
 
 import app.engine.registry as assessment_registry
 import app.engine.strategy_registry as strategy_registry
+from app.assessments.klsi_v4 import logic
 from app.assessments.klsi_v4.definition import KLSIAssessmentDefinition  # noqa: F401 ensures registration
 
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.instrument import Instrument
-from app.models.klsi.learning import ScaleProvenance
+from app.models.klsi.learning import CombinationScore, ScaleProvenance, ScaleScore
+from app.models.klsi.norms import PercentileScore
 from app.models.klsi.user import User
 
 from app.engine.strategies.klsi4 import KLSI4Strategy
 from app.engine.runtime import EngineRuntime
+from app.engine.norms.value_objects import PercentileResult
 from app.services.scoring import finalize_session
 from app.db.repositories.pipeline import PipelineRepository
 from app.i18n.id_messages import EngineMessages
@@ -50,6 +53,7 @@ def test_finalize_records_truncation_and_artifacts():
         assert percentile_entity.raw_outside_norm_range is True
         assert "CE" in percentile_entity.truncated_scales
         assert percentile_entity.truncated_scales["CE"]["raw"] == 48
+        assert percentile_entity.norm_version_used is None
 
         artifacts = result["artifacts"]["percentiles"]
         assert artifacts["raw_outside_norm_range"] is True
@@ -74,6 +78,7 @@ def test_finalize_records_truncation_and_artifacts():
         assert ce_row.provenance_tag == "Appendix:CE"
         assert ce_row.source_kind == "appendix"
         assert ce_row.norm_group == "CE"
+        assert ce_row.norm_version is None
     finally:
         db.close()
 
@@ -256,6 +261,65 @@ def test_finalize_assigns_pipeline_version():
         )
         assert refetched is not None
         assert refetched.pipeline_version == "KLSI4.0:v1"
+    finally:
+        db.close()
+
+
+def test_apply_percentiles_records_norm_versions_per_scale():
+    class StubProvider:
+        def percentile(self, group_chain, scale_name, raw):  # pragma: no cover - simple stub
+            return PercentileResult(75.0, "DB:Total|2025Q2", False)
+
+    db = build_seeded_memory_db()
+    try:
+        session = seed_complete_session(db)
+        scale = ScaleScore(
+            session_id=session.id,
+            CE_raw=32,
+            RO_raw=30,
+            AC_raw=34,
+            AE_raw=28,
+        )
+        combo = CombinationScore(
+            session_id=session.id,
+            ACCE_raw=scale.AC_raw - scale.CE_raw,
+            AERO_raw=scale.AE_raw - scale.RO_raw,
+            assimilation_accommodation=scale.AC_raw - scale.RO_raw,
+            converging_diverging=scale.AE_raw - scale.CE_raw,
+            balance_acce=abs(scale.AC_raw - scale.CE_raw),
+            balance_aero=abs(scale.AE_raw - scale.RO_raw),
+        )
+        db.add(scale)
+        db.add(combo)
+        db.flush()
+
+        provider = StubProvider()
+        group_token = logic._pack_norm_group_token("Total", "2025Q2")
+        logic.apply_percentiles(
+            db,
+            session.id,
+            scale,
+            combo,
+            norm_provider=provider,
+            group_chain=[group_token],
+        )
+        db.flush()
+
+        percentile = (
+            db.query(PercentileScore)
+            .filter(PercentileScore.session_id == session.id)
+            .one()
+        )
+        assert percentile.norm_group_used == "DB:Total|2025Q2"
+        assert percentile.norm_version_used == "2025Q2"
+
+        prov_rows = (
+            db.query(ScaleProvenance)
+            .filter(ScaleProvenance.session_id == session.id)
+            .all()
+        )
+        assert len(prov_rows) == 6
+        assert {row.norm_version for row in prov_rows} == {"2025Q2"}
     finally:
         db.close()
 

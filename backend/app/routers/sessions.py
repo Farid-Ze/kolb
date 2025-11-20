@@ -59,6 +59,8 @@ def adapt_engine_to_api_payload(
         "LFI": _get_attr(lfi, "LFI_score"),
         "delta": engine_output.get("delta"),
         "percentile_sources": getattr(percentiles, "norm_provenance", None) if percentiles is not None else None,
+        "norm_group_used": _get_attr(percentiles, "norm_group_used"),
+        "norm_version_used": _get_attr(percentiles, "norm_version_used"),
         "validation": engine_output.get("validation"),
         "override": engine_output.get("override", False) if override_value is None else override_value,
     }
