@@ -73,13 +73,31 @@ export const LoginPage: React.FC = () => {
   }, []);
 
   const resolveRedirectTarget = React.useCallback(() => {
+    // Priority 1: URL query parameter (explicit, debuggable)
+    const searchParams = new URLSearchParams(location.search);
+    const returnToParam = searchParams.get('returnTo');
+    if (returnToParam) {
+      return decodeURIComponent(returnToParam);
+    }
+
+    // Priority 2: sessionStorage (auth:postLoginRedirect)
     const storedIntent = consumeAuthIntent();
+    if (storedIntent && storedIntent !== '/auth/login') {
+      return storedIntent;
+    }
+
+    // Priority 3: location.state.from
     const state = location.state as { from?: Location } | undefined;
     const fromState = state?.from?.pathname && state.from.pathname !== '/auth/login'
       ? `${state.from.pathname}${state.from.search ?? ''}${state.from.hash ?? ''}`
       : undefined;
-    return storedIntent || fromState || '/';
-  }, [location.state]);
+    if (fromState) {
+      return fromState;
+    }
+
+    // Default: home page
+    return '/';
+  }, [location.search, location.state]);
 
   // Task 14: react-hook-form + zod integration
   const {

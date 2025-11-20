@@ -9,7 +9,6 @@ import { springs } from '../../core/physics/springs';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
 import { api, AssessmentItem, AssessmentItemOption, SessionSubmissionPayload, ContextRank, ApiError } from '../../core/api/client';
 import { AuthNotice } from '../../core/auth/AuthNotice';
-import { LOGIN_ROUTE } from '../../core/auth/routes';
 import { LFIContextCard } from '../../components/assessment/LFIContextCard';
 import { validateContextRanks } from '../../utils/contextHelpers';
 
@@ -234,7 +233,7 @@ const ActiveExperimentationRoom: React.FC = () => {
             {isUnauthorized ? (
               <AuthNotice 
                 message="You must be signed in to start an assessment."
-                onActionClick={() => navigate(LOGIN_ROUTE)}
+                autoNavigateToLogin={true}
               />
             ) : (
               <>

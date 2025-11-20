@@ -9,7 +9,6 @@ import { useLatestAssessmentSession } from '../../core/api/hooks';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
 import { AssessmentResults, AssessmentSession } from '../../core/api/client';
 import { AuthNotice } from '../../core/auth/AuthNotice';
-import { LOGIN_ROUTE } from '../../core/auth/routes';
 
 // Helper to map scores to -1..1 coordinate space
 // X-axis: AE (Left) vs RO (Right) -> Range: -1 (AE) to 1 (RO)
@@ -108,7 +107,7 @@ const AbstractConceptualizationRoom: React.FC = () => {
                                             {isUnauthorized ? (
                                                 <AuthNotice
                                                     message="Sign in to view your learning style results."
-                                                    onActionClick={() => navigate(LOGIN_ROUTE)}
+                                                    autoNavigateToLogin={true}
                                                     className="bg-transparent shadow-none" // Override default styles to fit overlay
                                                 />
                                             ) : (

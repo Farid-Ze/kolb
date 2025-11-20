@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GlassMaterial } from '../design-system/Materials';
 import { SectionTitle, BodyText } from '../design-system/Typography';
 import { fadeInUp } from '../physics/motionPrimitives';
+import { LOGIN_ROUTE } from './routes';
 
 interface AuthNoticeProps {
   title?: string;
@@ -10,6 +12,8 @@ interface AuthNoticeProps {
   actionLabel?: string;
   onActionClick?: () => void;
   className?: string;
+  /** If true, automatically navigates to login with returnTo parameter */
+  autoNavigateToLogin?: boolean;
 }
 
 export const AuthNotice: React.FC<AuthNoticeProps> = ({
@@ -17,8 +21,22 @@ export const AuthNotice: React.FC<AuthNoticeProps> = ({
   message,
   actionLabel = "Sign In",
   onActionClick,
-  className = ""
+  className = "",
+  autoNavigateToLogin = false
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleActionClick = () => {
+    if (onActionClick) {
+      onActionClick();
+    } else if (autoNavigateToLogin) {
+      // Build return URL with current location
+      const returnTo = encodeURIComponent(`${location.pathname}${location.search}${location.hash}`);
+      navigate(`${LOGIN_ROUTE}?returnTo=${returnTo}`);
+    }
+  };
+
   return (
     <motion.div 
       variants={fadeInUp}
@@ -30,11 +48,11 @@ export const AuthNotice: React.FC<AuthNoticeProps> = ({
         <SectionTitle>{title}</SectionTitle>
         <BodyText tone="muted">{message}</BodyText>
         
-        {onActionClick && (
+        {(onActionClick || autoNavigateToLogin) && (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={onActionClick}
+            onClick={handleActionClick}
             className="mt-2 px-6 py-2 bg-amber-500 text-black font-bold rounded-full hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20"
           >
             {actionLabel}
