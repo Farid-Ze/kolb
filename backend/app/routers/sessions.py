@@ -2,7 +2,7 @@ from datetime import timezone
 from email.utils import format_datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -13,6 +13,8 @@ from app.services.security import get_current_user
 from app.services.validation import run_session_validations
 from app.schemas.session import (
     SessionSubmissionPayload,
+    LegacyItemSubmissionPayload,
+    LegacyContextSubmissionPayload,
 )
 from app.core.config import settings
 from app.core.metrics import inc_counter
