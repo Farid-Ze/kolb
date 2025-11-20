@@ -1,12 +1,11 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.services.security import get_current_user
-from app.models.klsi.user import User
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
 

@@ -109,7 +109,7 @@ export const RankingItem: React.FC<RankingItemProps> = ({
       <div className="flex items-start gap-4">
         {/* Task 31: Drag Handle (Guidelines §1.3.2 - Touch target minimum 44px) */}
         {isDraggable && (
-          <motion.div 
+          <motion.div
             className="flex-shrink-0 pt-1 touch-manipulation cursor-grab active:cursor-grabbing"
             whileHover={{ scale: 1.1, color: 'hsl(var(--foreground))' }}
             transition={springConfig}
@@ -173,10 +173,9 @@ export const RankingItem: React.FC<RankingItemProps> = ({
             className={`
               rounded-xl px-4 py-4 touch-manipulation
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-              ${
-                currentRank === rank
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'bg-secondary text-secondary-foreground'
+              ${currentRank === rank
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'bg-secondary text-secondary-foreground'
               }
             `}
             whileHover={{ scale: 1.05, opacity: 0.9 }}

@@ -14,11 +14,11 @@
 import React, { useState, ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  BookOpen, 
-  Menu, 
+import {
+  LayoutDashboard,
+  FileText,
+  BookOpen,
+  Menu,
   X,
   LogOut,
   Users,
@@ -113,7 +113,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 )}
               </motion.button>
             )}
-            
+
             <motion.button
               onClick={() => navigate('/')}
               className="inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg p-2 -m-2 transition-spring"
@@ -139,16 +139,15 @@ export const AppShell: React.FC<AppShellProps> = ({
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isActiveRoute(item.path);
-                
+
                 return (
                   <motion.button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      isActive
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                     whileHover={{ scale: 1.03, backgroundColor: 'rgba(0, 0, 0, 0.05)' }}
                     whileTap={{ scale: 0.97 }}
                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -173,7 +172,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
             {/* Theme Toggle (Task 82) */}
             <ThemeToggle />
-            
+
             {/* Logout Button - Motion spring */}
             <motion.button
               onClick={handleLogout}
@@ -192,7 +191,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         {/* Mobile Navigation Menu (Bagian 1.2.1 - Mobile Strategy) */}
         <AnimatePresence>
           {showSidebar && isMobileMenuOpen && (
-            <motion.div 
+            <motion.div
               className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-sm"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -212,7 +211,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 {filteredNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = isActiveRoute(item.path);
-                  
+
                   return (
                     <motion.button
                       key={item.path}
@@ -220,11 +219,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                         navigate(item.path);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full inline-flex items-center gap-3 rounded-xl px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                        isActive
+                      className={`w-full inline-flex items-center gap-3 rounded-xl px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive
                           ? 'bg-primary/10 text-primary'
                           : 'text-muted-foreground hover:text-foreground'
-                      }`}
+                        }`}
                       whileHover={{ scale: 1.02, backgroundColor: 'rgba(0, 0, 0, 0.05)' }}
                       whileTap={{ scale: 0.98 }}
                       transition={{ type: "spring", stiffness: 400, damping: 25 }}
