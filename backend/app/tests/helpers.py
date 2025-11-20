@@ -38,11 +38,14 @@ def seed_complete_session(
     assessment_version: str = "4.0",
     user_email: str | None = None,
     user_name: str = "Tester",
+    user: User | None = None,
 ) -> AssessmentSession:
-    email = user_email or "tester@example.com"
-    user = User(full_name=user_name, email=email)
-    db.add(user)
-    db.flush()
+    target_user = user
+    if target_user is None:
+        email = user_email or "tester@example.com"
+        target_user = User(full_name=user_name, email=email)
+        db.add(target_user)
+        db.flush()
 
     instrument = (
         db.query(Instrument)
@@ -51,7 +54,7 @@ def seed_complete_session(
     )
 
     session = AssessmentSession(
-        user_id=user.id,
+        user_id=target_user.id,
         assessment_id=assessment_id,
         assessment_version=assessment_version,
         instrument_id=instrument.id if instrument else None,

@@ -9,7 +9,7 @@
  * - Material hierarchy dan spring animations
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -26,6 +26,7 @@ import {
   Lock,
   ArrowLeft,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -77,6 +78,9 @@ export const AssessmentReviewPage: React.FC = () => {
     progress,
     isLoading,
     isComplete,
+    isSaving,
+    hasPendingSave,
+    flushPendingSaves,
     isError: assessmentHasError,
     error: assessmentError,
   } = useAssessment({
@@ -93,6 +97,24 @@ export const AssessmentReviewPage: React.FC = () => {
     enabled: Boolean(sessionId),
     refetchOnWindowFocus: false,
   });
+
+  const waitForAutosave = useCallback(async () => {
+    if (!hasPendingSave) {
+      return true;
+    }
+
+    const toastId = toast.loading('Menunggu autosave selesai...');
+    try {
+      await flushPendingSaves();
+      return true;
+    } catch (error) {
+      console.error('Failed to flush pending autosave before finalizing', error);
+      toast.error('Autosave belum selesai. Mohon coba lagi setelah tersinkron.');
+      return false;
+    } finally {
+      toast.dismiss(toastId);
+    }
+  }, [flushPendingSaves, hasPendingSave]);
 
 
 
@@ -145,7 +167,7 @@ export const AssessmentReviewPage: React.FC = () => {
   });
 
   // Handler untuk finalize dengan validation
-  const handleFinalize = () => {
+  const handleFinalize = async () => {
     if (!isComplete) {
       const completedCount = Math.floor(progress / 100 * totalItems);
       const unansweredCount = totalItems - completedCount;
@@ -157,10 +179,18 @@ export const AssessmentReviewPage: React.FC = () => {
       void refetchValidation();
       return;
     }
+    const autosaveReady = await waitForAutosave();
+    if (!autosaveReady) {
+      return;
+    }
     setShowConfirmDialog(true);
   };
 
-  const confirmFinalize = () => {
+  const confirmFinalize = async () => {
+    const autosaveReady = await waitForAutosave();
+    if (!autosaveReady) {
+      return;
+    }
     finalizeMutation.mutate();
     setShowConfirmDialog(false);
   };
@@ -353,6 +383,7 @@ export const AssessmentReviewPage: React.FC = () => {
 
   const completedContexts = contextStatus.filter((context) => context.present).length;
   const hasMissingContexts = contextStatus.some((context) => !context.present);
+  const autosaveBusy = hasPendingSave || isSaving;
 
   return (
     <PageShell>

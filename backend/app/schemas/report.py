@@ -37,6 +37,16 @@ class ReportDialecticSummary(CamelModel):
     intensity: int | None = None
 
 
+class ReportLongitudinalSummary(CamelModel):
+    previous_session_id: int | None = None
+    previous_session_date: datetime | None = None
+    time_elapsed_days: int | None = None
+    delta_acce: int | None = None
+    delta_aero: int | None = None
+    delta_lfi: float | None = None
+    delta_intensity: int | None = None
+
+
 class ReportSummaryPayload(CamelModel):
     session_id: int
     generated_at: datetime | None = None
@@ -44,6 +54,7 @@ class ReportSummaryPayload(CamelModel):
     nine_style: ReportStyleSummary | None = None
     flexibility: ReportFlexibilitySummary | None = None
     dialectic: ReportDialecticSummary | None = None
+    longitudinal: ReportLongitudinalSummary | None = None
 
 
 class ReportPayload(CamelModel):
@@ -82,5 +93,6 @@ __all__ = [
     "ReportStyleSummary",
     "ReportFlexibilitySummary",
     "ReportDialecticSummary",
+    "ReportLongitudinalSummary",
     "as_report_payload",
 ]

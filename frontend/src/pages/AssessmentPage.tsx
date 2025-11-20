@@ -76,6 +76,8 @@ export const AssessmentPage: React.FC = () => {
     isComplete,
     isLoading,
     isSaving,
+    hasPendingSave,
+    flushPendingSaves,
     setRank,
     setItemRanks,
     nextItem,
@@ -146,9 +148,11 @@ export const AssessmentPage: React.FC = () => {
   // Handler untuk kembali
   const handleBack = useCallback(() => {
     if (window.confirm('Apakah Anda yakin ingin keluar? Progress Anda telah tersimpan otomatis.')) {
-      void navigate('/');
+      void flushPendingSaves().finally(() => {
+        void navigate('/');
+      });
     }
-  }, [navigate]);
+  }, [flushPendingSaves, navigate]);
 
   // Handler untuk review
   const handleReview = useCallback(() => {
@@ -157,8 +161,10 @@ export const AssessmentPage: React.FC = () => {
       toast.error(`Masih ada ${unansweredCount} item yang belum dijawab lengkap`);
       return;
     }
-    void navigate(`/assessment/${sessionId}/review`);
-  }, [isComplete, totalItems, progress, sessionId, navigate]);
+    void flushPendingSaves().finally(() => {
+      void navigate(`/assessment/${sessionId}/review`);
+    });
+  }, [flushPendingSaves, isComplete, totalItems, progress, sessionId, navigate]);
 
   // Task 8.9: Handler untuk buka panduan
   const handleOpenGuide = useCallback(() => {
@@ -321,13 +327,13 @@ export const AssessmentPage: React.FC = () => {
                 <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
                     Item {currentItemIndex + 1} / {totalItems}
                 </span>
-                {isSaving && (
+                {(isSaving || hasPendingSave) && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
-                        <Save className="h-3 w-3 text-white/50 animate-pulse" />
+                    <Save className="h-3 w-3 text-white/50 animate-pulse" />
                     </motion.div>
                 )}
             </div>

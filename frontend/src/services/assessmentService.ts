@@ -91,6 +91,7 @@ export const submitAnswers = async (
   sessionId: string,
   payload: SubmitAnswersRequest,
   items: AssessmentItem[],
+  options?: { keepalive?: boolean }
 ): Promise<SubmitAnswersResponse> => {
   const backendPayload = buildAutosavePayload(payload.responses, items, payload.contexts);
   if (!backendPayload.responses.length && !backendPayload.contexts.length) {
@@ -102,6 +103,7 @@ export const submitAnswers = async (
     {
       method: 'POST',
       body: JSON.stringify(backendPayload),
+      keepalive: options?.keepalive,
     }
   );
 };

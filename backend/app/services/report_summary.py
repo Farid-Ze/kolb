@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -68,12 +69,47 @@ def _build_dialectic_summary(session: AssessmentSession) -> dict[str, Any] | Non
     }
 
 
-def build_report_summary(session: AssessmentSession) -> dict[str, Any]:
+def _build_longitudinal_summary(
+    session: AssessmentSession,
+    previous_session: AssessmentSession | None,
+) -> dict[str, Any] | None:
+    delta = session.delta
+    if not delta:
+        return None
+
+    previous_date: datetime | None = None
+    if previous_session:
+        previous_date = previous_session.end_time or previous_session.start_time
+
+    current_date = session.end_time or session.start_time
+    time_elapsed_days: int | None = None
+    if current_date and previous_date:
+        time_elapsed_days = (current_date - previous_date).days
+    elif session.days_since_last_session is not None:
+        time_elapsed_days = session.days_since_last_session
+
+    return {
+        "previous_session_id": delta.previous_session_id,
+        "previous_session_date": previous_date,
+        "time_elapsed_days": time_elapsed_days,
+        "delta_acce": delta.delta_acce,
+        "delta_aero": delta.delta_aero,
+        "delta_lfi": delta.delta_lfi,
+        "delta_intensity": delta.delta_intensity,
+    }
+
+
+def build_report_summary(
+    session: AssessmentSession,
+    *,
+    previous_session: AssessmentSession | None = None,
+) -> dict[str, Any]:
     """Serialize a completed session into the lightweight report summary payload."""
 
     style_summary = _build_style_summary(session)
     flexibility = _build_flexibility_summary(session)
     dialectic = _build_dialectic_summary(session)
+    longitudinal = _build_longitudinal_summary(session, previous_session)
     timestamp = session.end_time or session.start_time
 
     return {
@@ -84,6 +120,7 @@ def build_report_summary(session: AssessmentSession) -> dict[str, Any]:
         "nine_style": style_summary,
         "flexibility": flexibility,
         "dialectic": dialectic,
+        "longitudinal": longitudinal,
     }
 
 
@@ -92,7 +129,14 @@ def list_report_summaries(db: Session, *, user_id: int) -> list[dict[str, Any]]:
 
     repo = SessionRepository(db)
     sessions = repo.list_completed_for_user(user_id)
-    return [build_report_summary(sess) for sess in sessions]
+    session_map = {sess.id: sess for sess in sessions}
+    summaries: list[dict[str, Any]] = []
+    for sess in sessions:
+        previous = None
+        if sess.delta and sess.delta.previous_session_id:
+            previous = session_map.get(sess.delta.previous_session_id)
+        summaries.append(build_report_summary(sess, previous_session=previous))
+    return summaries
 
 
 __all__ = [

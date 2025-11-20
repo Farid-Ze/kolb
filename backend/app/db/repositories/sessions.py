@@ -133,6 +133,7 @@ class SessionRepository(Repository[Session]):
             .options(
                 joinedload(AssessmentSession.learning_style).joinedload(UserLearningStyle.style_type),
                 joinedload(AssessmentSession.lfi_index),
+                joinedload(AssessmentSession.delta),
                 joinedload(AssessmentSession.combination_score),
             )
             .filter(AssessmentSession.user_id == user_id)

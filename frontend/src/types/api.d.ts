@@ -414,6 +414,16 @@ export interface ReportSummaryDialectic {
   intensity?: number | null;
 }
 
+export interface ReportSummaryLongitudinal {
+  previousSessionId?: number | null;
+  previousSessionDate?: string | null;
+  timeElapsedDays?: number | null;
+  deltaAcce?: number | null;
+  deltaAero?: number | null;
+  deltaLfi?: number | null;
+  deltaIntensity?: number | null;
+}
+
 export interface ReportSummary {
   sessionId: number;
   generatedAt?: string | null;
@@ -421,6 +431,7 @@ export interface ReportSummary {
   nineStyle?: ReportSummaryLearningStyle | null;
   flexibility?: ReportSummaryFlexibility | null;
   dialectic?: ReportSummaryDialectic | null;
+  longitudinal?: ReportSummaryLongitudinal | null;
 }
 
 export interface LearningSpaceMeta {

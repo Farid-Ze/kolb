@@ -19,6 +19,7 @@ from app.models.klsi.enums import ItemType, LearningMode
 from app.models.klsi.instrument import Instrument, InstrumentScale, ScoringPipeline, ScoringPipelineNode
 from app.models.klsi.items import AssessmentItem, ItemChoice
 from app.models.klsi.learning import LearningStyleType
+from app.i18n.id_styles import STYLE_BRIEF_ID
 
 def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
     cfg = load_config()
@@ -320,20 +321,38 @@ def seed_instruments(db: Session) -> None:
 
 
 def seed_learning_styles(db: Session):
-    if db.query(LearningStyleType).count() == 0:
-        for name, code in STYLE_DEFS:
-            w = STYLE_WINDOWS[name]
+    """Ensure learning_style_types exist with up-to-date windows and descriptions."""
+
+    existing = {
+        style.style_name: style
+        for style in db.query(LearningStyleType).all()
+    }
+
+    for name, code in STYLE_DEFS:
+        windows = STYLE_WINDOWS[name]
+        description = STYLE_BRIEF_ID.get(name)
+        style = existing.get(name)
+        if not style:
             db.add(
                 LearningStyleType(
                     style_name=name,
                     style_code=code,
-                    ACCE_min=w['ACCE_min'],
-                    ACCE_max=w['ACCE_max'],
-                    AERO_min=w['AERO_min'],
-                    AERO_max=w['AERO_max'],
-                    description=None,
+                    ACCE_min=windows["ACCE_min"],
+                    ACCE_max=windows["ACCE_max"],
+                    AERO_min=windows["AERO_min"],
+                    AERO_max=windows["AERO_max"],
+                    description=description,
                 )
             )
+            continue
+
+        style.style_code = code
+        style.ACCE_min = windows["ACCE_min"]
+        style.ACCE_max = windows["ACCE_max"]
+        style.AERO_min = windows["AERO_min"]
+        style.AERO_max = windows["AERO_max"]
+        if description:
+            style.description = description
 
 
 def seed_assessment_items(db: Session):

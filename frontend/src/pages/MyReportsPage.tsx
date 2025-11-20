@@ -28,6 +28,13 @@ import { GlassPanel } from '../components/ui/GlassPanel';
 export const MyReportsPage: React.FC = () => {
   const navigate = useNonBlockingNavigate();
 
+  const formatDelta = (value?: number | null) => {
+    if (value === null || value === undefined) {
+      return '—';
+    }
+    return value > 0 ? `+${value}` : value.toString();
+  };
+
   // Task 36: React Query untuk fetch reports
   const {
     data: reports = [],
@@ -141,6 +148,11 @@ export const MyReportsPage: React.FC = () => {
               const lfiScore = report.flexibility?.lfiScore;
               const lfiDisplay = typeof lfiScore === 'number' ? lfiScore.toFixed(0) : '—';
               const nineStyleCode = report.nineStyle?.styleCode ?? styleCode;
+              const longitudinal = report.longitudinal;
+              const deltaAcce = formatDelta(longitudinal?.deltaAcce);
+              const deltaAero = formatDelta(longitudinal?.deltaAero);
+              const deltaLfi = formatDelta(longitudinal?.deltaLfi);
+              const intervalDays = longitudinal?.timeElapsedDays;
 
               return (
                 <button
@@ -185,6 +197,28 @@ export const MyReportsPage: React.FC = () => {
                       <div className="text-foreground">{nineStyleCode ?? '—'}</div>
                     </div>
                   </div>
+
+                  {longitudinal && (
+                    <div className="mt-4 rounded-lg bg-muted/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Δ AC-CE</span>
+                        <span className="text-foreground font-medium">{deltaAcce}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Δ AE-RO</span>
+                        <span className="text-foreground font-medium">{deltaAero}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Δ LFI</span>
+                        <span className="text-foreground font-medium">{deltaLfi}</span>
+                      </div>
+                      {typeof intervalDays === 'number' && (
+                        <div className="text-xs text-muted-foreground">
+                          Interval sesi: <span className="text-foreground font-medium">{intervalDays} hari</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </button>
               );
             })}

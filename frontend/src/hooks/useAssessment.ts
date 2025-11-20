@@ -35,6 +35,9 @@ interface UseAssessmentReturn {
   isSaving: boolean;
   isError: boolean;
   error: Error | null;
+  hasPendingSave: boolean;
+  flushPendingSaves: () => Promise<void | undefined>;
+  isAutosaveBusy: boolean;
   
   // Actions
   setRank: (itemId: string, optionCode: string, rank: number) => void;
@@ -62,6 +65,13 @@ export const useAssessment = ({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hydrationRef = useRef(false);
   const itemsRef = useRef<AssessmentItem[]>([]);
+  const contextsRef = useRef<any[]>([]);
+  const latestResponsesRef = useRef<Record<string, ItemResponse>>({});
+  const saveQueueRef = useRef<{ payload: SubmitAnswersRequest; keepalive?: boolean } | null>(null);
+  const flushResolversRef = useRef<Array<{ resolve: () => void; reject: (error: Error) => void }>>([]);
+  const isProcessingQueueRef = useRef(false);
+  const hasPendingSaveRef = useRef(false);
+  const [hasPendingSave, setHasPendingSave] = useState(false);
 
   // Task 27: Query untuk fetch assessment items
   const {
@@ -72,7 +82,10 @@ export const useAssessment = ({
   } = useQuery({
     queryKey: ['assessment-items', sessionId],
     queryFn: () => getAssessmentItems(sessionId),
-    staleTime: Infinity, // Items don't change during session
+    staleTime: 60 * 1000, // Rehydrate regularly to keep state in sync
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: 'always',
+    refetchInterval: 3 * 60 * 1000,
     enabled,
   });
 
@@ -81,13 +94,16 @@ export const useAssessment = ({
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+  useEffect(() => {
+    contextsRef.current = contexts;
+  }, [contexts]);
   const totalItems = items.length;
   const currentItem = items[currentItemIndex] || null;
 
   // Task 30: Autosave mutation dengan debounce
   const autosaveMutation = useMutation({
-    mutationFn: (payload: SubmitAnswersRequest) => 
-      submitAnswers(sessionId, payload, itemsRef.current),
+    mutationFn: ({ payload, keepalive }: { payload: SubmitAnswersRequest; keepalive?: boolean }) => 
+      submitAnswers(sessionId, payload, itemsRef.current, { keepalive }),
     onSuccess: () => {
       // Silent success untuk autosave
     },
@@ -96,28 +112,143 @@ export const useAssessment = ({
     },
   });
 
+  const updatePendingSaveFlag = useCallback((next: boolean) => {
+    if (hasPendingSaveRef.current === next) {
+      return;
+    }
+    hasPendingSaveRef.current = next;
+    setHasPendingSave(next);
+  }, []);
+
+  const settleFlushResolvers = useCallback((error?: Error) => {
+    if (!flushResolversRef.current.length) {
+      return;
+    }
+    const pending = [...flushResolversRef.current];
+    flushResolversRef.current = [];
+    pending.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    });
+  }, []);
+
+  const processQueue = useCallback(() => {
+    if (isProcessingQueueRef.current) {
+      return;
+    }
+    const job = saveQueueRef.current;
+    if (!job) {
+      updatePendingSaveFlag(false);
+      return;
+    }
+
+    saveQueueRef.current = null;
+    isProcessingQueueRef.current = true;
+
+    void autosaveMutation
+      .mutateAsync({ payload: job.payload, keepalive: job.keepalive })
+      .then(
+        () => {
+          isProcessingQueueRef.current = false;
+          if (saveQueueRef.current) {
+            processQueue();
+          } else {
+            updatePendingSaveFlag(false);
+            settleFlushResolvers();
+          }
+        },
+        (error: Error) => {
+          isProcessingQueueRef.current = false;
+          settleFlushResolvers(error);
+          if (saveQueueRef.current) {
+            processQueue();
+          } else {
+            updatePendingSaveFlag(false);
+          }
+        }
+      );
+  }, [autosaveMutation, settleFlushResolvers, updatePendingSaveFlag]);
+
+  const enqueueAutosave = useCallback((payload: SubmitAnswersRequest, keepalive = false) => {
+    saveQueueRef.current = { payload, keepalive };
+    updatePendingSaveFlag(true);
+    processQueue();
+  }, [processQueue, updatePendingSaveFlag]);
+
+  const buildSubmitPayload = useCallback(
+    (responsesMap: Record<string, ItemResponse>): SubmitAnswersRequest => ({
+      responses: Object.values(responsesMap),
+      contexts: contextsRef.current,
+    }),
+    []
+  );
+
+  const hasCompletedResponses = useCallback(
+    (values: ItemResponse[]) => values.some((response) => isCompleteRanks(response.ranks)),
+    []
+  );
+
   const scheduleAutosave = useCallback(
     (nextResponses: Record<string, ItemResponse>) => {
       if (!itemsRef.current.length) {
         return;
       }
-      const completed = Object.values(nextResponses).some((response) => isCompleteRanks(response.ranks));
+      const payload = buildSubmitPayload(nextResponses);
+      if (!hasCompletedResponses(payload.responses)) {
+        return;
+      }
+
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = null;
       }
-      if (!completed) {
-        return;
-      }
-      const payload: SubmitAnswersRequest = {
-        responses: Object.values(nextResponses),
-      };
+
       saveTimeoutRef.current = setTimeout(() => {
-        autosaveMutation.mutate(payload);
+        enqueueAutosave(payload);
       }, 2000);
     },
-    [autosaveMutation]
+    [buildSubmitPayload, enqueueAutosave, hasCompletedResponses]
   );
+
+  const flushPendingSaves = useCallback(async (): Promise<void | undefined> => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    const payload = buildSubmitPayload(latestResponsesRef.current);
+    if (hasCompletedResponses(payload.responses)) {
+      saveQueueRef.current = { payload, keepalive: false };
+      updatePendingSaveFlag(true);
+      processQueue();
+    }
+
+    if (!hasPendingSaveRef.current && !isProcessingQueueRef.current && !saveQueueRef.current) {
+      return;
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      flushResolversRef.current.push({ resolve, reject });
+    });
+  }, [buildSubmitPayload, hasCompletedResponses, processQueue, updatePendingSaveFlag]);
+
+  const flushWithKeepalive = useCallback(() => {
+    if (!sessionId) {
+      return;
+    }
+    const payload = buildSubmitPayload(latestResponsesRef.current);
+    if (!hasCompletedResponses(payload.responses)) {
+      return;
+    }
+    try {
+      void submitAnswers(sessionId, payload, itemsRef.current, { keepalive: true });
+    } catch {
+      // Swallow errors; keepalive flush is best-effort only
+    }
+  }, [buildSubmitPayload, hasCompletedResponses, sessionId]);
 
   /**
    * Task 31: Set ranking untuk option tertentu dengan validation
@@ -146,6 +277,7 @@ export const useAssessment = ({
             ranks: newRanks,
           },
         };
+        latestResponsesRef.current = next;
         scheduleAutosave(next);
         return next;
       });
@@ -167,6 +299,7 @@ export const useAssessment = ({
             ranks: newRanks,
           },
         };
+        latestResponsesRef.current = next;
         scheduleAutosave(next);
         return next;
       });
@@ -237,7 +370,15 @@ export const useAssessment = ({
     setResponses({});
     setCurrentItemIndex(0);
     hydrationRef.current = false;
-  }, [sessionId]);
+    latestResponsesRef.current = {};
+    saveQueueRef.current = null;
+    isProcessingQueueRef.current = false;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    updatePendingSaveFlag(false);
+  }, [sessionId, updatePendingSaveFlag]);
 
   useEffect(() => {
     if (!assessmentData || hydrationRef.current) {
@@ -253,6 +394,7 @@ export const useAssessment = ({
         return acc;
       }, {});
       setResponses(mapped);
+      latestResponsesRef.current = mapped;
     }
     hydrationRef.current = true;
   }, [assessmentData, totalItems]);
@@ -263,8 +405,38 @@ export const useAssessment = ({
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
+      void flushPendingSaves();
     };
-  }, []);
+  }, [flushPendingSaves]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasPendingSaveRef.current) {
+        return;
+      }
+      flushWithKeepalive();
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && hasPendingSaveRef.current) {
+        flushWithKeepalive();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [flushWithKeepalive, sessionId]);
 
   return {
     // Data
@@ -282,6 +454,9 @@ export const useAssessment = ({
     isError,
     error: (error as Error) ?? null,
     isSaving: autosaveMutation.isPending,
+    hasPendingSave,
+    flushPendingSaves,
+    isAutosaveBusy: hasPendingSave || autosaveMutation.isPending,
     
     // Actions
     setRank,
