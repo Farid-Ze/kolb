@@ -125,3 +125,18 @@ class SessionRepository(Repository[Session]):
             .order_by(AssessmentSession.end_time.desc())
             .first()
         )
+
+    def list_completed_for_user(self, user_id: int) -> list[AssessmentSession]:
+        """Return all completed sessions for a user with summary-critical relations eagerly loaded."""
+        return (
+            self.db.query(AssessmentSession)
+            .options(
+                joinedload(AssessmentSession.learning_style).joinedload(UserLearningStyle.style_type),
+                joinedload(AssessmentSession.lfi_index),
+                joinedload(AssessmentSession.combination_score),
+            )
+            .filter(AssessmentSession.user_id == user_id)
+            .filter(AssessmentSession.status == SessionStatus.completed)
+            .order_by(AssessmentSession.end_time.desc(), AssessmentSession.id.desc())
+            .all()
+        )

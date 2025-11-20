@@ -38,12 +38,10 @@ export const MyReportsPage: React.FC = () => {
     queryFn: getSelfReports,
     staleTime: 30000, // 30 seconds
     select: (data) => {
-      // Sort by date (newest first)
-      return [...data].sort(
-        (a, b) =>
-          new Date(b.generated_at).getTime() -
-          new Date(a.generated_at).getTime()
-      );
+      const getTime = (value?: string | null) =>
+        value ? new Date(value).getTime() : 0;
+      // Sort by completion date (newest first)
+      return [...data].sort((a, b) => getTime(b.generatedAt) - getTime(a.generatedAt));
     },
   });
 
@@ -126,70 +124,70 @@ export const MyReportsPage: React.FC = () => {
         {/* Reports Grid */}
         {reports.length > 0 && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.map((report) => (
-              <button
-                key={report.sessionId ?? report.session_id}
-                onClick={() =>
-                  navigate(`/assessment/${(report.sessionId ?? report.session_id) as string}/report`)
-                }
-                className="material-regular rounded-xl p-6 space-y-4 text-left transition-spring hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {new Date(report.generated_at).toLocaleDateString(
-                        'id-ID',
-                        {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        }
-                      )}
-                    </span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </div>
+            {reports.map((report) => {
+              const sessionId = report.sessionId;
+              const generatedAt = report.generatedAt ? new Date(report.generatedAt) : null;
+              const formattedDate = generatedAt
+                ? generatedAt.toLocaleDateString('id-ID', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                : 'Tanggal tidak tersedia';
+              const learningStyle = report.learningStyle;
+              const styleCode = learningStyle?.styleCode ?? '—';
+              const styleName = learningStyle?.styleName ?? 'Gaya belum tersedia';
+              const styleDescription = learningStyle?.description ?? 'Deskripsi gaya akan muncul setelah laporan selesai.';
+              const lfiScore = report.flexibility?.lfiScore;
+              const lfiDisplay = typeof lfiScore === 'number' ? lfiScore.toFixed(0) : '—';
+              const nineStyleCode = report.nineStyle?.styleCode ?? styleCode;
 
-                {/* Learning Style */}
-                <div>
-                  <div className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1 mb-2">
-                    <div className="text-sm text-primary">
-                      {report.learning_style.style_code}
+              return (
+                <button
+                  key={sessionId}
+                  onClick={() => navigate(`/assessment/${sessionId}/report`)}
+                  className="material-regular rounded-xl p-6 space-y-4 text-left transition-spring hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{formattedDate}</span>
                     </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg text-foreground mb-1">
-                    {report.learning_style.style_name}
-                  </h3>
-                  <DescriptionText className="text-muted-foreground">
-                    {report.learning_style.description}
-                  </DescriptionText>
-                </div>
 
-                {/* Metrics - Guidelines §1.5: Proximity > separator lines */}
-                <div className="grid grid-cols-2 gap-3 pt-4 mt-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Activity className="h-3 w-3" />
-                      <span>LFI</span>
+                  {/* Learning Style */}
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1 mb-2">
+                      <div className="text-sm text-primary">{styleCode}</div>
                     </div>
-                    <div className="text-foreground">
-                      {report.flexibility.lfi_score.toFixed(0)}
+                    <h3 className="text-lg text-foreground mb-1">{styleName}</h3>
+                    <DescriptionText className="text-muted-foreground">
+                      {styleDescription}
+                    </DescriptionText>
+                  </div>
+
+                  {/* Metrics - Guidelines §1.5: Proximity > separator lines */}
+                  <div className="grid grid-cols-2 gap-3 pt-4 mt-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Activity className="h-3 w-3" />
+                        <span>LFI</span>
+                      </div>
+                      <div className="text-foreground">{lfiDisplay}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <TrendingUp className="h-3 w-3" />
+                        <span>Style</span>
+                      </div>
+                      <div className="text-foreground">{nineStyleCode ?? '—'}</div>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <TrendingUp className="h-3 w-3" />
-                      <span>Style</span>
-                    </div>
-                    <div className="text-foreground">
-                      {report.nine_style.style_code}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
       </main>

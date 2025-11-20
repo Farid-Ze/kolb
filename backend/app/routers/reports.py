@@ -7,9 +7,10 @@ from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import SessionErrorMessages
 from app.models.klsi.user import User
-from app.schemas.report import ReportPayload, as_report_payload
+from app.schemas.report import ReportPayload, ReportSummaryPayload, as_report_payload
 from app.schemas.report_share import ReportShareCreate, ReportShareOut
 from app.services.report import build_report
+from app.services.report_summary import list_report_summaries
 from app.services.report_share import (
     ReportShareService,
     SharePermissionError,
@@ -30,6 +31,15 @@ def _try_get_current_user(authorization: str | None, db: Session) -> User | None
         if exc.status_code == 401:
             return None
         raise
+
+
+@router.get("/self", response_model=list[ReportSummaryPayload])
+def list_self_reports(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    current_user = get_current_user(authorization, db)
+    return list_report_summaries(db, user_id=current_user.id)
 
 
 @router.get("/{session_id}", response_model=ReportPayload)

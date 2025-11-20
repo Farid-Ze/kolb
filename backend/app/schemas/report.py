@@ -17,6 +17,35 @@ class ReportShareContext(CamelModel):
     note: str | None = None
 
 
+class ReportStyleSummary(CamelModel):
+    style_code: str | None = None
+    style_name: str | None = None
+    description: str | None = None
+    quadrant: str | None = None
+
+
+class ReportFlexibilitySummary(CamelModel):
+    lfi_score: float | None = None
+    percentile: float | None = None
+    level: str | None = None
+    level_label: str | None = None
+
+
+class ReportDialecticSummary(CamelModel):
+    acce: int | None = None
+    aero: int | None = None
+    intensity: int | None = None
+
+
+class ReportSummaryPayload(CamelModel):
+    session_id: int
+    generated_at: datetime | None = None
+    learning_style: ReportStyleSummary | None = None
+    nine_style: ReportStyleSummary | None = None
+    flexibility: ReportFlexibilitySummary | None = None
+    dialectic: ReportDialecticSummary | None = None
+
+
 class ReportPayload(CamelModel):
     session_id: int
     raw: Mapping[str, Any] | None = None
@@ -46,4 +75,12 @@ def as_report_payload(data: Mapping[str, Any]) -> ReportPayload:
     return ReportPayload(**payload)
 
 
-__all__ = ["ReportPayload", "ReportShareContext", "as_report_payload"]
+__all__ = [
+    "ReportPayload",
+    "ReportShareContext",
+    "ReportSummaryPayload",
+    "ReportStyleSummary",
+    "ReportFlexibilitySummary",
+    "ReportDialecticSummary",
+    "as_report_payload",
+]

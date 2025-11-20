@@ -394,6 +394,35 @@ export interface ReportAnalytics {
   meta?: ReportAnalyticsMeta | null;
 }
 
+export interface ReportSummaryLearningStyle {
+  styleCode?: string | null;
+  styleName?: string | null;
+  description?: string | null;
+  quadrant?: string | null;
+}
+
+export interface ReportSummaryFlexibility {
+  lfiScore?: number | null;
+  percentile?: number | null;
+  level?: string | null;
+  levelLabel?: string | null;
+}
+
+export interface ReportSummaryDialectic {
+  acce?: number | null;
+  aero?: number | null;
+  intensity?: number | null;
+}
+
+export interface ReportSummary {
+  sessionId: number;
+  generatedAt?: string | null;
+  learningStyle?: ReportSummaryLearningStyle | null;
+  nineStyle?: ReportSummaryLearningStyle | null;
+  flexibility?: ReportSummaryFlexibility | null;
+  dialectic?: ReportSummaryDialectic | null;
+}
+
 export interface LearningSpaceMeta {
   heuristic: boolean;
   note: string;

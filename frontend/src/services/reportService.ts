@@ -12,6 +12,7 @@ import type {
   CreateReportShareRequest,
   CreateReportShareResponse,
   Report,
+  ReportSummary,
 } from '../types/api';
 
 /**
@@ -37,8 +38,8 @@ export const getReportById = async (reportId: string | number): Promise<Report> 
  * Get all reports for current user
  * GET /reports/self
  */
-export const getSelfReports = async (): Promise<Report[]> => {
-  return authenticatedApiCall<Report[]>(
+export const getSelfReports = async (): Promise<ReportSummary[]> => {
+  return authenticatedApiCall<ReportSummary[]>(
     getApiUrl('/reports/self'),
     {
       method: 'GET',
