@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { LOGIN_ROUTE } from '../core/auth/routes';
 
 /**
  * KLSI 4.0 - AuthContext
@@ -87,7 +88,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const handleUnauthorized = (event?: CustomEvent) => {
       logout();
       
-      // Save current location for post-login redirect (but not if already on auth pages)
+        // Save current location for post-login redirect (but not if already on auth pages)
       const currentPath = window.location.pathname + window.location.search + window.location.hash;
       if (currentPath && !currentPath.startsWith('/auth/')) {
         sessionStorage.setItem('auth:postLoginRedirect', currentPath);
@@ -100,14 +101,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionStorage.setItem('auth:lastAuthErrorMessage', message);
         
         // Navigate to login with returnTo parameter
-        window.location.href = `/auth/login?returnTo=${returnTo}`;
+        window.location.href = `${LOGIN_ROUTE}?returnTo=${returnTo}`;
       } else {
         // Already on auth page, just navigate to login without returnTo
-        window.location.href = '/auth/login';
+        window.location.href = LOGIN_ROUTE;
       }
-    };
-
-    window.addEventListener('auth:unauthorized', handleUnauthorized as EventListener);
+    };    window.addEventListener('auth:unauthorized', handleUnauthorized as EventListener);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized as EventListener);
   }, []);
 

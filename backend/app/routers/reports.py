@@ -56,6 +56,8 @@ def get_report(
         data = build_report(db, session_id, viewer_role=viewer_role)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
+    if "share_context" not in data:
+        data["share_context"] = None
     return data
 
 

@@ -3,6 +3,9 @@
  * Task 10: Tipe terpusat untuk payload API berdasarkan SITEMAP.md
  * 
  * Single source of truth untuk semua interface API
+ * 
+ * ⚠️ DEPRECATED: Prefer using types from `frontend/src/core/api/client.ts` for new development.
+ * This file is maintained for backward compatibility with legacy services (e.g. assessmentService.ts).
  */
 
 // ============================================================================

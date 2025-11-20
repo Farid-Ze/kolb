@@ -67,7 +67,7 @@ export const AssessmentStartPage: React.FC = () => {
           className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md transition-all text-sm font-medium text-white/70 hover:text-white group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Dashboard</span>
+          <span>Kembali ke Beranda</span>
         </button>
       </motion.div>
 
@@ -86,18 +86,23 @@ export const AssessmentStartPage: React.FC = () => {
             </div>
 
             <div className="relative z-10 flex flex-col items-center text-center space-y-8">
-                
-                {/* Header */}
-                <motion.div variants={fadeInUp} className="space-y-4">
-                    <div className="inline-flex p-4 rounded-2xl bg-white/5 border border-white/10 mb-4 shadow-2xl shadow-black/20">
-                        <LayeredIcon icon={BookOpen} size="lg" color="primary" />
-                    </div>
-                    <DisplayTitle className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
-                        Assessment Instructions
-                    </DisplayTitle>
-                    <BodyText className="text-white/60 max-w-lg mx-auto">
-                        Discover your unique learning style through 12 simple questions.
-                    </BodyText>
+
+              {/* Responsible use notice must lead for screen reader users */}
+              <motion.div variants={fadeInUp} className="w-full">
+                <NonDiagnosticNotice />
+              </motion.div>
+
+              {/* Header */}
+              <motion.div variants={fadeInUp} className="space-y-4">
+                  <div className="inline-flex p-4 rounded-2xl bg-white/5 border border-white/10 mb-4 shadow-2xl shadow-black/20">
+                    <LayeredIcon icon={BookOpen} size="lg" color="primary" />
+                  </div>
+                  <DisplayTitle className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+                    Apa yang akan Anda lakukan?
+                  </DisplayTitle>
+                  <BodyText className="text-white/60 max-w-lg mx-auto">
+                    Ikuti 12 pernyataan dan urutkan akhir kalimat sesuai cara Anda benar-benar belajar.
+                  </BodyText>
                 </motion.div>
 
                 {/* Instructions List */}
@@ -125,18 +130,13 @@ export const AssessmentStartPage: React.FC = () => {
                     </div>
                 </motion.div>
 
-                {/* Notice */}
-                <motion.div variants={fadeInUp} className="w-full">
-                    <NonDiagnosticNotice />
-                </motion.div>
-
                 {/* CTA */}
                 <motion.div variants={scaleIn} className="pt-4">
                     <button
                         onClick={handleStartAssessment}
                         className="group relative px-8 py-4 bg-white text-black rounded-xl font-bold text-lg shadow-xl shadow-white/10 hover:shadow-white/20 hover:scale-105 transition-all duration-300 flex items-center gap-3 overflow-hidden"
                     >
-                        <span className="relative z-10">Start Assessment</span>
+                      <span className="relative z-10">Mulai Asesmen</span>
                         <Play className="w-5 h-5 relative z-10 fill-current" />
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     </button>

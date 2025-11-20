@@ -30,6 +30,44 @@ class ForceFinalizeRequest(BaseModel):
     reason: str | None = None
 
 
+def _get_attr(obj, attr_name: str):
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(attr_name)
+    return getattr(obj, attr_name, None)
+
+
+def adapt_engine_to_api_payload(
+    engine_output: dict | None,
+    *,
+    override_reason: str | None = None,
+    override_value: bool | None = None,
+) -> dict | None:
+    if not engine_output:
+        return None
+
+    combination = engine_output.get("combination")
+    style = engine_output.get("style")
+    lfi = engine_output.get("lfi")
+    percentiles = engine_output.get("percentiles")
+
+    payload = {
+        "ACCE": _get_attr(combination, "ACCE_raw"),
+        "AERO": _get_attr(combination, "AERO_raw"),
+        "style_primary_id": _get_attr(style, "primary_style_type_id") or _get_attr(style, "id"),
+        "LFI": _get_attr(lfi, "LFI_score"),
+        "delta": engine_output.get("delta"),
+        "percentile_sources": getattr(percentiles, "norm_provenance", None) if percentiles is not None else None,
+        "validation": engine_output.get("validation"),
+        "override": engine_output.get("override", False) if override_value is None else override_value,
+    }
+    if override_reason is not None:
+        payload["override_reason"] = override_reason
+
+    return payload
+
+
 def _sunset_header_value() -> str | None:
     sunset = settings.legacy_sunset
     if sunset is None:
@@ -187,6 +225,8 @@ def submit_all_responses(
                     AE_rank=ctx.AE,
                 )
             )
+        # Explicit flush because SessionLocal disables autoflush; finalize() queries must see the new ranks.
+        db.flush()
         # After data persisted, run finalize using the engine runtime helper with audit
         def _payload_builder(res: dict) -> bytes:
             combination = res.get("combination")
@@ -207,24 +247,10 @@ def submit_all_responses(
         )
         db.commit()
 
-        combination = result.get("combination")
-        lfi = result.get("lfi")
-        style = result.get("style")
-        percentiles = result.get("percentiles")
-        per_scale_provenance = getattr(percentiles, "norm_provenance", None) if percentiles is not None else None
-
+        result_payload = adapt_engine_to_api_payload(result)
         return {
             "ok": True,
-            "result": {
-                "ACCE": combination.ACCE_raw if combination else None,
-                "AERO": combination.AERO_raw if combination else None,
-                "style_primary_id": style.primary_style_type_id if style else None,
-                "LFI": lfi.LFI_score if lfi else None,
-                "delta": result.get("delta"),
-                "percentile_sources": per_scale_provenance,
-                "validation": result.get("validation"),
-                "override": result.get("override", False),
-            },
+            "result": result_payload,
         }
     except HTTPException:
         raise
@@ -267,29 +293,12 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
     )
     db.commit()
 
-    combination = result.get("combination")
-    lfi = result.get("lfi")
-    style = result.get("style")
-    validation = result.get("validation")
-    override = result.get("override", False)
-
-    percentiles = result.get("percentiles")
-    per_scale_provenance = None
-    if percentiles is not None:
-        per_scale_provenance = getattr(percentiles, "norm_provenance", None)
-
     # Audit persisted within runtime transaction
 
-    return {"ok": True, "result": {
-        "ACCE": combination.ACCE_raw if combination else None,
-        "AERO": combination.AERO_raw if combination else None,
-        "style_primary_id": style.primary_style_type_id if style else None,
-        "LFI": lfi.LFI_score if lfi else None,
-        "delta": result.get("delta"),
-        "percentile_sources": per_scale_provenance,
-        "validation": validation,
-        "override": override,
-    }}
+    return {
+        "ok": True,
+        "result": adapt_engine_to_api_payload(result),
+    }
 
 @router.get("/{session_id}/validation", response_model=dict)
 def session_validation(session_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
@@ -356,22 +365,11 @@ def force_finalize(
     ).encode("utf-8")
     # Audit persisted within runtime transaction
 
-    percentiles = result.get("percentiles")
-    per_scale_provenance = None
-    if percentiles is not None:
-        per_scale_provenance = getattr(percentiles, "norm_provenance", None)
-
     return {
         "ok": True,
-        "result": {
-            "ACCE": combination.ACCE_raw if combination else None,
-            "AERO": combination.AERO_raw if combination else None,
-            "style_primary_id": style.primary_style_type_id if style else None,
-            "LFI": lfi.LFI_score if lfi else None,
-            "delta": result.get("delta"),
-            "percentile_sources": per_scale_provenance,
-            "validation": validation,
-            "override": True,
-            "override_reason": request.reason,
-        },
+        "result": adapt_engine_to_api_payload(
+            result,
+            override_reason=request.reason,
+            override_value=True,
+        ),
     }

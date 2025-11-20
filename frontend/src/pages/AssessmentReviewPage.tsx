@@ -100,7 +100,7 @@ export const AssessmentReviewPage: React.FC = () => {
   const finalizeMutation = useMutation({
     mutationFn: async () => {
         // Map responses to ItemRank[] with choice IDs
-        const mappedItems = items.map(item => {
+        const mappedItems = (items ?? []).map(item => {
             const response = responses[item.item_id];
             const ranks: Record<number, number> = {};
             if (response && response.ranks) {
@@ -119,7 +119,7 @@ export const AssessmentReviewPage: React.FC = () => {
 
         const payload: SessionSubmissionPayload = {
             items: mappedItems,
-            contexts: contexts.map(ctx => ({
+          contexts: (contexts ?? []).map(ctx => ({
                 context_name: ctx.context_name,
                 CE: Number(ctx.CE),
                 RO: Number(ctx.RO),

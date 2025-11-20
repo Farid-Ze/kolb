@@ -112,7 +112,12 @@ class ExternalNormProvider:
             headers["X-API-Key"] = self.api_key
         return headers
 
-    def _fetch(self, group_token: str, scale: str, raw: int | float) -> tuple[Optional[float], Optional[str]]:
+    def _fetch(
+        self,
+        group_token: str,
+        scale: str,
+        raw: int | float,
+    ) -> tuple[Optional[float], Optional[str]]:
         key = (group_token, scale, int(raw))
         # TTL cache (positive and negative results)
         ttl = getattr(settings, "external_norms_ttl_sec", 60) or 60
@@ -127,10 +132,11 @@ class ExternalNormProvider:
         url = f"{self.base_url}/norms/{group_token}/{scale}/{int(raw)}"
         # Simple retry loop (2 attempts)
         last_exc: Exception | None = None
+        inline_timeout = min(self.timeout, 3.0) if self.timeout else 3.0
         for _ in range(2):
             try:
-                with timer("norms.external.fetch"):  # includes network time
-                    resp = httpx.get(url, headers=self._headers(), timeout=self.timeout)
+                with timer("norms.external.fetch.inline"):
+                    resp = httpx.get(url, headers=self._headers(), timeout=inline_timeout)
                 if resp.status_code == 200:
                     data = resp.json()
                     percentile = data.get("percentile")
@@ -178,15 +184,12 @@ class ExternalNormProvider:
             if not self.base_url:
                 return PercentileResult(None, "External:Disabled", False)
             for group_token in group_chain:
-                # First, try cached/TTL path via _fetch; if no cached value and network slow,
-                # schedule a background fetch and return immediately (non-blocking fallback).
                 value, version = self._fetch(group_token, scale, raw)
                 if value is not None:
                     label = f"External:{group_token}"
                     if version:
                         label = f"{label}{_NORM_VERSION_DELIM}{version}"
                     return PercentileResult(value, label, False)
-                # If no value, opportunistically schedule a background refresh
                 self._schedule_background_fetch(group_token, scale, raw)
         return PercentileResult(None, UNKNOWN.capitalize(), False)
 

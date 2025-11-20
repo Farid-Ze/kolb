@@ -393,6 +393,7 @@ def seed_engine_authoring(db: Session) -> None:
     legacy_items = (
         db.query(AssessmentItem)
         .options(joinedload(AssessmentItem.choices))
+        .filter(AssessmentItem.item_type == ItemType.learning_style)
         .order_by(AssessmentItem.item_number.asc())
         .all()
     )

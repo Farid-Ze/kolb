@@ -219,6 +219,33 @@ class KLSI4Plugin(
                             options=option_payload,
                         )
                     )
+        # Append LFI context items from legacy table so UI receives the full 12+8 catalog.
+        contexts = (
+            db.query(AssessmentItem)
+            .options(joinedload(AssessmentItem.choices))
+            .filter(AssessmentItem.item_type == ItemType.learning_flex)
+            .order_by(AssessmentItem.item_number.asc())
+            .all()
+        )
+        for context_item in contexts:
+            options = [
+                {
+                    "id": choice.id,
+                    "learning_mode": choice.learning_mode.value,
+                    "text": choice.choice_text,
+                }
+                for choice in context_item.choices
+            ]
+            payload.append(
+                ItemDTO(
+                    id=context_item.id,
+                    number=context_item.item_number,
+                    type=context_item.item_type.value,
+                    stem=context_item.item_stem,
+                    options=options,
+                    category=context_item.item_category,
+                )
+            )
         return payload
 
     def _ensure_session(self, db: Session, session_id: int) -> AssessmentSession:

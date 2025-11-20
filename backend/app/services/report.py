@@ -621,4 +621,5 @@ def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None
         },
         "responsible_use_notice": ReportMessages.RESPONSIBLE_USE_NOTICE,
         "owner": owner_block,
+        "share_context": None,
     }

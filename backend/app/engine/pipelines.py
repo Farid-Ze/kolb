@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Protocol, Sequence, cast
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, SessionTransaction
 
 from app.models.klsi.instrument import ScoringPipeline
 from app.models.klsi.learning import CombinationScore, ScaleScore
@@ -35,6 +35,26 @@ def _require_combination_score(db: Session, session_id: int) -> CombinationScore
     if not combo:
         raise ValueError(f"CombinationScore missing for session_id={session_id}")
     return combo
+
+
+def _begin_pipeline_savepoint(db: Session | None) -> SessionTransaction | None:
+    if db is None:
+        return None
+    begin_nested = getattr(db, "begin_nested", None)
+    if not callable(begin_nested):  # pragma: no cover
+        return None
+    transaction = begin_nested()
+    return cast(SessionTransaction, transaction)
+
+
+def _commit_pipeline_savepoint(transaction: SessionTransaction | None) -> None:
+    if transaction is not None:
+        transaction.commit()
+
+
+def _rollback_pipeline_savepoint(transaction: SessionTransaction | None) -> None:
+    if transaction is not None:
+        transaction.rollback()
 
 
 def _stage_raw_scales(db: Session, session_id: int) -> dict[str, Any]:
@@ -299,24 +319,33 @@ class PipelineDefinition:
             Exception: If any stage fails.
         """
         results: dict[str, Any] = {"ok": True, "stages_completed": []}
-        
-        for stage in self.stages:
-            stage_name = getattr(stage, "__name__", str(stage))
-            try:
-                stage_result = stage(db, session_id)
-                if isinstance(stage_result, dict):
-                    _merge_stage_payload(results, stage_result)
-                results["stages_completed"].append(stage_name)
-            except ControlledAbort as abort:
-                _mark_aborted(results, stage_name, abort)
-                raise abort.with_partial(results)
-            except Exception as exc:
-                results["ok"] = False
-                results["failed_stage"] = stage_name
-                results["error"] = str(exc)
-                raise
-        
-        return results
+        transaction = _begin_pipeline_savepoint(db)
+
+        try:
+            for stage in self.stages:
+                stage_name = getattr(stage, "__name__", str(stage))
+                try:
+                    stage_result = stage(db, session_id)
+                    if isinstance(stage_result, dict):
+                        _merge_stage_payload(results, stage_result)
+                    results["stages_completed"].append(stage_name)
+                except ControlledAbort as abort:
+                    _mark_aborted(results, stage_name, abort)
+                    raise abort.with_partial(results)
+                except Exception as exc:
+                    results["ok"] = False
+                    results["failed_stage"] = stage_name
+                    results["error"] = str(exc)
+                    raise
+        except ControlledAbort:
+            _rollback_pipeline_savepoint(transaction)
+            raise
+        except Exception:
+            _rollback_pipeline_savepoint(transaction)
+            raise
+        else:
+            _commit_pipeline_savepoint(transaction)
+            return results
     
     def execute_streaming(self, db: Session, session_id: int):
         """Execute pipeline stages as a generator for memory efficiency.
@@ -371,6 +400,7 @@ def _run_pipeline_for_session_streaming(
 
     results: dict[str, Any] = {"ok": True, "stages_completed": []}
     failed_stage: str | None = None
+    transaction = _begin_pipeline_savepoint(db)
     try:
         for stage_name, payload in pipeline.execute_streaming(db=db, session_id=session_id):
             failed_stage = stage_name
@@ -381,17 +411,22 @@ def _run_pipeline_for_session_streaming(
                         payload=payload.get("abort_payload") or {},
                     )
                     _mark_aborted(results, stage_name, abort)
+                    _rollback_pipeline_savepoint(transaction)
                     return results
                 _merge_stage_payload(results, payload)
             results["stages_completed"].append(stage_name)
     except ControlledAbort as abort:  # pragma: no cover - handled via metadata path
         stage_label = failed_stage or "<unknown>"
         _mark_aborted(results, stage_label, abort)
+        _rollback_pipeline_savepoint(transaction)
     except Exception as exc:  # pragma: no cover - exercised via integration tests
         results["ok"] = False
         results["error"] = str(exc)
         if failed_stage:
             results["failed_stage"] = failed_stage
+        _rollback_pipeline_savepoint(transaction)
+    else:
+        _commit_pipeline_savepoint(transaction)
     return results
 
 

@@ -254,6 +254,8 @@ class EngineSessionService:
                 AC=ctx.AC,
                 AE=ctx.AE,
             )
+        # Flush to ensure runtime validations (autoflush disabled) observe the newly inserted ranks.
+        self.db.flush()
 
     def _build_response_map(self, responses: Sequence["UserResponse"]) -> dict[int, dict[str, int]]:
         response_map: dict[int, dict[str, int]] = defaultdict(dict)

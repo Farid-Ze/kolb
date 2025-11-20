@@ -34,6 +34,15 @@ export const SceneController: React.FC = () => {
     // Keyboard navigation
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            const isInput = !!target?.matches(
+                'input, select, textarea, button, [role="slider"], [contenteditable]'
+            );
+
+            if (isInput) {
+                return;
+            }
+
             if (e.key === 'ArrowRight') {
                 nextRoom(ROOM_REGISTRY.length);
             } else if (e.key === 'ArrowLeft') {
@@ -78,6 +87,7 @@ export const SceneController: React.FC = () => {
                     <div 
                         className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md pointer-events-auto"
                         title="Checking authentication status..."
+                        aria-label="Authentication status: Checking"
                     >
                         <div className="w-2 h-2 rounded-full bg-white/50 animate-pulse" />
                         <span className="text-xs font-medium text-white/50">Checking...</span>
@@ -87,6 +97,7 @@ export const SceneController: React.FC = () => {
                     <div 
                         className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-md pointer-events-auto"
                         title="You are signed in. Your progress will be saved."
+                        aria-label="Authentication status: Signed In"
                     >
                         <div className="w-2 h-2 rounded-full bg-emerald-400" />
                         <span className="text-xs font-medium text-emerald-200">Signed In</span>
@@ -96,6 +107,7 @@ export const SceneController: React.FC = () => {
                     <div 
                         className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md pointer-events-auto"
                         title="You are browsing as a guest. Sign in to save your results."
+                        aria-label="Authentication status: Guest"
                     >
                         <div className="w-2 h-2 rounded-full bg-amber-400/50" />
                         <span className="text-xs font-medium text-white/50">Guest</span>

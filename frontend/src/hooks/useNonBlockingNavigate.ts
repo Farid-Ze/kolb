@@ -11,7 +11,11 @@ export const useNonBlockingNavigate = () => {
 
   return useCallback(
     (to: To | number, options?: NavigateOptions) => {
-      navigate(to, options);
+      if (options) {
+        navigate(to, options);
+        return;
+      }
+      navigate(to);
     },
     [navigate]
   );

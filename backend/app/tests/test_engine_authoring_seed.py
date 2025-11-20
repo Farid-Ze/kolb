@@ -12,7 +12,7 @@ from app.models.engine import (
     EngineScale,
     EngineScoringRule,
 )
-from app.models.klsi.enums import LearningMode
+from app.models.klsi.enums import LearningMode, ItemType
 from app.models.klsi.items import AssessmentItem
 from app.services.seeds import seed_engine_authoring
 
@@ -42,7 +42,11 @@ def test_seed_engine_authoring_populates_forced_choice_items(session: Session):
     assert instrument is not None
 
     items = session.query(EngineItem).order_by(EngineItem.sequence_order.asc()).all()
-    legacy_count = session.query(AssessmentItem).count()
+    legacy_count = (
+        session.query(AssessmentItem)
+        .filter(AssessmentItem.item_type == ItemType.learning_style)
+        .count()
+    )
     assert len(items) == legacy_count == 12
 
     for item in items:

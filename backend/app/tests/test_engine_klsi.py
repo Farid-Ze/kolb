@@ -48,6 +48,8 @@ def test_engine_klsi_end_to_end(client):
     assert r_delivery.status_code == 200, r_delivery.text
     delivery = r_delivery.json()
     items = delivery["items"]
+    ls_items = [item for item in items if item.get("type") == "Learning_Style"]
+    context_items = [item for item in items if item.get("type") == "Learning_Flexibility"]
     manifest = delivery.get("manifest")
     assert manifest is not None
     assert manifest["code"] == "KLSI"
@@ -66,10 +68,11 @@ def test_engine_klsi_end_to_end(client):
     assert localized_items[0]["stem_localized"].startswith("Ketika")
     option_localized = localized_items[0]["options"][0]["text_localized"]
     assert option_localized.startswith("Saya")
-    assert len(items) == 12
+    assert len(ls_items) == 12
+    assert len(context_items) == 8
 
     # Submit forced-choice ranks for each learning style item
-    for item in items:
+    for item in ls_items:
         ranks = {option["id"]: idx + 1 for idx, option in enumerate(item["options"])}
         r_submit = client.post(
             f"/engine/sessions/{session_id}/interactions",

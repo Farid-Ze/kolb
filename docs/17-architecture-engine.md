@@ -63,6 +63,20 @@ specification and should be read alongside `docs/03-klsi-overview.md` and
 	`CombinationScore`, `UserLearningStyle`).
 - Future instruments can inherit this structure by providing their own
 	definition module and registering it with `engine_registry`.
+- Every `PipelineDefinition.execute` call now opens a database SAVEPOINT before
+	invoking the ordered stages and rolls back automatically on any exception or
+	`ControlledAbort`, so intermediate rows (raw scales, combos, styles) never leak
+	if a downstream stage fails.
+- The batch helper `execute_pipeline_streaming` wraps each session in the same
+	savepoint, committing only the successful runs and rolling back failed ones
+	while still yielding structured error payloads for the caller.
+- **Custom scripts** must either call `finalize_assessment()` (which already
+	routes through the strategy + pipeline orchestration) or reuse the
+	`PipelineDefinition` helpers above. Calling individual stage functions directly
+	is prohibited because it bypasses SAVEPOINT management and risks partial
+	persistence. If a new entry point is needed, wrap it in a nested transaction
+	and reuse `execute()` or `execute_pipeline_streaming()` rather than re‑implementing
+	the stage loop.
 
 ## Normative Data Strategy
 
