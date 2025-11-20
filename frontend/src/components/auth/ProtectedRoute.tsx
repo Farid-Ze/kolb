@@ -32,8 +32,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isAuthenticated) {
-    // Redirect ke login dengan state untuk kembali ke halaman ini setelah login
-    return <Navigate to="/auth/login" state={{ from: location }} replace />;
+    // Build returnTo URL from current location
+    const returnTo = encodeURIComponent(`${location.pathname}${location.search}${location.hash}`);
+    // Redirect to login with both returnTo param and state for maximum compatibility
+    return <Navigate to={`/auth/login?returnTo=${returnTo}`} state={{ from: location }} replace />;
   }
 
   // Check role jika diperlukan

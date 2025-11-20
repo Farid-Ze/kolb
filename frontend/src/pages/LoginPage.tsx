@@ -77,18 +77,22 @@ export const LoginPage: React.FC = () => {
     const searchParams = new URLSearchParams(location.search);
     const returnToParam = searchParams.get('returnTo');
     if (returnToParam) {
-      return decodeURIComponent(returnToParam);
+      const decoded = decodeURIComponent(returnToParam);
+      // Safety: prevent infinite loop if returnTo points to login page
+      if (!decoded.startsWith('/auth/login') && !decoded.startsWith('/auth/register')) {
+        return decoded;
+      }
     }
 
     // Priority 2: sessionStorage (auth:postLoginRedirect)
     const storedIntent = consumeAuthIntent();
-    if (storedIntent && storedIntent !== '/auth/login') {
+    if (storedIntent && !storedIntent.startsWith('/auth/')) {
       return storedIntent;
     }
 
     // Priority 3: location.state.from
     const state = location.state as { from?: Location } | undefined;
-    const fromState = state?.from?.pathname && state.from.pathname !== '/auth/login'
+    const fromState = state?.from?.pathname && !state.from.pathname.startsWith('/auth/')
       ? `${state.from.pathname}${state.from.search ?? ''}${state.from.hash ?? ''}`
       : undefined;
     if (fromState) {

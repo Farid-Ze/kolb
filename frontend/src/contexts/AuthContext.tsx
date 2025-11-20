@@ -87,21 +87,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const handleUnauthorized = (event?: CustomEvent) => {
       logout();
       
-      // Save current location for post-login redirect
+      // Save current location for post-login redirect (but not if already on auth pages)
       const currentPath = window.location.pathname + window.location.search + window.location.hash;
       if (currentPath && !currentPath.startsWith('/auth/')) {
         sessionStorage.setItem('auth:postLoginRedirect', currentPath);
+        
+        // Build login URL with returnTo parameter for better UX
+        const returnTo = encodeURIComponent(currentPath);
+        const message = event?.detail?.message || 'Your session has expired. Please sign in again.';
+        
+        // Store error message for display on login page
+        sessionStorage.setItem('auth:lastAuthErrorMessage', message);
+        
+        // Navigate to login with returnTo parameter
+        window.location.href = `/auth/login?returnTo=${returnTo}`;
+      } else {
+        // Already on auth page, just navigate to login without returnTo
+        window.location.href = '/auth/login';
       }
-      
-      // Build login URL with returnTo parameter for better UX
-      const returnTo = encodeURIComponent(currentPath);
-      const message = event?.detail?.message || 'Your session has expired. Please sign in again.';
-      
-      // Store error message for display on login page
-      sessionStorage.setItem('auth:lastAuthErrorMessage', message);
-      
-      // Navigate to login with returnTo parameter
-      window.location.href = `/auth/login?returnTo=${returnTo}`;
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized as EventListener);
