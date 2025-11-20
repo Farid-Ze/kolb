@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 import { motion } from 'motion/react';
 import { Home, ArrowLeft } from 'lucide-react';
 import { GlassPanel } from '../components/ui/GlassPanel';
@@ -13,7 +13,7 @@ import { GlassPanel } from '../components/ui/GlassPanel';
  */
 
 export const NotFoundPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
 
   // Spring configuration (Guidelines.md Section 2.3.1)
   const springConfig = {

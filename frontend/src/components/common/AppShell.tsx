@@ -12,7 +12,7 @@
  */
 
 import React, { useState, ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -30,6 +30,7 @@ import { VibrantText } from '../ui/VibrantText';
 import { useScrollEdge } from '../ui/ScrollEdgeHandler';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { TelemetryConsentBanner } from './TelemetryConsentBanner';
+import { useNonBlockingNavigate } from '../../hooks/useNonBlockingNavigate';
 
 interface AppShellProps {
   children: ReactNode;
@@ -59,7 +60,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
   showSidebar = true,
 }) => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -70,7 +71,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const handleLogout = () => {
     logout();
-    navigate('/auth/login');
+    void navigate('/auth/login');
   };
 
   const filteredNavItems = navigationItems.filter(
@@ -115,7 +116,9 @@ export const AppShell: React.FC<AppShellProps> = ({
             )}
 
             <motion.button
-              onClick={() => navigate('/')}
+              onClick={() => {
+                void navigate('/');
+              }}
               className="inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg p-2 -m-2 transition-spring"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -143,7 +146,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                 return (
                   <motion.button
                     key={item.path}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => {
+                      void navigate(item.path);
+                    }}
                     className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:text-foreground'
@@ -216,7 +221,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     <motion.button
                       key={item.path}
                       onClick={() => {
-                        navigate(item.path);
+                        void navigate(item.path);
                         setIsMobileMenuOpen(false);
                       }}
                       className={`w-full inline-flex items-center gap-3 rounded-xl px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive

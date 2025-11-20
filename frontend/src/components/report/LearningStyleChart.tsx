@@ -20,6 +20,7 @@ import {
   ReferenceLine,
   Label,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import type { ReportVisualizationBlock, ReportStyleBlock } from '../../types/api';
 
 interface LearningStyleChartProps {
@@ -126,25 +127,12 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
             {/* Tooltip */}
             <Tooltip
               cursor={{ strokeDasharray: '3 3' }}
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const point = payload[0].payload;
-                  return (
-                    <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
-                      <p className="text-foreground mb-2">
-                        {style?.primary_name ?? 'Posisi saat ini'}
-                      </p>
-                      <p className="text-muted-foreground">
-                        AC-CE: {point.x.toFixed(1)}
-                      </p>
-                      <p className="text-muted-foreground">
-                        AE-RO: {point.y.toFixed(1)}
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
+              content={(tooltipProps: TooltipContentProps<number, string>) =>
+                renderLearningStyleTooltip(
+                  tooltipProps,
+                  style?.primary_name ?? 'Posisi saat ini'
+                )
+              }
             />
 
             {/* User Position */}
@@ -180,6 +168,44 @@ export const LearningStyleChart: React.FC<LearningStyleChartProps> = ({
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+type LearningPoint = {
+  x: number;
+  y: number;
+  name: string;
+};
+
+const isLearningPoint = (value: unknown): value is LearningPoint => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as Partial<LearningPoint>;
+  return (
+    typeof candidate.x === 'number' &&
+    typeof candidate.y === 'number' &&
+    typeof candidate.name === 'string'
+  );
+};
+
+const renderLearningStyleTooltip = (
+  { active, payload }: TooltipContentProps<number, string>,
+  styleName: string
+) => {
+  if (!active || !payload || payload.length === 0) {
+    return null;
+  }
+  const pointCandidate = payload[0]?.payload;
+  if (!isLearningPoint(pointCandidate)) {
+    return null;
+  }
+  return (
+    <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
+      <p className="text-foreground mb-2">{styleName}</p>
+      <p className="text-muted-foreground">AC-CE: {pointCandidate.x.toFixed(1)}</p>
+      <p className="text-muted-foreground">AE-RO: {pointCandidate.y.toFixed(1)}</p>
     </div>
   );
 };

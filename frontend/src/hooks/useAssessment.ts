@@ -22,6 +22,7 @@ interface UseAssessmentParams {
 interface UseAssessmentReturn {
   // Data
   items: AssessmentItem[];
+  contexts: any[]; // Add contexts
   currentItem: AssessmentItem | null;
   currentItemIndex: number;
   totalItems: number;
@@ -76,6 +77,7 @@ export const useAssessment = ({
   });
 
   const items = assessmentData?.items || [];
+  const contexts = assessmentData?.contexts || []; // Get contexts
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
@@ -267,6 +269,7 @@ export const useAssessment = ({
   return {
     // Data
     items,
+    contexts,
     currentItem,
     currentItemIndex,
     totalItems,

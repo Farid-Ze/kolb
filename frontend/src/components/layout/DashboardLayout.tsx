@@ -10,7 +10,7 @@
 
 import React, { ReactNode } from 'react';
 import { LargeTitleHeader } from '../ui/LargeTitleHeader';
-import { useNavigate } from 'react-router-dom';
+import { useNonBlockingNavigate } from '../../hooks/useNonBlockingNavigate';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -39,9 +39,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   backLabel = 'Kembali',
   className = '',
 }) => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
 
-  const handleBack = showBackButton ? () => navigate(-1) : undefined;
+  const handleBack = showBackButton
+    ? () => {
+        void navigate(-1);
+      }
+    : undefined;
 
   return (
     <div className="min-h-screen bg-background">

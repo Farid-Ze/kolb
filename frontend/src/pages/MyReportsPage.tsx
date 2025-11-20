@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 import { useQuery } from '@tanstack/react-query';
 import { getSelfReports } from '../services/reportService';
 import { LoadingComponent } from '../components/common/LoadingComponent';
@@ -26,7 +26,7 @@ import { DescriptionText } from '../components/ui/DynamicType';
 import { GlassPanel } from '../components/ui/GlassPanel';
 
 export const MyReportsPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
 
   // Task 36: React Query untuk fetch reports
   const {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,6 +27,7 @@ import {
   usePrefersReducedMotionSetting,
 } from '../lib/motion';
 import { consumeAuthIntent, consumeAuthErrorMessage } from '../utils/errorHandler';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 
 /**
  * KLSI 4.0 - LoginPage
@@ -57,7 +58,7 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export const LoginPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const location = useLocation();
   const { setAuthData } = useAuth();
   const reduceTransparency = useReduceTransparency();

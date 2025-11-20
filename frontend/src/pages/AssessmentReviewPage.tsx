@@ -10,12 +10,13 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAssessment } from '../hooks/useAssessment';
 import { useSessionGuard } from '../hooks/useSessionGuard';
-import { finalizeSession, getSessionValidation } from '../services/sessionService';
+import { getSessionValidation } from '../services/sessionService';
+import { api, SessionSubmissionPayload } from '../core/api/client';
 import { queryClient } from '../config/api';
 import { Skeleton } from '../components/ui/skeleton';
 import { toast } from 'sonner';
@@ -23,7 +24,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Lock,
-  ChevronLeft,
   ArrowLeft,
   AlertTriangle,
 } from 'lucide-react';
@@ -38,7 +38,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '../components/ui/alert-dialog';
-import { GlassPanel } from '../components/ui/GlassPanel';
+import { PageShell, RoomContent } from '../core/design-system/Layout';
+import { GlassMaterial } from '../core/design-system/Materials';
+import { LayeredIcon } from '../components/ui/LayeredIcon';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
+import { DisplayTitle, SectionTitle, BodyText } from '../core/design-system/Typography';
+import { fadeInUp, staggerContainer } from '../core/physics/motionPrimitives';
 
 const LFI_CONTEXT_LABELS: Record<string, string> = {
   Starting_Something_New: 'Memulai hal baru',
@@ -57,7 +62,7 @@ const formatContextLabel = (contextName: string): string =>
   LFI_CONTEXT_LABELS[contextName] || contextName.replace(/_/g, ' ');
 
 export const AssessmentReviewPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const sessionAccess = useSessionGuard(sessionId ?? null);
@@ -67,6 +72,7 @@ export const AssessmentReviewPage: React.FC = () => {
   const {
     items,
     responses,
+    contexts,
     totalItems,
     progress,
     isLoading,
@@ -80,8 +86,6 @@ export const AssessmentReviewPage: React.FC = () => {
 
   const {
     data: validationData,
-    isLoading: isValidationLoading,
-    isError: isValidationError,
     refetch: refetchValidation,
   } = useQuery({
     queryKey: ['session-validation', sessionId],
@@ -90,26 +94,53 @@ export const AssessmentReviewPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  // Spring configuration (Guidelines.md Section 2.3.1)
-  const springConfig = {
-    type: "spring" as const,
-    stiffness: 300,
-    damping: 20,
-  };
+
 
   // Task 34: useMutation untuk finalize session
   const finalizeMutation = useMutation({
-    mutationFn: () => finalizeSession(sessionId!),
-    onSuccess: (data) => {
-      toast.success('Asesmen berhasil diselesaikan!');
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
-      queryClient.invalidateQueries({ queryKey: ['session-validation', sessionId] });
-      navigate(`/reports/${data.session_id}`);
+    mutationFn: async () => {
+        // Map responses to ItemRank[] with choice IDs
+        const mappedItems = items.map(item => {
+            const response = responses[item.item_id];
+            const ranks: Record<number, number> = {};
+            if (response && response.ranks) {
+                Object.entries(response.ranks).forEach(([code, rank]) => {
+                    const option = item.options.find(o => o.option_code === code);
+                    if (option) {
+                        ranks[Number(option.id)] = rank;
+                    }
+                });
+            }
+            return {
+                item_id: Number(item.item_id),
+                ranks
+            };
+        });
+
+        const payload: SessionSubmissionPayload = {
+            items: mappedItems,
+            contexts: contexts.map(ctx => ({
+                context_name: ctx.context_name,
+                CE: Number(ctx.CE),
+                RO: Number(ctx.RO),
+                AC: Number(ctx.AC),
+                AE: Number(ctx.AE)
+            }))
+        };
+
+        return api.submitSession(Number(sessionId), payload);
     },
-    onError: (error: Error) => {
-      toast.error('Gagal finalisasi: ' + error.message);
-      void refetchValidation();
+    onSuccess: () => {
+      toast.success('Asesmen berhasil diselesaikan!');
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['report', sessionId] });
+      
+      // Navigate to report
+      void navigate(`/report/${sessionId}`);
+    },
+    onError: (error) => {
+      toast.error('Gagal memfinalisasi sesi: ' + error.message);
     },
   });
 
@@ -136,149 +167,169 @@ export const AssessmentReviewPage: React.FC = () => {
 
   if (sessionAccess.isChecking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="material-regular rounded-xl p-8 text-center space-y-2">
-          <p className="text-sm text-muted-foreground">Memverifikasi akses sesi...</p>
-        </div>
-      </div>
+      <PageShell>
+        <RoomContent>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <GlassMaterial intensity="medium" className="p-8 text-center space-y-2">
+              <p className="text-sm text-white/70">Verifying session access...</p>
+            </GlassMaterial>
+          </div>
+        </RoomContent>
+      </PageShell>
     );
   }
 
   if (!sessionId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="material-regular rounded-xl p-8 max-w-md text-center space-y-4">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
-            <AlertCircle className="h-8 w-8 text-destructive" />
+      <PageShell>
+        <RoomContent>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <GlassMaterial intensity="medium" className="p-8 max-w-md text-center space-y-4">
+              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+              </div>
+              <h2 className="text-white text-xl font-bold">Invalid Session ID</h2>
+              <p className="text-white/70">Please return to the dashboard and select a valid session.</p>
+              <button
+                onClick={() => {
+                  void navigate('/');
+                }}
+                className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
+              >
+                Back to Dashboard
+              </button>
+            </GlassMaterial>
           </div>
-          <h2 className="text-foreground">ID sesi tidak valid</h2>
-          <p className="text-muted-foreground">Silakan kembali ke daftar asesmen dan pilih sesi yang benar.</p>
-          <button
-            onClick={() => navigate('/')}
-            className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
-          >
-            Kembali ke Beranda
-          </button>
-        </div>
-      </div>
+        </RoomContent>
+      </PageShell>
     );
   }
 
   if (!sessionAccess.hasAccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="material-regular rounded-xl p-8 max-w-md text-center space-y-4">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
-            <Lock className="h-8 w-8 text-destructive" />
+      <PageShell>
+        <RoomContent>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <GlassMaterial intensity="medium" className="p-8 max-w-md text-center space-y-4">
+              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+                <Lock className="h-8 w-8 text-destructive" />
+              </div>
+              <h2 className="text-white text-xl font-bold">Access Denied</h2>
+              <p className="text-white/70">
+                {sessionAccess.reason ?? 'You do not have permission to review this session.'}
+              </p>
+              <button
+                onClick={() => {
+                  void navigate('/');
+                }}
+                className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
+              >
+                Back to Dashboard
+              </button>
+            </GlassMaterial>
           </div>
-          <h2 className="text-foreground">Akses review ditolak</h2>
-          <p className="text-muted-foreground">
-            {sessionAccess.reason ?? 'Anda tidak memiliki izin untuk meninjau sesi ini.'}
-          </p>
-          <button
-            onClick={() => navigate('/')}
-            className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
-          >
-            Kembali ke Beranda
-          </button>
-        </div>
-      </div>
+        </RoomContent>
+      </PageShell>
     );
   }
 
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-        <GlassPanel
-          as="header"
-          material="functional"
-          density="compact"
-          className="sticky top-0 z-50 border-b border-border"
-        >
-          <div className="mx-auto max-w-4xl w-full">
-            <Skeleton className="h-6 w-[150px]" />
+      <PageShell>
+        <RoomContent>
+          <div className="max-w-4xl mx-auto space-y-6">
+            <GlassMaterial intensity="medium" className="p-6">
+              <Skeleton className="h-8 w-[200px] mb-2 bg-white/10" />
+            </GlassMaterial>
+            <GlassMaterial intensity="high" className="p-8 min-h-[400px]">
+              <Skeleton className="h-[100px] w-full mb-8 bg-white/10" />
+              <div className="space-y-4">
+                <Skeleton className="h-[80px] w-full bg-white/10" />
+                <Skeleton className="h-[80px] w-full bg-white/10" />
+              </div>
+            </GlassMaterial>
           </div>
-        </GlassPanel>
-        <main className="mx-auto max-w-4xl p-6 space-y-6">
-          <div className="text-center space-y-2 py-6">
-            <Skeleton className="mx-auto h-10 w-[300px]" />
-            <Skeleton className="mx-auto h-5 w-[400px]" />
-          </div>
-          <Skeleton className="h-[150px] w-full" />
-          <Skeleton className="h-[120px] w-full" />
-          <div className="space-y-4">
-            <Skeleton className="h-[100px] w-full" />
-            <Skeleton className="h-[100px] w-full" />
-            <Skeleton className="h-[100px] w-full" />
-          </div>
-        </main>
-      </div>
+        </RoomContent>
+      </PageShell>
     );
   }
 
   if (assessmentHasError) {
-    const message = assessmentError?.message || 'Gagal memuat data review.';
+    const message = assessmentError?.message || 'Failed to load review data.';
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="material-regular rounded-xl p-8 max-w-lg text-center space-y-4">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
-            <AlertCircle className="h-8 w-8 text-destructive" />
+      <PageShell>
+        <RoomContent>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <GlassMaterial intensity="medium" className="p-8 max-w-lg text-center space-y-4">
+              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+              </div>
+              <h2 className="text-white text-xl font-bold">Error Loading Data</h2>
+              <p className="text-white/70">
+                {message}
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={() => {
+                    void navigate(`/assessment/${sessionId}`);
+                  }}
+                  className="rounded-lg border border-white/20 px-6 py-3 text-white hover:bg-white/5"
+                >
+                  Back to Assessment
+                </button>
+              </div>
+            </GlassMaterial>
           </div>
-          <h2 className="text-foreground">Gagal Memuat Data Review</h2>
-          <p className="text-muted-foreground">
-            {message}
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              onClick={() => window.location.reload()}
-              className="rounded-lg bg-primary text-primary-foreground px-6 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Coba Lagi
-            </button>
-            <button
-              onClick={() => navigate(`/assessment/${sessionId}`)}
-              className="rounded-lg border border-border px-6 py-3 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Kembali ke Asesmen
-            </button>
-          </div>
-        </div>
-      </div>
+        </RoomContent>
+      </PageShell>
     );
   }
 
   if (!totalItems) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-6">
-        <div className="material-regular rounded-xl p-8 max-w-lg text-center space-y-4">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-secondary/10 mx-auto">
-            <AlertTriangle className="h-8 w-8 text-secondary" />
+      <PageShell>
+        <RoomContent>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <GlassMaterial intensity="medium" className="p-8 max-w-lg text-center space-y-4">
+              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10 mx-auto">
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+              </div>
+              <h2 className="text-white text-xl font-bold">Review Data Unavailable</h2>
+              <p className="text-white/70">
+                This session does not have complete assessment items yet.
+              </p>
+              <div className="space-y-2 text-sm text-white/50">
+                <p>Please ensure the session has loaded items from the server.</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center pt-4">
+                <button
+                  onClick={() => {
+                    void navigate(`/assessment/${sessionId}`);
+                  }}
+                  className="rounded-lg bg-primary text-primary-foreground px-6 py-3"
+                >
+                  Back to Assessment
+                </button>
+                <button
+                  onClick={() => {
+                    void navigate('/reports');
+                  }}
+                  className="rounded-lg border border-white/20 px-6 py-3 text-white hover:bg-white/5"
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            </GlassMaterial>
           </div>
-          <h2 className="text-foreground">Data Review Belum Tersedia</h2>
-          <p className="text-muted-foreground">
-            Sesi ini belum memiliki item asesmen yang lengkap sehingga halaman review belum dapat ditampilkan.
-          </p>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>Pastikan sesi telah memuat item dari server dan coba buka ulang halaman ini.</p>
-            <p>Jika masalah berlanjut, hubungi fasilitator untuk memverifikasi status sesi.</p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              onClick={() => navigate(`/assessment/${sessionId}`)}
-              className="rounded-lg bg-primary text-primary-foreground px-6 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Kembali ke Asesmen
-            </button>
-            <button
-              onClick={() => navigate('/reports')}
-              className="rounded-lg border border-border px-6 py-3 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Ke Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
+        </RoomContent>
+      </PageShell>
     );
   }
 
@@ -302,350 +353,210 @@ export const AssessmentReviewPage: React.FC = () => {
 
   const completedContexts = contextStatus.filter((context) => context.present).length;
   const hasMissingContexts = contextStatus.some((context) => !context.present);
-  const missingContextNames: string[] = validationData?.diagnostics?.contexts?.missing_names || [];
-  const contextIssues = (validationData?.issues || []).filter((issue) =>
-    issue.code?.startsWith('LFI_CONTEXT')
-  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-      {/* Header */}
-      <GlassPanel
-        as="header"
-        material="functional"
-        density="compact"
-        className="sticky top-0 z-50 border-b border-border"
-      >
-        <div className="mx-auto max-w-4xl w-full">
-          <motion.button
-            onClick={() => navigate(`/assessment/${sessionId}`)}
-            className="inline-flex items-center gap-2 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded touch-manipulation"
-            whileHover={{ x: -4 }}
-            transition={springConfig}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Kembali ke Asesmen
-          </motion.button>
-        </div>
-      </GlassPanel>
-
-      {/* Main Content */}
-      <main className="mx-auto max-w-4xl p-6 pb-32 space-y-8">
-        {/* Title */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={springConfig}
-          className="text-center space-y-2 py-6"
+    <PageShell>
+      {/* Header - Minimal & Cinematic */}
+      <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-start pointer-events-none">
+        <motion.button
+          onClick={() => {
+            void navigate(`/assessment/${sessionId}`);
+          }}
+          className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md transition-all text-sm font-medium text-white/70 hover:text-white group"
+          whileHover={{ x: -4 }}
         >
-          <h1 className="text-foreground">Review Jawaban</h1>
-          <p className="text-muted-foreground">
-            Pastikan semua item sudah lengkap sebelum finalisasi
-          </p>
-        </motion.div>
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span>Back to Assessment</span>
+        </motion.button>
+      </div>
 
-        {/* NonDiagnosticNotice - Task 35 */}
+      <RoomContent>
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={springConfig}
-          className="material-thin rounded-xl p-6 border-l-4 border-l-chart-3"
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+          className="w-full max-w-4xl relative z-10 pb-32"
         >
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-chart-3 flex-shrink-0 mt-0.5" />
-            <div className="space-y-2">
-              <h3 className="text-foreground">Sebelum Finalisasi</h3>
-              <p className="text-muted-foreground">
-                Setelah Anda mengunci jawaban, Anda tidak dapat mengubahnya lagi.
-                Pastikan semua jawaban sudah sesuai dengan preferensi belajar Anda
-                yang sebenarnya.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Progress Summary */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={springConfig}
-          className="material-regular rounded-xl p-6"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-foreground">Progress Asesmen</h2>
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              transition={springConfig}
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 ${
-                isComplete
-                  ? 'bg-chart-4/10 text-chart-4'
-                  : 'bg-chart-3/10 text-chart-3'
-              }`}
-            >
-              {isComplete ? (
-                <>
-                  <CheckCircle2 className="h-5 w-5" />
-                  <span>Lengkap</span>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="h-5 w-5" />
-                  <span>Belum Lengkap</span>
-                </>
-              )}
+            {/* Title Section */}
+            <motion.div variants={fadeInUp} className="text-center mb-12 space-y-4">
+                <div className="inline-flex p-4 rounded-2xl bg-white/5 border border-white/10 mb-4 shadow-2xl shadow-black/20">
+                    <LayeredIcon icon={CheckCircle2} size="lg" color="primary" />
+                </div>
+                <DisplayTitle className="text-4xl md:text-5xl font-bold">
+                    Review Your Answers
+                </DisplayTitle>
+                <BodyText className="text-white/60 max-w-xl mx-auto">
+                    Ensure all items are complete before finalizing. Once submitted, answers cannot be changed.
+                </BodyText>
             </motion.div>
-          </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Item Selesai</span>
-              <span className="text-foreground">
-                {completedCount} / {totalItems}
-              </span>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="h-3 overflow-hidden rounded-full bg-secondary">
-              <motion.div
-                className="h-full rounded-full bg-primary"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={springConfig}
-              />
-            </div>
-
-            <div className="text-right">
-              <span className="text-muted-foreground">
-                {Math.round(progress)}% selesai
-              </span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* LFI Context Summary */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={springConfig}
-          className="material-regular rounded-xl p-6 space-y-6"
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-foreground">Status Konteks LFI</h2>
-              <p className="text-muted-foreground text-sm">
-                8 konteks wajib untuk menghitung Learning Flexibility Index (LFI) secara valid.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <motion.div
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                transition={springConfig}
-                className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                  hasMissingContexts ? 'bg-chart-3/10 text-chart-3' : 'bg-chart-4/10 text-chart-4'
-                }`}
-              >
-                {isValidationLoading ? 'Memuat…' : `${completedContexts}/8 lengkap`}
-              </motion.div>
-              <motion.button
-                type="button"
-                onClick={() => refetchValidation()}
-                disabled={isValidationLoading}
-                className="rounded-lg border border-border/60 px-4 py-2 text-sm text-foreground disabled:opacity-50"
-                whileHover={!isValidationLoading ? { scale: 1.05 } : {}}
-                whileTap={!isValidationLoading ? { scale: 0.95 } : {}}
-                transition={springConfig}
-              >
-                Perbarui
-              </motion.button>
-            </div>
-          </div>
-
-          {isValidationError ? (
-            <div className="rounded-lg border border-chart-3/40 bg-chart-3/10 p-4 text-sm text-chart-3">
-              Gagal memuat status konteks. Coba perbarui kembali.
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {contextStatus.map((context) => (
-                  <div
-                    key={context.name}
-                    className={`rounded-xl border p-4 flex items-center gap-3 ${
-                      context.present
-                        ? 'border-chart-4/40 bg-chart-4/10'
-                        : 'border-chart-3/40 bg-chart-3/10'
-                    }`}
-                  >
-                    {context.present ? (
-                      <CheckCircle2 className="h-5 w-5 text-chart-4" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-chart-3" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {formatContextLabel(context.name)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {context.present ? 'Lengkap' : 'Belum diisi'}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {hasMissingContexts && (
-                <div className="rounded-lg border border-chart-3/40 bg-chart-3/10 p-4 text-sm text-chart-3 space-y-2">
-                  <p>
-                    Lengkapi konteks berikut agar sistem dapat menghitung fleksibilitas lintas konteks:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {missingContextNames.map((name) => (
-                      <span key={name} className="rounded-full bg-background/60 px-3 py-1 text-xs font-medium">
-                        {formatContextLabel(name)}
-                      </span>
-                    ))}
-                  </div>
-                  {contextIssues.map((issue) => (
-                    <p key={issue.code} className="text-xs">
-                      {issue.message}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </motion.div>
-
-        {/* Items List - Task 32: Display read-only answers */}
-        <div className="space-y-4">
-          <h2 className="text-foreground">Daftar Item</h2>
-
-          {items.map((item, index) => {
-            const response = responses[item.item_id];
-            const ranks = response?.ranks || {};
-            const isItemComplete = Object.keys(ranks).length === 4 && 
-              new Set(Object.values(ranks)).size === 4;
-
-            return (
-              <motion.div
-                key={item.item_id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...springConfig, delay: index * 0.05 }}
-                className="material-regular rounded-xl p-6 space-y-4"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-foreground mb-2">
-                        {item.prompt || 'Ketika saya belajar...'}
-                      </p>
-                      <p className="text-muted-foreground">
-                        {Object.keys(ranks).length} / 4 option dijawab
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex-shrink-0">
-                    {isItemComplete ? (
-                      <CheckCircle2 className="h-6 w-6 text-chart-4" />
-                    ) : (
-                      <AlertCircle className="h-6 w-6 text-chart-3" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Rankings Preview */}
-                {Object.keys(ranks).length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {Object.entries(ranks)
-                      .sort(([, a], [, b]) => a - b)
-                      .map(([optionCode, rank]) => (
-                        <div
-                          key={optionCode}
-                          className="rounded-lg bg-secondary p-3 text-center space-y-1"
-                        >
-                          <div className="text-primary">{optionCode}</div>
-                          <div className="text-foreground">Rank {rank}</div>
+            {/* Progress Summary */}
+            <motion.div variants={fadeInUp} className="mb-8">
+                <GlassMaterial intensity="medium" className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-full ${isComplete ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                            {isComplete ? <CheckCircle2 className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
                         </div>
-                      ))}
-                  </div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-      </main>
+                        <div>
+                            <h3 className="text-white font-medium">Assessment Progress</h3>
+                            <p className="text-sm text-white/50">
+                                {completedCount} of {totalItems} items completed
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <span className="text-2xl font-bold text-white">{Math.round(progress)}%</span>
+                    </div>
+                </GlassMaterial>
+            </motion.div>
 
-      {/* Bottom Toolbar (Zona Hijau - Guidelines §1.3.2) */}
-      <GlassPanel
-        as="div"
-        material="functional"
-        density="compact"
-        className="fixed bottom-0 left-0 right-0 border-t border-border safe-area-bottom"
-      >
-        <div className="mx-auto max-w-4xl w-full">
-          <div className="flex items-center justify-between gap-4">
+            {/* LFI Context Summary */}
+            <motion.div variants={fadeInUp} className="mb-8">
+                <GlassMaterial intensity="medium" className="p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-white font-medium text-lg">Context Check</h3>
+                            <p className="text-sm text-white/50">8 contexts required for Learning Flexibility Index</p>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${hasMissingContexts ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                            {completedContexts}/8 Completed
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {contextStatus.map((context) => (
+                            <div
+                                key={context.name}
+                                className={`rounded-xl border p-3 flex items-center gap-3 transition-colors ${
+                                    context.present
+                                    ? 'bg-emerald-500/5 border-emerald-500/20'
+                                    : 'bg-amber-500/5 border-amber-500/20'
+                                }`}
+                            >
+                                {context.present ? (
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                                ) : (
+                                    <AlertCircle className="h-4 w-4 text-amber-400" />
+                                )}
+                                <span className={`text-sm ${context.present ? 'text-white/80' : 'text-white/50'}`}>
+                                    {formatContextLabel(context.name)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </GlassMaterial>
+            </motion.div>
+
+            {/* Items List */}
+            <div className="space-y-4">
+                <SectionTitle className="text-2xl mb-6">Item Responses</SectionTitle>
+                {items.map((item, index) => {
+                    const response = responses[item.item_id];
+                    const ranks = response?.ranks || {};
+                    const isItemComplete = Object.keys(ranks).length === 4 && new Set(Object.values(ranks)).size === 4;
+
+                    return (
+                        <motion.div
+                            key={item.item_id}
+                            variants={fadeInUp}
+                            className="relative"
+                        >
+                            <GlassMaterial intensity="low" className={`p-6 transition-colors ${isItemComplete ? 'hover:bg-white/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                                <div className="flex items-start gap-4">
+                                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm font-medium text-white/70">
+                                        {index + 1}
+                                    </span>
+                                    <div className="flex-1 space-y-4">
+                                        <div className="flex items-start justify-between">
+                                            <p className="text-white/90 font-medium text-lg">
+                                                {item.prompt || 'When I learn...'}
+                                            </p>
+                                            {isItemComplete ? (
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                                            ) : (
+                                                <AlertCircle className="w-5 h-5 text-amber-400" />
+                                            )}
+                                        </div>
+
+                                        {Object.keys(ranks).length > 0 && (
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                {Object.entries(ranks)
+                                                    .sort(([, a], [, b]) => a - b)
+                                                    .map(([optionCode, rank]) => (
+                                                        <div key={optionCode} className="bg-black/20 rounded-lg p-2 text-center border border-white/5">
+                                                            <div className="text-xs text-white/40 uppercase tracking-wider mb-1">{optionCode}</div>
+                                                            <div className="text-lg font-bold text-white">{rank}</div>
+                                                        </div>
+                                                    ))
+                                                }
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </GlassMaterial>
+                        </motion.div>
+                    );
+                })}
+            </div>
+        </motion.div>
+      </RoomContent>
+
+      {/* Floating Footer */}
+      <div className="fixed bottom-8 left-0 right-0 z-50 flex justify-center pointer-events-none">
+        <div className="pointer-events-auto flex items-center gap-4 p-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl">
             <motion.button
-              onClick={() => navigate(`/assessment/${sessionId}`)}
-              className="inline-flex items-center gap-2 rounded-xl bg-secondary text-secondary-foreground px-6 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={springConfig}
+              onClick={() => {
+                void navigate(`/assessment/${sessionId}`);
+              }}
+                className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
             >
-              <ChevronLeft className="h-5 w-5" />
-              <span className="hidden sm:inline">Kembali</span>
+                Back to Edit
             </motion.button>
 
-            {/* Task 35: AlertDialog untuk konfirmasi finalize */}
+            <div className="h-8 w-px bg-white/10" />
+
             <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-              <AlertDialogTrigger asChild>
-                <motion.button
-                  onClick={handleFinalize}
-                  disabled={!isComplete || finalizeMutation.isPending}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
-                  whileHover={isComplete ? { scale: 1.05 } : {}}
-                  whileTap={isComplete ? { scale: 0.95 } : {}}
-                  transition={springConfig}
-                >
-                  {finalizeMutation.isPending ? (
-                    <>
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
-                      <span>Memproses...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-5 w-5" />
-                      <span>Kunci Jawaban & Lihat Hasil</span>
-                    </>
-                  )}
-                </motion.button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Konfirmasi Finalisasi</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Apakah Anda yakin ingin mengunci jawaban? Setelah dikunci, Anda tidak dapat
-                    mengubah jawaban lagi. Sistem akan menghitung hasil asesmen dan menampilkan
-                    laporan gaya belajar Anda.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Batal</AlertDialogCancel>
-                  <AlertDialogAction onClick={confirmFinalize}>
-                    Ya, Kunci Jawaban
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
+                <AlertDialogTrigger asChild>
+                    <motion.button
+                        onClick={handleFinalize}
+                        disabled={!isComplete || finalizeMutation.isPending}
+                        className="px-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        whileHover={isComplete ? { scale: 1.05 } : {}}
+                        whileTap={isComplete ? { scale: 0.95 } : {}}
+                    >
+                        {finalizeMutation.isPending ? (
+                            <>
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                                <span>Processing...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Lock className="w-4 h-4" />
+                                <span>Finalize & Submit</span>
+                            </>
+                        )}
+                    </motion.button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-slate-900 border-white/10 text-white">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Submission</AlertDialogTitle>
+                        <AlertDialogDescription className="text-white/60">
+                            Are you sure you want to lock your answers? Once submitted, you cannot change them.
+                            The system will calculate your learning style profile immediately.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5 hover:text-white">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmFinalize} className="bg-emerald-500 text-white hover:bg-emerald-600">
+                            Yes, Submit
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
             </AlertDialog>
-          </div>
         </div>
-      </GlassPanel>
-    </div>
+      </div>
+    </PageShell>
   );
 };

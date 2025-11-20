@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { AnimatedGrid, AnimatedListItem } from '../components/ui/AnimatedListItem';
 import { LayeredIcon } from '../components/ui/LayeredIcon';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { getSessions, startSession } from '../services/sessionService';
@@ -26,6 +25,8 @@ import { Badge } from '../components/ui/badge';
 import type { Session } from '../types/api';
 import { cn } from '../lib/utils';
 import { GlassPanel } from '../components/ui/GlassPanel';
+import { useAsyncHandler } from '../hooks/useAsyncHandler';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 
 /**
  * KLSI 4.0 - HomePage / Dashboard
@@ -39,7 +40,7 @@ import { GlassPanel } from '../components/ui/GlassPanel';
  */
 
 export const HomePage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const { user, logout } = useAuth();
   const [isStarting, setIsStarting] = useState(false);
 
@@ -63,9 +64,9 @@ export const HomePage: React.FC = () => {
     onSuccess: (data) => {
       toast.success('Sesi asesmen baru dimulai!');
       setIsStarting(false);
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
       // Navigate to assessment start page
-      navigate(`/assessment/${data.session_id}/start`);
+      void navigate(`/assessment/${data.session_id}/start`);
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Gagal memulai sesi');
@@ -73,25 +74,28 @@ export const HomePage: React.FC = () => {
     },
   });
 
-  const handleStartAssessment = async () => {
+  const handleStartAssessment = useAsyncHandler(
+    async () => {
     // Check if there's an active session
     if (sessions && sessions.length > 0) {
       const existingSession = sessions[0];
       if (!existingSession) {
         return;
       }
-      navigate(`/assessment/${existingSession.id}/start`);
+        void navigate(`/assessment/${existingSession.id}/start`);
       return;
     }
 
     // Start new session
     setIsStarting(true);
     startSessionMutation.mutate();
-  };
+    },
+    [navigate, sessions, startSessionMutation]
+  );
 
   const handleLogout = () => {
     logout();
-    navigate('/auth/login');
+    void navigate('/auth/login');
   };
 
   // Spring configuration (Bagian 2.3.1)
@@ -182,7 +186,9 @@ export const HomePage: React.FC = () => {
               </div>
               <motion.button
                 type="button"
-                onClick={() => navigate(`/assessment/${activeSession.id}/start`)}
+                onClick={() => {
+                  void navigate(`/assessment/${activeSession.id}/start`);
+                }}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -235,7 +241,9 @@ export const HomePage: React.FC = () => {
           {/* My Reports */}
           <AnimatedListItem
             hoverScale
-            onClick={() => navigate('/reports/self')}
+            onClick={() => {
+              void navigate('/reports/self');
+            }}
             className="material-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
           >
             <LayeredIcon 
@@ -260,7 +268,9 @@ export const HomePage: React.FC = () => {
             <>
               <AnimatedListItem
                 hoverScale
-                onClick={() => navigate('/teams')}
+                onClick={() => {
+                  void navigate('/teams');
+                }}
                 className="material-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
               >
                 <LayeredIcon 
@@ -283,7 +293,9 @@ export const HomePage: React.FC = () => {
               {/* Research Dashboard (Mediator only) */}
               <AnimatedListItem
                 hoverScale
-                onClick={() => navigate('/research')}
+                onClick={() => {
+                  void navigate('/research');
+                }}
                 className="material-regular rounded-xl p-8 space-y-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-manipulation"
               >
                 <LayeredIcon 

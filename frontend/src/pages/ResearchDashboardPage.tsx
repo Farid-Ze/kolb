@@ -10,7 +10,6 @@
  */
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,9 +30,13 @@ import {
 } from 'lucide-react';
 import { AccessibleHeading } from '../components/ui/AccessibleHeading';
 import { GlassPanel } from '../components/ui/GlassPanel';
+import { motion } from 'framer-motion';
+import { fadeInUp, staggerContainer } from '../core/physics/motionPrimitives';
+import { PageShell, RoomContent } from '../core/design-system/Layout';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 
 export const ResearchDashboardPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -110,14 +113,14 @@ export const ResearchDashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-      <GlassPanel
-        as="header"
-        material="functional"
-        density="compact"
-        className="sticky top-0 z-50 border-b border-border"
-      >
-        <div className="mx-auto max-w-7xl">
+    <PageShell className="items-start justify-center">
+      <RoomContent className="w-full max-w-7xl gap-8 items-stretch py-10">
+        <GlassPanel
+          as="header"
+          material="functional"
+          density="compact"
+          className="sticky top-4 z-50 w-full border-b border-white/10"
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -144,98 +147,108 @@ export const ResearchDashboardPage: React.FC = () => {
               <span className="hidden sm:inline">Buat Studi</span>
             </button>
           </div>
-        </div>
-      </GlassPanel>
+        </GlassPanel>
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-7xl p-6 space-y-6">
+        {/* Main Content */}
+        <motion.main
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="w-full space-y-6"
+        >
         {/* Page Header */}
-        <div className="space-y-2">
+        <motion.div variants={fadeInUp} className="space-y-2">
           <AccessibleHeading variant="page" className="text-foreground">
             Dashboard Penelitian
           </AccessibleHeading>
           <p className="text-muted-foreground">
             Kelola studi penelitian, kumpulkan data, dan ekspor hasil analisis
           </p>
-        </div>
+        </motion.div>
 
         {/* User Info Banner */}
         {user?.role === 'MEDIATOR' && (
-          <div className="material-thin rounded-xl p-4 border-l-4 border-l-chart-2">
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">
-                Mode Penelitian Aktif
-              </strong>
-              {' '}Kelola studi penelitian, tambahkan partisipan, dan ekspor data
-              dalam format CSV untuk analisis lanjutan.
-            </p>
-          </div>
+          <motion.div variants={fadeInUp}>
+            <GlassPanel material="content" density="compact" className="rounded-xl p-4 border-l-4 border-l-chart-2">
+              <p className="text-sm text-muted-foreground">
+                <strong className="text-foreground">
+                  Mode Penelitian Aktif
+                </strong>
+                {' '}Kelola studi penelitian, tambahkan partisipan, dan ekspor data
+                dalam format CSV untuk analisis lanjutan.
+              </p>
+            </GlassPanel>
+          </motion.div>
         )}
 
         {/* Error State */}
         {error && (
-          <div className="material-regular rounded-xl p-6 bg-destructive/10 border border-destructive/20">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-              <div>
-                <AccessibleHeading variant="subsection" className="text-foreground mb-1">
-                  Error
-                </AccessibleHeading>
-                <p className="text-sm text-muted-foreground">{error.message}</p>
+          <motion.div variants={fadeInUp}>
+            <GlassPanel material="content" className="rounded-xl p-6 bg-destructive/10 border border-destructive/20">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <AccessibleHeading variant="subsection" className="text-foreground mb-1">
+                    Error
+                  </AccessibleHeading>
+                  <p className="text-sm text-muted-foreground">{error.message}</p>
+                </div>
               </div>
-            </div>
-          </div>
+            </GlassPanel>
+          </motion.div>
         )}
 
         {/* Filters & Search */}
         {studies.length > 0 && (
-          <div className="material-regular rounded-xl p-4 space-y-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Cari studi..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg bg-input-background pl-10 pr-4 py-3 text-foreground placeholder:text-muted-foreground transition-spring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-border"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Status:</span>
-              <div className="flex gap-2">
-                {(['ALL', 'ACTIVE', 'COMPLETED', 'DRAFT'] as const).map(
-                  (status) => (
-                    <button
-                      key={status}
-                      onClick={() => setFilterStatus(status)}
-                      className={`px-3 py-1 rounded-lg text-sm transition-spring ${
-                        filterStatus === status
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary text-secondary-foreground hover:opacity-80'
-                      }`}
-                    >
-                      {status === 'ALL'
-                        ? 'Semua'
-                        : status === 'ACTIVE'
-                        ? 'Aktif'
-                        : status === 'COMPLETED'
-                        ? 'Selesai'
-                        : 'Draft'}
-                    </button>
-                  )
-                )}
+          <motion.div variants={fadeInUp}>
+            <GlassPanel material="content" className="rounded-xl p-4 space-y-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Cari studi..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg bg-input-background pl-10 pr-4 py-3 text-foreground placeholder:text-muted-foreground transition-spring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-border"
+                />
               </div>
-            </div>
-          </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Status:</span>
+                <div className="flex gap-2">
+                  {(['ALL', 'ACTIVE', 'COMPLETED', 'DRAFT'] as const).map(
+                    (status) => (
+                      <button
+                        key={status}
+                        onClick={() => setFilterStatus(status)}
+                        className={`px-3 py-1 rounded-lg text-sm transition-spring ${
+                          filterStatus === status
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-secondary-foreground hover:opacity-80'
+                        }`}
+                      >
+                        {status === 'ALL'
+                          ? 'Semua'
+                          : status === 'ACTIVE'
+                          ? 'Aktif'
+                          : status === 'COMPLETED'
+                          ? 'Selesai'
+                          : 'Draft'}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+            </GlassPanel>
+          </motion.div>
         )}
 
         {/* Studies Grid */}
         {filteredStudies.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div variants={fadeInUp} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStudies.map((study) => (
               <StudyCard
                 key={study.id}
@@ -243,36 +256,41 @@ export const ResearchDashboardPage: React.FC = () => {
                 onClick={() => navigate(`/research/studies/${study.id}`)}
               />
             ))}
-          </div>
+          </motion.div>
         ) : studies.length > 0 ? (
-          <div className="material-regular rounded-xl p-12 text-center">
-            <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <AccessibleHeading variant="subsection" className="text-foreground mb-2">
-              Tidak Ada Hasil
-            </AccessibleHeading>
-            <p className="text-muted-foreground">
-              Tidak ada studi yang cocok dengan filter "{searchQuery}"
-            </p>
-          </div>
+          <motion.div variants={fadeInUp}>
+            <GlassPanel material="content" className="rounded-xl p-12 text-center">
+              <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <AccessibleHeading variant="subsection" className="text-foreground mb-2">
+                Tidak Ada Hasil
+              </AccessibleHeading>
+              <p className="text-muted-foreground">
+                Tidak ada studi yang cocok dengan filter "{searchQuery}"
+              </p>
+            </GlassPanel>
+          </motion.div>
         ) : (
-          <div className="material-regular rounded-xl p-12 text-center">
-            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <AccessibleHeading variant="subsection" className="text-foreground mb-2">
-              Belum Ada Studi Penelitian
-            </AccessibleHeading>
-            <p className="text-muted-foreground mb-6">
-              Buat studi pertama Anda untuk mulai mengumpulkan data penelitian
-            </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:scale-105 active:scale-95"
-            >
-              <Plus className="h-4 w-4" />
-              Buat Studi
-            </button>
-          </div>
+          <motion.div variants={fadeInUp}>
+            <GlassPanel material="content" className="rounded-xl p-12 text-center">
+              <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <AccessibleHeading variant="subsection" className="text-foreground mb-2">
+                Belum Ada Studi Penelitian
+              </AccessibleHeading>
+              <p className="text-muted-foreground mb-6">
+                Buat studi pertama Anda untuk mulai mengumpulkan data penelitian
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:scale-105 active:scale-95"
+              >
+                <Plus className="h-4 w-4" />
+                Buat Studi
+              </button>
+            </GlassPanel>
+          </motion.div>
         )}
-      </main>
+        </motion.main>
+      </RoomContent>
 
       {/* Create Study Modal */}
       {showCreateModal && (
@@ -393,6 +411,6 @@ export const ResearchDashboardPage: React.FC = () => {
           </GlassPanel>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 };

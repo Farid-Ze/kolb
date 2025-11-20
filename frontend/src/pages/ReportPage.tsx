@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GlassMaterial } from '../core/design-system/Materials';
 import { DisplayTitle, BodyText, SectionTitle } from '../core/design-system/Typography';
-import { PageShell, RoomContent } from '../core/design-system/Layout';
+import { RoomContent, PageShell } from '../core/design-system/Layout';
 import { fadeInUp, staggerContainer, scaleIn } from '../core/physics/motionPrimitives';
-import { ApiError } from '../core/api/client';
 import { AuthNotice } from '../core/auth/AuthNotice';
 import { getReport } from '../services/reportService';
 import type { Report } from '../types/api';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
+
 
 export const ReportPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export const ReportPage: React.FC = () => {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center h-full gap-4"
+            className="flex flex-col items-center justify-center min-h-[60vh] gap-4"
           >
             <div className="w-12 h-12 border-4 border-white/20 border-t-amber-500 rounded-full animate-spin" />
             <BodyText className="animate-pulse">Loading your learning profile...</BodyText>
@@ -81,7 +82,7 @@ export const ReportPage: React.FC = () => {
     return (
       <PageShell>
         <RoomContent>
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center min-h-[60vh]">
             <AuthNotice 
               title="Sign in required"
               message="Please sign in to view your learning profile"
@@ -102,7 +103,7 @@ export const ReportPage: React.FC = () => {
             variants={fadeInUp}
             initial="hidden"
             animate="visible"
-            className="flex flex-col items-center justify-center h-full gap-6 max-w-md mx-auto"
+            className="flex flex-col items-center justify-center min-h-[60vh] gap-6 max-w-md mx-auto"
           >
             <GlassMaterial intensity="high" className="p-8 flex flex-col items-center text-center gap-4 w-full">
               <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-2">
@@ -139,7 +140,7 @@ export const ReportPage: React.FC = () => {
             variants={fadeInUp}
             initial="hidden"
             animate="visible"
-            className="flex flex-col items-center justify-center h-full gap-6"
+            className="flex flex-col items-center justify-center min-h-[60vh] gap-6"
           >
             <BodyText>Report data is incomplete. Please contact support.</BodyText>
           </motion.div>
@@ -382,8 +383,8 @@ export const ReportPage: React.FC = () => {
             </div>
           </div>
         </motion.div>
-      </RoomContent>
-    </PageShell>
-  );
-};
+        </RoomContent>
+      </PageShell>
+    );
+  };
 

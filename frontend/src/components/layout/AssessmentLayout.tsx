@@ -17,7 +17,7 @@
 
 import React, { ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNonBlockingNavigate } from '../../hooks/useNonBlockingNavigate';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUIPreferences } from '../../contexts/UIPreferencesContext';
 import { SPRING_CONFIG, CROSS_FADE } from '../../lib/motion';
@@ -58,17 +58,17 @@ export const AssessmentLayout: React.FC<AssessmentLayoutProps> = ({
   direction = 'forward',
   className = '',
 }) => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const { reduceMotion } = useUIPreferences();
 
   const handleExit = () => {
     if (onExit) {
-      onExit();
-    } else {
-      // Default: confirm and navigate home
-      if (window.confirm('Keluar dari asesmen? Progress akan disimpan.')) {
-        navigate('/');
-      }
+      void onExit();
+      return;
+    }
+    // Default: confirm and navigate home
+    if (window.confirm('Keluar dari asesmen? Progress akan disimpan.')) {
+      void navigate('/');
     }
   };
 

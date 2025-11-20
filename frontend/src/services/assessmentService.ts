@@ -39,7 +39,7 @@ type EngineSessionItemsResponse = {
 };
 
 type AutosaveBackendPayload = {
-  responses: Array<{ item_id: number; ranks: Record<number, number> }>;
+  responses: Array<{ item_id: number; ranks: Record<string, number> }>;
   contexts: Array<{ context_name: string; CE: number; RO: number; AC: number; AE: number }>;
 };
 
@@ -173,11 +173,12 @@ export const buildAutosavePayload = (
       if (!item) {
         return null;
       }
-      const ranks: Record<number, number> = {};
+      // Backend expects option codes (CE, RO, AC, AE) -> rank
+      const ranks: Record<string, number> = {};
       Object.entries(response.ranks).forEach(([optionCode, rank]) => {
-        const option = item.options.find((opt) => opt.option_code === optionCode);
-        if (option) {
-          ranks[Number(option.id)] = rank;
+        // Verify it's a valid code if needed, or just pass through
+        if (['CE', 'RO', 'AC', 'AE'].includes(optionCode)) {
+          ranks[optionCode] = rank;
         }
       });
       if (Object.keys(ranks).length !== 4) {

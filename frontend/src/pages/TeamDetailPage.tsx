@@ -10,7 +10,7 @@
  */
 
 import React, { useMemo, useState, useCallback, useId } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -38,8 +38,12 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { ShortLabel } from '../components/ui/DynamicType';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 import { GlassPanel } from '../components/ui/GlassPanel';
 import { NonDiagnosticNotice } from '../components/report/NonDiagnosticNotice';
+import { motion } from 'framer-motion';
+import { fadeInUp, staggerContainer } from '../core/physics/motionPrimitives';
+import { PageShell, RoomContent } from '../core/design-system/Layout';
 
 const LEGACY_STATUS_LABELS: Record<TeamRollupLegacyMemberStatus, string> = {
   missing_data: 'Belum Ada Data',
@@ -48,7 +52,7 @@ const LEGACY_STATUS_LABELS: Record<TeamRollupLegacyMemberStatus, string> = {
 };
 
 export const TeamDetailPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const { teamId } = useParams<{ teamId: string }>();
   const queryClient = useQueryClient();
   const noticeId = useId();
@@ -122,13 +126,13 @@ export const TeamDetailPage: React.FC = () => {
     return legacyMembers.map((member, index) => ({
       user_id: typeof member.user_id === 'number' ? member.user_id : index,
       name: member.name ?? 'Anggota',
-      email: member.email,
+      email: member.email ?? undefined,
       ac_ce: parseNumber(member.ac_ce ?? member.AC_CE),
       ae_ro: parseNumber(member.ae_ro ?? member.AE_RO),
-      learning_style: member.learning_style,
-      style_code: member.style_code,
+      learning_style: member.learning_style ?? undefined,
+      style_code: member.style_code ?? undefined,
       session_id: parseNumber(member.session_id),
-      generated_at: member.generated_at,
+      generated_at: member.generated_at ?? undefined,
     }));
   }, [teamRollup, legacyMembers]);
 
@@ -215,7 +219,7 @@ export const TeamDetailPage: React.FC = () => {
 
   // Task 60: Remove member mutation
   const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) => removeMemberFromTeam(teamIdNum, userId),
+    mutationFn: (userId: number | string) => removeMemberFromTeam(teamIdNum, userId),
     onSuccess: () => {
       // Invalidate and refetch
       refreshTeamData();
@@ -261,50 +265,52 @@ export const TeamDetailPage: React.FC = () => {
   // Error state
   if (teamError || !teamDetail) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <GlassPanel
-          as="section"
-          material="content"
-          density="spacious"
-          className="max-w-md w-full text-center space-y-4"
-        >
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-          <h2 className="text-2xl text-foreground">Error</h2>
-          <p className="text-muted-foreground">{errorMessage}</p>
-          <button
-            onClick={() => navigate('/teams')}
-            className="rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:opacity-90"
+      <PageShell>
+        <RoomContent>
+          <GlassPanel
+            as="section"
+            material="content"
+            density="spacious"
+            className="max-w-md w-full text-center space-y-4"
           >
-            Kembali ke Daftar Tim
-          </button>
-        </GlassPanel>
-      </div>
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+            <h2 className="text-2xl text-foreground">Error</h2>
+            <p className="text-muted-foreground">{errorMessage}</p>
+            <button
+              onClick={() => navigate('/teams')}
+              className="rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:opacity-90"
+            >
+              Kembali ke Daftar Tim
+            </button>
+          </GlassPanel>
+        </RoomContent>
+      </PageShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
-      <GlassPanel
-        as="header"
-        material="functional"
-        density="compact"
-        className="sticky top-0 z-50 border-b border-border"
-      >
-        <div className="mx-auto max-w-7xl">
+    <PageShell className="items-start justify-center">
+      <RoomContent className="w-full max-w-7xl gap-8 items-stretch py-10">
+        <GlassPanel
+          as="header"
+          material="functional"
+          density="compact"
+          className="sticky top-4 z-50 w-full border-b border-white/10 bg-black/20 backdrop-blur-xl"
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate('/teams')}
-                className="inline-flex items-center gap-2 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded"
                 aria-label="Kembali ke daftar tim"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Kembali ke Daftar Tim
               </button>
-              <div className="hidden sm:block h-6 w-px bg-border" />
+              <div className="hidden sm:block h-6 w-px bg-white/10" />
               <div className="hidden sm:flex items-center gap-2">
-                <Users className="h-5 w-5 text-muted-foreground" />
-                <ShortLabel as="p" className="text-foreground">
+                <Users className="h-5 w-5 text-white/60" />
+                <ShortLabel as="p" className="text-white font-medium">
                   Detail Tim
                 </ShortLabel>
               </div>
@@ -312,294 +318,311 @@ export const TeamDetailPage: React.FC = () => {
 
             <button
               onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 transition-spring hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-900/20"
               aria-label="Tambah anggota baru"
             >
               <UserPlus className="h-4 w-4" />
               <span className="hidden sm:inline">Tambah Anggota</span>
             </button>
           </div>
-        </div>
-      </GlassPanel>
+        </GlassPanel>
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-7xl p-6 space-y-8">
+        {/* Main Content */}
+        <motion.main
+          className="w-full space-y-8"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+        >
         {/* Team Info */}
-        <div className="material-regular rounded-xl p-6 space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h1 className="text-3xl text-foreground mb-2">{teamDetail.name}</h1>
-              {teamDetail.description && (
-                <p className="text-muted-foreground">{teamDetail.description}</p>
-              )}
+        <motion.div variants={fadeInUp}>
+          <GlassPanel material="content" density="regular" className="p-6 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-white mb-2">{teamDetail.name}</h1>
+                {teamDetail.description && (
+                  <p className="text-white/70">{teamDetail.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-white/60">
+                <Users className="h-5 w-5" />
+                <span className="text-2xl font-bold text-white">
+                  {teamRollup?.member_count ?? teamDetail.member_count}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Users className="h-5 w-5" />
-              <span className="text-2xl text-foreground">
-                {teamRollup?.member_count ?? teamDetail.member_count}
-              </span>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-4 pt-3 border-t border-border text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>
-                Dibuat{' '}
-                {new Date(teamDetail.created_at).toLocaleDateString('id-ID', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </span>
+            <div className="flex items-center gap-4 pt-3 border-t border-white/10 text-sm text-white/50">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span>
+                  Dibuat{' '}
+                  {new Date(teamDetail.created_at).toLocaleDateString('id-ID', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </span>
+              </div>
             </div>
-          </div>
-        </div>
+          </GlassPanel>
+        </motion.div>
 
-        <NonDiagnosticNotice
-          id={noticeId}
-          variant="compact"
-          className="material-regular rounded-xl p-4"
-        />
+        <motion.div variants={fadeInUp}>
+          <NonDiagnosticNotice
+            id={noticeId}
+            variant="compact"
+            className="bg-white/5 border border-white/10 rounded-xl p-4 text-white/80"
+          />
+        </motion.div>
 
         {/* Team Rollup Chart (Task 68-70) */}
         {hasRollupData && (
-          <TeamRollupChart
-            dataPoints={normalizedDataPoints}
-            avgAcCe={normalizedSummary.avg_ac_ce}
-            avgAeRo={normalizedSummary.avg_ae_ro}
-            ariaDescribedById={noticeId}
-          />
+          <motion.div variants={fadeInUp}>
+            <TeamRollupChart
+              dataPoints={normalizedDataPoints}
+              avgAcCe={normalizedSummary.avg_ac_ce}
+              avgAeRo={normalizedSummary.avg_ae_ro}
+              ariaDescribedById={noticeId}
+            />
+          </motion.div>
         )}
 
         {/* Team Statistics */}
         {teamRollup && (
-          <div
-            className="material-regular rounded-xl p-6 space-y-4"
+          <motion.div
+            variants={fadeInUp}
             role="region"
             aria-describedby={noticeId}
             data-testid="team-stats-block"
           >
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-lg text-foreground">Statistik Tim</h3>
-            </div>
+            <GlassPanel material="content" density="regular" className="p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-white/60" />
+                <h3 className="text-lg font-bold text-white">Statistik Tim</h3>
+              </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="material-thin rounded-lg p-4">
-                <div className="text-sm text-muted-foreground mb-1">
-                  Jumlah Anggota
-                </div>
-                <div className="text-2xl text-foreground">
-                  {normalizedSummary.total_members}
-                </div>
-              </div>
-              <div className="material-thin rounded-lg p-4">
-                <div className="text-sm text-muted-foreground mb-1">
-                  Dengan Data
-                </div>
-                <div className="text-2xl text-foreground">
-                  {normalizedSummary.members_with_data} anggota
-                </div>
-              </div>
-              <div className="material-thin rounded-lg p-4">
-                <div className="text-sm text-muted-foreground mb-1">
-                  Avg AC-CE
-                </div>
-                <div className="text-2xl text-foreground">
-                  {normalizedSummary.avg_ac_ce.toFixed(1)}
-                </div>
-              </div>
-              <div className="material-thin rounded-lg p-4">
-                <div className="text-sm text-muted-foreground mb-1">
-                  Avg AE-RO
-                </div>
-                <div className="text-2xl text-foreground">
-                  {normalizedSummary.avg_ae_ro.toFixed(1)}
-                </div>
-              </div>
-              {diversityScore !== null && (
-                <div className="material-thin rounded-lg p-4 sm:col-span-2 lg:col-span-1">
-                  <div className="text-sm text-muted-foreground mb-1">
-                    Skor Keragaman
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+                  <div className="text-sm text-white/50 mb-1">
+                    Jumlah Anggota
                   </div>
-                  <div className="text-2xl text-foreground">
-                    {diversityScore.toFixed(2)}
+                  <div className="text-2xl font-bold text-white">
+                    {normalizedSummary.total_members}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Nilai lebih tinggi menandakan variasi gaya belajar yang lebih luas. Metrik ini deskriptif, bukan label baik/buruk.
-                  </p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+                  <div className="text-sm text-white/50 mb-1">
+                    Dengan Data
+                  </div>
+                  <div className="text-2xl font-bold text-white">
+                    {normalizedSummary.members_with_data} anggota
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+                  <div className="text-sm text-white/50 mb-1">
+                    Avg AC-CE
+                  </div>
+                  <div className="text-2xl font-bold text-white">
+                    {normalizedSummary.avg_ac_ce.toFixed(1)}
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+                  <div className="text-sm text-white/50 mb-1">
+                    Avg AE-RO
+                  </div>
+                  <div className="text-2xl font-bold text-white">
+                    {normalizedSummary.avg_ae_ro.toFixed(1)}
+                  </div>
+                </div>
+                {diversityScore !== null && (
+                  <div className="bg-white/5 rounded-lg p-4 sm:col-span-2 lg:col-span-1 border border-white/5">
+                    <div className="text-sm text-white/50 mb-1">
+                      Skor Keragaman
+                    </div>
+                    <div className="text-2xl font-bold text-white">
+                      {diversityScore.toFixed(2)}
+                    </div>
+                    <p className="text-xs text-white/40 mt-1">
+                      Nilai lebih tinggi menandakan variasi gaya belajar yang lebih luas. Metrik ini deskriptif, bukan label baik/buruk.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {balanceEntries.length > 0 && (
+                <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+                  <div className="text-sm text-white/50 mb-2">
+                    Keseimbangan Dialektik
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                    {balanceEntries.map((entry) => (
+                      <div key={entry.label} className="space-y-1">
+                        <p className="text-white/50 text-xs">{entry.label}</p>
+                        <p className="text-white text-base font-medium">
+                          {entry.value}%
+                        </p>
+                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full transition-all"
+                            style={{ width: `${Math.min(Math.max(entry.value, 0), 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
 
-            {balanceEntries.length > 0 && (
-              <div className="material-thin rounded-lg p-4">
-                <div className="text-sm text-muted-foreground mb-2">
-                  Keseimbangan Dialektik
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                  {balanceEntries.map((entry) => (
-                    <div key={entry.label} className="space-y-1">
-                      <p className="text-muted-foreground text-xs">{entry.label}</p>
-                      <p className="text-foreground text-base">
-                        {entry.value}%
-                      </p>
-                      <div className="h-1.5 bg-secondary/40 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all"
-                          style={{ width: `${Math.min(Math.max(entry.value, 0), 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Style Distribution */}
-            {Object.keys(styleDistribution).length > 0 && (
-              <div className="pt-4 border-t border-border">
-                <h4 className="text-sm text-foreground mb-3">
-                  Distribusi Gaya Belajar
-                </h4>
-                <div className="space-y-2">
-                  {Object.entries(styleDistribution).map(
-                    ([style, count]) => (
-                      <div key={style} className="flex items-center gap-3">
-                        <div className="flex-1 flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground w-32">
-                            {style}
-                          </span>
-                          <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-primary transition-spring"
-                              style={{
-                                width: `${
-                                  (count / safeMembersWithData) *
-                                  100
-                                }%`,
-                              }}
-                            />
+              {/* Style Distribution */}
+              {Object.keys(styleDistribution).length > 0 && (
+                <div className="pt-4 border-t border-white/10">
+                  <h4 className="text-sm text-white mb-3">
+                    Distribusi Gaya Belajar
+                  </h4>
+                  <div className="space-y-2">
+                    {Object.entries(styleDistribution).map(
+                      ([style, count]) => (
+                        <div key={style} className="flex items-center gap-3">
+                          <div className="flex-1 flex items-center gap-2">
+                            <span className="text-sm text-white/60 w-32">
+                              {style}
+                            </span>
+                            <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-emerald-500 transition-all"
+                                style={{
+                                  width: `${
+                                    (count / safeMembersWithData) *
+                                    100
+                                  }%`,
+                                }}
+                              />
+                            </div>
                           </div>
+                          <span className="text-sm text-white w-8 text-right">
+                            {count}
+                          </span>
                         </div>
-                        <span className="text-sm text-foreground w-8 text-right">
-                          {count}
-                        </span>
-                      </div>
-                    )
-                  )}
+                      )
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </GlassPanel>
+          </motion.div>
         )}
 
         {hasLegacyMembers && (
-          <div className="material-regular rounded-xl p-6 space-y-4" aria-live="polite">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg text-foreground">Anggota Perlu Pembaruan Data</h3>
-                <p className="text-sm text-muted-foreground">
-                  Daftar ini menampilkan anggota tanpa koordinat lengkap atau sesi asesmen terbaru. Informasi ini bersifat kontekstual untuk fasilitator.
-                </p>
+          <motion.div variants={fadeInUp}>
+            <GlassPanel material="content" density="regular" className="p-6 space-y-4" aria-live="polite">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Anggota Perlu Pembaruan Data</h3>
+                  <p className="text-sm text-white/60">
+                    Daftar ini menampilkan anggota tanpa koordinat lengkap atau sesi asesmen terbaru. Informasi ini bersifat kontekstual untuk fasilitator.
+                  </p>
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded bg-white/10 text-white/60">Bukan evaluasi performa individu</span>
               </div>
-              <ShortLabel intent="neutral">Bukan evaluasi performa individu</ShortLabel>
-            </div>
 
-            <div className="space-y-3">
-              {legacyMembers.map((member, index) => {
-                const statusLabel = member.status
-                  ? LEGACY_STATUS_LABELS[member.status] ?? 'Data Terbatas'
-                  : 'Data Terbatas';
-                const reason = member.status_reason ?? 'Informasi asesmen belum lengkap.';
-                return (
-                  <div
-                    key={`legacy-${member.user_id}-${index}`}
-                    className="material-thin rounded-lg p-4 flex items-center justify-between gap-4"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-foreground font-medium">
-                        {member.name || 'Anggota Tim'}
-                      </p>
-                      {member.email && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {member.email}
+              <div className="space-y-3">
+                {legacyMembers.map((member, index) => {
+                  const statusLabel = member.status
+                    ? LEGACY_STATUS_LABELS[member.status] ?? 'Data Terbatas'
+                    : 'Data Terbatas';
+                  const reason = member.status_reason ?? 'Informasi asesmen belum lengkap.';
+                  return (
+                    <div
+                      key={`legacy-${member.user_id}-${index}`}
+                      className="bg-white/5 rounded-lg p-4 flex items-center justify-between gap-4 border border-white/5"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium">
+                          {member.name || 'Anggota Tim'}
                         </p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">{reason}</p>
+                        {member.email && (
+                          <p className="text-xs text-white/50 truncate">
+                            {member.email}
+                          </p>
+                        )}
+                        <p className="text-xs text-white/40 mt-1">{reason}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs text-white/80 border border-white/10">
+                          {statusLabel}
+                        </span>
+                        {typeof member.ac_ce === 'number' && typeof member.ae_ro === 'number' && (
+                          <p className="text-xs text-white/50">
+                            AC-CE {member.ac_ce} · AE-RO {member.ae_ro}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="inline-flex items-center rounded-full bg-secondary/40 px-3 py-1 text-xs text-foreground">
-                        {statusLabel}
-                      </span>
-                      {typeof member.ac_ce === 'number' && typeof member.ae_ro === 'number' && (
-                        <p className="text-xs text-muted-foreground">
-                          AC-CE {member.ac_ce} · AE-RO {member.ae_ro}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                  );
+                })}
+              </div>
+            </GlassPanel>
+          </motion.div>
         )}
 
         {/* Members List (Task 63) */}
-        <div className="material-regular rounded-xl p-6 space-y-4">
-          <h3 className="text-lg text-foreground">Anggota Tim</h3>
+        <motion.div variants={fadeInUp}>
+          <GlassPanel material="content" density="regular" className="p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">Anggota Tim</h3>
 
-          {teamDetail.members.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">
-                Belum ada anggota di tim ini
-              </p>
-              <button
-                onClick={handleOpenAddModal}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-6 py-3 transition-spring hover:scale-105 active:scale-95"
-              >
-                <UserPlus className="h-4 w-4" />
-                Tambah Anggota Pertama
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {teamDetail.members.map((member) => (
-                <div
-                  key={member.user_id}
-                  className="material-thin rounded-lg p-4 flex items-center justify-between gap-4"
+            {teamDetail.members.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-16 w-16 text-white/20 mx-auto mb-4" />
+                <p className="text-white/60 mb-4">
+                  Belum ada anggota di tim ini
+                </p>
+                <button
+                  onClick={handleOpenAddModal}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-900/20"
                 >
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-foreground mb-1">{member.name}</h4>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        <span className="truncate">{member.email}</span>
-                      </div>
-                      {member.learning_style && (
-                        <div className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5">
-                          <span className="text-xs text-primary">
-                            {member.learning_style}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleOpenRemoveModal(member)}
-                    className="flex-shrink-0 inline-flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 transition-spring hover:bg-destructive/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  <UserPlus className="h-4 w-4" />
+                  Tambah Anggota Pertama
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {teamDetail.members.map((member) => (
+                  <div
+                    key={member.user_id}
+                    className="bg-white/5 rounded-lg p-4 flex items-center justify-between gap-4 border border-white/5"
                   >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="hidden sm:inline text-sm">Hapus</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white font-medium mb-1">{member.name}</h4>
+                      <div className="flex items-center gap-4 text-sm text-white/60">
+                        <div className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          <span className="truncate">{member.email}</span>
+                        </div>
+                        {member.learning_style && (
+                          <div className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/20">
+                            <span className="text-xs text-emerald-400">
+                              {member.learning_style}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleOpenRemoveModal(member)}
+                      className="flex-shrink-0 inline-flex items-center gap-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-2 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline text-sm">Hapus</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassPanel>
+        </motion.div>
+        </motion.main>
+      </RoomContent>
 
       {/* Add Member Modal */}
       {showAddModal && (
@@ -703,6 +726,6 @@ export const TeamDetailPage: React.FC = () => {
           </GlassPanel>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 };

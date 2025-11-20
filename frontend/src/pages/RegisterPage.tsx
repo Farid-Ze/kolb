@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,6 +10,7 @@ import { registerUser } from '../services/authService';
 import { API_BASE_URL } from '../config/api';
 import { Eye, EyeOff, UserPlus, Info } from 'lucide-react';
 import { GlassPanel } from '../components/ui/GlassPanel';
+import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 
 /**
  * KLSI 4.0 - RegisterPage
@@ -33,7 +34,7 @@ const registerSchema = z.object({
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export const RegisterPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const [showPassword, setShowPassword] = useState(false);
 
   // Task 14: react-hook-form + zod

@@ -1,10 +1,11 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GlassMaterial } from '../design-system/Materials';
 import { SectionTitle, BodyText } from '../design-system/Typography';
 import { fadeInUp } from '../physics/motionPrimitives';
 import { LOGIN_ROUTE } from './routes';
+import { useNonBlockingNavigate } from '../../hooks/useNonBlockingNavigate';
 
 interface AuthNoticeProps {
   title?: string;
@@ -24,7 +25,7 @@ export const AuthNotice: React.FC<AuthNoticeProps> = ({
   className = "",
   autoNavigateToLogin = false
 }) => {
-  const navigate = useNavigate();
+  const navigate = useNonBlockingNavigate();
   const location = useLocation();
 
   const handleActionClick = () => {

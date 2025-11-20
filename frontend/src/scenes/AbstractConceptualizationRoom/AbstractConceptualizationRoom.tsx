@@ -1,41 +1,74 @@
-import React, { useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { useNonBlockingNavigate } from '../../hooks/useNonBlockingNavigate';
 import { motion } from 'framer-motion';
 import { GlassMaterial } from '../../core/design-system/Materials';
 import { DisplayTitle, BodyText } from '../../core/design-system/Typography';
 import { PageShell, RoomContent } from '../../core/design-system/Layout';
 import { fadeInUp, staggerContainer, scaleIn } from '../../core/physics/motionPrimitives';
-import { useLatestAssessmentSession } from '../../core/api/hooks';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
-import { AssessmentResults, AssessmentSession } from '../../core/api/client';
-import { AuthNotice } from '../../core/auth/AuthNotice';
+import { useAuth } from '../../contexts/AuthContext';
+import { useLatestAssessmentSession } from '../../core/api/hooks';
+import { LayeredIcon } from '../../components/ui/LayeredIcon';
+import { Brain } from 'lucide-react';
+import { useTelemetry } from '../../hooks/useTelemetry';
+import type { AssessmentResults } from '../../core/api/client';
 
 // Helper to map scores to -1..1 coordinate space
 // X-axis: AE (Left) vs RO (Right) -> Range: -1 (AE) to 1 (RO)
 // Y-axis: AC (Top) vs CE (Bottom) -> Range: -1 (AC) to 1 (CE)
-const mapScoresToQuadrantPosition = (results: AssessmentResults): { x: number; y: number } => {
-    const MAX_DIFF = 40; // Approximate max difference between opposing modes
+const mapScoresToQuadrantPosition = (results?: AssessmentResults): { x: number; y: number } => {
+    const MAX_DIFF = 40;
 
-    // RO - AE: Positive = Right (RO), Negative = Left (AE)
-    const xRaw = results.ro_score - results.ae_score;
-    const x = Math.max(-1, Math.min(1, xRaw / MAX_DIFF));
+    const normalized = (value: number | undefined) => {
+        if (value === undefined || value === null) {
+            return 0;
+        }
+        return Math.max(-1, Math.min(1, -(value / MAX_DIFF)));
+    };
 
-    // CE - AC: Positive = Bottom (CE), Negative = Top (AC)
-    const yRaw = results.ce_score - results.ac_score;
-    const y = Math.max(-1, Math.min(1, yRaw / MAX_DIFF));
+    if (!results) return { x: 0, y: 0 };
 
-    return { x, y };
+    return {
+        x: normalized(results.aero_score),
+        y: normalized(results.acce_score),
+    };
 };
 
 const AbstractConceptualizationRoom: React.FC = () => {
-    const navigate = useNavigate();
-    const { data, isLoading, isError, isUnauthorized } = useLatestAssessmentSession();
-    const session = data as AssessmentSession | null;
+    const navigate = useNonBlockingNavigate();
+    const { isAuthenticated } = useAuth();
+    const { trackPageView, trackAction } = useTelemetry();
     const titleRef = useRef<HTMLHeadingElement>(null);
     useRoomFocus(titleRef);
 
-    const hasResults = session?.status === 'completed' && session?.results;
-    const position = hasResults ? mapScoresToQuadrantPosition(session.results!) : { x: 0, y: 0 };
+    // Check for latest completed session
+    const { data: session, isLoading, isUnauthorized } = useLatestAssessmentSession();
+
+    useEffect(() => {
+        trackPageView('/experience/abstract', 'Abstract Conceptualization Room');
+    }, [trackPageView]);
+
+    const hasResults = session?.status === 'completed' && !!session.results;
+    const position = hasResults ? mapScoresToQuadrantPosition(session.results) : { x: 0, y: 0 };
+
+    const resolveActionTarget = () => {
+        if (!isAuthenticated) {
+            return '/auth/login';
+        }
+        // If we have results, maybe go to full report?
+        if (hasResults) {
+            return `/report/${session.id}`;
+        }
+        return '/assessment/start';
+    };
+
+    const handleAction = () => {
+        const target = resolveActionTarget();
+        trackAction('room_cta_click', 'abstract-room', target, {
+            hasCompleted: hasResults,
+        });
+        navigate(target);
+    };
 
     return (
         <PageShell>
@@ -46,17 +79,32 @@ const AbstractConceptualizationRoom: React.FC = () => {
                     animate="visible"
                     className="w-full flex flex-col items-center gap-10"
                 >
-                    <div className="text-center max-w-2xl outline-none" ref={titleRef} tabIndex={-1}>
-                        <DisplayTitle variants={fadeInUp}>Abstract Conceptualization</DisplayTitle>
-                        <BodyText tone="muted" className="mt-4" variants={fadeInUp}>
-                            Distilling observations into sound theories. This stage focuses on logic, ideas, and systematic planning.
-                        </BodyText>
+                    {/* Hero Section */}
+                    <div className="flex flex-col items-center gap-6 text-center max-w-3xl">
+                        <motion.div variants={fadeInUp}>
+                            <LayeredIcon 
+                                icon={Brain} 
+                                size="xl" 
+                                color="primary" // Blue
+                                enableParallax 
+                                enableLighting 
+                            />
+                        </motion.div>
+                        
+                        <div className="outline-none space-y-4" ref={titleRef} tabIndex={-1}>
+                            <DisplayTitle variants={fadeInUp} className="text-4xl md:text-6xl font-bold tracking-tight">
+                                Abstract Conceptualization
+                            </DisplayTitle>
+                            <BodyText tone="muted" variants={fadeInUp} className="text-lg md:text-xl leading-relaxed">
+                                Distilling observations into sound theories. This stage focuses on logic, ideas, and systematic planning.
+                            </BodyText>
+                        </div>
                     </div>
 
                     {/* 2D Quadrant Diagram */}
                     <div className="flex flex-col items-center gap-6 relative">
                         <motion.div variants={scaleIn} className="relative w-full max-w-md aspect-square">
-                            <GlassMaterial intensity="high" className="w-full h-full p-8 relative overflow-hidden">
+                            <GlassMaterial intensity="high" className="w-full h-full p-8 relative overflow-hidden border border-white/10">
                                 {/* Axes */}
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                     <div className="w-full h-px bg-white/20" /> {/* Horizontal AE-RO */}
@@ -99,52 +147,28 @@ const AbstractConceptualizationRoom: React.FC = () => {
                                         transition={{ delay: 0.5, type: 'spring', stiffness: 200, damping: 20 }}
                                     />
                                 )}
-
-                                {/* Auth / No Data Overlay */}
-                                {(!hasResults && !isLoading) && (
-                                    <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/40 backdrop-blur-sm">
-                                        <div className="text-center p-6 w-full">
-                                            {isUnauthorized ? (
-                                                <AuthNotice
-                                                    message="Sign in to view your learning style results."
-                                                    autoNavigateToLogin={true}
-                                                    className="bg-transparent shadow-none" // Override default styles to fit overlay
-                                                />
-                                            ) : (
-                                                <BodyText className="text-white/60">Complete an assessment to see your results</BodyText>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
                             </GlassMaterial>
                         </motion.div>
-
-                        {/* Style Label Badge */}
-                        {hasResults && session.results?.learning_style && (
-                            <motion.div
-                                variants={fadeInUp}
-                                className="px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md"
-                            >
-                                <span className="text-sm text-white/60 uppercase tracking-wider mr-2">Style:</span>
-                                <span className="text-emerald-400 font-bold">{session.results.learning_style}</span>
-                            </motion.div>
-                        )}
                     </div>
 
-                    {/* API Status Indicator */}
-                    <motion.div variants={fadeInUp} className="h-8">
-                        {isLoading ? (
-                            <span className="text-xs text-white/30 animate-pulse">Checking assessment status...</span>
-                        ) : isError && !isUnauthorized ? (
-                            <span className="text-xs text-red-400">Unable to load assessment data</span>
-                        ) : hasResults ? (
-                            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                <span className="text-xs text-emerald-200">Assessment Complete</span>
-                            </div>
-                        ) : null}
-                    </motion.div>
+                    {hasResults && (
+                        <GlassMaterial intensity="medium" className="w-full max-w-2xl p-6 text-center">
+                            <BodyText tone="muted" className="text-base">
+                                Latest insights: <span className="text-white font-semibold">{session?.results?.learning_style ?? 'Style processing'}</span>
+                            </BodyText>
+                        </GlassMaterial>
+                    )}
 
+                    <motion.div variants={fadeInUp} className="pt-8">
+                        <button
+                            onClick={handleAction}
+                            className="px-8 py-4 bg-white text-black rounded-full font-bold text-lg tracking-wide hover:scale-105 transition-transform duration-300 shadow-[0_0_30px_-5px_rgba(255,255,255,0.3)]"
+                        >
+                            {isAuthenticated 
+                                ? (hasResults ? 'View Full Report' : 'Start Assessment')
+                                : 'Sign In to Think'}
+                        </button>
+                    </motion.div>
                 </motion.div>
             </RoomContent>
         </PageShell>
