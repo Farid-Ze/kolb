@@ -47,7 +47,7 @@ export const LFIContextCard: React.FC<LFIContextCardProps> = ({
       </div>
 
       {/* Question Stem (if different from context name) */}
-      {stem && stem !== contextName && (
+      {stem && stem !== contextInfo.displayName && (
         <p className="text-lg text-white/90 leading-relaxed italic">
           "{stem}"
         </p>

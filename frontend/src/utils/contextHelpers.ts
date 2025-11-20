@@ -53,18 +53,21 @@ export const validateContextRanks = (ranks: Record<number, number>): {
   // Check if all 4 options are ranked
   if (rankValues.length !== 4) {
     errors.push('All four learning modes must be ranked');
+    return {
+      isValid: false,
+      errors,
+    };
   }
 
   // Check for unique ranks 1-4
   const uniqueRanks = new Set(rankValues);
+  const allValidRanks = rankValues.every(r => r >= 1 && r <= 4);
+  
   if (uniqueRanks.size !== 4) {
     errors.push('Each rank (1-4) must be used exactly once');
   }
-
-  // Check for valid rank values
-  const validRanks = [1, 2, 3, 4];
-  const hasInvalidRanks = rankValues.some(rank => !validRanks.includes(rank));
-  if (hasInvalidRanks) {
+  
+  if (!allValidRanks) {
     errors.push('Ranks must be between 1 and 4');
   }
 
