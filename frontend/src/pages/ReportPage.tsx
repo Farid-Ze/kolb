@@ -230,7 +230,7 @@ export const ReportPage: React.FC = () => {
 						</div>
 					</header>
 
-					<NonDiagnosticNotice id={noticeId} message={report.responsible_use_notice ?? undefined} />
+					<NonDiagnosticNotice id={noticeId} message={report.responsibleUseNotice ?? undefined} />
 
 					{minimalPayload ? (
 						<MinimalState normLabel={normLabel} />
@@ -245,12 +245,12 @@ export const ReportPage: React.FC = () => {
 									ariaDescribedById={noticeId}
 								/>
 
-								{report.learning_space && (
-									<LearningSpaceInsights block={report.learning_space} />
+								{report.learningSpace && (
+									<LearningSpaceInsights block={report.learningSpace} />
 								)}
 
-								{report.session_designs?.length ? (
-									<SessionDesignList items={report.session_designs} />
+								{report.sessionDesigns?.length ? (
+									<SessionDesignList items={report.sessionDesigns} />
 								) : null}
 							</section>
 
@@ -269,7 +269,7 @@ export const ReportPage: React.FC = () => {
 								{report.notes ? <InterpretationNotes notes={report.notes} /> : null}
 								<ResponsibleUseFooter />
 								{showEnhancedAnalytics ? (
-									<EnhancedAnalyticsPanel analytics={report.enhanced_analytics} />
+									<EnhancedAnalyticsPanel analytics={report.enhancedAnalytics} />
 								) : null}
 							</aside>
 						</div>

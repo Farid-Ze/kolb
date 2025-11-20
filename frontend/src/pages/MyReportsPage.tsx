@@ -128,9 +128,9 @@ export const MyReportsPage: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {reports.map((report) => (
               <button
-                key={report.session_id}
+                key={report.sessionId ?? report.session_id}
                 onClick={() =>
-                  navigate(`/assessment/${report.session_id}/report`)
+                  navigate(`/assessment/${(report.sessionId ?? report.session_id) as string}/report`)
                 }
                 className="material-regular rounded-xl p-6 space-y-4 text-left transition-spring hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >

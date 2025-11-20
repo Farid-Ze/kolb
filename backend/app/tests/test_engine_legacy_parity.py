@@ -110,7 +110,7 @@ def _legacy_submit_all(client, payload):
     headers = {"Authorization": f"Bearer {token}"}
     r_start = client.post("/sessions/start", headers=headers)
     assert r_start.status_code == 200, r_start.text
-    session_id = r_start.json()["session_id"]
+    session_id = r_start.json()["sessionId"]
     r_batch = client.post(
         f"/sessions/{session_id}/submit_all_responses",
         json=payload,
@@ -129,7 +129,7 @@ def _engine_submit_all(client, payload):
         headers=headers,
     )
     assert r_start.status_code == 200, r_start.text
-    session_id = r_start.json()["session_id"]
+    session_id = r_start.json()["sessionId"]
     r_batch = client.post(
         f"/engine/sessions/{session_id}/submit_all",
         json=payload,

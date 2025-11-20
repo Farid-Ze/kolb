@@ -1,13 +1,15 @@
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr
+from pydantic import ConfigDict, EmailStr
+
+from app.schemas.base import CamelModel
 
 
 class Role(str, Enum):
     MAHASISWA = "MAHASISWA"
     MEDIATOR = "MEDIATOR"
 
-class UserCreate(BaseModel):
+class UserCreate(CamelModel):
     full_name: str
     email: EmailStr
     password: str
@@ -15,11 +17,11 @@ class UserCreate(BaseModel):
     kelas: str | None = None  # format IF-<number>
     tahun_masuk: int | None = None
 
-class Token(BaseModel):
+class Token(CamelModel):
     access_token: str
     token_type: str = "bearer"
 
-class UserOut(BaseModel):
+class UserOut(CamelModel):
     id: int
     full_name: str
     email: EmailStr
@@ -27,6 +29,4 @@ class UserOut(BaseModel):
     nim: str | None = None
     kelas: str | None = None
     tahun_masuk: int | None = None
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = ConfigDict(from_attributes=True)

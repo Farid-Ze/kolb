@@ -1,14 +1,15 @@
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.metrics import inc_counter
+from app.schemas.base import CamelModel
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 
 
-class GuideOpenEvent(BaseModel):
+class GuideOpenEvent(CamelModel):
     guide_id: str = Field(min_length=2, max_length=80)
     language: str | None = Field(default=None, max_length=8)
     surface: Literal["modal", "tooltip", "drawer", "link"] = "modal"
@@ -17,7 +18,7 @@ class GuideOpenEvent(BaseModel):
     consent: bool = True
 
 
-class PageViewEvent(BaseModel):
+class PageViewEvent(CamelModel):
     page_path: str = Field(min_length=1, max_length=200)
     page_title: str = Field(min_length=1, max_length=120)
     referrer: str | None = Field(default=None, max_length=200)
@@ -25,7 +26,7 @@ class PageViewEvent(BaseModel):
     consent: bool = True
 
 
-class ActionEvent(BaseModel):
+class ActionEvent(CamelModel):
     action_type: str = Field(min_length=2, max_length=80)
     action_target: str = Field(min_length=2, max_length=120)
     action_value: str | None = Field(default=None, max_length=120)

@@ -1,5 +1,5 @@
 {
-  "session_id": 123,
+  "sessionId": 123,
   "raw": {
     "CE": 44,
     "RO": 36,
@@ -77,7 +77,7 @@
     "kite": {"CE": 44, "RO": 36, "AC": 28, "AE": 20},
     "dialectic": {"ACCE": -16, "AERO": -16, "CONV_DIV": -8, "intensity": 36}
   },
-  "session_designs": [
+  "sessionDesigns": [
     {"code": "GW-REF-ANL", "title": "Gallery Walk", "summary": "Aktivitas lintas gaya", "activates": ["Imagining", "Reflecting"], "duration_min": 45}
   ],
   "analytics": {
@@ -85,14 +85,14 @@
     "acc_assm_peak_note": "Catatan interpretasi",
     "meta": {"heuristic": true, "note": "Analitik berbasis regresi, bukan diagnosis."}
   },
-  "learning_space": {
+  "learningSpace": {
     "meta": {"heuristic": true, "note": "Tips ruang belajar bersifat heuristik."},
     "suggestions": {"items": ["Fasilitasi refleksi sebelum analisis"], "is_heuristic": true, "label": "Heuristik"},
     "development": {"spiral_stage": "Specialization", "is_heuristic": true, "label": "Heuristik"},
     "meta_learning": {"items": ["Catat observasi CE→RO→AC→AE"], "is_heuristic": true, "label": "Heuristik"},
     "educator_roles": [{"step": 1, "role": "Facilitator", "focus": "Bangun konteks", "actions": ["Curate pengalaman"]}]
   },
-  "enhanced_analytics": {
+  "enhancedAnalytics": {
     "contextual_profile": {
       "context_styles": [{"context": "Starting", "style": "Imagining"}],
       "flexibility_pattern": "moderate",
@@ -146,6 +146,6 @@
     "name": "Alya N.",
     "email": "alya@example.com"
   },
-  "share_context": null,
-  "responsible_use_notice": "Laporan ini bersifat formatif dan tidak menggantikan penilaian profesional."
+  "shareContext": null,
+  "responsibleUseNotice": "Laporan ini bersifat formatif dan tidak menggantikan penilaian profesional."
 }

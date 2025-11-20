@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
+
+from app.schemas.base import CamelModel
 
 from app.i18n.id_messages import ValidationMessages
 
@@ -19,14 +21,14 @@ __all__ = [
 ]
 
 
-class RawTotalsWrite(BaseModel):
+class RawTotalsWrite(CamelModel):
     CE: int = Field(ge=0)
     RO: int = Field(ge=0)
     AC: int = Field(ge=0)
     AE: int = Field(ge=0)
 
 
-class ContextRanksWrite(BaseModel):
+class ContextRanksWrite(CamelModel):
     CE: int = Field(ge=1, le=4)
     RO: int = Field(ge=1, le=4)
     AC: int = Field(ge=1, le=4)
@@ -41,7 +43,7 @@ class ContextRanksWrite(BaseModel):
         return self
 
 
-class ScorePreviewRequest(BaseModel):
+class ScorePreviewRequest(CamelModel):
     raw: RawTotalsWrite
     contexts: List[ContextRanksWrite]
 
@@ -52,7 +54,7 @@ class ScorePreviewRequest(BaseModel):
         return self
 
 
-class ScorePreviewRaw(BaseModel):
+class ScorePreviewRaw(CamelModel):
     CE: int
     RO: int
     AC: int
@@ -64,15 +66,15 @@ class ScorePreviewRaw(BaseModel):
     CONV_DIV: int
 
 
-class ScorePreviewStyle(BaseModel):
+class ScorePreviewStyle(CamelModel):
     primary_name: Optional[str]
 
 
-class ScorePreviewLFI(BaseModel):
+class ScorePreviewLFI(CamelModel):
     value: float
 
 
-class ScorePreviewPercentiles(BaseModel):
+class ScorePreviewPercentiles(CamelModel):
     CE: Optional[float]
     RO: Optional[float]
     AC: Optional[float]
@@ -82,11 +84,11 @@ class ScorePreviewPercentiles(BaseModel):
     source_provenance: str
 
 
-class ScorePreviewAnalytics(BaseModel):
+class ScorePreviewAnalytics(CamelModel):
     predicted_lfi_curve: List[Dict[str, float]]
 
 
-class ScorePreviewResponse(BaseModel):
+class ScorePreviewResponse(CamelModel):
     raw: ScorePreviewRaw
     style: ScorePreviewStyle
     lfi: ScorePreviewLFI

@@ -1,15 +1,15 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header
-from pydantic import BaseModel
 
 from app.db.database import get_db
 from app.services.assessments import get_latest_completed_assessment_summary
 from app.services.security import get_current_user
+from app.schemas.base import CamelModel
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
 
-class AssessmentResults(BaseModel):
+class AssessmentResults(CamelModel):
     ac_score: int
     ce_score: int
     ae_score: int
@@ -19,7 +19,7 @@ class AssessmentResults(BaseModel):
     learning_style: str
     lfi_score: Optional[float] = None
 
-class AssessmentSessionResponse(BaseModel):
+class AssessmentSessionResponse(CamelModel):
     id: str
     date: str
     status: str = "completed"

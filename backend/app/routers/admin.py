@@ -4,7 +4,7 @@ from io import StringIO
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -22,6 +22,7 @@ from app.assessments.klsi_v4.logic import clear_percentile_cache
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.services.security import get_current_user, require_mediator
+from app.schemas.base import CamelModel
 from app.services import pipelines as pipeline_service
 from app.core.metrics import get_metrics, get_counters
 from app.i18n.id_messages import AdminMessages, AuthorizationMessages
@@ -260,7 +261,7 @@ def activate_instrument_pipeline(
         raise
 
 
-class ClonePipelineRequest(BaseModel):
+class ClonePipelineRequest(CamelModel):
     version: str = Field(min_length=1, max_length=20)
     pipeline_code: str | None = Field(default=None, max_length=60)
     description: str | None = Field(default=None, max_length=500)

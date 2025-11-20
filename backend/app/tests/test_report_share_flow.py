@@ -47,10 +47,10 @@ def test_student_can_generate_share_link(client: TestClient):
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert payload["mediator_email"] == mediator_email
-    assert payload["session_id"] == session_id
-    assert isinstance(payload["share_token"], str) and len(payload["share_token"]) > 20
-    assert payload["mediator_name"]
+    assert payload["mediatorEmail"] == mediator_email
+    assert payload["sessionId"] == session_id
+    assert isinstance(payload["shareToken"], str) and len(payload["shareToken"]) > 20
+    assert payload["mediatorName"]
 
 
 def test_shared_report_requires_intended_mediator(client: TestClient):
@@ -63,7 +63,7 @@ def test_shared_report_requires_intended_mediator(client: TestClient):
         headers={"Authorization": f"Bearer {student_token}"},
     )
     assert share_resp.status_code == 200
-    share_token = share_resp.json()["share_token"]
+    share_token = share_resp.json()["shareToken"]
 
     mediator_token = create_access_token(subject=str(mediator_id))
     shared_report = client.get(
@@ -72,9 +72,9 @@ def test_shared_report_requires_intended_mediator(client: TestClient):
     )
     assert shared_report.status_code == 200, shared_report.text
     report_payload = shared_report.json()
-    assert report_payload["share_context"]["mediator_email"] == mediator_email
-    assert report_payload["share_context"]["owner_email"] == owner_email
-    assert report_payload["responsible_use_notice"]
+    assert report_payload["shareContext"]["mediatorEmail"] == mediator_email
+    assert report_payload["shareContext"]["ownerEmail"] == owner_email
+    assert report_payload["responsibleUseNotice"]
 
     # Alternate mediator should receive 403
     other_id, other_email = _create_mediator("other.mediator@example.com")

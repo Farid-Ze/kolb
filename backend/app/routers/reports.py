@@ -1,18 +1,21 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
-from app.models.klsi.user import User
-from app.services.report import build_report
-from app.services.security import get_current_user
 from app.i18n.id_messages import SessionErrorMessages
+from app.models.klsi.user import User
+from app.schemas.report import ReportPayload, as_report_payload
 from app.schemas.report_share import ReportShareCreate, ReportShareOut
+from app.services.report import build_report
 from app.services.report_share import (
     ReportShareService,
     SharePermissionError,
     ShareValidationError,
 )
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -29,7 +32,7 @@ def _try_get_current_user(authorization: str | None, db: Session) -> User | None
         raise
 
 
-@router.get("/{session_id}")
+@router.get("/{session_id}", response_model=ReportPayload)
 def get_report(
     session_id: int,
     db: Session = Depends(get_db),
@@ -56,9 +59,7 @@ def get_report(
         data = build_report(db, session_id, viewer_role=viewer_role)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
-    if "share_context" not in data:
-        data["share_context"] = None
-    return data
+    return as_report_payload(data)
 
 
 @router.post("/{session_id}/share", response_model=ReportShareOut)
@@ -96,7 +97,7 @@ def create_report_share(
     )
 
 
-@router.get("/shared/{share_token}")
+@router.get("/shared/{share_token}", response_model=ReportPayload)
 def get_shared_report(
     share_token: str,
     db: Session = Depends(get_db),
@@ -111,7 +112,7 @@ def get_shared_report(
     except ShareValidationError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    data = build_report(db, share.session_id, viewer_role="MEDIATOR")
+    data: dict[str, Any] = build_report(db, share.session_id, viewer_role="MEDIATOR")
     data["share_context"] = {
         "share_id": share.id,
         "session_id": share.session_id,
@@ -123,4 +124,4 @@ def get_shared_report(
         "note": share.note,
     }
     db.commit()
-    return data
+    return as_report_payload(data)

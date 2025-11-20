@@ -22,7 +22,7 @@ type MockRole = 'STUDENT' | 'MEDIATOR' | 'ADMIN';
 // ---------------------------------------------------------------------------
 const SAMPLE_REPORT = getSampleReport();
 const responsibleUseText =
-  SAMPLE_REPORT.responsible_use_notice ??
+  SAMPLE_REPORT.responsibleUseNotice ??
   'Laporan ini bersifat formatif dan tidak menggantikan penilaian profesional.';
 
 const buildFullReport = (): Report => getSampleReport();

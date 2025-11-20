@@ -11,7 +11,29 @@ from app.schemas.session import (
     LegacyContextSubmissionPayload,
     LegacyItemSubmissionPayload,
     SessionAutosavePayload,
+    SessionSubmissionPayload,
 )
+
+
+def _build_camel_submission_payload() -> dict:
+    items = [
+        {
+            "itemId": index + 1,
+            "ranks": {10: 1, 11: 2, 12: 3, 13: 4},
+        }
+        for index in range(12)
+    ]
+    contexts = [
+        {
+            "contextName": name,
+            "CE": 1,
+            "RO": 2,
+            "AC": 3,
+            "AE": 4,
+        }
+        for name in CONTEXT_NAMES[:8]
+    ]
+    return {"items": items, "contexts": contexts}
 
 
 def test_legacy_item_submission_payload_runtime_export():
@@ -85,3 +107,21 @@ def test_session_autosave_payload_rejects_duplicate_items():
                 ),
             ]
         )
+
+
+def test_session_submission_payload_accepts_camel_case_aliases():
+    payload = SessionSubmissionPayload.model_validate(_build_camel_submission_payload())
+
+    assert len(payload.items) == 12
+    assert payload.items[0].item_id == 1
+    assert payload.contexts[0].context_name == CONTEXT_NAMES[0]
+
+
+def test_session_submission_payload_dumps_camel_case_aliases():
+    payload = SessionSubmissionPayload.model_validate(_build_camel_submission_payload())
+
+    dumped = payload.model_dump(by_alias=True)
+    assert set(dumped["items"][0].keys()) == {"itemId", "ranks"}
+    assert "contextName" in dumped["contexts"][0]
+    # Uppercase metric keys should stay untouched
+    assert {"CE", "RO", "AC", "AE"}.issubset(dumped["contexts"][0].keys())

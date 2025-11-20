@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES
 from app.i18n.id_messages import ValidationMessages
+from app.schemas.base import CamelModel
 
 
-class ItemRank(BaseModel):
+class ItemRank(CamelModel):
     item_id: int = Field(gt=0)
     ranks: dict[int, int]
 
@@ -24,7 +25,7 @@ class ItemRank(BaseModel):
         return v
 
 
-class ContextRank(BaseModel):
+class ContextRank(CamelModel):
     context_name: str = Field(min_length=3, max_length=60)
     CE: int = Field(ge=1, le=4)
     RO: int = Field(ge=1, le=4)
@@ -48,7 +49,7 @@ class ContextRank(BaseModel):
         return self
 
 
-class SessionSubmissionPayload(BaseModel):
+class SessionSubmissionPayload(CamelModel):
     items: list[ItemRank] = Field(..., min_length=12, max_length=12)
     contexts: list[ContextRank] = Field(..., min_length=8, max_length=8)
 
@@ -102,7 +103,7 @@ class LegacyContextSubmissionPayload(ContextRank):
         }
 
 
-class AutosaveItemRank(BaseModel):
+class AutosaveItemRank(CamelModel):
     item_id: int = Field(gt=0)
     ranks: dict[str, int]
 
@@ -124,7 +125,7 @@ class AutosaveItemRank(BaseModel):
         return normalized
 
 
-class SessionAutosavePayload(BaseModel):
+class SessionAutosavePayload(CamelModel):
     responses: list[AutosaveItemRank] = Field(default_factory=list)
     contexts: list[ContextRank] = Field(default_factory=list)
 
@@ -135,3 +136,15 @@ class SessionAutosavePayload(BaseModel):
         if len(ids) != len(set(ids)):
             raise ValueError(ValidationMessages.DUPLICATE_ITEM_IDS)
         return value
+
+
+class SessionStartResponse(CamelModel):
+    session_id: int
+
+
+class OperationStatus(CamelModel):
+    ok: bool = True
+
+
+class SessionOperationResult(OperationStatus):
+    result: dict[str, Any] | None = None

@@ -71,7 +71,7 @@ def test_finalize_endpoint_is_idempotent(client):
         json={"instrument_code": "KLSI", "instrument_version": "4.0"},
     )
     assert r_start.status_code == 200, r_start.text
-    session_id = r_start.json()["session_id"]
+    session_id = r_start.json()["sessionId"]
 
     payload = _build_submission_payload()
     r_submit = client.post(

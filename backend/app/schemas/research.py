@@ -3,10 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
+
+from app.schemas.base import CamelModel
 
 
-class ResearchStudyCreate(BaseModel):
+class ResearchStudyCreate(CamelModel):
     title: str = Field(min_length=1, max_length=200)
     description: Optional[str] = Field(default=None, max_length=1000)
     started_at: Optional[datetime] = None
@@ -14,7 +16,7 @@ class ResearchStudyCreate(BaseModel):
     notes: Optional[str] = Field(default=None, max_length=1000)
 
 
-class ResearchStudyUpdate(BaseModel):
+class ResearchStudyUpdate(CamelModel):
     title: Optional[str] = Field(default=None, max_length=200)
     description: Optional[str] = Field(default=None, max_length=1000)
     started_at: Optional[datetime] = None
@@ -22,30 +24,30 @@ class ResearchStudyUpdate(BaseModel):
     notes: Optional[str] = Field(default=None, max_length=1000)
 
 
-class ResearchStudyOut(BaseModel):
+class ResearchStudyOut(CamelModel):
     id: int
     title: str
     description: Optional[str]
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
     notes: Optional[str]
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class ReliabilityCreate(BaseModel):
+class ReliabilityCreate(CamelModel):
     metric_name: str = Field(min_length=1, max_length=100)
     value: float
     notes: Optional[str] = Field(default=None, max_length=500)
 
 
-class ValidityCreate(BaseModel):
+class ValidityCreate(CamelModel):
     evidence_type: str = Field(min_length=1, max_length=50)
     description: Optional[str] = Field(default=None, max_length=1000)
     metric_name: Optional[str] = Field(default=None, max_length=100)
     value: Optional[float] = None
 
 
-class StudyDataPoint(BaseModel):
+class StudyDataPoint(CamelModel):
     session_id: int
     user_id: int
     user_email: str
@@ -63,19 +65,19 @@ class StudyDataPoint(BaseModel):
     assessment_duration_seconds: Optional[int] = None
 
 
-class StudyDataDateRange(BaseModel):
+class StudyDataDateRange(CamelModel):
     earliest: datetime
     latest: datetime
 
 
-class StudyDataSummary(BaseModel):
+class StudyDataSummary(CamelModel):
     total_sessions: int
     unique_participants: int
     date_range: Optional[StudyDataDateRange] = None
     style_distribution: Dict[str, int]
 
 
-class ResearchStudyDataOut(BaseModel):
+class ResearchStudyDataOut(CamelModel):
     study_id: int
     study_title: str
     filters_applied: Dict[str, Any]

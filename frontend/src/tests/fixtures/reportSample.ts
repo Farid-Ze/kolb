@@ -21,8 +21,8 @@ const normalizeReportPayload = (report: Report): Report => {
   if (!('owner' in normalized)) {
     normalized.owner = null;
   }
-  if (!('share_context' in normalized)) {
-    normalized.share_context = null;
+  if (!('shareContext' in normalized)) {
+    normalized.shareContext = null;
   }
   const styleBlock = normalized.style as Report['style'];
   if (styleBlock) {
@@ -43,18 +43,18 @@ const normalizeReportPayload = (report: Report): Report => {
 export const getSampleReport = (): Report => normalizeReportPayload(clone(RAW_SAMPLE));
 
 export const buildMinimalReport = (): Report => ({
-  session_id: 'preview-empty',
+  sessionId: 'preview-empty',
   raw: null,
   percentiles: null,
   style: null,
   lfi: null,
   visualization: null,
-  session_designs: [],
+  sessionDesigns: [],
   analytics: null,
-  learning_space: null,
+  learningSpace: null,
   notes: null,
-  enhanced_analytics: null,
-  responsible_use_notice: RAW_SAMPLE.responsible_use_notice ?? RESPONSIBLE_FALLBACK,
+  enhancedAnalytics: null,
+  responsibleUseNotice: RAW_SAMPLE.responsibleUseNotice ?? RESPONSIBLE_FALLBACK,
   owner: null,
-  share_context: null,
+  shareContext: null,
 });

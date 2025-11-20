@@ -3,53 +3,55 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
+
+from app.schemas.base import CamelModel
 
 
-class TeamCreate(BaseModel):
+class TeamCreate(CamelModel):
     name: str = Field(min_length=1, max_length=100)
     kelas: Optional[str] = Field(default=None, max_length=20)
     description: Optional[str] = Field(default=None, max_length=500)
 
 
-class TeamUpdate(BaseModel):
+class TeamUpdate(CamelModel):
     name: Optional[str] = Field(default=None, max_length=100)
     kelas: Optional[str] = Field(default=None, max_length=20)
     description: Optional[str] = Field(default=None, max_length=500)
 
 
-class TeamMemberAdd(BaseModel):
+class TeamMemberAdd(CamelModel):
     user_id: int
     role_in_team: Optional[str] = Field(default=None, max_length=50)
 
 
-class TeamOut(BaseModel):
+class TeamOut(CamelModel):
     id: int
     name: str
     kelas: Optional[str]
     description: Optional[str]
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class TeamMemberOut(BaseModel):
+class TeamMemberOut(CamelModel):
     id: int
     team_id: int
     user_id: int
     role_in_team: Optional[str]
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class TeamRollupOut(BaseModel):
+class TeamRollupOut(CamelModel):
     id: int
     team_id: int
     date: date
     total_sessions: int
     avg_lfi: Optional[float]
     style_counts: Optional[Dict[str, int]]
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class TeamRollupMemberOut(BaseModel):
+class TeamRollupMemberOut(CamelModel):
     user_id: int
     name: Optional[str]
     email: Optional[str]
@@ -63,7 +65,7 @@ class TeamRollupMemberOut(BaseModel):
     dialectic_scores: Optional[Dict[str, Optional[int]]]
 
 
-class TeamRollupSummaryOut(BaseModel):
+class TeamRollupSummaryOut(CamelModel):
     total_members: int
     members_with_data: int
     avg_ac_ce: float
@@ -71,14 +73,14 @@ class TeamRollupSummaryOut(BaseModel):
     style_distribution: Dict[str, int]
 
 
-class TeamRollupBalanceMetricsOut(BaseModel):
+class TeamRollupBalanceMetricsOut(CamelModel):
     CE_percentage: float
     RO_percentage: float
     AC_percentage: float
     AE_percentage: float
 
 
-class TeamRollupLegacyMemberOut(BaseModel):
+class TeamRollupLegacyMemberOut(CamelModel):
     user_id: int
     name: Optional[str]
     email: Optional[str]
@@ -94,7 +96,7 @@ class TeamRollupLegacyMemberOut(BaseModel):
     style_code: Optional[str]
 
 
-class TeamRollupDetail(BaseModel):
+class TeamRollupDetail(CamelModel):
     team_id: int
     team_name: str
     member_count: int

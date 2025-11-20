@@ -5,7 +5,6 @@ from email.utils import format_datetime
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, Response
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -15,7 +14,15 @@ from app.engine.authoring import (
     list_instrument_specs,
 )
 from app.services.security import get_current_user
-from app.schemas.session import SessionAutosavePayload, SessionSubmissionPayload
+from app.schemas.base import CamelModel
+from app.schemas.report import ReportPayload, as_report_payload
+from app.schemas.session import (
+    SessionAutosavePayload,
+    SessionSubmissionPayload,
+    SessionStartResponse,
+    SessionOperationResult,
+    OperationStatus,
+)
 from app.core.errors import InstrumentNotFoundError, PermissionDeniedError
 from app.core.metrics import (
     get_metrics,
@@ -36,12 +43,12 @@ def _format_sunset(value: datetime | None) -> str | None:
 router = APIRouter(prefix="/engine", tags=["engine"])
 
 
-class StartSessionRequest(BaseModel):
+class StartSessionRequest(CamelModel):
     instrument_code: str
     instrument_version: Optional[str] = None
 
 
-class SubmissionPayload(BaseModel):
+class SubmissionPayload(CamelModel):
     kind: Literal["item", "context"]
     item_id: Optional[int] = None
     ranks: Optional[dict[int, int]] = None
@@ -52,7 +59,7 @@ class SubmissionPayload(BaseModel):
     AE: Optional[int] = None
 
 
-class ForceFinalizeRequest(BaseModel):
+class ForceFinalizeRequest(CamelModel):
     reason: Optional[str] = None
 @router.get("/instruments", response_model=dict)
 def list_instruments(
@@ -96,7 +103,7 @@ def get_instrument_locale_resource_endpoint(
     return {"locale": locale, "resources": payload}
 
 
-@router.post("/sessions/start", response_model=dict)
+@router.post("/sessions/start", response_model=SessionStartResponse)
 def start_engine_session(
     payload: StartSessionRequest,
     db: Session = Depends(get_db),
@@ -109,7 +116,7 @@ def start_engine_session(
         instrument_code=payload.instrument_code,
         instrument_version=payload.instrument_version,
     )
-    return {"session_id": session.id}
+    return SessionStartResponse(session_id=session.id)
 
 
 @router.get("/sessions/{session_id}/delivery", response_model=dict)
@@ -136,7 +143,7 @@ def get_session_items(
     return service.session_state(session_id, user, locale=locale)
 
 
-@router.post("/sessions/{session_id}/items", response_model=dict)
+@router.post("/sessions/{session_id}/items", response_model=SessionOperationResult)
 def autosave_session_items(
     session_id: int,
     payload: SessionAutosavePayload,
@@ -147,10 +154,10 @@ def autosave_session_items(
     user = get_current_user(authorization, db)
     service = EngineSessionService(db)
     result = service.autosave_responses(session_id, user, payload, locale=locale)
-    return {"ok": True, "result": result}
+    return SessionOperationResult(result=result)
 
 
-@router.post("/sessions/{session_id}/submit_all", response_model=dict)
+@router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult)
 def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
@@ -161,10 +168,10 @@ def submit_all_responses(
     user = get_current_user(authorization, db)
     service = EngineSessionService(db)
     result = service.submit_full_batch(session_id, user, payload)
-    return {"ok": True, "result": result}
+    return SessionOperationResult(result=result)
 
 
-@router.post("/sessions/{session_id}/interactions", response_model=dict)
+@router.post("/sessions/{session_id}/interactions", response_model=OperationStatus)
 def submit_interaction(
     session_id: int,
     payload: SubmissionPayload,
@@ -187,7 +194,7 @@ def submit_interaction(
         response.headers["Sunset"] = sunset_header
     inc_counter("deprecated.engine.interactions")
     service.submit_interaction(session_id, user, payload.model_dump(exclude_unset=True))
-    return {"ok": True}
+    return OperationStatus()
 
 
 @router.get("/metrics", response_model=dict)
@@ -216,7 +223,7 @@ def engine_metrics(
     return payload
 
 
-@router.post("/sessions/{session_id}/finalize", response_model=dict)
+@router.post("/sessions/{session_id}/finalize", response_model=SessionOperationResult)
 def finalize_session(
     session_id: int,
     db: Session = Depends(get_db),
@@ -225,7 +232,7 @@ def finalize_session(
     user = get_current_user(authorization, db)
     service = EngineSessionService(db)
     result = service.finalize_session(session_id, user)
-    return {"ok": True, "result": result}
+    return SessionOperationResult(result=result)
 
 
 @router.get("/sessions/{session_id}/validation", response_model=dict)
@@ -241,7 +248,7 @@ def validation_snapshot(
     return service.validation_snapshot(session_id, user)
 
 
-@router.get("/sessions/{session_id}/report", response_model=dict)
+@router.get("/sessions/{session_id}/report", response_model=ReportPayload)
 def engine_report(
     session_id: int,
     db: Session = Depends(get_db),
@@ -249,10 +256,10 @@ def engine_report(
 ):
     viewer = get_current_user(authorization, db)
     service = EngineSessionService(db)
-    return service.build_report(session_id, viewer)
+    return as_report_payload(service.build_report(session_id, viewer))
 
 
-@router.post("/sessions/{session_id}/force-finalize", response_model=dict)
+@router.post("/sessions/{session_id}/force-finalize", response_model=SessionOperationResult)
 def force_finalize_session(
     session_id: int,
     request: ForceFinalizeRequest,
@@ -262,4 +269,4 @@ def force_finalize_session(
     mediator = get_current_user(authorization, db)
     service = EngineSessionService(db)
     result = service.force_finalize(session_id, mediator, reason=request.reason)
-    return {"ok": True, "result": result}
+    return SessionOperationResult(result=result)

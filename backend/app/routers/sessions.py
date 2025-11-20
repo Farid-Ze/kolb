@@ -2,7 +2,7 @@ from datetime import timezone
 from email.utils import format_datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -11,10 +11,14 @@ from app.engine.runtime import runtime
 from app.models.klsi.user import User
 from app.services.security import get_current_user
 from app.services.validation import run_session_validations
+from app.schemas.base import CamelModel
 from app.schemas.session import (
     SessionSubmissionPayload,
     LegacyItemSubmissionPayload,
     LegacyContextSubmissionPayload,
+    SessionStartResponse,
+    OperationStatus,
+    SessionOperationResult,
 )
 from app.core.config import settings
 from app.core.metrics import inc_counter
@@ -26,7 +30,7 @@ from app.i18n.id_messages import SessionErrorMessages
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
-class ForceFinalizeRequest(BaseModel):
+class ForceFinalizeRequest(CamelModel):
     reason: str | None = None
 
 
@@ -77,11 +81,11 @@ def _sunset_header_value() -> str | None:
     aware = sunset if sunset.tzinfo else sunset.replace(tzinfo=timezone.utc)
     return format_datetime(aware.astimezone(timezone.utc))
 
-@router.post("/start", response_model=dict)
+@router.post("/start", response_model=SessionStartResponse)
 def start_session(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
     user = get_current_user(authorization, db)
     session = runtime.start_session(db, user, instrument_code="KLSI", instrument_version="4.0")
-    return {"session_id": session.id}
+    return SessionStartResponse(session_id=session.id)
 
 @router.get("/{session_id}/items", response_model=list)
 def get_items(
@@ -120,7 +124,7 @@ def get_items(
         for item in items
     ]
 
-@router.post("/{session_id}/submit_item", response_model=dict, deprecated=True)
+@router.post("/{session_id}/submit_item", response_model=OperationStatus, deprecated=True)
 def submit_item(session_id: int, item_id: int, ranks: dict, response: Response, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
     # Optional runtime deprecation: return 410 Gone when DISABLE_LEGACY_SUBMISSION=1
     if settings.disable_legacy_submission and settings.environment not in ("dev", "development", "test"):
@@ -142,9 +146,9 @@ def submit_item(session_id: int, item_id: int, ranks: dict, response: Response, 
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     runtime.submit_payload(db, session_id, submission.runtime_payload())
-    return {"ok": True}
+    return OperationStatus()
 
-@router.post("/{session_id}/submit_context", response_model=dict, deprecated=True)
+@router.post("/{session_id}/submit_context", response_model=OperationStatus, deprecated=True)
 def submit_context(
     session_id: int,
     context_name: str,
@@ -183,10 +187,10 @@ def submit_context(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     runtime.submit_payload(db, session_id, context_submission.runtime_payload())
-    return {"ok": True}
+    return OperationStatus()
 
 
-@router.post("/{session_id}/submit_all_responses", response_model=dict)
+@router.post("/{session_id}/submit_all_responses", response_model=SessionOperationResult)
 def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
@@ -250,10 +254,7 @@ def submit_all_responses(
         db.commit()
 
         result_payload = adapt_engine_to_api_payload(result)
-        return {
-            "ok": True,
-            "result": result_payload,
-        }
+        return SessionOperationResult(result=result_payload)
     except HTTPException:
         raise
     except Exception as exc:
@@ -261,7 +262,7 @@ def submit_all_responses(
         db.rollback()
         raise HTTPException(status_code=500, detail=SessionErrorMessages.BATCH_FAILURE) from exc
 
-@router.post("/{session_id}/finalize", response_model=dict)
+@router.post("/{session_id}/finalize", response_model=SessionOperationResult)
 def finalize(session_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
     user = get_current_user(authorization, db)
     repo = SessionRepository(db)
@@ -297,10 +298,7 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
 
     # Audit persisted within runtime transaction
 
-    return {
-        "ok": True,
-        "result": adapt_engine_to_api_payload(result),
-    }
+    return SessionOperationResult(result=adapt_engine_to_api_payload(result))
 
 @router.get("/{session_id}/validation", response_model=dict)
 def session_validation(session_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
@@ -320,7 +318,7 @@ def session_validation(session_id: int, db: Session = Depends(get_db), authoriza
         raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
     return run_session_validations(db, session_id)
 
-@router.post("/{session_id}/force_finalize", response_model=dict)
+@router.post("/{session_id}/force_finalize", response_model=SessionOperationResult)
 def force_finalize(
     session_id: int,
     request: ForceFinalizeRequest,
@@ -367,11 +365,10 @@ def force_finalize(
     ).encode("utf-8")
     # Audit persisted within runtime transaction
 
-    return {
-        "ok": True,
-        "result": adapt_engine_to_api_payload(
+    return SessionOperationResult(
+        result=adapt_engine_to_api_payload(
             result,
             override_reason=request.reason,
             override_value=True,
-        ),
-    }
+        )
+    )

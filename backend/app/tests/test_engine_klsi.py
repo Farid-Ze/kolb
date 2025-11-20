@@ -41,7 +41,7 @@ def test_engine_klsi_end_to_end(client):
         headers=headers,
     )
     assert r_start.status_code == 200, r_start.text
-    session_id = r_start.json()["session_id"]
+    session_id = r_start.json()["sessionId"]
 
     # Fetch delivery package (items + delivery metadata)
     r_delivery = client.get(f"/engine/sessions/{session_id}/delivery", headers=headers)
@@ -128,12 +128,12 @@ def test_engine_klsi_end_to_end(client):
     r_report = client.get(f"/engine/sessions/{session_id}/report", headers=headers)
     assert r_report.status_code == 200, r_report.text
     report = r_report.json()
-    assert report["session_id"] == session_id
+    assert report["sessionId"] == session_id
     assert report["raw"]["ACCE"] is not None
     assert report["percentiles"] is not None
     assert report["percentiles"]["per_scale_provenance"] is not None
     # Non-mediator viewer should not receive enhanced analytics
-    assert report["enhanced_analytics"] is None
+    assert report["enhancedAnalytics"] is None
 
 
 def test_engine_klsi_mediator_report_enhanced(client):
@@ -145,7 +145,7 @@ def test_engine_klsi_mediator_report_enhanced(client):
         json={"instrument_code": "KLSI"},
         headers=headers,
     )
-    session_id = r_start.json()["session_id"]
+    session_id = r_start.json()["sessionId"]
 
     delivery = client.get(f"/engine/sessions/{session_id}/delivery", headers=headers).json()
     for item in delivery["items"]:
@@ -179,7 +179,7 @@ def test_engine_klsi_mediator_report_enhanced(client):
     r_report = client.get(f"/engine/sessions/{session_id}/report", headers=mediator_headers)
     assert r_report.status_code == 200, r_report.text
     report = r_report.json()
-    assert report["enhanced_analytics"] is not None
+    assert report["enhancedAnalytics"] is not None
     assert report["percentiles"]["per_scale_provenance"] is not None
 
 
@@ -192,7 +192,7 @@ def test_engine_force_finalize_by_mediator(client):
         json={"instrument_code": "KLSI"},
         headers=headers,
     )
-    session_id = r_start.json()["session_id"]
+    session_id = r_start.json()["sessionId"]
 
     delivery = client.get(f"/engine/sessions/{session_id}/delivery", headers=headers).json()
     first_item = delivery["items"][0]
@@ -252,7 +252,7 @@ def test_engine_finalize_requires_lfi_contexts(client):
         headers=headers,
     )
     assert r_start.status_code == 200, r_start.text
-    session_id = r_start.json()["session_id"]
+    session_id = r_start.json()["sessionId"]
 
     delivery = client.get(f"/engine/sessions/{session_id}/delivery", headers=headers).json()
     for item in delivery["items"]:

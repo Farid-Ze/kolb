@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import EmailStr, Field
+
+from app.schemas.base import CamelModel
 
 
-class ReportShareCreate(BaseModel):
+class ReportShareCreate(CamelModel):
     mediator_email: EmailStr = Field(description="Email mediator yang diberi akses")
     expires_in_hours: int = Field(
         default=72,
@@ -16,7 +18,7 @@ class ReportShareCreate(BaseModel):
     note: str | None = Field(default=None, max_length=255)
 
 
-class ReportShareOut(BaseModel):
+class ReportShareOut(CamelModel):
     share_id: int
     session_id: int
     mediator_email: EmailStr

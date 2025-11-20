@@ -445,13 +445,13 @@ export interface ReportOwnerSummary {
 }
 
 export interface ReportShareContext {
-  share_id: number;
-  session_id: number;
-  mediator_email: string;
-  mediator_name?: string | null;
-  owner_name?: string | null;
-  owner_email?: string | null;
-  expires_at: string;
+  shareId: number;
+  sessionId: number;
+  mediatorEmail?: string | null;
+  mediatorName?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  expiresAt?: string | null;
   note?: string | null;
 }
 
@@ -504,35 +504,35 @@ export interface EnhancedAnalyticsPayload {
 }
 
 export interface Report {
-  session_id: string | number;
+  sessionId: string | number;
   raw: ReportRawBlock | null;
   percentiles: ReportPercentiles | null;
   style: ReportStyleBlock | null;
   lfi: ReportLfiBlock | null;
   visualization: ReportVisualizationBlock | null;
-  session_designs: SessionDesignRecommendation[];
+  sessionDesigns: SessionDesignRecommendation[];
   analytics: ReportAnalytics | null;
-  learning_space: LearningSpaceBlock | null;
+  learningSpace: LearningSpaceBlock | null;
   notes: ReportNotes | null;
-  enhanced_analytics: EnhancedAnalyticsPayload | null; // MEDIATOR-only
-  responsible_use_notice?: string | null;
+  enhancedAnalytics: EnhancedAnalyticsPayload | null; // MEDIATOR-only
+  responsibleUseNotice?: string | null;
   owner?: ReportOwnerSummary | null;
-  share_context?: ReportShareContext | null;
+  shareContext?: ReportShareContext | null;
 }
 
 export interface CreateReportShareRequest {
-  mediator_email: string;
-  expires_in_hours?: number;
+  mediatorEmail: string;
+  expiresInHours?: number;
   note?: string;
 }
 
 export interface CreateReportShareResponse {
-  share_id: number;
-  session_id: number;
-  mediator_email: string;
-  mediator_name?: string | null;
-  expires_at: string;
-  share_token: string;
+  shareId: number;
+  sessionId: number;
+  mediatorEmail: string;
+  mediatorName?: string | null;
+  expiresAt: string;
+  shareToken: string;
   note?: string | null;
 }
 

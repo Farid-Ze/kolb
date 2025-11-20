@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from app.i18n.id_messages import ReportBandLabels
+from app.schemas.report import as_report_payload
 from app.services.report import build_report
 from app.services.scoring import finalize_session
 from app.tests.helpers import build_seeded_memory_db, seed_complete_session
@@ -15,7 +16,7 @@ from app.tests.helpers import build_seeded_memory_db, seed_complete_session
 SAMPLE_PATH = Path(__file__).resolve().parents[3] / "docs" / "sample_api_payloads" / "report.sample.json"
 OPTIONAL_SUBTREES = {
     "root.percentiles.truncated_scales",
-    "root.enhanced_analytics.contextual_profile.style_frequency",
+    "root.enhancedAnalytics.contextual_profile.style_frequency",
 }
 
 
@@ -25,7 +26,8 @@ def _build_payload(*, viewer_role: str | None = None):
     finalize_session(db, session.id)
     db.refresh(session)
     payload = build_report(db, session.id, viewer_role=viewer_role)
-    return db, session, payload
+    model = as_report_payload(payload)
+    return db, session, model.model_dump(by_alias=True)
 
 
 def _assert_subset_structure(sample: Any, actual: Any, path: str = "root") -> None:
