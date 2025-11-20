@@ -73,13 +73,35 @@ export const LoginPage: React.FC = () => {
   }, []);
 
   const resolveRedirectTarget = React.useCallback(() => {
+    // Priority 1: URL query parameter (explicit, debuggable)
+    const searchParams = new URLSearchParams(location.search);
+    const returnToParam = searchParams.get('returnTo');
+    if (returnToParam) {
+      const decoded = decodeURIComponent(returnToParam);
+      // Safety: prevent infinite loop if returnTo points to login page
+      if (!decoded.startsWith('/auth/login') && !decoded.startsWith('/auth/register')) {
+        return decoded;
+      }
+    }
+
+    // Priority 2: sessionStorage (auth:postLoginRedirect)
     const storedIntent = consumeAuthIntent();
+    if (storedIntent && !storedIntent.startsWith('/auth/')) {
+      return storedIntent;
+    }
+
+    // Priority 3: location.state.from
     const state = location.state as { from?: Location } | undefined;
-    const fromState = state?.from?.pathname && state.from.pathname !== '/auth/login'
+    const fromState = state?.from?.pathname && !state.from.pathname.startsWith('/auth/')
       ? `${state.from.pathname}${state.from.search ?? ''}${state.from.hash ?? ''}`
       : undefined;
-    return storedIntent || fromState || '/';
-  }, [location.state]);
+    if (fromState) {
+      return fromState;
+    }
+
+    // Default: home page
+    return '/';
+  }, [location.search, location.state]);
 
   // Task 14: react-hook-form + zod integration
   const {
@@ -332,6 +354,17 @@ export const LoginPage: React.FC = () => {
                   Daftar
                 </Link>
               </p>
+              {/* Show "Continue as Guest" option if user came from a page via returnTo */}
+              {location.search.includes('returnTo') && (
+                <p className="text-muted-foreground">
+                  <Link
+                    to="/"
+                    className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1"
+                  >
+                    Continue as Guest
+                  </Link>
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
