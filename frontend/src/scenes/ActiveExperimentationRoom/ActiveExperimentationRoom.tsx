@@ -9,6 +9,8 @@ import { springs } from '../../core/physics/springs';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
 import { api, AssessmentItem, AssessmentItemOption, SessionSubmissionPayload, ContextRank, ApiError } from '../../core/api/client';
 import { AuthNotice } from '../../core/auth/AuthNotice';
+import { LFIContextCard } from '../../components/assessment/LFIContextCard';
+import { validateContextRanks } from '../../utils/contextHelpers';
 
 // --- Helper Functions ---
 
@@ -146,8 +148,8 @@ const ActiveExperimentationRoom: React.FC = () => {
   const isCurrentQuestionComplete = () => {
     if (!currentQuestion) return false;
     const currentItemAnswers = answers[currentQuestion.id] || {};
-    const ranks = Object.values(currentItemAnswers);
-    return ranks.length === 4 && new Set(ranks).size === 4;
+    const validation = validateContextRanks(currentItemAnswers);
+    return validation.isValid;
   };
 
   const handleNext = () => {
@@ -333,35 +335,48 @@ const ActiveExperimentationRoom: React.FC = () => {
                       <span>{currentQuestion.type === 'Learning_Flexibility' ? 'Context' : 'Style'}</span>
                     </div>
 
-                    <h3 className="text-xl md:text-2xl font-bold text-white leading-tight">
-                      {currentQuestion.stem}
-                    </h3>
+                    {/* Render LFI Context Card or Standard Question */}
+                    {currentQuestion.type === 'Learning_Flexibility' ? (
+                      <LFIContextCard
+                        contextName={currentQuestion.category || currentQuestion.stem}
+                        stem={currentQuestion.stem}
+                        options={currentQuestion.options}
+                        currentRanks={answers[currentQuestion.id] || {}}
+                        onRankChange={handleRank}
+                      />
+                    ) : (
+                      <>
+                        <h3 className="text-xl md:text-2xl font-bold text-white leading-tight">
+                          {currentQuestion.stem}
+                        </h3>
 
-                    <div className="flex flex-col gap-4">
-                      {currentQuestion.options.map((option) => {
-                        const currentRank = answers[currentQuestion.id]?.[option.id];
-                        return (
-                          <div key={option.id} className="flex items-center gap-4 bg-white/5 p-4 rounded-lg border border-white/10">
-                            <div className="flex gap-2">
-                              {[1, 2, 3, 4].map(rank => (
-                                <button
-                                  key={rank}
-                                  onClick={() => handleRank(option.id, rank)}
-                                  className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
-                                    currentRank === rank
-                                      ? 'bg-amber-500 border-amber-500 text-black font-bold'
-                                      : 'border-white/20 text-white/50 hover:border-white/50 hover:text-white'
-                                  }`}
-                                >
-                                  {rank}
-                                </button>
-                              ))}
-                            </div>
-                            <span className="text-lg text-white/90">{option.text}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                        <div className="flex flex-col gap-4">
+                          {currentQuestion.options.map((option) => {
+                            const currentRank = answers[currentQuestion.id]?.[option.id];
+                            return (
+                              <div key={option.id} className="flex items-center gap-4 bg-white/5 p-4 rounded-lg border border-white/10">
+                                <div className="flex gap-2">
+                                  {[1, 2, 3, 4].map(rank => (
+                                    <button
+                                      key={rank}
+                                      onClick={() => handleRank(option.id, rank)}
+                                      className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
+                                        currentRank === rank
+                                          ? 'bg-amber-500 border-amber-500 text-black font-bold'
+                                          : 'border-white/20 text-white/50 hover:border-white/50 hover:text-white'
+                                      }`}
+                                    >
+                                      {rank}
+                                    </button>
+                                  ))}
+                                </div>
+                                <span className="text-lg text-white/90">{option.text}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
 
                     <div className="mt-auto flex justify-between items-center pt-4 border-t border-white/10">
                       <button
