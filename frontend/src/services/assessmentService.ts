@@ -1,6 +1,14 @@
 /**
- * KLSI 4.0 - AssessmentService
+ * KLSI 4.0 - AssessmentService (LEGACY)
  * Task 25, 29, 33: Assessment API calls dengan authenticatedApiCall
+ * 
+ * ⚠️ DEPRECATED: This service is legacy and uses the /engine/* endpoints.
+ * 
+ * Modern frontend rooms (ActiveExperimentationRoom, AbstractConceptualizationRoom)
+ * now use the /sessions/* and /assessments/* endpoints via frontend/src/core/api/client.ts
+ * 
+ * This service remains for backward compatibility with existing UI components.
+ * Prefer using the centralized API client for new code.
  * 
  * Service layer untuk assessment delivery dan submission
  * Menggunakan authenticatedApiCall untuk automatic token injection

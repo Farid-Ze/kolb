@@ -22,6 +22,7 @@ from app.routers.exceptions import register_exception_handlers
 from app.routers.reports import router as reports_router
 from app.routers.research import router as research_router
 from app.routers.score import router as score_router
+from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
 from app.routers.telemetry import router as telemetry_router
 from app.services.seeds import seed_assessment_items, seed_engine_authoring, seed_instruments, seed_learning_styles
@@ -106,6 +107,7 @@ register_exception_handlers(app)
 # Register routers at import time so tests see routes without requiring startup
 app.include_router(auth_router)
 app.include_router(assessments_router)
+app.include_router(sessions_router)
 app.include_router(engine_router)
 app.include_router(admin_router)
 app.include_router(reports_router)

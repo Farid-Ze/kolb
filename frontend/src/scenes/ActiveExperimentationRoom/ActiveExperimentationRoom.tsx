@@ -37,30 +37,33 @@ const buildSubmissionPayload = (
         ranks: itemAnswers
       });
     } else if (item.type === 'Learning_Flexibility') {
-      // Map choices to CE/RO/AC/AE
-      const contextRank: any = {
+      // Map choices to CE/RO/AC/AE with proper typing
+      const contextRank: ContextRank = {
         context_name: item.category || item.stem, // Fallback to stem if category missing
-        CE: 0, RO: 0, AC: 0, AE: 0
+        CE: 0,
+        RO: 0,
+        AC: 0,
+        AE: 0
       };
       
       item.options.forEach((opt: AssessmentItemOption) => {
         const rank = itemAnswers[opt.id];
-        if (rank) {
-          const modeMap: Record<string, string> = {
+        if (rank !== undefined) {
+          const modeMap: Record<string, keyof Pick<ContextRank, 'CE' | 'RO' | 'AC' | 'AE'>> = {
             "Concrete Experience": "CE",
             "Reflective Observation": "RO",
             "Abstract Conceptualization": "AC",
             "Active Experimentation": "AE"
           };
           
-          const key = modeMap[opt.learning_mode] || opt.learning_mode;
-          if (['CE', 'RO', 'AC', 'AE'].includes(key)) {
+          const key = modeMap[opt.learning_mode] || opt.learning_mode as keyof Pick<ContextRank, 'CE' | 'RO' | 'AC' | 'AE'>;
+          if (key === 'CE' || key === 'RO' || key === 'AC' || key === 'AE') {
             contextRank[key] = rank;
           }
         }
       });
       
-      payload.contexts.push(contextRank as ContextRank);
+      payload.contexts.push(contextRank);
     }
   });
 
