@@ -91,6 +91,8 @@ export interface AssessmentItem {
   prompt: string; // Question prompt/stem
   options: AssessmentOption[];
   context?: string;
+  type?: 'Learning_Style' | 'Learning_Flexibility';
+  category?: string;
 }
 
 export interface ItemResponse {
@@ -729,4 +731,29 @@ export interface ApiErrorResponse {
   detail: string | ValidationError[];
   message?: string;
   status_code?: number;
+}
+
+// ============================================================================
+// SCORE PREVIEW TYPES
+// ============================================================================
+
+export interface ScorePreviewRequest {
+  raw: {
+    CE_raw: number;
+    RO_raw: number;
+    AC_raw: number;
+    AE_raw: number;
+  };
+  contexts?: Array<{
+    context_name: string;
+    CE: number;
+    RO: number;
+    AC: number;
+    AE: number;
+  }>;
+}
+
+export interface ScorePreviewResponse extends Report {
+  // Inherits all Report fields (raw, percentiles, style, lfi, etc.)
+  // but is generated on-the-fly without a session ID
 }

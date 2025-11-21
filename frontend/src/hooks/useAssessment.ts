@@ -92,7 +92,15 @@ export const useAssessment = ({
     error,
   } = useQuery({
     queryKey: ['assessment-items', sessionId],
-    queryFn: () => getAssessmentItems(sessionId),
+    queryFn: async () => {
+      try {
+        const result = await getAssessmentItems(sessionId);
+        return result;
+      } catch (err) {
+        console.error('Failed to fetch assessment items:', err);
+        throw err;
+      }
+    },
     staleTime: 60 * 1000, // Rehydrate regularly to keep state in sync
     refetchOnReconnect: true,
     refetchOnWindowFocus: 'always',

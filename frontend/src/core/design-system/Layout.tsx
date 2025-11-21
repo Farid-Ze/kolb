@@ -11,9 +11,9 @@ export const PageShell: React.FC<LayoutProps> = ({ children, className = '' }) =
       {/* Vignette effect - adjusted for both modes */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.1)_100%)] dark:bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] print:hidden" />
       {/* Content */}
-      <div className="relative z-10 w-full h-full flex flex-col items-center justify-center print:block print:w-full">
+      <main className="relative z-10 w-full h-full flex flex-col items-center justify-center print:block print:w-full">
         {children}
-      </div>
+      </main>
     </div>
   );
 };

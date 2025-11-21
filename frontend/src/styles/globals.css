@@ -1,3 +1,4 @@
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @custom-variant dark (&:is(.dark *));
@@ -649,30 +650,58 @@ html {
     --ring: oklch(0.708 0 0) !important;
   }
 
-  body {
-    background-color: white !important;
-    color: black !important;
+  /* Layout adjustments for print */
+  .grid {
+    display: block !important;
   }
 
-  .no-print {
+  section, aside {
+    width: 100% !important;
+    margin-bottom: 2rem;
+  }
+
+  /* Avoid breaking inside cards */
+  .material-regular, 
+  .material-thick, 
+  .material-thin,
+  .glass-regular,
+  .glass-thick,
+  .glass-clear {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #e5e7eb !important; /* gray-200 */
+    box-shadow: none !important;
+    margin-bottom: 1.5rem;
+    background-color: white !important;
+  }
+
+  /* Typography adjustments */
+  h1, h2, h3, h4, h5, h6 {
+    color: black !important;
+    page-break-after: avoid;
+  }
+
+  p, li {
+    color: #374151 !important; /* gray-700 */
+  }
+
+  /* Hide interactive elements */
+  button, 
+  a[href^="javascript:"], 
+  .no-print,
+  [role="button"] {
     display: none !important;
   }
 
-  .glass-regular,
-  .glass-thick,
-  .glass-clear,
-  .material-thin,
-  .material-regular,
-  .material-thick {
-    background-color: white !important;
-    border: 1px solid rgb(0 0 0 / 0.2) !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
+  /* Ensure charts are visible */
+  svg, canvas {
+    max-width: 100% !important;
+    height: auto !important;
+    break-inside: avoid;
   }
-
-  /* Optimasi untuk print */
-  * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  
+  /* Hide scrollbars */
+  ::-webkit-scrollbar {
+    display: none;
   }
 }

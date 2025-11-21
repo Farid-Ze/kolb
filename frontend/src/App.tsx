@@ -18,6 +18,7 @@ import { MediatorDashboardPage } from './pages/MediatorDashboardPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { ResearchDashboardPage } from './pages/ResearchDashboardPage';
 import { ResearchDetailPage } from './pages/ResearchDetailPage';
+import { ScorePreviewPage } from './pages/ScorePreviewPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SceneController } from './scenes/SceneController';
 
@@ -94,6 +95,11 @@ const App: React.FC = () => {
             path="/assessment/start"
             element={withProtection(<AssessmentStartPage />)}
           />
+          
+          <Route
+            path="/assessment/:sessionId/start"
+            element={withProtection(<AssessmentStartPage />)}
+          />
 
           <Route
             path="/assessment/:sessionId"
@@ -157,6 +163,14 @@ const App: React.FC = () => {
             path="/research/studies/:studyId"
             element={withProtection(<ResearchDetailPage />, {
               allowedRoles: ['MEDIATOR'],
+            })}
+          />
+
+          {/* Tools & Utilities */}
+          <Route
+            path="/tools/score-preview"
+            element={withProtection(<ScorePreviewPage />, {
+              allowedRoles: ['MEDIATOR', 'ADMIN'],
             })}
           />
 

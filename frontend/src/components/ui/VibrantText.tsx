@@ -156,7 +156,7 @@ export const VibrantHeading: React.FC<VibrantHeadingProps> = ({
   className,
   ...props
 }) => {
-  const Component = `h${level}`;
+  const Component = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
   
   return (
     <VibrantText

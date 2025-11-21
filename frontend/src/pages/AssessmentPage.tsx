@@ -18,6 +18,7 @@ import { motion } from 'motion/react';
 import { useAssessment } from '../hooks/useAssessment';
 import { useSessionGuard } from '../hooks/useSessionGuard';
 import { RankingCard } from '../components/assessment/RankingCard';
+import { LFIContextCard } from '../components/assessment/LFIContextCard'; // Added import
 
 import { Skeleton } from '../components/ui/skeleton';
 import { GuideModal } from '../components/common/GuideModal';
@@ -306,32 +307,55 @@ export const AssessmentPage: React.FC = () => {
           animate="visible"
           className="w-full max-w-3xl mx-auto space-y-4"
         >
-          <h2 className="text-center text-lg font-semibold text-white">Instruksi</h2>
-          <p className="text-center text-sm text-white/70">
+          <h2 className="text-center text-lg font-semibold text-black">Instruksi</h2>
+          <p className="text-center text-sm text-gray-700">
           Seret kartu atau ketuk angka 1-4 untuk memberi peringkat dari paling hingga paling tidak mencerminkan diri Anda.
           </p>
           <p
             className={`text-center text-xs ${
-              isCurrentItemComplete ? 'text-emerald-300' : 'text-amber-300'
+              isCurrentItemComplete ? 'text-emerald-600' : 'text-amber-600'
             }`}
           >
             {isCurrentItemComplete
               ? 'Item ini sudah lengkap.'
               : 'Pastikan ranking 1-4 unik sebelum melanjutkan.'}
           </p>
-          <RankingCard
-            item={currentItem}
-            response={currentResponse}
-          onRankChange={(optionCode, rank) => {
-            setRank(currentItem.item_id, optionCode, rank);
-          }}
-          onRanksCommitted={(ranks) => {
-            setItemRanks(currentItem.item_id, ranks);
-          }}
-            isSaving={isSaving || hasPendingSave}
-            isPending={Boolean(currentItemMeta?.dirty)}
-          progress={progress}
-          />
+          {currentItem.type === 'Learning_Flexibility' ? (
+            <LFIContextCard
+              contextName={currentItem.context ?? currentItem.category ?? ''}
+              stem={currentItem.prompt}
+              options={currentItem.options.map((opt) => ({
+                id: parseInt(opt.id),
+                learning_mode: opt.option_code,
+                text: opt.text,
+              }))}
+              currentRanks={currentItem.options.reduce((acc, opt) => {
+                const rank = currentResponse?.ranks?.[opt.option_code];
+                if (rank) acc[parseInt(opt.id)] = rank;
+                return acc;
+              }, {} as Record<number, number>)}
+              onRankChange={(choiceId, rank) => {
+                const option = currentItem.options.find((opt) => parseInt(opt.id) === choiceId);
+                if (option) {
+                  setRank(currentItem.item_id, option.option_code, rank);
+                }
+              }}
+            />
+          ) : (
+            <RankingCard
+              item={currentItem}
+              response={currentResponse}
+              onRankChange={(optionCode, rank) => {
+                setRank(currentItem.item_id, optionCode, rank);
+              }}
+              onRanksCommitted={(ranks) => {
+                setItemRanks(currentItem.item_id, ranks);
+              }}
+              isSaving={isSaving || hasPendingSave}
+              isPending={Boolean(currentItemMeta?.dirty)}
+              progress={progress}
+            />
+          )}
         </motion.div>
         </RoomContent>
 

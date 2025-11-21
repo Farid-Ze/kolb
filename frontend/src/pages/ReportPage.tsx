@@ -12,13 +12,19 @@ import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 import { useTelemetry } from '../hooks/useTelemetry';
 import { useAuth } from '../contexts/useAuth';
 import { getReport } from '../services/reportService';
-import type { Report, SessionDesignRecommendation, LearningSpaceBlock, ReportPercentiles, ReportNotes } from '../types/api';
+import type { Report } from '../types/api';
 import { NonDiagnosticNotice, ResponsibleUseFooter } from '../components/report/NonDiagnosticNotice';
 import { ScoreDisplay } from '../components/report/ScoreDisplay';
 import { LearningStyleChart } from '../components/report/LearningStyleChart';
 import { KiteChart } from '../components/report/KiteChart';
 import { FlexibilityChart } from '../components/report/FlexibilityChart';
 import { EnhancedAnalyticsPanel } from '../components/report/EnhancedAnalyticsPanel';
+import { LearningSpaceInsights } from '../components/report/LearningSpaceInsights';
+import { SessionDesignList } from '../components/report/SessionDesignList';
+import { StyleSummaryCard } from '../components/report/StyleSummaryCard';
+import { NormInfoCard } from '../components/report/NormInfoCard';
+import { AnalyticsMetaCard } from '../components/report/AnalyticsMetaCard';
+import { InterpretationNotes } from '../components/report/InterpretationNotes';
 
 const LoadingState = () => (
 	<PageShell>
@@ -188,7 +194,12 @@ export const ReportPage: React.FC = () => {
 	};
 
 	const handleDownloadPdf = () => {
-		console.info('PDF export requested for session', resolvedId);
+		// For now, we leverage the browser's print-to-PDF capability which is robust
+		// thanks to our specific @media print styles.
+		// In the future, we could use html2pdf.js or similar if client-side generation is strictly required.
+		if (typeof window !== 'undefined' && typeof window.print === 'function') {
+			window.print();
+		}
 	};
 
 	return (
@@ -283,185 +294,10 @@ export const ReportPage: React.FC = () => {
 	);
 };
 
-interface StyleSummaryProps {
-	style: Report['style'];
-}
 
-const StyleSummaryCard: React.FC<StyleSummaryProps> = ({ style }) => {
-	if (!style) {
-		return null;
-	}
 
-	return (
-		<GlassMaterial className="p-6 space-y-4" intensity="high">
-			<div className="flex items-center justify-between">
-				<SectionTitle>Ringkasan gaya</SectionTitle>
-				{style.intensity !== null && style.intensity !== undefined && (
-					<span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
-						Intensitas {style.intensity}
-					</span>
-				)}
-			</div>
-			<div>
-				<p className="text-2xl font-semibold text-foreground">{style.primary_name ?? 'Tidak tersedia'}</p>
-				<p className="text-muted-foreground">{style.primary_brief ?? 'Ringkasan sedang disiapkan.'}</p>
-			</div>
-			{style.primary_detail && (
-				<p className="text-sm text-muted-foreground whitespace-pre-line">{style.primary_detail}</p>
-			)}
-			{style.backup_name && (
-				<div className="rounded-lg bg-secondary/30 p-3">
-					<p className="text-xs uppercase text-muted-foreground">Gaya cadangan</p>
-					<p className="text-sm text-foreground">{style.backup_name}</p>
-					{style.backup_brief && <p className="text-xs text-muted-foreground">{style.backup_brief}</p>}
-				</div>
-			)}
-		</GlassMaterial>
-	);
-};
 
-interface NormInfoProps {
-	percentiles: ReportPercentiles | null;
-}
 
-const NormInfoCard: React.FC<NormInfoProps> = ({ percentiles }) => {
-	const normGroup = percentiles?.norm_group_used ?? 'Tidak tersedia';
-	const normVersion = percentiles?.norm_version_used ?? 'default';
-	const usedFallback = percentiles?.used_fallback_any ? 'Ya, menggunakan fallback' : 'Tidak';
-	const rawOutside = percentiles?.raw_outside_norm_range ? 'Ya' : 'Tidak';
-	const truncatedList = Object.keys(percentiles?.truncated_scales ?? {});
 
-	return (
-		<div className="material-regular rounded-xl p-6 space-y-3">
-			<SectionTitle>Informasi Norma</SectionTitle>
-			<dl className="space-y-2 text-sm">
-				<div className="flex items-center justify-between">
-					<dt className="text-muted-foreground">Kelompok Norm</dt>
-					<dd className="text-foreground font-medium">{normGroup}</dd>
-				</div>
-				<div className="flex items-center justify-between">
-					<dt className="text-muted-foreground">Versi Norma</dt>
-					<dd className="text-foreground font-medium">{normVersion}</dd>
-				</div>
-				<div className="flex items-center justify-between">
-					<dt className="text-muted-foreground">Gunakan fallback</dt>
-					<dd className="text-foreground font-medium">{usedFallback}</dd>
-				</div>
-				<div className="flex items-center justify-between">
-					<dt className="text-muted-foreground">Raw di luar rentang</dt>
-					<dd className="text-foreground font-medium">{rawOutside}</dd>
-				</div>
-			</dl>
-			{truncatedList.length ? (
-				<div className="text-xs text-muted-foreground">
-					<p>Skala terpotong:</p>
-					<ul className="list-disc list-inside">
-						{truncatedList.map((scale) => (
-							<li key={scale}>{scale}</li>
-						))}
-					</ul>
-				</div>
-			) : null}
-		</div>
-	);
-};
-
-interface LearningSpaceInsightsProps {
-	block: LearningSpaceBlock;
-}
-
-const LearningSpaceInsights: React.FC<LearningSpaceInsightsProps> = ({ block }) => (
-	<div className="material-regular rounded-xl p-6 space-y-4">
-		<SectionTitle>Learning Space Insights</SectionTitle>
-		{block.development?.spiral_stage && (
-			<div>
-				<p className="text-xs uppercase text-muted-foreground">Spiral Stage</p>
-				<p className="text-lg text-foreground">{block.development.spiral_stage}</p>
-				{block.development.label && (
-					<span className="text-xs px-2 py-0.5 rounded-full bg-secondary/50">{block.development.label}</span>
-				)}
-			</div>
-		)}
-		{block.educator_roles?.length ? (
-			<div>
-				<p className="text-xs uppercase text-muted-foreground">Peran fasilitator</p>
-				<ul className="list-disc list-inside text-sm text-foreground">
-					{block.educator_roles.map((role, index) => (
-						<li key={`${role.role ?? 'role'}-${index}`}>
-							<strong>{role.role}</strong> — {role.focus}
-						</li>
-					))}
-				</ul>
-			</div>
-		) : null}
-		{block.suggestions?.items?.length ? (
-			<div>
-				<p className="text-xs uppercase text-muted-foreground">Heuristik</p>
-				<ul className="list-disc list-inside text-sm text-foreground">
-					{block.suggestions.items.map((suggestion) => (
-						<li key={suggestion}>{suggestion}</li>
-					))}
-				</ul>
-			</div>
-		) : null}
-	</div>
-);
-
-interface SessionDesignProps {
-	items: SessionDesignRecommendation[];
-}
-
-const SessionDesignList: React.FC<SessionDesignProps> = ({ items }) => (
-	<div className="material-regular rounded-xl p-6 space-y-4">
-		<SectionTitle>Rekomendasi Sesi</SectionTitle>
-		<div className="space-y-3">
-			{items.map((item) => (
-				<div key={item.code} className="rounded-lg border border-border/60 p-4">
-					<div className="flex items-center justify-between">
-						<p className="text-foreground font-semibold">{item.title}</p>
-						<span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
-							{item.duration_min} menit
-						</span>
-					</div>
-					<p className="text-sm text-muted-foreground">{item.summary}</p>
-				</div>
-			))}
-		</div>
-	</div>
-);
-
-interface AnalyticsMetaProps {
-	heuristic: boolean;
-	note?: string;
-}
-
-const AnalyticsMetaCard: React.FC<AnalyticsMetaProps> = ({ heuristic, note }) => (
-	<div className="material-regular rounded-xl p-6 space-y-3">
-		<SectionTitle>Informasi Analitik</SectionTitle>
-		<p className="text-sm text-muted-foreground">
-			Status heuristik: {heuristic ? 'Ya (Heuristik)' : 'Tidak'}
-		</p>
-		{note && <p className="text-sm text-foreground">{note}</p>}
-	</div>
-);
-
-interface InterpretationNotesProps {
-	notes: ReportNotes;
-}
-
-const InterpretationNotes: React.FC<InterpretationNotesProps> = ({ notes }) => (
-	<div className="material-regular rounded-xl p-6 space-y-3">
-		<SectionTitle>Catatan Interpretasi</SectionTitle>
-		{notes.acc_assm_definition && (
-			<p className="text-sm text-foreground">Definisi ACC-ASSM: {notes.acc_assm_definition}</p>
-		)}
-		{notes.balance_definition && (
-			<p className="text-sm text-foreground">Definisi BAL: {notes.balance_definition}</p>
-		)}
-		{notes.interpretation_summary && (
-			<p className="text-sm text-muted-foreground">{notes.interpretation_summary}</p>
-		)}
-	</div>
-);
 
 

@@ -52,6 +52,15 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'ui-vendor': ['framer-motion', 'lucide-react', 'clsx', 'tailwind-merge'],
+            'chart-vendor': ['recharts'],
+          }
+        }
+      }
     },
     server: {
       port: 3000,

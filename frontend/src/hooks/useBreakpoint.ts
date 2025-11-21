@@ -131,7 +131,7 @@ export const useBreakpoint = (): BreakpointInfo => {
 
     // Listen untuk resize events
     // Debounce untuk performa
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     const debouncedResize = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(handleResize, 150);

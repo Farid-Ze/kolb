@@ -60,12 +60,12 @@ export const RankingCard = ({
 
   const statusMeta = useMemo(() => {
     if (isSaving) {
-      return { label: 'Menyinkronkan…', indicator: 'bg-sky-400', text: 'text-sky-100' };
+      return { label: 'Menyinkronkan…', indicator: 'bg-sky-400', text: 'text-sky-600' };
     }
     if (isPending) {
-      return { label: 'Perlu sinkronisasi', indicator: 'bg-amber-400', text: 'text-amber-100' };
+      return { label: 'Perlu sinkronisasi', indicator: 'bg-amber-400', text: 'text-amber-600' };
     }
-    return { label: 'Tersimpan', indicator: 'bg-emerald-400', text: 'text-emerald-100' };
+    return { label: 'Tersimpan', indicator: 'bg-emerald-400', text: 'text-emerald-600' };
   }, [isSaving, isPending]);
 
   const handleReorder = useCallback(
@@ -94,8 +94,8 @@ export const RankingCard = ({
         >
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm uppercase tracking-wide text-muted-foreground">{label}</p>
-              <p className="text-base font-medium text-foreground">{option.text}</p>
+              <p className="text-sm uppercase tracking-wide text-gray-500">{label}</p>
+              <p className="text-base font-medium text-black">{option.text}</p>
             </div>
             <motion.span
               initial={{ scale: 0.9, opacity: 0.6 }}
@@ -131,9 +131,9 @@ export const RankingCard = ({
   return (
     <div className="glass-material rounded-3xl p-6 shadow-2xl">
       <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">Item {item.order}</p>
-        <h2 className="text-2xl font-semibold text-foreground">{item.prompt}</h2>
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Item {item.order}</p>
+        <h2 className="text-2xl font-semibold text-black dark:text-white">{item.prompt}</h2>
+        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
           <span className={`flex items-center gap-2 font-medium ${statusMeta.text}`}>
             <span className={`h-2 w-2 rounded-full ${statusMeta.indicator}`} />
             {statusMeta.label}

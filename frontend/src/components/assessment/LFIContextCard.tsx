@@ -23,7 +23,7 @@ export const LFIContextCard: React.FC<LFIContextCardProps> = ({
   const validation = validateContextRanks(currentRanks);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-testid="lfi-context-card">
       {/* Context Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-amber-400 font-mono text-xs uppercase tracking-widest">

@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
+export async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   // In a real app, we'd handle auth headers here (e.g. from localStorage or context)
   // For now, we assume the browser handles cookies or the proxy handles it.
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {

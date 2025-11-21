@@ -83,7 +83,7 @@ ReportPage (Root Component)
                             │
                             ├── [IF report.style exists]
                             │   │
-                            │   ├── Primary Learning Style
+                            │   ├── Primary Learning Style (StyleSummaryCard)
                             │   │   └── motion.div (fadeInUp)
                             │   │       └── GlassMaterial (intensity="high", amber border)
                             │   │           ├── Label ("PRIMARY LEARNING STYLE")
@@ -98,6 +98,36 @@ ReportPage (Root Component)
                             │                   └── BodyText (detail text)
                             │
                             ├── [IF report.percentiles exists]
+                            │   └── NormInfoCard
+                            │       └── GlassMaterial
+                            │           ├── SectionTitle ("Informasi Norma")
+                            │           └── List (Norm Group, Version, Fallback status)
+                            │
+                            ├── [IF report.lfi exists]
+                            │   └── FlexibilityChart
+                            │       └── GlassMaterial
+                            │           ├── SectionTitle ("Learning Flexibility")
+                            │           └── BarChart (CE, RO, AC, AE flexibility)
+                            │
+                            ├── [IF report.learningSpace exists]
+                            │   └── LearningSpaceInsights
+                            │       └── GlassMaterial
+                            │           ├── SectionTitle ("Learning Space Insights")
+                            │           ├── Spiral Stage
+                            │           ├── Educator Roles
+                            │           └── Heuristics
+                            │
+                            ├── [IF report.sessionDesigns exists]
+                            │   └── SessionDesignList
+                            │       └── GlassMaterial
+                            │           ├── SectionTitle ("Rekomendasi Sesi")
+                            │           └── List of Session Cards
+                            │
+                            ├── [IF report.analytics.meta exists]
+                            │   └── AnalyticsMetaCard
+                            │
+                            └── [IF report.notes exists]
+                                └── InterpretationNotes
                             │   └── Percentile Rankings
                             │       └── motion.div (fadeInUp)
                             │           └── GlassMaterial

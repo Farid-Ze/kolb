@@ -64,7 +64,7 @@ export const AssessmentStartPage: React.FC = () => {
       >
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md transition-all text-sm font-medium text-white/70 hover:text-white group"
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/5 dark:border-white/5 hover:border-black/20 dark:hover:border-white/20 backdrop-blur-md transition-all text-sm font-medium text-slate-600 dark:text-white/70 hover:text-slate-900 dark:hover:text-white group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           <span>Kembali ke Beranda</span>
@@ -94,38 +94,38 @@ export const AssessmentStartPage: React.FC = () => {
 
               {/* Header */}
               <motion.div variants={fadeInUp} className="space-y-4">
-                  <div className="inline-flex p-4 rounded-2xl bg-white/5 border border-white/10 mb-4 shadow-2xl shadow-black/20">
+                  <div className="inline-flex p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 mb-4 shadow-2xl shadow-black/20">
                     <LayeredIcon icon={BookOpen} size="lg" color="primary" />
                   </div>
-                  <DisplayTitle className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+                  <DisplayTitle className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-slate-900 to-slate-600 dark:from-white dark:to-white/60">
                     Apa yang akan Anda lakukan?
                   </DisplayTitle>
-                  <BodyText className="text-white/60 max-w-lg mx-auto">
+                  <BodyText className="text-slate-600 dark:text-white/60 max-w-lg mx-auto">
                     Ikuti 12 pernyataan dan urutkan akhir kalimat sesuai cara Anda benar-benar belajar.
                   </BodyText>
                 </motion.div>
 
                 {/* Instructions List */}
-                <motion.div variants={fadeInUp} className="w-full text-left space-y-4 bg-black/20 rounded-xl p-6 border border-white/5">
+                <motion.div variants={fadeInUp} className="w-full text-left space-y-4 bg-black/5 dark:bg-black/20 rounded-xl p-6 border border-black/5 dark:border-white/5">
                     <div className="flex gap-4 items-start">
-                        <span className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-500/20">1</span>
+                        <span className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-500/20">1</span>
                         <div>
-                            <h3 className="text-white font-medium mb-1">Rank the Endings</h3>
-                            <p className="text-sm text-white/50">For each statement, rank the 4 endings from most like you to least like you.</p>
+                            <h2 className="text-slate-900 dark:text-white font-medium mb-1 text-lg">Rank the Endings</h2>
+                            <p className="text-sm text-slate-600 dark:text-white/50">For each statement, rank the 4 endings from most like you to least like you.</p>
                         </div>
                     </div>
                     <div className="flex gap-4 items-start">
-                        <span className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-sm border border-blue-500/20">2</span>
+                        <span className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm border border-blue-500/20">2</span>
                         <div>
-                            <h3 className="text-white font-medium mb-1">No Right or Wrong</h3>
-                            <p className="text-sm text-white/50">There are no correct answers. Be honest about how you actually learn.</p>
+                            <h2 className="text-slate-900 dark:text-white font-medium mb-1 text-lg">No Right or Wrong</h2>
+                            <p className="text-sm text-slate-600 dark:text-white/50">There are no correct answers. Be honest about how you actually learn.</p>
                         </div>
                     </div>
                     <div className="flex gap-4 items-start">
-                        <span className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-sm border border-purple-500/20">3</span>
+                        <span className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-sm border border-purple-500/20">3</span>
                         <div>
-                            <h3 className="text-white font-medium mb-1">Complete All Items</h3>
-                            <p className="text-sm text-white/50">You must rank all options for every question to get your result.</p>
+                            <h2 className="text-slate-900 dark:text-white font-medium mb-1 text-lg">Complete All Items</h2>
+                            <p className="text-sm text-slate-600 dark:text-white/50">You must rank all options for every question to get your result.</p>
                         </div>
                     </div>
                 </motion.div>
@@ -134,11 +134,11 @@ export const AssessmentStartPage: React.FC = () => {
                 <motion.div variants={scaleIn} className="pt-4">
                     <button
                         onClick={handleStartAssessment}
-                        className="group relative px-8 py-4 bg-white text-black rounded-xl font-bold text-lg shadow-xl shadow-white/10 hover:shadow-white/20 hover:scale-105 transition-all duration-300 flex items-center gap-3 overflow-hidden"
+                        className="group relative px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-black rounded-xl font-bold text-lg shadow-xl shadow-black/10 dark:shadow-white/10 hover:scale-105 transition-all duration-300 flex items-center gap-3 overflow-hidden"
                     >
                       <span className="relative z-10">Mulai Asesmen</span>
                         <Play className="w-5 h-5 relative z-10 fill-current" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     </button>
                 </motion.div>
 

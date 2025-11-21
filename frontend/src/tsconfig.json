@@ -14,6 +14,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
+    "types": ["node"],
 
     // ===== JSX =====
     "jsx": "react-jsx",
@@ -91,6 +92,7 @@
     "**/*.test.ts",
     "**/*.spec.tsx",
     "**/*.test.tsx",
+    "tests",
     "docker-compose.yml.tsx",
     "Dockerfile/**/*"
   ]

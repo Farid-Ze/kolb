@@ -95,7 +95,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {/* Error Details (Development only) */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details className="material-thin rounded-lg p-4 space-y-2">
                 <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
                   Detail Teknis (Development Mode)

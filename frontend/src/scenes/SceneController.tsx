@@ -15,7 +15,7 @@ const ReflectiveObservationRoom = React.lazy(() => import('./ReflectiveObservati
 const AbstractConceptualizationRoom = React.lazy(() => import('./AbstractConceptualizationRoom/AbstractConceptualizationRoom'));
 const ActiveExperimentationRoom = React.lazy(() => import('./ActiveExperimentationRoom/ActiveExperimentationRoom'));
 
-const RoomComponents: Record<string, React.ComponentType<unknown>> = {
+const RoomComponents: Record<string, React.LazyExoticComponent<any> | React.ComponentType<any>> = {
     'intro-room': IntroRoom,
     'concrete-experience-room': ConcreteExperienceRoom,
     'reflective-observation-room': ReflectiveObservationRoom,
@@ -28,7 +28,12 @@ export const SceneController: React.FC = () => {
     const { nextRoom, prevRoom, goToRoom } = useExperienceActions();
     const { status } = useAuthStatus();
 
-    const currentRoom = ROOM_REGISTRY[currentRoomIndex] || ROOM_REGISTRY[0];
+    const currentRoom = ROOM_REGISTRY[currentRoomIndex] ?? ROOM_REGISTRY[0];
+    
+    if (!currentRoom) {
+        return <div>Configuration Error: No rooms defined</div>;
+    }
+
     const CurrentRoomComponent = RoomComponents[currentRoom.id] || (() => <div>Room not found</div>);
 
     // Keyboard navigation
@@ -82,7 +87,7 @@ export const SceneController: React.FC = () => {
             <BackgroundVignette />
 
             {/* Global Auth Indicator (HUD) */}
-            <div className="absolute top-6 right-6 z-50 flex items-center gap-2 pointer-events-none">
+            <header className="absolute top-6 right-6 z-50 flex items-center gap-2 pointer-events-none">
                 {status === 'loading' && (
                     <div 
                         className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md pointer-events-auto"
@@ -113,10 +118,10 @@ export const SceneController: React.FC = () => {
                         <span className="text-xs font-medium text-white/50">Guest</span>
                     </div>
                 )}
-            </div>
+            </header>
 
             <AnimatePresence initial={false} custom={direction} mode="popLayout">
-                <motion.div
+                <motion.main
                     key={currentRoomIndex}
                     custom={direction}
                     variants={variants}
@@ -134,11 +139,11 @@ export const SceneController: React.FC = () => {
                     <React.Suspense fallback={<RoomFallback />}>
                         <CurrentRoomComponent />
                     </React.Suspense>
-                </motion.div>
+                </motion.main>
             </AnimatePresence>
 
             {/* HUD / Navigation */}
-            <div className="absolute bottom-8 left-0 right-0 z-50 flex flex-col items-center gap-6 pointer-events-none">
+            <nav className="absolute bottom-8 left-0 right-0 z-50 flex flex-col items-center gap-6 pointer-events-none">
                 {/* Room Title & Arrows */}
                 <div className="flex items-center gap-8 pointer-events-auto">
                     <button
@@ -203,7 +208,7 @@ export const SceneController: React.FC = () => {
                         </button>
                     ))}
                 </div>
-            </div>
+            </nav>
         </div>
     );
 };
