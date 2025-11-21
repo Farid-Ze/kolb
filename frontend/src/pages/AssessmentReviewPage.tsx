@@ -98,24 +98,6 @@ export const AssessmentReviewPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  const waitForAutosave = useCallback(async () => {
-    if (!hasPendingSave) {
-      return true;
-    }
-
-    const toastId = toast.loading('Menunggu autosave selesai...');
-    try {
-      await flushPendingSaves();
-      return true;
-    } catch (error) {
-      console.error('Failed to flush pending autosave before finalizing', error);
-      toast.error('Autosave belum selesai. Mohon coba lagi setelah tersinkron.');
-      return false;
-    } finally {
-      toast.dismiss(toastId);
-    }
-  }, [flushPendingSaves, hasPendingSave]);
-
 
 
   // Task 34: useMutation untuk finalize session
@@ -179,18 +161,29 @@ export const AssessmentReviewPage: React.FC = () => {
       void refetchValidation();
       return;
     }
-    const autosaveReady = await waitForAutosave();
-    if (!autosaveReady) {
+
+    try {
+      await waitForAutosave();
+    } catch (error) {
+      // waitForAutosave already surfaces the toast; prevent finalize dialog
+      console.error('Failed to flush autosave queue before finalize', error);
       return;
     }
     setShowConfirmDialog(true);
   };
 
-  const confirmFinalize = async () => {
-    const autosaveReady = await waitForAutosave();
-    if (!autosaveReady) {
+  const handleBackToAssessment = async () => {
+    try {
+      await waitForAutosave();
+    } catch (error) {
+      console.error('Failed to flush autosave queue before navigation', error);
       return;
     }
+
+    void navigate(`/assessment/${sessionId}`);
+  };
+
+  const confirmFinalize = () => {
     finalizeMutation.mutate();
     setShowConfirmDialog(false);
   };
@@ -385,13 +378,29 @@ export const AssessmentReviewPage: React.FC = () => {
   const hasMissingContexts = contextStatus.some((context) => !context.present);
   const autosaveBusy = hasPendingSave || isSaving;
 
+  const waitForAutosave = useCallback(async () => {
+    if (!hasPendingSave) {
+      return;
+    }
+
+    const toastId = toast.loading('Menunggu autosave selesai...');
+    try {
+      await flushPendingSaves();
+    } catch (error) {
+      toast.error('Autosave gagal tersinkron. Coba lagi dalam beberapa saat.');
+      throw error;
+    } finally {
+      toast.dismiss(toastId);
+    }
+  }, [flushPendingSaves, hasPendingSave]);
+
   return (
     <PageShell>
       {/* Header - Minimal & Cinematic */}
       <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-start pointer-events-none">
         <motion.button
           onClick={() => {
-            void navigate(`/assessment/${sessionId}`);
+            void handleBackToAssessment();
           }}
           className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md transition-all text-sm font-medium text-white/70 hover:text-white group"
           whileHover={{ x: -4 }}
@@ -535,9 +544,15 @@ export const AssessmentReviewPage: React.FC = () => {
       {/* Floating Footer */}
       <div className="fixed bottom-8 left-0 right-0 z-50 flex justify-center pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-4 p-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl">
+            {autosaveBusy && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-white/80 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Menyimpan jawaban...</span>
+              </div>
+            )}
             <motion.button
               onClick={() => {
-                void navigate(`/assessment/${sessionId}`);
+                void handleBackToAssessment();
               }}
                 className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium transition-colors"
                 whileHover={{ scale: 1.05 }}
@@ -551,11 +566,13 @@ export const AssessmentReviewPage: React.FC = () => {
             <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
                 <AlertDialogTrigger asChild>
                     <motion.button
-                        onClick={handleFinalize}
-                        disabled={!isComplete || finalizeMutation.isPending}
+                        onClick={() => {
+                          void handleFinalize();
+                        }}
+                        disabled={!isComplete || finalizeMutation.isPending || autosaveBusy}
                         className="px-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        whileHover={isComplete ? { scale: 1.05 } : {}}
-                        whileTap={isComplete ? { scale: 0.95 } : {}}
+                        whileHover={isComplete && !autosaveBusy ? { scale: 1.05 } : {}}
+                        whileTap={isComplete && !autosaveBusy ? { scale: 0.95 } : {}}
                     >
                         {finalizeMutation.isPending ? (
                             <>
@@ -580,7 +597,11 @@ export const AssessmentReviewPage: React.FC = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5 hover:text-white">Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmFinalize} className="bg-emerald-500 text-white hover:bg-emerald-600">
+                        <AlertDialogAction
+                          onClick={confirmFinalize}
+                          className="bg-emerald-500 text-white hover:bg-emerald-600"
+                          disabled={finalizeMutation.isPending}
+                        >
                             Yes, Submit
                         </AlertDialogAction>
                     </AlertDialogFooter>
