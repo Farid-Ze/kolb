@@ -87,6 +87,10 @@ export const RegisterPage: React.FC = () => {
     registerMutation.mutate(data);
   };
 
+  const handleRegisterSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    void handleSubmit(onSubmit)(event);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -102,7 +106,7 @@ export const RegisterPage: React.FC = () => {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={handleRegisterSubmit} className="space-y-5">
             {/* Demo Mode Info */}
             {isDemoMode && (
               <motion.div 

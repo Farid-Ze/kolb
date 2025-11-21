@@ -59,12 +59,12 @@ export interface Session {
   completed_at?: string;
   progress: number; // 0-100
   current_item_index?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface StartSessionRequest {
   instrument_code: string; // e.g., "S-KLSI-4"
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface StartSessionResponse {
@@ -158,7 +158,7 @@ export interface SessionValidationIssue {
   message: string;
   fatal: boolean;
   item_ids?: number[];
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   contexts?: string[];
 }
 
@@ -331,7 +331,7 @@ export interface ReportPercentiles {
   source_provenance?: string | null;
   norm_group_used?: string | null;
   norm_version_used?: string | null;
-  per_scale_provenance?: Record<string, any> | null;
+  per_scale_provenance?: Record<string, unknown> | null;
   per_scale_sources?: {
     CE?: string | null;
     RO?: string | null;
@@ -342,7 +342,7 @@ export interface ReportPercentiles {
   } | null;
   used_fallback_any?: boolean;
   raw_outside_norm_range?: boolean;
-  truncated_scales?: Record<string, any> | null;
+  truncated_scales?: Record<string, unknown> | null;
 }
 
 export interface ReportStyleBlock {
@@ -684,7 +684,7 @@ export interface StudyDataRow {
   dialectic_scores: DialecticScores;
   learning_style: LearningStyleType;
   lfi_score: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface StudyDataResponse {

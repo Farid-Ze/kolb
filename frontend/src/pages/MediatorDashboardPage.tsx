@@ -14,7 +14,7 @@ import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { getTeams, createTeam, type Team } from '../services/teamService';
 import { TeamCard } from '../components/teams/TeamCard';
 import { LoadingComponent } from '../components/common/LoadingComponent';
@@ -63,7 +63,7 @@ export const MediatorDashboardPage: React.FC = () => {
   const createTeamMutation = useMutation({
     mutationFn: createTeam,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      void queryClient.invalidateQueries({ queryKey: ['teams'] });
       toast.success('Tim berhasil dibuat!');
       setNewTeamName('');
       setNewTeamDescription('');
@@ -74,7 +74,7 @@ export const MediatorDashboardPage: React.FC = () => {
     },
   });
 
-  const handleCreateTeam = (event: React.FormEvent) => {
+  const handleCreateTeam = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!newTeamName.trim()) {
       return;

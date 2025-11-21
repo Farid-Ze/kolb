@@ -21,6 +21,8 @@ import {
   Label,
   Cell,
 } from 'recharts';
+import type { TooltipProps } from 'recharts';
+import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import type { TeamRollupDataPoint } from '../../services/teamService';
 import { Users } from 'lucide-react';
 
@@ -31,6 +33,17 @@ interface TeamRollupChartProps {
   ariaDescribedById?: string;
 }
 
+type TeamScatterPoint = {
+  x: number;
+  y: number;
+  name: string;
+  email?: string | null;
+  style?: string | null;
+  styleCode?: string | null;
+  userId?: string | number | null;
+  isAverage?: boolean;
+};
+
 // Color mapping untuk learning styles
 const STYLE_COLORS: Record<string, string> = {
   DIV: 'hsl(var(--chart-1))', // Diverging - Orange
@@ -40,7 +53,10 @@ const STYLE_COLORS: Record<string, string> = {
   BAL: 'hsl(var(--chart-5))', // Balancing - Yellow
 };
 
-const getStyleColor = (styleCode: string): string => {
+const getStyleColor = (styleCode?: string | null): string => {
+  if (!styleCode) {
+    return 'hsl(var(--primary))';
+  }
   return STYLE_COLORS[styleCode] || 'hsl(var(--primary))';
 };
 
@@ -50,22 +66,27 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
   avgAeRo,
   ariaDescribedById,
 }) => {
-  // Transform data for scatter plot
-  const chartData = dataPoints.map((point) => ({
-    x: point.ac_ce ?? null,
-    y: point.ae_ro ?? null,
-    name: point.name,
-    email: point.email,
-    style: point.learning_style,
-    styleCode: point.style_code,
-    userId: point.user_id,
-  }));
-  const filteredData = chartData.filter((point) => typeof point.x === 'number' && typeof point.y === 'number');
+  const scatterPoints: TeamScatterPoint[] = dataPoints
+    .map((point): TeamScatterPoint | null => {
+      if (typeof point.ac_ce !== 'number' || typeof point.ae_ro !== 'number') {
+        return null;
+      }
+      return {
+        x: point.ac_ce,
+        y: point.ae_ro,
+        name: point.name,
+        email: point.email ?? null,
+        style: point.learning_style ?? null,
+        styleCode: point.style_code ?? null,
+        userId: point.user_id ?? null,
+      };
+    })
+    .filter((point): point is TeamScatterPoint => point !== null);
 
-  // Average point if provided
-  const avgPoint = avgAcCe !== undefined && avgAeRo !== undefined
-    ? [{ x: avgAcCe, y: avgAeRo, name: 'Team Average' }]
-    : [];
+  const averagePoints: TeamScatterPoint[] =
+    avgAcCe !== undefined && avgAeRo !== undefined
+      ? [{ x: avgAcCe, y: avgAeRo, name: 'Team Average', isAverage: true }]
+      : [];
 
   return (
     <div className="space-y-4">
@@ -141,56 +162,11 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
             />
 
             {/* Tooltip */}
-            <Tooltip
-              cursor={{ strokeDasharray: '3 3' }}
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const point = payload[0].payload;
-                  if (point.name === 'Team Average') {
-                    return (
-                      <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
-                        <p className="text-sm text-foreground mb-1">
-                          <strong>Team Average</strong>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          AC-CE: {typeof point.x === 'number' ? point.x.toFixed(1) : '—'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          AE-RO: {typeof point.y === 'number' ? point.y.toFixed(1) : '—'}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="material-regular rounded-lg p-3 border border-border shadow-lg max-w-xs">
-                      <p className="text-sm text-foreground mb-1">
-                        <strong>{point.name}</strong>
-                      </p>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {point.email}
-                      </p>
-                      <div className="space-y-1">
-                        <p className="text-xs">
-                          <span className="text-muted-foreground">Style:</span>{' '}
-                          <span className="text-foreground">{point.style}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          AC-CE: {typeof point.x === 'number' ? point.x.toFixed(1) : '—'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          AE-RO: {typeof point.y === 'number' ? point.y.toFixed(1) : '—'}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
+            <Tooltip cursor={{ strokeDasharray: '3 3' }} content={renderTeamRollupTooltip} />
 
             {/* Team Members */}
-            <Scatter data={filteredData} shape="circle">
-              {chartData.map((entry, index) => (
+            <Scatter data={scatterPoints} shape="circle">
+              {scatterPoints.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={getStyleColor(entry.styleCode)}
@@ -201,9 +177,9 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
             </Scatter>
 
             {/* Team Average (if provided) */}
-            {avgPoint.length > 0 && (
+            {averagePoints.length > 0 && (
               <Scatter
-                data={avgPoint}
+                data={averagePoints}
                 fill="hsl(var(--destructive))"
                 shape="diamond"
               />
@@ -250,7 +226,7 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
                 <span className="text-xs text-muted-foreground">{name}</span>
               </div>
             ))}
-            {avgPoint.length > 0 && (
+            {averagePoints.length > 0 && (
               <div className="flex items-center gap-2">
                 <div
                   className="w-3 h-3 rotate-45"
@@ -264,4 +240,84 @@ export const TeamRollupChart: React.FC<TeamRollupChartProps> = ({
       </div>
     </div>
   );
+};
+
+type TeamTooltipEntry = Omit<Payload<number, string>, 'payload'> & { payload?: unknown };
+
+type TooltipRenderProps = TooltipProps<number, string> & {
+  payload?: ReadonlyArray<Payload<number, string>>;
+};
+
+const sanitizeTeamTooltipPayload = (
+  payload?: TooltipRenderProps['payload'],
+): TeamTooltipEntry[] =>
+  Array.isArray(payload)
+    ? payload.filter((entry): entry is TeamTooltipEntry => typeof entry === 'object' && entry !== null)
+    : [];
+
+const renderTeamRollupTooltip = ({ active, payload }: TooltipRenderProps) => {
+  const tooltipPayload = sanitizeTeamTooltipPayload(payload);
+  if (!active || tooltipPayload.length === 0) {
+    return null;
+  }
+  const point = extractTeamPoint(tooltipPayload[0]);
+  if (!point) {
+    return null;
+  }
+  if (point.isAverage) {
+    return (
+      <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
+        <p className="text-sm text-foreground mb-1">
+          <strong>Team Average</strong>
+        </p>
+        <p className="text-xs text-muted-foreground">AC-CE: {point.x.toFixed(1)}</p>
+        <p className="text-xs text-muted-foreground">AE-RO: {point.y.toFixed(1)}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="material-regular rounded-lg p-3 border border-border shadow-lg max-w-xs">
+      <p className="text-sm text-foreground mb-1">
+        <strong>{point.name}</strong>
+      </p>
+      {point.email ? (
+        <p className="text-xs text-muted-foreground mb-2">{point.email}</p>
+      ) : null}
+      <div className="space-y-1">
+        {point.style ? (
+          <p className="text-xs">
+            <span className="text-muted-foreground">Style:</span>{' '}
+            <span className="text-foreground">{point.style}</span>
+          </p>
+        ) : null}
+        <p className="text-xs text-muted-foreground">AC-CE: {point.x.toFixed(1)}</p>
+        <p className="text-xs text-muted-foreground">AE-RO: {point.y.toFixed(1)}</p>
+      </div>
+    </div>
+  );
+};
+
+const extractTeamPoint = (payload: TeamTooltipEntry | undefined): TeamScatterPoint | null => {
+  if (!payload) {
+    return null;
+  }
+  const raw: unknown = payload.payload;
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const candidate = raw as Partial<TeamScatterPoint>;
+  if (typeof candidate.x !== 'number' || typeof candidate.y !== 'number' || typeof candidate.name !== 'string') {
+    return null;
+  }
+  return {
+    x: candidate.x,
+    y: candidate.y,
+    name: candidate.name,
+    email: candidate.email ?? null,
+    style: candidate.style,
+    styleCode: candidate.styleCode,
+    userId: candidate.userId,
+    isAverage: candidate.isAverage,
+  };
 };

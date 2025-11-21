@@ -19,7 +19,7 @@ import React, { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useNonBlockingNavigate } from '../../hooks/useNonBlockingNavigate';
 import { motion, AnimatePresence } from 'motion/react';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 import { SPRING_CONFIG, CROSS_FADE } from '../../lib/motion';
 
 interface AssessmentLayoutProps {

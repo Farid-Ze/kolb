@@ -8,7 +8,7 @@ import { PageShell, RoomContent } from '../../core/design-system/Layout';
 import { springs } from '../../core/physics/springs';
 import { fadeInUp, staggerContainer, scaleIn } from '../../core/physics/motionPrimitives';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { getSessions } from '../../services/sessionService';
 import { LayeredIcon } from '../../components/ui/LayeredIcon';
 import { Heart } from 'lucide-react';

@@ -9,10 +9,16 @@ import { QueryClient } from '@tanstack/react-query';
 
 // Fungsi helper untuk safely access environment variables
 const getEnvVar = (key: string, defaultValue: string): string => {
+  const envRecord = readEnvRecord();
+  const rawValue = envRecord?.[key];
+  return typeof rawValue === 'string' && rawValue.length > 0 ? rawValue : defaultValue;
+};
+
+const readEnvRecord = (): Record<string, string | undefined> | undefined => {
   try {
-    return import.meta.env?.[key] || defaultValue;
+    return import.meta.env as Record<string, string | undefined>;
   } catch {
-    return defaultValue;
+    return undefined;
   }
 };
 

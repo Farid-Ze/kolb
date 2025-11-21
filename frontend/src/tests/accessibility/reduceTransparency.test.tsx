@@ -15,11 +15,9 @@ import userEvent from '@testing-library/user-event';
 import { GlassPanel } from '../../components/ui/GlassPanel';
 import { TintedGlassButton } from '../../components/ui/TintedGlassButton';
 import { ModalLayer } from '../../components/ui/ModalLayer';
-import {
-  UIPreferencesProvider,
-  UIPreferencesContext,
-  UIPreferencesContextType,
-} from '../../contexts/UIPreferencesContext';
+import { UIPreferencesProvider } from '../../contexts/UIPreferencesContext';
+import { UIPreferencesContext } from '../../contexts/ui-preferences-context';
+import type { UIPreferencesContextType } from '../../contexts/uiPreferences.types';
 import { useReduceTransparency } from '../../hooks/useReduceTransparency';
 
 interface TestScenario {
@@ -247,7 +245,7 @@ describe('ReduceTransparencyTests playground', () => {
 
 describe('useReduceTransparency integration', () => {
   it('returns true when context preference is enabled', () => {
-    let contextValue: UIPreferencesContextType = {
+    const contextValue: UIPreferencesContextType = {
       theme: 'system',
       reduceMotion: false,
       reduceTransparency: true,

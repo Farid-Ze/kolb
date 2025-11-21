@@ -14,7 +14,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'ApiError';
@@ -71,7 +71,9 @@ export const rememberAuthIntent = () => {
   const redirectPath = `${location.pathname || ''}${location.search || ''}${location.hash || ''}` || '/';
   try {
     storage.setItem(POST_LOGIN_REDIRECT_KEY, redirectPath);
-  } catch {}
+  } catch (error) {
+    logStorageError('rememberAuthIntent:setItem', error);
+  }
 };
 
 export const consumeAuthIntent = (): string | null => {
@@ -83,7 +85,9 @@ export const consumeAuthIntent = (): string | null => {
       storage.removeItem(POST_LOGIN_REDIRECT_KEY);
       return value;
     }
-  } catch {}
+  } catch (error) {
+    logStorageError('consumeAuthIntent', error);
+  }
   return null;
 };
 
@@ -93,7 +97,9 @@ export const rememberAuthErrorMessage = (message?: string) => {
   if (!storage) return;
   try {
     storage.setItem(LAST_AUTH_ERROR_KEY, message);
-  } catch {}
+  } catch (error) {
+    logStorageError('rememberAuthErrorMessage', error);
+  }
 };
 
 export const consumeAuthErrorMessage = (): string | null => {
@@ -105,7 +111,9 @@ export const consumeAuthErrorMessage = (): string | null => {
       storage.removeItem(LAST_AUTH_ERROR_KEY);
       return value;
     }
-  } catch {}
+  } catch (error) {
+    logStorageError('consumeAuthErrorMessage', error);
+  }
   return null;
 };
 
@@ -115,7 +123,9 @@ export const emitAuthUnauthorized = (message?: string) => {
   rememberAuthErrorMessage(message ?? 'Sesi Anda telah berakhir. Silakan login kembali.');
   try {
     window.dispatchEvent(new CustomEvent('auth:unauthorized', { detail: { message } }));
-  } catch {}
+  } catch (error) {
+    logStorageError('emitAuthUnauthorized', error);
+  }
 };
 
 /**
@@ -158,4 +168,11 @@ export const apiFetch = async (
   }
 
   return response;
+};
+
+const logStorageError = (context: string, error: unknown): void => {
+  if (typeof console === 'undefined') {
+    return;
+  }
+  console.error(`[errorHandler:${context}]`, error);
 };

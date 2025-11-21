@@ -7,7 +7,7 @@ import { DisplayTitle, BodyText } from '../../core/design-system/Typography';
 import { PageShell, RoomContent } from '../../core/design-system/Layout';
 import { fadeInUp, staggerContainer, scaleIn } from '../../core/physics/motionPrimitives';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { getSessions } from '../../services/sessionService';
 import { LayeredIcon } from '../../components/ui/LayeredIcon';
 import { Compass, ArrowRight } from 'lucide-react';

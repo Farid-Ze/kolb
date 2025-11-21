@@ -17,9 +17,9 @@ export const DisplayTitle: React.FC<TypographyProps> = ({
   ...props
 }) => {
   const toneColors = {
-    default: 'text-white',
-    muted: 'text-white/80',
-    accent: 'text-emerald-400',
+    default: 'text-slate-900 dark:text-white',
+    muted: 'text-slate-600 dark:text-white/80',
+    accent: 'text-emerald-600 dark:text-emerald-400',
   };
 
   return (
@@ -43,9 +43,9 @@ export const SectionTitle: React.FC<TypographyProps> = ({
   ...props
 }) => {
   const toneColors = {
-    default: 'text-white',
-    muted: 'text-white/70',
-    accent: 'text-emerald-400',
+    default: 'text-slate-900 dark:text-white',
+    muted: 'text-slate-600 dark:text-white/70',
+    accent: 'text-emerald-600 dark:text-emerald-400',
   };
 
   return (
@@ -69,9 +69,9 @@ export const BodyText: React.FC<TypographyProps> = ({
   ...props
 }) => {
   const toneColors = {
-    default: 'text-white/90',
-    muted: 'text-white/60',
-    accent: 'text-white',
+    default: 'text-slate-700 dark:text-white/90',
+    muted: 'text-slate-500 dark:text-white/60',
+    accent: 'text-slate-900 dark:text-white',
   };
 
   return (

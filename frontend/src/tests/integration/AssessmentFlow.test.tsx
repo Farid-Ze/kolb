@@ -78,13 +78,9 @@ const mockAuth = {
   refreshToken: vi.fn(),
 };
 
-vi.mock('../../contexts/AuthContext', async () => {
-  const actual = await vi.importActual('../../contexts/AuthContext');
-  return {
-    ...actual,
-    useAuth: () => mockAuth,
-  };
-});
+vi.mock('../../contexts/useAuth', () => ({
+  useAuth: () => mockAuth,
+}));
 
 // Mock useNavigate
 const mockNavigate = vi.fn();
@@ -126,10 +122,15 @@ describe('Assessment Flow Integration', () => {
 
     const { getSession } = await import('../../services/sessionService');
     vi.mocked(getSession).mockResolvedValue({
-      session_id: '1',
+      id: '1',
       user_id: mockAuth.user.id,
-      status: 'STARTED',
-    } as any);
+      instrument_id: 'S-KLSI-4',
+      status: 'Started',
+      started_at: new Date().toISOString(),
+      progress: 0,
+      current_item_index: 0,
+      metadata: {},
+    });
   });
 
   it('should render loading state initially', async () => {
@@ -261,7 +262,6 @@ describe('Assessment Flow Integration', () => {
     const mockSubmitResponse: SubmitAnswersResponse = { saved_count: 1 };
     vi.mocked(submitAnswers).mockResolvedValue(mockSubmitResponse);
 
-    const user = userEvent.setup();
     renderWithProviders();
 
     await waitFor(() => {

@@ -10,6 +10,8 @@
 
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import type { TooltipProps } from 'recharts';
+import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import type { ReportLfiBlock } from '../../types/api';
 import { Activity } from 'lucide-react';
 
@@ -116,20 +118,7 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
               stroke="hsl(var(--muted-foreground))"
               data-testid="flexibility-y-axis"
             />
-            <Tooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  return (
-                    <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
-                        <p className="text-foreground">
-                          LFI Score: {payload[0].value?.toFixed(1)}%
-                        </p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
+            <Tooltip content={renderLfiTooltip} />
             <Bar dataKey="score" radius={[0, 8, 8, 0]}>
               <Cell fill={getColor()} />
             </Bar>
@@ -145,6 +134,42 @@ export const FlexibilityChart: React.FC<FlexibilityChartProps> = ({
           </p>
         </div>
       </div>
+    </div>
+  );
+};
+
+type LfiTooltipEntry = Omit<Payload<number, string>, 'payload'> & { payload?: unknown };
+type LfiTooltipRenderProps = TooltipProps<number, string> & {
+  payload?: ReadonlyArray<Payload<number, string>>;
+};
+
+const filterLfiTooltipPayload = (
+  payload?: LfiTooltipRenderProps['payload'],
+): LfiTooltipEntry[] =>
+  Array.isArray(payload)
+    ? payload.filter((entry): entry is LfiTooltipEntry => typeof entry === 'object' && entry !== null)
+    : [];
+
+const getTooltipNumericValue = (value: unknown): number => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const renderLfiTooltip = ({ active, payload }: LfiTooltipRenderProps) => {
+  const tooltipPayload = filterLfiTooltipPayload(payload);
+  if (!active || tooltipPayload.length === 0) {
+    return null;
+  }
+  const value = getTooltipNumericValue(tooltipPayload[0]?.value);
+  return (
+    <div className="material-regular rounded-lg p-3 border border-border shadow-lg">
+      <p className="text-foreground">LFI Score: {value.toFixed(1)}%</p>
     </div>
   );
 };

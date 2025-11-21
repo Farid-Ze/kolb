@@ -72,9 +72,9 @@ export const LayeredIcon: React.FC<LayeredIconProps> = ({
   const lightingActive = enableLighting && !reduceMotion;
 
   // Parse icons for each layer
-  const icons = (Array.isArray(icon)
+  const icons: [LucideIcon, LucideIcon, LucideIcon] = Array.isArray(icon)
     ? icon
-    : [icon, icon, icon]) as [LucideIcon, LucideIcon, LucideIcon];
+    : [icon, icon, icon];
 
   const [BackgroundIcon, MiddleIcon, ForegroundIcon] = icons;
 

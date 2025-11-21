@@ -24,10 +24,10 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 import { VibrantText } from '../ui/VibrantText';
-import { useScrollEdge } from '../ui/ScrollEdgeHandler';
+import { useScrollEdge } from '../ui/scrollEdgeHooks';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { TelemetryConsentBanner } from './TelemetryConsentBanner';
 import { useNonBlockingNavigate } from '../../hooks/useNonBlockingNavigate';

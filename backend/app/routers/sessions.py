@@ -19,10 +19,12 @@ from app.schemas.session import (
     SessionStartResponse,
     OperationStatus,
     SessionOperationResult,
+    SingleItemResponsePayload,
+    SingleItemResponse,
 )
 from app.core.config import settings
 from app.core.metrics import inc_counter
-from app.models.klsi.items import UserResponse
+from app.models.klsi.items import UserResponse, ItemChoice
 from app.models.klsi.learning import LFIContextScore
 from app.models.klsi.enums import SessionStatus
 from app.i18n.id_messages import SessionErrorMessages
@@ -372,3 +374,59 @@ def force_finalize(
             override_value=True,
         )
     )
+
+
+@router.post("/{session_id}/response", response_model=SingleItemResponse)
+def submit_single_response(
+    session_id: int,
+    payload: SingleItemResponsePayload,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """
+    Real-time submission of a single item response (Walking Skeleton).
+    Maps dimension codes (CE, RO, AC, AE) to choice IDs and submits to runtime.
+    """
+    user = get_current_user(authorization, db)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, user.id)
+    if not sess or sess.user_id != user.id:
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
+
+    # 1. Fetch choices for the item to map Dimension -> Choice ID
+    choices = db.query(ItemChoice).filter(ItemChoice.item_id == payload.item_id).all()
+    if not choices:
+        raise HTTPException(status_code=404, detail=f"Item {payload.item_id} not found or has no choices")
+
+    # 2. Map response_map (Dimension -> Rank) to ranks (Choice ID -> Rank)
+    ranks = {}
+    for choice in choices:
+        # choice.learning_mode is an Enum (CE, RO, AC, AE)
+        mode_code = choice.learning_mode.name if hasattr(choice.learning_mode, "name") else str(choice.learning_mode)
+        if mode_code in payload.response_map:
+            ranks[choice.id] = payload.response_map[mode_code]
+    
+    if len(ranks) != 4:
+        raise HTTPException(status_code=400, detail="Could not map all 4 dimensions to choices for this item")
+
+    # 3. Construct runtime payload
+    runtime_payload = {
+        "kind": "item",
+        "item_id": payload.item_id,
+        "ranks": ranks,
+    }
+
+    # 4. Submit to runtime
+    runtime.submit_payload(db, session_id, runtime_payload)
+
+    # 5. Calculate progress (Simple approximation: count distinct items responded / 12)
+    # This is a lightweight query
+    responded_count = (
+        db.query(UserResponse.item_id)
+        .filter(UserResponse.session_id == session_id)
+        .distinct()
+        .count()
+    )
+    progress = min(100.0, (responded_count / 12.0) * 100.0)
+
+    return SingleItemResponse(status="synced", progress=progress)

@@ -1,4 +1,4 @@
-import { DependencyList, useCallback } from 'react';
+import { useCallback } from 'react';
 
 interface UseAsyncHandlerOptions {
   onError?: (error: unknown) => void;
@@ -7,7 +7,7 @@ interface UseAsyncHandlerOptions {
 
 type AsyncCallback<TArgs extends unknown[]> = (
   ...args: TArgs
-) => Promise<unknown>;
+) => Promise<unknown> | void;
 
 /**
  * Provides a memoized callback that safely executes an async function without
@@ -17,25 +17,38 @@ type AsyncCallback<TArgs extends unknown[]> = (
  */
 export function useAsyncHandler<TArgs extends unknown[]>(
   handler: AsyncCallback<TArgs>,
-  deps: DependencyList = [],
   options?: UseAsyncHandlerOptions
 ): (...args: TArgs) => void {
-  const memoizedHandler = useCallback(handler, deps);
   const { onError, suppressConsoleError = false } = options ?? {};
 
   return useCallback(
     (...args: TArgs) => {
-      memoizedHandler(...args).catch((error) => {
+      try {
+        const result = handler(...args);
+        if (isPromiseLike(result)) {
+          void result.catch((error) => {
+            if (onError) {
+              onError(error);
+              return;
+            }
+            if (!suppressConsoleError) {
+              console.error('[useAsyncHandler] unhandled rejection', error);
+            }
+          });
+        }
+      } catch (error) {
         if (onError) {
           onError(error);
           return;
         }
         if (!suppressConsoleError) {
-          // eslint-disable-next-line no-console -- centralized debug surface
-          console.error('[useAsyncHandler] unhandled rejection', error);
+          console.error('[useAsyncHandler] sync error', error);
         }
-      });
+      }
     },
-    [memoizedHandler, onError, suppressConsoleError]
+    [handler, onError, suppressConsoleError]
   );
 }
+
+const isPromiseLike = (value: unknown): value is Promise<unknown> =>
+  typeof value === 'object' && value !== null && 'then' in value && typeof (value as Promise<unknown>).then === 'function';

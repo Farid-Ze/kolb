@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { AnimatedGrid, AnimatedListItem } from '../components/ui/AnimatedListItem';
 import { LayeredIcon } from '../components/ui/LayeredIcon';
 import { motion } from 'motion/react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { getSessions, startSession } from '../services/sessionService';
 import { queryClient } from '../config/api';
 import {
@@ -74,24 +74,21 @@ export const HomePage: React.FC = () => {
     },
   });
 
-  const handleStartAssessment = useAsyncHandler(
-    async () => {
-    // Check if there's an active session
+  const startAssessmentCallback = useCallback(() => {
     if (sessions && sessions.length > 0) {
       const existingSession = sessions[0];
       if (!existingSession) {
         return;
       }
-        void navigate(`/assessment/${existingSession.id}/start`);
+      void navigate(`/assessment/${existingSession.id}/start`);
       return;
     }
 
-    // Start new session
     setIsStarting(true);
     startSessionMutation.mutate();
-    },
-    [navigate, sessions, startSessionMutation]
-  );
+  }, [navigate, sessions, startSessionMutation]);
+
+  const handleStartAssessment = useAsyncHandler(startAssessmentCallback);
 
   const handleLogout = () => {
     logout();

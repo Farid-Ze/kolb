@@ -137,8 +137,8 @@ export const AssessmentReviewPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Asesmen berhasil diselesaikan!');
       // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['report', sessionId] });
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['report', sessionId] });
       
       // Navigate to report
       void navigate(`/report/${sessionId}`);
@@ -147,6 +147,42 @@ export const AssessmentReviewPage: React.FC = () => {
       toast.error('Gagal memfinalisasi sesi: ' + error.message);
     },
   });
+
+  const contextStatus = useMemo(() => {
+    const serverStatus = validationData?.diagnostics?.contexts?.status ?? [];
+    return LFI_CONTEXT_ORDER.map((name) =>
+      serverStatus.find((entry) => entry.name === name) || { name, present: false }
+    );
+  }, [validationData]);
+
+  const completedCount = useMemo(() => {
+    return (items ?? []).filter((item) => {
+      const response = responses?.[item.item_id];
+      if (!response || !response.ranks) return false;
+      const ranks = Object.values(response.ranks);
+      return ranks.length === 4 && new Set(ranks).size === 4;
+    }).length;
+  }, [items, responses]);
+
+  const completedContexts = contextStatus.filter((context) => context.present).length;
+  const hasMissingContexts = contextStatus.some((context) => !context.present);
+  const autosaveBusy = hasPendingSave || isSaving;
+
+  const waitForAutosave = useCallback(async () => {
+    if (!hasPendingSave) {
+      return;
+    }
+
+    const toastId = toast.loading('Menunggu autosave selesai...');
+    try {
+      await flushPendingSaves();
+    } catch (error) {
+      toast.error('Autosave gagal tersinkron. Coba lagi dalam beberapa saat.');
+      throw error;
+    } finally {
+      toast.dismiss(toastId);
+    }
+  }, [flushPendingSaves, hasPendingSave]);
 
   // Handler untuk finalize dengan validation
   const handleFinalize = async () => {
@@ -355,44 +391,6 @@ export const AssessmentReviewPage: React.FC = () => {
       </PageShell>
     );
   }
-
-  // Calculate stats
-  const completedCount = items.filter((item) => {
-    const response = responses[item.item_id];
-    if (!response || !response.ranks) return false;
-    const ranks = Object.values(response.ranks);
-    return ranks.length === 4 && new Set(ranks).size === 4;
-  }).length;
-
-  const contextStatus = useMemo(() => {
-    const serverStatus = validationData?.diagnostics?.contexts?.status;
-    if (serverStatus && serverStatus.length > 0) {
-      return LFI_CONTEXT_ORDER.map((name) =>
-        serverStatus.find((entry) => entry.name === name) || { name, present: false }
-      );
-    }
-    return LFI_CONTEXT_ORDER.map((name) => ({ name, present: false }));
-  }, [validationData]);
-
-  const completedContexts = contextStatus.filter((context) => context.present).length;
-  const hasMissingContexts = contextStatus.some((context) => !context.present);
-  const autosaveBusy = hasPendingSave || isSaving;
-
-  const waitForAutosave = useCallback(async () => {
-    if (!hasPendingSave) {
-      return;
-    }
-
-    const toastId = toast.loading('Menunggu autosave selesai...');
-    try {
-      await flushPendingSaves();
-    } catch (error) {
-      toast.error('Autosave gagal tersinkron. Coba lagi dalam beberapa saat.');
-      throw error;
-    } finally {
-      toast.dismiss(toastId);
-    }
-  }, [flushPendingSaves, hasPendingSave]);
 
   return (
     <PageShell>

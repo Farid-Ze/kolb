@@ -14,7 +14,32 @@ const RAW_SAMPLE = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as Report;
 const RESPONSIBLE_FALLBACK =
   'Laporan ini bersifat formatif dan tidak menggantikan penilaian profesional.';
 
-const clone = <T,>(payload: T): T => JSON.parse(JSON.stringify(payload));
+const clone = <T,>(payload: T): T => {
+  const serialized = JSON.stringify(payload);
+  const parsed: unknown = JSON.parse(serialized);
+  return parsed as T;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const coerceDetailString = (value: unknown): string | null => {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (isRecord(value)) {
+    const record = value;
+    const overview = record.overview;
+    if (typeof overview === 'string') {
+      return overview;
+    }
+    return JSON.stringify(record);
+  }
+  return JSON.stringify(value);
+};
 
 const normalizeReportPayload = (report: Report): Report => {
   const normalized = report;
@@ -24,18 +49,10 @@ const normalizeReportPayload = (report: Report): Report => {
   if (!('shareContext' in normalized)) {
     normalized.shareContext = null;
   }
-  const styleBlock = normalized.style as Report['style'];
+  const styleBlock = normalized.style;
   if (styleBlock) {
-    const detailValue = styleBlock.primary_detail as unknown;
-    if (detailValue && typeof detailValue === 'object') {
-      const detail = detailValue as Record<string, string>;
-      styleBlock.primary_detail = detail.overview ?? JSON.stringify(detail);
-    }
-    const backupDetail = styleBlock.backup_detail as unknown;
-    if (backupDetail && typeof backupDetail === 'object') {
-      const detail = backupDetail as Record<string, string>;
-      styleBlock.backup_detail = detail.overview ?? JSON.stringify(detail);
-    }
+    styleBlock.primary_detail = coerceDetailString(styleBlock.primary_detail);
+    styleBlock.backup_detail = coerceDetailString(styleBlock.backup_detail);
   }
   return normalized;
 };

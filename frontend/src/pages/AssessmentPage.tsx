@@ -17,13 +17,12 @@ import { useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAssessment } from '../hooks/useAssessment';
 import { useSessionGuard } from '../hooks/useSessionGuard';
-import { RankingItem } from '../components/assessment/RankingItem';
+import { RankingCard } from '../components/assessment/RankingCard';
 
 import { Skeleton } from '../components/ui/skeleton';
 import { GuideModal } from '../components/common/GuideModal';
 import { GUIDE_IDS } from '../services/guideService';
 import { toast } from 'sonner';
-import { MorphingIcon } from '../components/ui/MorphingIcon';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -33,28 +32,11 @@ import {
   AlertCircle,
   ArrowLeft,
   Lock,
-  Compass,
 } from 'lucide-react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
 import { PageShell, RoomContent } from '../core/design-system/Layout';
 import { GlassMaterial } from '../core/design-system/Materials';
 import { DisplayTitle } from '../core/design-system/Typography';
 import { staggerContainer } from '../core/physics/motionPrimitives';
-import { LayeredIcon } from '../components/ui/LayeredIcon';
 import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 
 
@@ -63,7 +45,6 @@ export const AssessmentPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const sessionAccess = useSessionGuard(sessionId ?? null);
   const normalizedSessionId = sessionId ?? '';
-  const [dragMode, setDragMode] = useState(false); // Toggle drag mode
   const [showGuideModal, setShowGuideModal] = useState(false); // Task 8.9: Guide modal state
 
   // Task 27, 28, 30, 31, 32: useAssessment hook dengan React Query
@@ -73,6 +54,7 @@ export const AssessmentPage: React.FC = () => {
     totalItems,
     progress,
     responses,
+    responseMeta,
     isComplete,
     isLoading,
     isSaving,
@@ -84,6 +66,7 @@ export const AssessmentPage: React.FC = () => {
     prevItem,
     canGoNext,
     canGoPrev,
+    isCurrentItemComplete,
   } = useAssessment({
     sessionId: normalizedSessionId,
     onComplete: () => {
@@ -91,6 +74,9 @@ export const AssessmentPage: React.FC = () => {
     },
     enabled: Boolean(sessionId) && sessionAccess.hasAccess,
   });
+  
+  const currentResponse = currentItem ? responses[currentItem.item_id] : undefined;
+  const currentItemMeta = currentItem ? responseMeta[currentItem.item_id] : undefined;
 
   // Spring configuration (Guidelines.md Section 2.3.1)
   const springConfig = {
@@ -98,52 +84,6 @@ export const AssessmentPage: React.FC = () => {
     stiffness: 300,
     damping: 20,
   };
-
-  // Task 31: Setup drag-and-drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px movement to activate drag (prevents accidental drags)
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Task 31: Sortable options array (sorted by current rank)
-  const sortedOptions = currentItem 
-    ? [...currentItem.options].sort((a, b) => {
-        const rankA = responses[currentItem.item_id]?.ranks?.[a.option_code] || 999;
-        const rankB = responses[currentItem.item_id]?.ranks?.[b.option_code] || 999;
-        return rankA - rankB;
-      })
-    : [];
-
-  // Task 31: Handle drag end - reassign ranks based on new order (Task 6.5: Declarative)
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (!over || !currentItem) return;
-    
-    if (active.id !== over.id) {
-      const oldIndex = sortedOptions.findIndex(opt => opt.option_code === active.id);
-      const newIndex = sortedOptions.findIndex(opt => opt.option_code === over.id);
-      
-      const newOrder = arrayMove(sortedOptions, oldIndex, newIndex);
-      
-      // Task 6.5: Declarative batch update - compute new ranks object
-      const newRanks: Record<string, number> = {};
-      newOrder.forEach((option, index) => {
-        newRanks[option.option_code] = index + 1;
-      });
-      
-      // Single state update (declarative)
-      setItemRanks(currentItem.item_id, newRanks);
-      
-      toast.success('Urutan diperbarui!', { duration: 1000 });
-    }
-  }, [currentItem, sortedOptions, setItemRanks]);
 
   // Handler untuk kembali
   const handleBack = useCallback(() => {
@@ -327,7 +267,7 @@ export const AssessmentPage: React.FC = () => {
                 <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
                     Item {currentItemIndex + 1} / {totalItems}
                 </span>
-                {(isSaving || hasPendingSave) && (
+                {(isSaving || hasPendingSave || currentItemMeta?.dirty) && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -348,78 +288,41 @@ export const AssessmentPage: React.FC = () => {
         </div>
       </div>
 
-      <RoomContent>
-            <motion.div
-                key={currentItem.item_id}
-                variants={staggerContainer}
-                initial="hidden"
-                animate="visible"
-                className="w-full max-w-3xl mx-auto"
-            >
-                {/* Question Card */}
-                <GlassMaterial intensity="high" className="p-8 md:p-12 relative overflow-hidden transform-style-3d">
-                    {/* Decorative Icon */}
-                    <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
-                        <LayeredIcon icon={Compass} size="lg" color="primary" />
-                    </div>
-
-                    <div className="relative z-10 flex flex-col gap-8">
-                        {/* Prompt */}
-                        <div className="space-y-2">
-                            <span className="text-xs font-bold uppercase tracking-widest text-white/40">
-                                Statement {currentItemIndex + 1}
-                            </span>
-                            <DisplayTitle className="text-2xl md:text-3xl font-medium leading-tight">
-                                {currentItem.prompt || 'When I learn...'}
-                            </DisplayTitle>
-                        </div>
-
-                        {/* Drag/Drop Area */}
-                        <div className="bg-black/20 rounded-xl p-6 border border-white/5">
-                            <div className="flex items-center justify-between mb-4 text-sm text-white/50">
-                                <span>Rank from 1 (Most like you) to 4 (Least like you)</span>
-                                <button 
-                                    onClick={() => setDragMode(!dragMode)}
-                                    className="flex items-center gap-2 hover:text-white transition-colors"
-                                >
-                                    <MorphingIcon variant="drag-button" isActive={dragMode} size={14} />
-                                    <span>{dragMode ? 'Drag Mode' : 'Click Mode'}</span>
-                                </button>
-                            </div>
-
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragEnd={handleDragEnd}
-                            >
-                                <SortableContext
-                                    items={sortedOptions.map(opt => opt.option_code)}
-                                    strategy={verticalListSortingStrategy}
-                                >
-                                    <div className="space-y-3">
-                                        {(dragMode ? sortedOptions : currentItem.options).map((option) => (
-                                            <RankingItem
-                                                key={option.option_code}
-                                                dragId={option.option_code}
-                                                mode={{
-                                                    mode: option.option_code,
-                                                    statement: option.text,
-                                                    rank: responses[currentItem.item_id]?.ranks?.[option.option_code],
-                                                }}
-                                                onRankChange={(optionCode, rank) => {
-                                                    setRank(currentItem.item_id, optionCode, rank);
-                                                }}
-                                                isDraggable={dragMode}
-                                            />
-                                        ))}
-                                    </div>
-                                </SortableContext>
-                            </DndContext>
-                        </div>
-                    </div>
-                </GlassMaterial>
-            </motion.div>
-      </RoomContent>
+        <RoomContent>
+        <motion.div
+          key={currentItem.item_id}
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-3xl mx-auto space-y-4"
+        >
+          <p className="text-center text-sm text-white/70">
+          Seret kartu atau ketuk angka 1-4 untuk memberi peringkat dari paling hingga paling tidak mencerminkan diri Anda.
+          </p>
+          <p
+            className={`text-center text-xs ${
+              isCurrentItemComplete ? 'text-emerald-300' : 'text-amber-300'
+            }`}
+          >
+            {isCurrentItemComplete
+              ? 'Item ini sudah lengkap.'
+              : 'Pastikan ranking 1-4 unik sebelum melanjutkan.'}
+          </p>
+          <RankingCard
+            item={currentItem}
+            response={currentResponse}
+          onRankChange={(optionCode, rank) => {
+            setRank(currentItem.item_id, optionCode, rank);
+          }}
+          onRanksCommitted={(ranks) => {
+            setItemRanks(currentItem.item_id, ranks);
+          }}
+            isSaving={isSaving || hasPendingSave}
+            isPending={Boolean(currentItemMeta?.dirty)}
+          progress={progress}
+          />
+        </motion.div>
+        </RoomContent>
 
       {/* Bottom Toolbar - Styled to match */}
       <div className="fixed bottom-0 left-0 right-0 p-6 z-50 pointer-events-none">

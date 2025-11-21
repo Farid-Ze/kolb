@@ -113,7 +113,7 @@ export async function apiCall<T>(
 
     // Parse response as JSON when available
     if (isJson && typeof response.json === 'function') {
-      const data = await response.json();
+      const data: unknown = await response.json();
       return data as T;
     }
 

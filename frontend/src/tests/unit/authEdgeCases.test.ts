@@ -106,8 +106,8 @@ describe('Auth Edge Cases', () => {
 
   describe('SessionStorage Edge Cases', () => {
     it('should handle missing sessionStorage gracefully', () => {
-      const mockSessionStorage = {
-        getItem: vi.fn().mockImplementation(() => {
+      const mockSessionStorage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = {
+        getItem: vi.fn(() => {
           throw new Error('SessionStorage not available');
         }),
         setItem: vi.fn(),
@@ -164,9 +164,6 @@ describe('Auth Edge Cases', () => {
     it('should handle auth state changes during navigation', () => {
       // Simulate the scenario where auth state changes mid-navigation
       let isAuthenticated = false;
-      
-      // User starts navigation
-      const targetPath = '/assessment/start';
       
       // Auth state changes before navigation completes
       isAuthenticated = true;

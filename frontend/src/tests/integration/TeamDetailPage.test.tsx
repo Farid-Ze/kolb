@@ -135,13 +135,9 @@ const mockAuth = {
   refreshToken: vi.fn(),
 };
 
-vi.mock('../../contexts/AuthContext', async () => {
-  const actual = await vi.importActual('../../contexts/AuthContext');
-  return {
-    ...actual,
-    useAuth: () => mockAuth,
-  };
-});
+vi.mock('../../contexts/useAuth', () => ({
+  useAuth: () => mockAuth,
+}));
 
 // Mock useNavigate
 const mockNavigate = vi.fn();

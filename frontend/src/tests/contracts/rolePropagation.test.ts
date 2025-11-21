@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeUserRole, type Role } from '../../contexts/AuthContext';
+import { normalizeUserRole } from '../../contexts/authUtils';
+import type { Role } from '../../contexts/auth.types';
 
 type BackendRole = 'MAHASISWA' | Role;
 

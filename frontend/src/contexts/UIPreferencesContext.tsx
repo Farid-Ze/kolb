@@ -1,36 +1,17 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from 'react';
+import React, { useEffect, useState, ReactNode } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import type {
+  UIPreferences,
+  UIPreferencesContextType,
+  ThemePreference,
+} from './uiPreferences.types';
+import { UIPreferencesContext } from './ui-preferences-context';
 
 /**
  * KLSI 4.0 - UIPreferencesContext
  * Task 81-83: Manajemen preferensi UI (theme, motion, transparency)
  * Guidelines.md §2.5 & §8.5.3: Accessibility support
  */
-
-interface UIPreferences {
-  theme: 'light' | 'dark' | 'system';
-  reduceMotion: boolean;
-  reduceTransparency: boolean;
-  telemetryEnabled: boolean;
-}
-
-export interface UIPreferencesContextType extends UIPreferences {
-  setTheme: (theme: 'light' | 'dark' | 'system') => void;
-  toggleTheme: () => void;
-  setReduceMotion: (value: boolean) => void;
-  setReduceTransparency: (value: boolean) => void;
-  setTelemetryEnabled: (value: boolean) => void;
-}
-
-export const UIPreferencesContext = createContext<
-  UIPreferencesContextType | undefined
->(undefined);
 
 interface UIPreferencesProviderProps {
   children: ReactNode;
@@ -130,7 +111,7 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
     };
   }, []);
 
-  const setTheme = (theme: 'light' | 'dark' | 'system') => {
+  const setTheme = (theme: ThemePreference) => {
     setPreferences((prev) => ({ ...prev, theme }));
   };
 
@@ -196,14 +177,4 @@ export const UIPreferencesProvider: React.FC<UIPreferencesProviderProps> = ({
   );
 };
 
-export const useUIPreferences = (): UIPreferencesContextType => {
-  const context = useContext(UIPreferencesContext);
-  if (context === undefined) {
-    throw new Error(
-      'useUIPreferences must be used within a UIPreferencesProvider'
-    );
-  }
-  return context;
-};
-
-export const useUIPreferencesOptional = () => useContext(UIPreferencesContext);
+export type { UIPreferencesContextType, UIPreferences, ThemePreference } from './uiPreferences.types';

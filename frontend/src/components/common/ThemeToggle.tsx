@@ -11,7 +11,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sun, Moon } from 'lucide-react';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 
 export const ThemeToggle: React.FC = () => {
   const { theme, toggleTheme } = useUIPreferences();

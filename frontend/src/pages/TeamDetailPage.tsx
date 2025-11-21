@@ -91,10 +91,10 @@ export const TeamDetailPage: React.FC = () => {
   });
 
   const refreshTeamData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: teamQueryKey, refetchType: 'active' });
-    queryClient.invalidateQueries({ queryKey: rollupQueryKey, refetchType: 'active' });
-    queryClient.refetchQueries({ queryKey: teamQueryKey, type: 'active' });
-    queryClient.refetchQueries({ queryKey: rollupQueryKey, type: 'active' });
+    void queryClient.invalidateQueries({ queryKey: teamQueryKey, refetchType: 'active' });
+    void queryClient.invalidateQueries({ queryKey: rollupQueryKey, refetchType: 'active' });
+    void queryClient.refetchQueries({ queryKey: teamQueryKey, type: 'active' });
+    void queryClient.refetchQueries({ queryKey: rollupQueryKey, type: 'active' });
   }, [queryClient, teamQueryKey, rollupQueryKey]);
 
   // Normalize legacy rollup payloads used in tests/mocks that still expose `members` fields
@@ -232,8 +232,8 @@ export const TeamDetailPage: React.FC = () => {
   });
 
   // Add member handler
-  const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddMember = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!newMemberEmail.trim()) return;
 
     addMemberMutation.mutate({

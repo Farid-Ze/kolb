@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useUIPreferencesOptional } from '../contexts/UIPreferencesContext';
+import { useUIPreferencesOptional } from '../contexts/useUIPreferences';
 
 export const useReduceTransparency = (): boolean => {
   const context = useUIPreferencesOptional();

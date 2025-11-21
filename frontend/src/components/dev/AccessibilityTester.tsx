@@ -16,7 +16,8 @@ import { motion } from 'motion/react';
 import { Eye, EyeOff, Palette, Type, Zap, Monitor } from 'lucide-react';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { FormInput } from '../ui/FormInput';
-import { LongFormText, useFontScale } from '../ui/DynamicType';
+import { LongFormText } from '../ui/DynamicType';
+import { useFontScale } from '../ui/useFontScale';
 import { useWindowFocus } from '../../hooks/useWindowFocus';
 import { cn } from '../../lib/utils';
 import {
@@ -25,7 +26,7 @@ import {
   isWCAGCompliant,
   WCAGLevel,
 } from '../../lib/accessibility';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 
 interface AccessibilityTesterProps {
   /** Show/hide tester panel */

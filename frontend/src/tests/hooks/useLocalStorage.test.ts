@@ -9,7 +9,7 @@ import { useLocalStorage } from '../../hooks/useLocalStorage';
 describe('useLocalStorage', () => {
   beforeEach(() => {
     // Clear all mocks before each test
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
     localStorage.clear();
   });
 
@@ -24,8 +24,8 @@ describe('useLocalStorage', () => {
 
   it('should initialize with value from localStorage if it exists', () => {
     const existingValue = { name: 'Test', age: 25 };
-    localStorage.getItem = vi
-      .fn()
+    const getItemSpy = vi
+      .spyOn(Storage.prototype, 'getItem')
       .mockReturnValue(JSON.stringify(existingValue));
 
     const { result } = renderHook(() =>
@@ -34,10 +34,11 @@ describe('useLocalStorage', () => {
 
     const [value] = result.current;
     expect(value).toEqual(existingValue);
-    expect(localStorage.getItem).toHaveBeenCalledWith('test-key');
+    expect(getItemSpy).toHaveBeenCalledWith('test-key');
   });
 
   it('should update localStorage when value changes', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
     const { result } = renderHook(() => useLocalStorage('test-key', 'initial'));
 
     act(() => {
@@ -45,7 +46,7 @@ describe('useLocalStorage', () => {
       setValue('updated');
     });
 
-    expect(localStorage.setItem).toHaveBeenCalledWith(
+    expect(setItemSpy).toHaveBeenCalledWith(
       'test-key',
       JSON.stringify('updated')
     );
@@ -53,6 +54,7 @@ describe('useLocalStorage', () => {
   });
 
   it('should handle function updater', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
     const { result } = renderHook(() => useLocalStorage('counter', 0));
 
     act(() => {
@@ -61,13 +63,14 @@ describe('useLocalStorage', () => {
     });
 
     expect(result.current[0]).toBe(1);
-    expect(localStorage.setItem).toHaveBeenCalledWith(
+    expect(setItemSpy).toHaveBeenCalledWith(
       'counter',
       JSON.stringify(1)
     );
   });
 
   it('should handle complex objects', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
     const complexObject = {
       user: { name: 'John', roles: ['admin', 'user'] },
       settings: { theme: 'dark', notifications: true },
@@ -80,7 +83,7 @@ describe('useLocalStorage', () => {
       setValue(complexObject);
     });
 
-    expect(localStorage.setItem).toHaveBeenCalledWith(
+    expect(setItemSpy).toHaveBeenCalledWith(
       'config',
       JSON.stringify(complexObject)
     );
@@ -88,7 +91,7 @@ describe('useLocalStorage', () => {
   });
 
   it('should handle localStorage read errors gracefully', () => {
-    localStorage.getItem = vi.fn().mockImplementation(() => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('localStorage error');
     });
 
@@ -103,7 +106,7 @@ describe('useLocalStorage', () => {
   });
 
   it('should handle localStorage write errors gracefully', () => {
-    localStorage.setItem = vi.fn().mockImplementation(() => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('localStorage error');
     });
 
@@ -120,7 +123,7 @@ describe('useLocalStorage', () => {
   });
 
   it('should handle invalid JSON in localStorage', () => {
-    localStorage.getItem = vi.fn().mockReturnValue('invalid json {');
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue('invalid json {');
 
     const consoleErrorSpy = vi.spyOn(console, 'error');
 

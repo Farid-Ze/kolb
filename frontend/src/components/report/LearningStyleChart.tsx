@@ -190,14 +190,37 @@ const isLearningPoint = (value: unknown): value is LearningPoint => {
   );
 };
 
+type LearningTooltipEntry = {
+  payload?: unknown;
+  name?: string | number;
+  value?: number | string | ReadonlyArray<number | string>;
+  dataKey?: string | number;
+};
+
+const isLearningTooltipEntry = (entry: unknown): entry is LearningTooltipEntry => {
+  if (typeof entry !== 'object' || entry === null) {
+    return false;
+  }
+  const candidate = entry as LearningTooltipEntry;
+  return (
+    'payload' in candidate || 'value' in candidate || 'name' in candidate || 'dataKey' in candidate
+  );
+};
+
+const sanitizeLearningTooltipPayload = (
+  payload?: TooltipContentProps<number, string>['payload'],
+): LearningTooltipEntry[] =>
+  Array.isArray(payload) ? payload.filter(isLearningTooltipEntry) : [];
+
 const renderLearningStyleTooltip = (
   { active, payload }: TooltipContentProps<number, string>,
   styleName: string
 ) => {
-  if (!active || !payload || payload.length === 0) {
+  const tooltipPayload = sanitizeLearningTooltipPayload(payload);
+  if (!active || tooltipPayload.length === 0) {
     return null;
   }
-  const pointCandidate = payload[0]?.payload;
+  const pointCandidate: unknown = tooltipPayload[0]?.payload;
   if (!isLearningPoint(pointCandidate)) {
     return null;
   }

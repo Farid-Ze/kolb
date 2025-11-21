@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth, type Role } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
+import type { Role } from '../../contexts/auth.types';
 import { LoadingComponent } from '../common/LoadingComponent';
 
 /**

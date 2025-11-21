@@ -12,28 +12,12 @@
  * §8.5.2: Anti-pattern mitigation untuk Clear glass
  */
 
-import React, { ReactNode, createContext, useContext, useMemo } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { useReduceTransparency } from '../../hooks/useReduceTransparency';
 import { useVibrancy } from '../../hooks/useVibrancy';
 import { useWindowFocus } from '../../hooks/useWindowFocus';
 import { cn } from '../../lib/utils';
-
-// Context untuk vibrancy information
-interface GlassPanelContextValue {
-  isGlass: boolean;
-  backgroundColor: string;
-  textColor: string;
-  secondaryTextColor: string;
-  contrastRatio: number;
-}
-
-const GlassPanelContext = createContext<GlassPanelContextValue | null>(null);
-
-/**
- * Hook untuk mendapatkan vibrancy info dari parent GlassPanel
- * Digunakan oleh VibrantText component
- */
-export const useGlassPanelContext = () => useContext(GlassPanelContext);
+import { GlassPanelContext } from './GlassPanel.context';
 
 export interface GlassPanelProps extends React.HTMLAttributes<HTMLElement> {
   children: ReactNode;

@@ -4,21 +4,23 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '../../components/auth/ProtectedRoute';
 
+interface MockAuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'STUDENT' | 'MEDIATOR' | 'ADMIN';
+  created_at: string;
+}
+
 interface MockAuthValue {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: 'STUDENT' | 'MEDIATOR' | 'ADMIN';
-    created_at: string;
-  } | null;
+  user: MockAuthUser | null;
   accessToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (...args: any[]) => Promise<void> | void;
+  login: (email: string, password: string) => Promise<void> | void;
   logout: () => void;
   refreshToken: () => Promise<void> | void;
-  setAuthData: (...args: any[]) => void;
+  setAuthData: (token: string, user: MockAuthUser) => void;
 }
 
 const buildAuthValue = (overrides: Partial<MockAuthValue> = {}): MockAuthValue => ({
@@ -35,15 +37,9 @@ const buildAuthValue = (overrides: Partial<MockAuthValue> = {}): MockAuthValue =
 
 const mockUseAuth = vi.fn<() => MockAuthValue>(() => buildAuthValue());
 
-vi.mock('../../contexts/AuthContext', async () => {
-  const actual = await vi.importActual<typeof import('../../contexts/AuthContext')>(
-    '../../contexts/AuthContext',
-  );
-  return {
-    ...actual,
-    useAuth: () => mockUseAuth(),
-  };
-});
+vi.mock('../../contexts/useAuth', () => ({
+  useAuth: () => mockUseAuth(),
+}));
 
 describe('ProtectedRoute', () => {
   beforeEach(() => {

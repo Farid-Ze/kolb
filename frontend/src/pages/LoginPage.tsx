@@ -8,7 +8,7 @@ import { motion } from 'motion/react';
 import { useReduceTransparency } from '../hooks/useReduceTransparency';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { API_BASE_URL } from '../config/api';
 import { getDemoCredentials } from '../services/mockAuthService';
 import { loginWithEmail } from '../services/authService';
@@ -170,6 +170,10 @@ export const LoginPage: React.FC = () => {
     loginMutation.mutate(trimmedData);
   };
 
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    void handleSubmit(onSubmit)(event);
+  };
+
   // Quick login - langsung login dengan kredensial demo
   const quickLogin = (email: string, password: string) => {
     // CRITICAL: Trim whitespace untuk menghindari login errors
@@ -226,7 +230,7 @@ export const LoginPage: React.FC = () => {
           
           <CardContent>
             {/* Form */}
-            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
+            <form onSubmit={handleFormSubmit} noValidate className="space-y-6">
               {formError && (
                 <Alert variant="destructive" role="alert">
                   <AlertDescription>{formError}</AlertDescription>

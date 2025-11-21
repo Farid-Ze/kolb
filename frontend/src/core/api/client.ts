@@ -27,7 +27,8 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
     throw new ApiError(response.status, `API Error: ${response.statusText}`);
   }
 
-  return response.json();
+  const data = (await response.json()) as T;
+  return data;
 }
 
 // --- DTOs matching Backend Models ---
@@ -83,6 +84,17 @@ export interface SessionSubmissionPayload {
   contexts: ContextRank[];
 }
 
+export interface SingleItemResponsePayload {
+  item_id: number;
+  response_map: Record<string, number>; // CE, RO, AC, AE -> rank
+  timestamp?: string;
+}
+
+export interface SingleItemResponseStatus {
+  status: string;
+  progress: number;
+}
+
 export interface ReportData {
   session_id: number;
   raw: {
@@ -113,6 +125,11 @@ export interface ReportData {
   };
 }
 
+export interface SessionOperationResult {
+  ok: boolean;
+  result: Record<string, unknown> | null;
+}
+
 export const api = {
   startSession: async (): Promise<{ session_id: number }> => {
     return await fetchJson<{ session_id: number }>('/sessions/start', {
@@ -124,8 +141,15 @@ export const api = {
     return await fetchJson<AssessmentItem[]>(`/sessions/${sessionId}/items`);
   },
 
-  submitSession: async (sessionId: number, payload: SessionSubmissionPayload): Promise<any> => {
-    return await fetchJson(`/sessions/${sessionId}/submit_all_responses`, {
+  submitSession: async (sessionId: number, payload: SessionSubmissionPayload): Promise<SessionOperationResult> => {
+    return await fetchJson<SessionOperationResult>(`/sessions/${sessionId}/submit_all_responses`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  submitSingleResponse: async (sessionId: number, payload: SingleItemResponsePayload): Promise<SingleItemResponseStatus> => {
+    return await fetchJson<SingleItemResponseStatus>(`/sessions/${sessionId}/response`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });

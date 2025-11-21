@@ -11,7 +11,7 @@
 import React, { ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createPortal } from 'react-dom';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 import { X } from 'lucide-react';
 
 interface ModalLayerProps {
@@ -177,20 +177,3 @@ export const ModalLayer: React.FC<ModalLayerProps> = ({
   return createPortal(modalContent, document.body);
 };
 
-/**
- * useModal - Hook untuk mengelola modal state
- */
-export const useModal = (initialState = false) => {
-  const [isOpen, setIsOpen] = React.useState(initialState);
-
-  const open = () => setIsOpen(true);
-  const close = () => setIsOpen(false);
-  const toggle = () => setIsOpen((prev) => !prev);
-
-  return {
-    isOpen,
-    open,
-    close,
-    toggle,
-  };
-};

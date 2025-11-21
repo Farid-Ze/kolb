@@ -1,8 +1,22 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAssessment } from '../../hooks/useAssessment';
+import type { GetAssessmentItemsResponse } from '../../types/api';
 
-const mockSubmitAnswers = vi.fn();
+type MockSubmitAnswers = (
+  sessionId: string,
+  payload: unknown,
+  items: unknown,
+  options?: unknown
+) => Promise<{ saved_count: number }>;
+
+const mockSubmitAnswers = vi.fn<MockSubmitAnswers>();
+
+interface MockMutationOptions<TVariables = unknown, TResult = unknown> {
+  mutationFn: (variables: TVariables) => TResult | Promise<TResult>;
+  onSuccess?: (result: TResult, variables: TVariables) => void;
+  onError?: (error: Error, variables: TVariables) => void;
+}
 
 vi.mock('../../services/assessmentService', () => ({
   getAssessmentItems: vi.fn(),
@@ -14,15 +28,36 @@ vi.mock('../../services/assessmentService', () => ({
   ) => mockSubmitAnswers(sessionId, payload, items, options),
 }));
 
-const useQueryMock = vi.fn();
-const useMutationMock = vi.fn();
+interface MockQueryResult {
+  data: GetAssessmentItemsResponse;
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+}
+
+interface MockMutationResult<TResult = unknown> {
+  mutateAsync: (variables: unknown) => Promise<TResult>;
+  readonly isPending: boolean;
+}
+
+const useQueryMock = vi.fn<(options: unknown) => MockQueryResult>();
+const useMutationMock = vi.fn<
+  (options: MockMutationOptions) => MockMutationResult
+>();
+const useQueryClientMock = {
+  setQueryData: vi.fn(),
+  cancelQueries: vi.fn(),
+  getQueryData: vi.fn(),
+  invalidateQueries: vi.fn(),
+};
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (options: unknown) => useQueryMock(options),
-  useMutation: (options: unknown) => useMutationMock(options),
+  useMutation: (options: MockMutationOptions) => useMutationMock(options),
+  useQueryClient: () => useQueryClientMock,
 }));
 
-const sampleAssessmentResponse = {
+const sampleAssessmentResponse: GetAssessmentItemsResponse = {
   session_id: 'session-1',
   instrument_code: 'KLSI',
   total_items: 1,
@@ -56,22 +91,26 @@ describe('useAssessment.flushPendingSaves', () => {
 
     mockSubmitAnswers.mockReset();
 
-    useMutationMock.mockImplementation((options: any) => {
+    useMutationMock.mockImplementation((options: MockMutationOptions) => {
       let pending = false;
-      return {
-        mutateAsync: (variables: any) => {
-          pending = true;
-          try {
-            const result = options.mutationFn(variables);
-            options.onSuccess?.(result, variables, undefined);
-          } catch (error) {
-            pending = false;
-            options.onError?.(error as Error, variables, undefined);
-            return Promise.reject(error);
-          }
+
+      const mutateAsync = async (variables: unknown) => {
+        pending = true;
+        try {
+          const result = await options.mutationFn(variables);
+          options.onSuccess?.(result, variables);
+          return result;
+        } catch (error) {
+          const normalizedError = error instanceof Error ? error : new Error(String(error));
+          options.onError?.(normalizedError, variables);
+          throw normalizedError;
+        } finally {
           pending = false;
-          return Promise.resolve();
-        },
+        }
+      };
+
+      return {
+        mutateAsync,
         get isPending() {
           return pending;
         },

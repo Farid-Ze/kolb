@@ -103,6 +103,35 @@ class LegacyContextSubmissionPayload(ContextRank):
         }
 
 
+class SingleItemResponsePayload(CamelModel):
+    """Payload for real-time single item response (Walking Skeleton)."""
+
+    item_id: int = Field(gt=0)
+    response_map: dict[str, int]
+    timestamp: str | None = None
+
+    @field_validator("response_map")
+    @classmethod
+    def validate_response_map(cls, v: dict[str, int]):
+        # Must be exactly 4 entries and a permutation of {1,2,3,4}
+        if len(v) != 4:
+            raise ValueError(ValidationMessages.ITEM_RANK_COUNT)
+        
+        required_keys = {"CE", "RO", "AC", "AE"}
+        if set(v.keys()) != required_keys:
+            raise ValueError("Keys must be exactly CE, RO, AC, AE")
+
+        values = list(v.values())
+        if sorted(values) != [1, 2, 3, 4]:
+            raise ValueError(ValidationMessages.ITEM_RANK_PERMUTATION)
+        return v
+
+
+class SingleItemResponse(CamelModel):
+    status: str
+    progress: float
+
+
 class AutosaveItemRank(CamelModel):
     item_id: int = Field(gt=0)
     ranks: dict[str, int]

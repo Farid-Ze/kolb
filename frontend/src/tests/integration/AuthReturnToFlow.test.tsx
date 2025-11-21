@@ -85,7 +85,7 @@ describe('Auth ReturnTo Flow', () => {
       </div>
     );
 
-    const { container } = render(
+    render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={['/protected/resource']}>
           <AuthProvider>
@@ -113,36 +113,16 @@ describe('Auth ReturnTo Flow', () => {
 
   it('should redirect to returnTo URL after successful login', async () => {
     const user = userEvent.setup();
-    let currentPath = '/';
 
-    // Mock navigate to track where we're being redirected
-    const mockNavigate = vi.fn((path: string) => {
-      currentPath = path;
-    });
-
-    // Render login page with returnTo parameter
-    const TestApp = () => {
-      const [showProtected, setShowProtected] = React.useState(false);
-
-      React.useEffect(() => {
-        if (currentPath === '/assessment/start') {
-          setShowProtected(true);
-        }
-      }, [currentPath]);
-
-      return (
-        <Routes>
-          <Route path="/auth/login" element={<LoginPage />} />
-          <Route
-            path="/assessment/start"
-            element={<div>Assessment Start Page</div>}
-          />
-          {showProtected && (
-            <Route path="/" element={<div>Assessment Start Page</div>} />
-          )}
-        </Routes>
-      );
-    };
+    const TestApp = () => (
+      <Routes>
+        <Route path="/auth/login" element={<LoginPage />} />
+        <Route
+          path="/assessment/start"
+          element={<div>Assessment Start Page</div>}
+        />
+      </Routes>
+    );
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -175,7 +155,7 @@ describe('Auth ReturnTo Flow', () => {
     );
   });
 
-  it('should handle returnTo parameter with query strings and hash', async () => {
+  it('should handle returnTo parameter with query strings and hash', () => {
     const complexReturnTo = encodeURIComponent(
       '/report/123?tab=details#section-2'
     );
@@ -196,7 +176,7 @@ describe('Auth ReturnTo Flow', () => {
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
   });
 
-  it('should fallback to sessionStorage if no returnTo in URL', async () => {
+  it('should fallback to sessionStorage if no returnTo in URL', () => {
     // Set returnTo in sessionStorage
     sessionStorage.setItem('auth:postLoginRedirect', '/assessment/123');
 
@@ -250,7 +230,7 @@ describe('Auth ReturnTo Flow', () => {
     expect(errorMsg).toContain('Session expired');
   });
 
-  it('should not create infinite loops when returnTo is login page', async () => {
+  it('should not create infinite loops when returnTo is login page', () => {
     // Edge case: returnTo points to login page itself
     render(
       <QueryClientProvider client={queryClient}>
@@ -271,6 +251,3 @@ describe('Auth ReturnTo Flow', () => {
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
   });
 });
-
-// Import React for JSX
-import React from 'react';

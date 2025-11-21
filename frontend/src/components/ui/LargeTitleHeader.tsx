@@ -11,9 +11,9 @@
 
 import React, { ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 import { VibrantText } from './VibrantText';
-import { useScrollEdge, useScrollProgress } from './ScrollEdgeHandler';
+import { useScrollEdge, useScrollProgress } from './scrollEdgeHooks';
 
 interface LargeTitleHeaderProps {
   title: string;

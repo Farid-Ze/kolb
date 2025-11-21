@@ -115,27 +115,6 @@ export const WindowFocusIndicator: React.FC<WindowFocusIndicatorProps> = ({
 };
 
 /**
- * Higher-order component to apply window focus styling
- * 
- * Usage:
- * ```tsx
- * export const MyGlassPanel = withWindowFocus(({ isFocused, children }) => (
- *   <GlassPanel className={cn("glass-regular", getWindowFocusClasses(isFocused))}>
- *     {children}
- *   </GlassPanel>
- * ));
- * ```
- */
-export function withWindowFocus<P extends object>(
-  Component: React.ComponentType<P & { isFocused: boolean; isVisible: boolean }>
-) {
-  return function WindowFocusWrapper(props: P) {
-    const focusState = useWindowFocus();
-    return <Component {...props} {...focusState} />;
-  };
-}
-
-/**
  * Demo component for testing window focus behavior
  */
 export const WindowFocusDemo: React.FC = () => {

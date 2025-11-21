@@ -45,62 +45,102 @@ vi.mock('recharts', () => {
 });
 
 // Mock window.matchMedia untuk testing responsive behavior
+const createMatchMediaList = (query: string): MediaQueryList => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: () => undefined,
+  removeListener: () => undefined,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  dispatchEvent: () => true,
+});
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
+  value: vi.fn((query: string) => createMatchMediaList(query)),
 });
 
 // Mock IntersectionObserver
-globalThis.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  takeRecords() {
+class MockIntersectionObserver implements IntersectionObserver {
+  readonly root: Element | Document | null = null;
+  readonly rootMargin = '0px';
+  readonly thresholds: ReadonlyArray<number> = [];
+
+  constructor(private readonly callback?: IntersectionObserverCallback) {}
+
+  disconnect(): void {
+    // noop
+  }
+
+  observe(target: Element): void {
+    void target;
+    // noop
+  }
+
+  takeRecords(): IntersectionObserverEntry[] {
     return [];
   }
-  unobserve() {}
-} as any;
+
+  unobserve(target: Element): void {
+    void target;
+    // noop
+  }
+}
+
+globalThis.IntersectionObserver = MockIntersectionObserver;
 
 // Mock ResizeObserver
-globalThis.ResizeObserver = class ResizeObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
-} as any;
+class MockResizeObserver implements ResizeObserver {
+  constructor(private readonly callback?: ResizeObserverCallback) {}
+
+  observe(target: Element, options?: ResizeObserverOptions): void {
+    void target;
+    void options;
+    // noop
+  }
+
+  unobserve(target: Element): void {
+    void target;
+    // noop
+  }
+
+  disconnect(): void {
+    // noop
+  }
+}
+
+globalThis.ResizeObserver = MockResizeObserver;
 
 // Mock localStorage with in-memory store for deterministic tests
-const createLocalStorageMock = () => {
+const createLocalStorageMock = (): Storage => {
   const storage = new Map<string, string>();
-  return {
-    getItem: vi.fn((key: string) => (storage.has(key) ? storage.get(key)! : null)),
-    setItem: vi.fn((key: string, value: string) => {
-      storage.set(key, value);
-    }),
-    removeItem: vi.fn((key: string) => {
-      storage.delete(key);
-    }),
+  const storageImpl = {
+    get length() {
+      return storage.size;
+    },
     clear: vi.fn(() => {
       storage.clear();
     }),
-  };
+    getItem: vi.fn((key: string) => (storage.has(key) ? storage.get(key)! : null)),
+    key: vi.fn((index: number) => Array.from(storage.keys())[index] ?? null),
+    removeItem: vi.fn((key: string) => {
+      storage.delete(key);
+    }),
+    setItem: vi.fn((key: string, value: string) => {
+      storage.set(key, value);
+    }),
+  } satisfies Storage;
+
+  return storageImpl;
 };
 
 let localStorageMock = createLocalStorageMock();
-globalThis.localStorage = localStorageMock as unknown as Storage;
+globalThis.localStorage = localStorageMock;
 
 beforeEach(() => {
   localStorageMock = createLocalStorageMock();
-  globalThis.localStorage = localStorageMock as unknown as Storage;
+  globalThis.localStorage = localStorageMock;
 });
 
 // Mock console methods untuk cleaner test output (optional)

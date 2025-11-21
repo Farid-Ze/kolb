@@ -6,7 +6,7 @@ import { DisplayTitle, BodyText } from '../../core/design-system/Typography';
 import { PageShell, RoomContent } from '../../core/design-system/Layout';
 import { fadeInUp, staggerContainer, scaleIn } from '../../core/physics/motionPrimitives';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { api } from '../../core/api/client';
 import { useLatestAssessmentSession } from '../../core/api/hooks';
 import { LayeredIcon } from '../../components/ui/LayeredIcon';
@@ -100,7 +100,9 @@ const ActiveExperimentationRoom: React.FC = () => {
 
                             <motion.div variants={fadeInUp} className="pt-8">
                                 <button
-                                    onClick={handleAction}
+                                    onClick={() => {
+                                        void handleAction();
+                                    }}
                                     className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white text-black rounded-full font-bold text-lg tracking-wide hover:scale-105 transition-transform duration-300 shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)]"
                                 >
                                         <span>

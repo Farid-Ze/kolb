@@ -6,7 +6,7 @@ import { DisplayTitle, BodyText } from '../../core/design-system/Typography';
 import { PageShell, RoomContent } from '../../core/design-system/Layout';
 import { fadeInUp, staggerContainer, scaleIn } from '../../core/physics/motionPrimitives';
 import { useRoomFocus } from '../../core/accessibility/useRoomFocus';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { useLatestAssessmentSession } from '../../core/api/hooks';
 import { LayeredIcon } from '../../components/ui/LayeredIcon';
 import { Brain } from 'lucide-react';
@@ -42,7 +42,7 @@ const AbstractConceptualizationRoom: React.FC = () => {
     useRoomFocus(titleRef);
 
     // Check for latest completed session
-    const { data: session, isLoading, isUnauthorized } = useLatestAssessmentSession();
+    const { data: session } = useLatestAssessmentSession();
 
     useEffect(() => {
         trackPageView('/experience/abstract', 'Abstract Conceptualization Room');

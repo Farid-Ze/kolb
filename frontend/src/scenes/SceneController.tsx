@@ -15,7 +15,7 @@ const ReflectiveObservationRoom = React.lazy(() => import('./ReflectiveObservati
 const AbstractConceptualizationRoom = React.lazy(() => import('./AbstractConceptualizationRoom/AbstractConceptualizationRoom'));
 const ActiveExperimentationRoom = React.lazy(() => import('./ActiveExperimentationRoom/ActiveExperimentationRoom'));
 
-const RoomComponents: Record<string, React.ComponentType<any>> = {
+const RoomComponents: Record<string, React.ComponentType<unknown>> = {
     'intro-room': IntroRoom,
     'concrete-experience-room': ConcreteExperienceRoom,
     'reflective-observation-room': ReflectiveObservationRoom,

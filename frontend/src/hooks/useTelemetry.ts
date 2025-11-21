@@ -14,8 +14,8 @@ import {
   type PageViewEvent,
   type ActionEvent,
 } from '../services/telemetryService';
-import { useAuth } from '../contexts/AuthContext';
-import { useUIPreferencesOptional } from '../contexts/UIPreferencesContext';
+import { useAuth } from '../contexts/useAuth';
+import { useUIPreferencesOptional } from '../contexts/useUIPreferences';
 
 const normalizeLanguage = (locale?: string | null) => {
   if (!locale) return 'id';
@@ -29,9 +29,26 @@ const sanitizeMetadata = (metadata?: Record<string, unknown>) => {
     if (value === undefined || value === null) {
       return acc;
     }
-    acc[key] = typeof value === 'string' ? value : String(value);
+    acc[key] = formatMetadataValue(value);
     return acc;
   }, {});
+};
+
+const formatMetadataValue = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value.toString();
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return Object.prototype.toString.call(value);
+  }
 };
 
 /**

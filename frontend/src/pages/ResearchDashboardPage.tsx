@@ -12,7 +12,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import {
   getStudies,
   createStudy,
@@ -68,7 +68,7 @@ export const ResearchDashboardPage: React.FC = () => {
     mutationFn: createStudy,
     onSuccess: () => {
       // Invalidate and refetch studies
-      queryClient.invalidateQueries({ queryKey: ['studies'] });
+      void queryClient.invalidateQueries({ queryKey: ['studies'] });
       
       toast.success('Studi penelitian berhasil dibuat!');
       
@@ -85,7 +85,7 @@ export const ResearchDashboardPage: React.FC = () => {
   });
 
   // Create study handler
-  const handleCreateStudy = async (e: React.FormEvent) => {
+  const handleCreateStudy = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newStudyTitle.trim() || !newStudyStartDate) return;
 

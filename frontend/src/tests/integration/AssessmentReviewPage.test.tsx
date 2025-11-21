@@ -82,15 +82,9 @@ const mockAuth = {
   refreshToken: vi.fn(),
 };
 
-vi.mock('../../contexts/AuthContext', async () => {
-  const actual = await vi.importActual<typeof import('../../contexts/AuthContext')>(
-    '../../contexts/AuthContext',
-  );
-  return {
-    ...actual,
-    useAuth: () => mockAuth,
-  };
-});
+vi.mock('../../contexts/useAuth', () => ({
+  useAuth: () => mockAuth,
+}));
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -101,7 +95,7 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-const renderReviewPage = async () => {
+const renderReviewPage = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -129,10 +123,14 @@ describe('AssessmentReviewPage edge cases', () => {
 
     const { getSession } = await import('../../services/sessionService');
     vi.mocked(getSession).mockResolvedValue({
-      session_id: '99',
+      id: '99',
       user_id: mockAuth.user.id,
-      status: 'STARTED',
-    } as any);
+      instrument_id: 'S-KLSI-4',
+      status: 'Started',
+      started_at: new Date().toISOString(),
+      progress: 0,
+      current_item_index: 0,
+    });
   });
 
   it('renders empty state when no assessment items are available', async () => {
@@ -142,7 +140,7 @@ describe('AssessmentReviewPage edge cases', () => {
     vi.mocked(getAssessmentItems).mockResolvedValue(baseAssessmentResponse);
     vi.mocked(getSessionValidation).mockResolvedValue(baseValidationSnapshot);
 
-    await renderReviewPage();
+    renderReviewPage();
 
     await waitFor(() => {
       expect(screen.getByText('Data Review Belum Tersedia')).toBeInTheDocument();
@@ -160,7 +158,7 @@ describe('AssessmentReviewPage edge cases', () => {
     vi.mocked(getAssessmentItems).mockRejectedValue(new Error('Timeout saat menghubungi server'));
     vi.mocked(getSessionValidation).mockResolvedValue(baseValidationSnapshot);
 
-    await renderReviewPage();
+    renderReviewPage();
 
     await waitFor(() => {
       expect(screen.getByText('Gagal Memuat Data Review')).toBeInTheDocument();

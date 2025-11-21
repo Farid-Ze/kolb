@@ -12,10 +12,10 @@ export const useNonBlockingNavigate = () => {
   return useCallback(
     (to: To | number, options?: NavigateOptions) => {
       if (options) {
-        navigate(to, options);
+        void navigate(to, options);
         return;
       }
-      navigate(to);
+      void navigate(to);
     },
     [navigate]
   );

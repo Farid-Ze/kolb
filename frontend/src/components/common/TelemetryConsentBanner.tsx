@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Info } from 'lucide-react';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 import { GuideModal } from './GuideModal';
 import { GUIDE_IDS } from '../../services/guideService';
 import { VibrantText } from '../ui/VibrantText';

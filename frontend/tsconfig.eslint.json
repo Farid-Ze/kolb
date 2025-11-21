@@ -1,13 +1,61 @@
 {
-  "extends": "./src/tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "incremental": false,
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"],
+      "@/components/*": ["./components/*"],
+      "@/pages/*": ["./pages/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/services/*": ["./services/*"],
+      "@/contexts/*": ["./contexts/*"],
+      "@/utils/*": ["./utils/*"],
+      "@/types/*": ["./types/*"],
+      "@/styles/*": ["./styles/*"]
+    },
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.mts",
-    "src/**/*.cts",
+    "src/**/*",
     "vite.config.ts",
     "vitest.config.ts",
     "eslint.config.js"
   ],
-  "exclude": []
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    ".vite",
+    "src/Dockerfile/**/*",
+    "src/docker-compose.yml.tsx"
+  ]
 }

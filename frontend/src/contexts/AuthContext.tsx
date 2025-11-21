@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { LOGIN_ROUTE } from '../core/auth/routes';
+import type {
+  User,
+  AuthContextType,
+  AuthUnauthorizedDetail,
+} from './auth.types';
+import { AuthContext } from './auth-context';
+import { normalizeUserRole, parseStoredUser, assertUser } from './authUtils';
 
 /**
  * KLSI 4.0 - AuthContext
@@ -7,29 +14,6 @@ import { LOGIN_ROUTE } from '../core/auth/routes';
  * Task 12-13: AuthContext dan useAuth hook
  * Guidelines.md §6: SSOT architecture
  */
-
-export type Role = 'STUDENT' | 'MEDIATOR' | 'ADMIN';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: Role;
-  created_at: string;
-}
-
-interface AuthContextType {
-  user: User | null;
-  accessToken: string | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  refreshToken: () => Promise<void>;
-  setAuthData: (token: string, userData: User) => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -44,21 +28,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('accessToken');
-      const storedUser = localStorage.getItem('user');
+      const storedUserRaw = localStorage.getItem('user');
+      const storedUser = storedUserRaw ? parseStoredUser(storedUserRaw) : null;
 
       if (storedToken && storedUser) {
         try {
-          const parsedUser = JSON.parse(storedUser);
           setAccessToken(storedToken);
-          setUser(normalizeUserRole(parsedUser));
+          setUser(normalizeUserRole(storedUser));
           
           // Task 18: Verifikasi token masih valid dengan getCurrentUser
           try {
             const { getCurrentUser } = await import('../services/authService');
-            const currentUser = normalizeUserRole(await getCurrentUser(storedToken));
+            const rawCurrentUser = await getCurrentUser(storedToken);
+            const currentUser = normalizeUserRole(assertUser(rawCurrentUser));
             
             // Update user data if changed
-            if (JSON.stringify(currentUser) !== storedUser) {
+            if (JSON.stringify(currentUser) !== JSON.stringify(storedUser)) {
               setUser(currentUser);
               localStorage.setItem('user', JSON.stringify(currentUser));
             }
@@ -80,34 +65,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(false);
     };
 
-    initAuth();
+    void initAuth();
   }, []);
 
   // Task 6: Listen to unauthorized events from apiHelper
   useEffect(() => {
-    const handleUnauthorized = (event?: CustomEvent) => {
+    const handleUnauthorized = (event?: CustomEvent<AuthUnauthorizedDetail>) => {
       logout();
-      
-        // Save current location for post-login redirect (but not if already on auth pages)
       const currentPath = window.location.pathname + window.location.search + window.location.hash;
       if (currentPath && !currentPath.startsWith('/auth/')) {
         sessionStorage.setItem('auth:postLoginRedirect', currentPath);
-        
-        // Build login URL with returnTo parameter for better UX
         const returnTo = encodeURIComponent(currentPath);
-        const message = event?.detail?.message || 'Your session has expired. Please sign in again.';
-        
-        // Store error message for display on login page
+        const message = event?.detail?.message ?? 'Your session has expired. Please sign in again.';
         sessionStorage.setItem('auth:lastAuthErrorMessage', message);
-        
-        // Navigate to login with returnTo parameter
         window.location.href = `${LOGIN_ROUTE}?returnTo=${returnTo}`;
       } else {
-        // Already on auth page, just navigate to login without returnTo
         window.location.href = LOGIN_ROUTE;
       }
-    };    window.addEventListener('auth:unauthorized', handleUnauthorized as EventListener);
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized as EventListener);
+    };
+
+    const listener: EventListener = (event) => {
+      handleUnauthorized(event as CustomEvent<AuthUnauthorizedDetail>);
+    };
+
+    window.addEventListener('auth:unauthorized', listener);
+    return () => window.removeEventListener('auth:unauthorized', listener);
   }, []);
 
   // Login function - Task 16
@@ -147,9 +129,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Refresh token function - placeholder
-  const refreshToken = async () => {
-    // TODO: Implementasi refresh token jika backend mendukung
-    console.log('Refresh token not implemented yet');
+  const refreshToken = () => {
+    console.info('Refresh token not implemented yet');
+    return Promise.resolve();
   };
 
   // Set auth data function
@@ -175,22 +157,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const normalizeUserRole = (userData: User): User => {
-  const incoming = (userData?.role as string | undefined) ?? 'STUDENT';
-  const normalizedRole: Role = incoming === 'MAHASISWA' ? 'STUDENT' : (incoming as Role);
-  if (normalizedRole === userData.role) {
-    return userData;
-  }
-  return {
-    ...userData,
-    role: normalizedRole,
-  };
-};
-// Custom hook - React 19: use() API (TODO3.md Phase 4)
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export type { Role, User, AuthContextType, AuthUnauthorizedDetail } from './auth.types';

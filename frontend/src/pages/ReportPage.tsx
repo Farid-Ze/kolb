@@ -10,7 +10,7 @@ import { fadeInUp, staggerContainer } from '../core/physics/motionPrimitives';
 import { AuthNotice } from '../core/auth/AuthNotice';
 import { useNonBlockingNavigate } from '../hooks/useNonBlockingNavigate';
 import { useTelemetry } from '../hooks/useTelemetry';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { getReport } from '../services/reportService';
 import type { Report, SessionDesignRecommendation, LearningSpaceBlock, ReportPercentiles, ReportNotes } from '../types/api';
 import { NonDiagnosticNotice, ResponsibleUseFooter } from '../components/report/NonDiagnosticNotice';

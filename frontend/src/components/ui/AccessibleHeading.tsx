@@ -6,7 +6,8 @@
  */
 import React, { ElementType, HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
-import { DynamicType, TypographyLevel, useFontScale } from './DynamicType';
+import { DynamicType, TypographyLevel } from './DynamicType';
+import { useFontScale } from './useFontScale';
 import { useContrastGuard } from '../../hooks/useContrastGuard';
 import { WCAGLevel } from '../../lib/accessibility';
 

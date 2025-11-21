@@ -15,7 +15,7 @@
  */
 
 import React, { ReactNode } from 'react';
-import { useGlassPanelContext } from './GlassPanel';
+import { useGlassPanelContext } from './GlassPanel.context';
 import { cn } from '../../lib/utils';
 
 export interface VibrantTextProps {
@@ -156,7 +156,7 @@ export const VibrantHeading: React.FC<VibrantHeadingProps> = ({
   className,
   ...props
 }) => {
-  const Component = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+  const Component = `h${level}`;
   
   return (
     <VibrantText

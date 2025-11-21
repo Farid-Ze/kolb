@@ -46,6 +46,7 @@ const renderWithProviders = (component: React.ReactElement) => {
 
 describe('Login Flow Integration', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     localStorage.clear();
   });
@@ -110,7 +111,7 @@ describe('Login Flow Integration', () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    const passwordInput = screen.getByLabelText('Password', { selector: 'input' }) as HTMLInputElement;
+    const passwordInput = screen.getByLabelText<HTMLInputElement>('Password', { selector: 'input' });
     const toggleButton = screen.getByLabelText(/tampilkan password/i);
 
     expect(passwordInput.type).toBe('password');
@@ -142,6 +143,7 @@ describe('Login Flow Integration', () => {
       return mockLoginResponse;
     });
 
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
@@ -170,11 +172,8 @@ describe('Login Flow Integration', () => {
 
     // Verify localStorage was updated
     await waitFor(() => {
-      expect(localStorage.setItem).toHaveBeenCalledWith(
-        'accessToken',
-        'mock-token-123'
-      );
-      expect(localStorage.setItem).toHaveBeenCalledWith(
+      expect(setItemSpy).toHaveBeenCalledWith('accessToken', 'mock-token-123');
+      expect(setItemSpy).toHaveBeenCalledWith(
         'user',
         JSON.stringify(mockLoginResponse.user)
       );

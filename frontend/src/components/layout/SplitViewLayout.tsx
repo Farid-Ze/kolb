@@ -12,7 +12,7 @@ import React, { ReactNode, useState } from 'react';
 import { Button } from '../ui/button';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 import { cn } from '../ui/utils';
 
 interface SplitViewLayoutProps {

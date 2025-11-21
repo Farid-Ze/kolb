@@ -10,7 +10,7 @@
 
 import React, { ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 
 interface AuthLayoutProps {
   children: ReactNode;

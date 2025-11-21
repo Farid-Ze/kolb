@@ -82,7 +82,7 @@ export const ResearchDetailPage: React.FC = () => {
   // Apply filters and reload data
   const applyFilters = () => {
     setShowFilters(false);
-    refetchData();
+    void refetchData();
   };
 
   // Clear filters

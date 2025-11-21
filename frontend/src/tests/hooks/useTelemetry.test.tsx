@@ -2,11 +2,18 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTelemetry } from '../../hooks/useTelemetry';
 
-const guideMutate = vi.fn();
-const pageMutate = vi.fn();
-const actionMutate = vi.fn();
+type MutateFn = (variables?: unknown) => void;
 
-const useMutationMock = vi.fn();
+const guideMutate = vi.fn<MutateFn>();
+const pageMutate = vi.fn<MutateFn>();
+const actionMutate = vi.fn<MutateFn>();
+
+interface MutationHookStub {
+  mutate: MutateFn;
+  isPending: boolean;
+}
+
+const useMutationMock = vi.fn<(options: unknown) => MutationHookStub>();
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-query')>();
@@ -26,20 +33,20 @@ const mockAuth = {
   },
 };
 
-vi.mock('../../contexts/AuthContext', () => ({
+vi.mock('../../contexts/useAuth', () => ({
   useAuth: () => mockAuth,
 }));
 
 const mockPrefs: { telemetryEnabled: boolean } = { telemetryEnabled: true };
 
-vi.mock('../../contexts/UIPreferencesContext', () => ({
+vi.mock('../../contexts/useUIPreferences', () => ({
   useUIPreferencesOptional: () => mockPrefs,
 }));
 
 const setupMutations = () => {
   useMutationMock.mockReset();
-  const queue = [guideMutate, pageMutate, actionMutate];
-  useMutationMock.mockImplementation(() => ({ mutate: queue.shift()!, isPending: false }));
+  const queue: MutateFn[] = [guideMutate, pageMutate, actionMutate];
+  useMutationMock.mockImplementation(() => ({ mutate: queue.shift() ?? (() => undefined), isPending: false }));
 };
 
 describe('useTelemetry', () => {

@@ -7,11 +7,14 @@
  * Menggunakan useMutation untuk autosave dengan debounce
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { getAssessmentItems, submitAnswers } from '../services/assessmentService';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { submitAnswers, getAssessmentItems } from '../services/assessmentService';
+import { api } from '../core/api/client';
 import { toast } from 'sonner';
-import type { AssessmentItem, ItemResponse, SubmitAnswersRequest } from '../types/api';
+import type { AssessmentContextRank, AssessmentItem, GetAssessmentItemsResponse, ItemResponse, SubmitAnswersRequest } from '../types/api';
+import { useAssessmentStore, selectResponses, selectResponseMeta, isCompleteRanks } from '../stores/assessmentStore';
+import type { ResponseMeta } from '../stores/assessmentStore';
 
 interface UseAssessmentParams {
   sessionId: string;
@@ -22,7 +25,7 @@ interface UseAssessmentParams {
 interface UseAssessmentReturn {
   // Data
   items: AssessmentItem[];
-  contexts: any[]; // Add contexts
+  contexts: AssessmentContextRank[];
   currentItem: AssessmentItem | null;
   currentItemIndex: number;
   totalItems: number;
@@ -30,6 +33,7 @@ interface UseAssessmentReturn {
   
   // State
   responses: Record<string, ItemResponse>;
+  responseMeta: Record<string, ResponseMeta>;
   isComplete: boolean;
   isLoading: boolean;
   isSaving: boolean;
@@ -61,17 +65,24 @@ export const useAssessment = ({
   enabled = true,
 }: UseAssessmentParams): UseAssessmentReturn => {
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
-  const [responses, setResponses] = useState<Record<string, ItemResponse>>({});
+  const responses = useAssessmentStore(selectResponses);
+  const responseMeta = useAssessmentStore(selectResponseMeta);
+  const hydrateStore = useAssessmentStore((state) => state.hydrateFromServer);
+  const resetStore = useAssessmentStore((state) => state.reset);
+  const setRankInStore = useAssessmentStore((state) => state.setRank);
+  const setItemRanksInStore = useAssessmentStore((state) => state.setItemRanks);
+  const markItemSynced = useAssessmentStore((state) => state.markSynced);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hydrationRef = useRef(false);
   const itemsRef = useRef<AssessmentItem[]>([]);
-  const contextsRef = useRef<any[]>([]);
+  const contextsRef = useRef<AssessmentContextRank[]>([]);
   const latestResponsesRef = useRef<Record<string, ItemResponse>>({});
-  const saveQueueRef = useRef<{ payload: SubmitAnswersRequest; keepalive?: boolean } | null>(null);
+  const saveQueueRef = useRef<{ payload: SubmitAnswersRequest; keepalive?: boolean; changedItemId?: string } | null>(null);
   const flushResolversRef = useRef<Array<{ resolve: () => void; reject: (error: Error) => void }>>([]);
   const isProcessingQueueRef = useRef(false);
   const hasPendingSaveRef = useRef(false);
   const [hasPendingSave, setHasPendingSave] = useState(false);
+  const queryClient = useQueryClient();
 
   // Task 27: Query untuk fetch assessment items
   const {
@@ -89,8 +100,8 @@ export const useAssessment = ({
     enabled,
   });
 
-  const items = assessmentData?.items || [];
-  const contexts = assessmentData?.contexts || []; // Get contexts
+  const items = useMemo(() => assessmentData?.items ?? [], [assessmentData]);
+  const contexts = useMemo<AssessmentContextRank[]>(() => assessmentData?.contexts ?? [], [assessmentData]);
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
@@ -102,13 +113,56 @@ export const useAssessment = ({
 
   // Task 30: Autosave mutation dengan debounce
   const autosaveMutation = useMutation({
-    mutationFn: ({ payload, keepalive }: { payload: SubmitAnswersRequest; keepalive?: boolean }) => 
-      submitAnswers(sessionId, payload, itemsRef.current, { keepalive }),
-    onSuccess: () => {
-      // Silent success untuk autosave
+    mutationFn: async ({ payload, keepalive, changedItemId }: { payload: SubmitAnswersRequest; keepalive?: boolean; changedItemId?: string }) => {
+      if (changedItemId) {
+        const response = payload.responses.find((r) => String(r.item_id) === changedItemId);
+        if (response && isCompleteRanks(response.ranks)) {
+          return api.submitSingleResponse(Number(sessionId), {
+            item_id: Number(response.item_id),
+            response_map: response.ranks,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+      // Fallback to legacy submitAnswers for batch/context
+      const { submitAnswers } = await import('../services/assessmentService');
+      return submitAnswers(sessionId, payload, itemsRef.current, { keepalive });
     },
-    onError: (error: Error) => {
+    onSuccess: (_data, variables) => {
+      if (variables?.changedItemId) {
+        markItemSynced(variables.changedItemId);
+        return;
+      }
+      variables?.payload.responses.forEach((response) => {
+        if (isCompleteRanks(response.ranks)) {
+          markItemSynced(String(response.item_id));
+        }
+      });
+    },
+    onMutate: async ({ payload }) => {
+      await queryClient.cancelQueries({ queryKey: ['assessment-items', sessionId] });
+      const previousData = queryClient.getQueryData<GetAssessmentItemsResponse>(['assessment-items', sessionId]);
+
+      queryClient.setQueryData(['assessment-items', sessionId], (old: GetAssessmentItemsResponse | undefined) => {
+        if (!old) {
+          return old;
+        }
+        const newResponses = payload.responses;
+        const responseMap = new Map<string, ItemResponse>((old.responses ?? []).map((r) => [String(r.item_id), r]));
+        newResponses.forEach((nr) => responseMap.set(String(nr.item_id), nr));
+        return { ...old, responses: Array.from(responseMap.values()) };
+      });
+
+      return { previousData };
+    },
+    onError: (error: Error, _, context) => {
       toast.error('Gagal menyimpan progress: ' + error.message);
+      if (context?.previousData) {
+        queryClient.setQueryData(['assessment-items', sessionId], context.previousData);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['assessment-items', sessionId] });
     },
   });
 
@@ -149,7 +203,7 @@ export const useAssessment = ({
     isProcessingQueueRef.current = true;
 
     void autosaveMutation
-      .mutateAsync({ payload: job.payload, keepalive: job.keepalive })
+      .mutateAsync({ payload: job.payload, keepalive: job.keepalive, changedItemId: job.changedItemId })
       .then(
         () => {
           isProcessingQueueRef.current = false;
@@ -172,8 +226,8 @@ export const useAssessment = ({
       );
   }, [autosaveMutation, settleFlushResolvers, updatePendingSaveFlag]);
 
-  const enqueueAutosave = useCallback((payload: SubmitAnswersRequest, keepalive = false) => {
-    saveQueueRef.current = { payload, keepalive };
+  const enqueueAutosave = useCallback((payload: SubmitAnswersRequest, keepalive = false, changedItemId?: string) => {
+    saveQueueRef.current = { payload, keepalive, changedItemId };
     updatePendingSaveFlag(true);
     processQueue();
   }, [processQueue, updatePendingSaveFlag]);
@@ -192,7 +246,7 @@ export const useAssessment = ({
   );
 
   const scheduleAutosave = useCallback(
-    (nextResponses: Record<string, ItemResponse>) => {
+    (nextResponses: Record<string, ItemResponse>, changedItemId?: string) => {
       if (!itemsRef.current.length) {
         return;
       }
@@ -201,14 +255,18 @@ export const useAssessment = ({
         return;
       }
 
+      const eligibleItemId = changedItemId && isCompleteRanks(nextResponses[changedItemId]?.ranks ?? {})
+        ? changedItemId
+        : undefined;
+
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = null;
       }
 
       saveTimeoutRef.current = setTimeout(() => {
-        enqueueAutosave(payload);
-      }, 2000);
+        enqueueAutosave(payload, false, eligibleItemId);
+      }, 500);
     },
     [buildSubmitPayload, enqueueAutosave, hasCompletedResponses]
   );
@@ -260,29 +318,12 @@ export const useAssessment = ({
         toast.error('Ranking harus antara 1-4');
         return;
       }
-
-      setResponses((prev) => {
-        const currentResponse = prev[itemId] || { item_id: itemId, ranks: {} };
-        const newRanks = { ...currentResponse.ranks };
-        Object.keys(newRanks).forEach((key) => {
-          if (newRanks[key] === rank && key !== optionCode) {
-            delete newRanks[key];
-          }
-        });
-        newRanks[optionCode] = rank;
-        const next = {
-          ...prev,
-          [itemId]: {
-            item_id: itemId,
-            ranks: newRanks,
-          },
-        };
-        latestResponsesRef.current = next;
-        scheduleAutosave(next);
-        return next;
-      });
+      setRankInStore(itemId, optionCode, rank);
+      const next = useAssessmentStore.getState().responses;
+      latestResponsesRef.current = next;
+      scheduleAutosave(next, itemId);
     },
-    [scheduleAutosave]
+    [scheduleAutosave, setRankInStore]
   );
 
   /**
@@ -291,20 +332,12 @@ export const useAssessment = ({
    */
   const setItemRanks = useCallback(
     (itemId: string, newRanks: Record<string, number>) => {
-      setResponses((prev) => {
-        const next = {
-          ...prev,
-          [itemId]: {
-            item_id: itemId,
-            ranks: newRanks,
-          },
-        };
-        latestResponsesRef.current = next;
-        scheduleAutosave(next);
-        return next;
-      });
+      setItemRanksInStore(itemId, newRanks);
+      const next = useAssessmentStore.getState().responses;
+      latestResponsesRef.current = next;
+      scheduleAutosave(next, itemId);
     },
-    [scheduleAutosave]
+    [scheduleAutosave, setItemRanksInStore]
   );
 
   /**
@@ -355,7 +388,7 @@ export const useAssessment = ({
   }).length;
   
   const progress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
-  const canGoNext = currentItemIndex < totalItems - 1;
+  const canGoNext = currentItemIndex < totalItems - 1 && isCurrentItemComplete;
   const canGoPrev = currentItemIndex > 0;
   const isComplete = completedItems === totalItems && totalItems > 0;
 
@@ -367,7 +400,7 @@ export const useAssessment = ({
   }, [isComplete, onComplete]);
 
   useEffect(() => {
-    setResponses({});
+    resetStore();
     setCurrentItemIndex(0);
     hydrationRef.current = false;
     latestResponsesRef.current = {};
@@ -378,7 +411,7 @@ export const useAssessment = ({
       saveTimeoutRef.current = null;
     }
     updatePendingSaveFlag(false);
-  }, [sessionId, updatePendingSaveFlag]);
+  }, [resetStore, sessionId, updatePendingSaveFlag]);
 
   useEffect(() => {
     if (!assessmentData || hydrationRef.current) {
@@ -389,15 +422,15 @@ export const useAssessment = ({
       setCurrentItemIndex(clamped);
     }
     if (assessmentData.responses?.length) {
-      const mapped = assessmentData.responses.reduce<Record<string, ItemResponse>>((acc, response) => {
-        acc[response.item_id] = response;
-        return acc;
-      }, {});
-      setResponses(mapped);
-      latestResponsesRef.current = mapped;
+      hydrateStore(assessmentData.responses, { force: true });
+      latestResponsesRef.current = useAssessmentStore.getState().responses;
     }
     hydrationRef.current = true;
-  }, [assessmentData, totalItems]);
+  }, [assessmentData, hydrateStore, totalItems]);
+
+  useEffect(() => {
+    latestResponsesRef.current = responses;
+  }, [responses]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -449,6 +482,7 @@ export const useAssessment = ({
     
     // State
     responses,
+    responseMeta,
     isComplete,
     isLoading,
     isError,
@@ -472,9 +506,3 @@ export const useAssessment = ({
   };
 };
 
-const isCompleteRanks = (ranks: Record<string, number>): boolean => {
-  const values = Object.values(ranks ?? {});
-  if (values.length !== 4) return false;
-  if (new Set(values).size !== 4) return false;
-  return values.every((value) => value >= 1 && value <= 4);
-};

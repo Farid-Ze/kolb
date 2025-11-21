@@ -17,7 +17,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from './utils';
 import { VibrantText } from './VibrantText';
-import { useUIPreferences } from '../../contexts/UIPreferencesContext';
+import { useUIPreferences } from '../../contexts/useUIPreferences';
 
 interface SpinnerProps {
   /** Spinner variant */

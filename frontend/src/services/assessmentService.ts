@@ -18,11 +18,14 @@ import { getApiUrl } from '../config/api';
 import { authenticatedApiCall } from '../utils/apiHelper';
 import type {
   AssessmentItem,
+  AssessmentContextRank,
   GetAssessmentItemsResponse,
   ItemResponse,
   SubmitAnswersRequest,
   SubmitAnswersResponse,
 } from '../types/api';
+
+type UnknownRecord = Record<string, unknown>;
 
 type EngineSessionItemsResponse = {
   session_id: number;
@@ -30,9 +33,9 @@ type EngineSessionItemsResponse = {
   instrument_version?: string;
   status?: string;
   total_items?: number;
-  delivery: Record<string, any>;
+  delivery?: UnknownRecord;
   responses?: Array<{ item_id: number; ranks: Record<string, number> }>;
-  contexts?: Array<Record<string, any>>;
+  contexts?: Array<UnknownRecord>;
   progress?: number;
   completed_items?: number;
   current_item_index?: number;
@@ -57,14 +60,14 @@ export const getAssessmentItems = async (
     }
   );
 
-  const items = normalizeAssessmentItems(payload?.delivery?.items ?? []);
+  const items = normalizeAssessmentItems(getUnknownArray(payload.delivery?.items));
   const responses = normalizeResponses(payload.responses ?? []);
   const contexts = (payload.contexts ?? []).map((ctx) => ({
-    context_name: String(ctx.context_name ?? ''),
-    CE: Number(ctx.CE ?? 0),
-    RO: Number(ctx.RO ?? 0),
-    AC: Number(ctx.AC ?? 0),
-    AE: Number(ctx.AE ?? 0),
+    context_name: toStringSafe(ctx.context_name),
+    CE: toNumberSafe(ctx.CE),
+    RO: toNumberSafe(ctx.RO),
+    AC: toNumberSafe(ctx.AC),
+    AE: toNumberSafe(ctx.AE),
   }));
 
   return {
@@ -93,7 +96,7 @@ export const submitAnswers = async (
   items: AssessmentItem[],
   options?: { keepalive?: boolean }
 ): Promise<SubmitAnswersResponse> => {
-  const backendPayload = buildAutosavePayload(payload.responses, items, payload.contexts);
+  const backendPayload = buildAutosavePayload(payload.responses, items, payload.contexts ?? []);
   if (!backendPayload.responses.length && !backendPayload.contexts.length) {
     return { saved_count: 0 };
   }
@@ -108,33 +111,44 @@ export const submitAnswers = async (
   );
 };
 
-const normalizeAssessmentItems = (items: any[]): AssessmentItem[] =>
-  items.map((item, index) => {
-    const prompt = item.stem_localized ?? item.stem ?? '';
-    const options = Array.isArray(item.options)
-      ? item.options.map((option: any) => {
-          const code = normalizeLearningMode(option.learning_mode ?? option.option_code);
-          return {
-            id: String(option.id ?? `${item.id}-${code}`),
-            option_code: code,
-            text: option.text ?? '',
-            dimension: code,
-          };
-        })
-      : [];
+const normalizeAssessmentItems = (items: unknown[]): AssessmentItem[] =>
+  items.map((rawItem, index) => {
+    const item = toRecord(rawItem);
+    const prompt =
+      toStringSafe(item?.stem_localized) || toStringSafe(item?.stem) || '';
+    const itemId = toStringSafe(item?.id, String(index));
+    const order = toNumberSafe(item?.number, index + 1);
+    const optionRecords = getUnknownArray(item?.options);
+    const options = optionRecords.map((rawOption) => {
+      const option = toRecord(rawOption);
+      const code = normalizeLearningMode(option?.learning_mode ?? option?.option_code);
+      const fallbackId = `${itemId}-${code}`;
+      return {
+        id: toStringSafe(option?.id, fallbackId),
+        option_code: code,
+        text: toStringSafe(option?.text),
+        dimension: code,
+      };
+    });
 
     return {
-      item_id: String(item.id ?? index),
-      order: Number(item.number ?? index + 1),
+      item_id: itemId,
+      order,
       prompt,
       options,
     };
   });
 
-const normalizeLearningMode = (value: any): 'CE' | 'RO' | 'AC' | 'AE' => {
-  const normalized = String(value ?? '').toUpperCase();
-  if (['CE', 'RO', 'AC', 'AE'].includes(normalized)) {
-    return normalized as 'CE' | 'RO' | 'AC' | 'AE';
+const normalizeLearningMode = (value: unknown): 'CE' | 'RO' | 'AC' | 'AE' => {
+  const raw =
+    typeof value === 'string'
+      ? value
+      : typeof value === 'number'
+        ? String(value)
+        : '';
+  const normalized = raw.toUpperCase();
+  if (normalized === 'CE' || normalized === 'RO' || normalized === 'AC' || normalized === 'AE') {
+    return normalized;
   }
   return 'CE';
 };
@@ -147,13 +161,14 @@ const normalizeResponses = (
     ranks: response.ranks ?? {},
   }));
 
-const extractInstructions = (delivery: Record<string, any> | undefined): string | undefined => {
-  if (!delivery || typeof delivery !== 'object') return undefined;
-  const manifest = delivery.manifest || delivery?.instrument?.manifest;
+const extractInstructions = (delivery: UnknownRecord | undefined): string | undefined => {
+  if (!delivery) return undefined;
+  const manifest =
+    toRecord(delivery.manifest) || toRecord(toRecord(delivery.instrument)?.manifest);
   if (manifest && typeof manifest.instructions === 'string') {
     return manifest.instructions;
   }
-  const resources = delivery?.i18n?.metadata;
+  const resources = toRecord(toRecord(delivery.i18n)?.metadata);
   if (resources && typeof resources.instructions === 'string') {
     return resources.instructions;
   }
@@ -163,7 +178,7 @@ const extractInstructions = (delivery: Record<string, any> | undefined): string 
 export const buildAutosavePayload = (
   responses: ItemResponse[],
   items: AssessmentItem[],
-  contexts: any[] = []
+  contexts: Array<AssessmentContextRank | UnknownRecord> = []
 ): AutosaveBackendPayload => {
   const itemLookup = new Map(items.map((item) => [item.item_id, item]));
   const transformed = responses
@@ -193,7 +208,18 @@ export const buildAutosavePayload = (
     })
     .filter(Boolean) as AutosaveBackendPayload['responses'];
 
-  return { responses: transformed, contexts: contexts || [] };
+  const normalizedContexts = contexts.map((ctx) => {
+    const ctxRecord = toRecord(ctx);
+    return {
+      context_name: toStringSafe(ctxRecord?.context_name),
+      CE: toNumberSafe(ctxRecord?.CE),
+      RO: toNumberSafe(ctxRecord?.RO),
+      AC: toNumberSafe(ctxRecord?.AC),
+      AE: toNumberSafe(ctxRecord?.AE),
+    };
+  });
+
+  return { responses: transformed, contexts: normalizedContexts };
 };
 
 const isCompleteRanks = (ranks: Record<string, number>): boolean => {
@@ -202,5 +228,25 @@ const isCompleteRanks = (ranks: Record<string, number>): boolean => {
   const unique = new Set(values);
   if (unique.size !== 4) return false;
   return values.every((value) => value >= 1 && value <= 4);
+};
+
+const toRecord = (value: unknown): UnknownRecord | undefined => {
+  if (typeof value === 'object' && value !== null) {
+    return value as UnknownRecord;
+  }
+  return undefined;
+};
+
+const getUnknownArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+const toStringSafe = (value: unknown, fallback = ''): string =>
+  typeof value === 'string' ? value : fallback;
+
+const toNumberSafe = (value: unknown, fallback = 0): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 

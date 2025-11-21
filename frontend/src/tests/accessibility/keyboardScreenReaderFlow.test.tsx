@@ -40,15 +40,9 @@ const mockAuth = {
   refreshToken: vi.fn(),
 };
 
-vi.mock('../../contexts/AuthContext', async () => {
-  const actual = await vi.importActual<typeof import('../../contexts/AuthContext')>(
-    '../../contexts/AuthContext',
-  );
-  return {
-    ...actual,
-    useAuth: () => mockAuth,
-  };
-});
+vi.mock('../../contexts/useAuth', () => ({
+  useAuth: () => mockAuth,
+}));
 
 vi.mock('../../hooks/useSessionGuard', () => ({
   useSessionGuard: () => ({ isChecking: false, hasAccess: true }),

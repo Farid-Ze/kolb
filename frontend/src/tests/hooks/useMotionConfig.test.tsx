@@ -1,10 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import {
-  UIPreferencesContext,
-  UIPreferencesContextType,
-} from '../../contexts/UIPreferencesContext';
+import { UIPreferencesContext } from '../../contexts/ui-preferences-context';
+import type { UIPreferencesContextType } from '../../contexts/uiPreferences.types';
 import {
   useMotionConfig,
   SPRING_CONFIG,
@@ -57,23 +55,24 @@ describe('useMotionConfig', () => {
   });
 
   it('uses system preference when context is absent', () => {
-    const originalMatchMedia = window.matchMedia;
-    window.matchMedia = vi.fn().mockImplementation((query) => ({
-      matches: true,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
+    const matchMediaMock = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation((query: string): MediaQueryList => ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => true,
+      }));
 
     renderWithPreference();
     expect(screen.getByTestId('transition').textContent).toEqual(
       JSON.stringify(CROSS_FADE)
     );
 
-    window.matchMedia = originalMatchMedia;
+    matchMediaMock.mockRestore();
   });
 });
