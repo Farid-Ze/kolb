@@ -16,6 +16,7 @@ import type { Report, SessionDesignRecommendation, LearningSpaceBlock, ReportPer
 import { NonDiagnosticNotice, ResponsibleUseFooter } from '../components/report/NonDiagnosticNotice';
 import { ScoreDisplay } from '../components/report/ScoreDisplay';
 import { LearningStyleChart } from '../components/report/LearningStyleChart';
+import { KiteChart } from '../components/report/KiteChart';
 import { FlexibilityChart } from '../components/report/FlexibilityChart';
 import { EnhancedAnalyticsPanel } from '../components/report/EnhancedAnalyticsPanel';
 
@@ -244,6 +245,8 @@ export const ReportPage: React.FC = () => {
 									style={report.style}
 									ariaDescribedById={noticeId}
 								/>
+
+								<KiteChart kiteData={report.visualization?.kite} />
 
 								{report.learningSpace && (
 									<LearningSpaceInsights block={report.learningSpace} />

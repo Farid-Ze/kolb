@@ -27,12 +27,13 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
       className={`
         relative overflow-hidden rounded-2xl border shadow-xl
         ${styles[intensity]}
+        print:bg-transparent print:border-slate-300 print:shadow-none print:backdrop-blur-none print:break-inside-avoid
         ${className}
       `}
       {...props}
     >
       {/* Noise texture overlay */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-noise mix-blend-overlay" />
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-noise mix-blend-overlay print:hidden" />
       
       {/* Content */}
       <div className="relative z-10">{children}</div>
