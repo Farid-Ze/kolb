@@ -36,13 +36,14 @@ describe('buildAutosavePayload', () => {
       responses: [
         {
           item_id: 1,
-          ranks: { 11: 1, 12: 2, 13: 3, 14: 4 },
+          ranks: { CE: 1, RO: 2, AC: 3, AE: 4 },
         },
         {
           item_id: 2,
-          ranks: { 21: 2, 22: 1, 23: 4, 24: 3 },
+          ranks: { CE: 2, RO: 1, AC: 4, AE: 3 },
         },
       ],
+      contexts: [],
     });
   });
 
@@ -64,6 +65,6 @@ describe('buildAutosavePayload', () => {
 
     const payload = buildAutosavePayload(responses, items);
 
-    expect(payload).toEqual({ responses: [] });
+    expect(payload).toEqual({ responses: [], contexts: [] });
   });
 });

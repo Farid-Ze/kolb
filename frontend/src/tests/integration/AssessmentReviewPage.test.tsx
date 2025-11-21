@@ -143,12 +143,12 @@ describe('AssessmentReviewPage edge cases', () => {
     renderReviewPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Data Review Belum Tersedia')).toBeInTheDocument();
+      expect(screen.getByText('Review Data Unavailable')).toBeInTheDocument();
     });
     expect(
-      screen.getByText(/Sesi ini belum memiliki item asesmen yang lengkap/i),
+      screen.getByText(/This session does not have complete assessment items yet/i),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Kembali ke Asesmen/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Back to Assessment/i })).toBeInTheDocument();
   });
 
   it('renders error state when assessment items request fails', async () => {
@@ -161,9 +161,9 @@ describe('AssessmentReviewPage edge cases', () => {
     renderReviewPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Gagal Memuat Data Review')).toBeInTheDocument();
+      expect(screen.getByText('Error Loading Data')).toBeInTheDocument();
     });
     expect(screen.getByText(/Timeout saat menghubungi server/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Coba Lagi/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Try Again/i })).toBeInTheDocument();
   });
 });

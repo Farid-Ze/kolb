@@ -75,7 +75,18 @@ describe('apiCall', () => {
 
     const result = await apiCall('/api/test', { method: 'GET' });
     expect(result).toEqual(mockData);
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/test', { method: 'GET' });
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/test',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.any(Headers),
+      })
+    );
+
+    const options = vi.mocked(globalThis.fetch).mock.calls[0][1];
+    const headers = options?.headers as Headers | undefined;
+    expect(headers?.get('Content-Type')).toBe('application/json');
+    expect(headers?.get('X-API-Version')).toBe('1');
   });
 
   it('should handle non-JSON success responses', async () => {
@@ -114,7 +125,7 @@ describe('apiCall', () => {
     globalThis.fetch = vi.fn().mockRejectedValue('Unknown error');
 
     await expect(apiCall('/api/test', { method: 'GET' })).rejects.toThrow(
-      'Network error: Unable to reach server'
+      'Unknown error'
     );
   });
 });

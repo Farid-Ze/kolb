@@ -1,7 +1,9 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import type { Location } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { LoginPage } from '../../pages/LoginPage';
@@ -60,6 +62,14 @@ vi.mock('sonner', () => ({
 describe('Auth ReturnTo Flow', () => {
   let queryClient: QueryClient;
 
+  const LocationTracker = ({ onChange }: { onChange: (location: Location) => void }) => {
+    const location = useLocation();
+    React.useEffect(() => {
+      onChange(location);
+    }, [location, onChange]);
+    return null;
+  };
+
   beforeEach(() => {
     queryClient = new QueryClient({
       defaultOptions: {
@@ -85,10 +95,15 @@ describe('Auth ReturnTo Flow', () => {
       </div>
     );
 
+    let lastLocation: Location | null = null;
+
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={['/protected/resource']}>
           <AuthProvider>
+            <LocationTracker onChange={(loc) => {
+              lastLocation = loc;
+            }} />
             <Routes>
               <Route path="/protected/resource" element={<ProtectedPage />} />
               <Route path="/auth/login" element={<div>Login Page</div>} />
@@ -105,10 +120,9 @@ describe('Auth ReturnTo Flow', () => {
     // Should navigate to login with returnTo parameter
     await waitFor(() => {
       expect(screen.getByText('Login Page')).toBeInTheDocument();
+      expect(lastLocation?.pathname).toBe('/auth/login');
+      expect(lastLocation?.search).toContain('returnTo=');
     });
-
-    // Check that URL contains returnTo parameter
-    expect(window.location.search).toContain('returnTo=');
   });
 
   it('should redirect to returnTo URL after successful login', async () => {
@@ -138,7 +152,7 @@ describe('Auth ReturnTo Flow', () => {
 
     // Fill in login form
     const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
+    const passwordInput = screen.getByLabelText(/password/i, { selector: 'input' });
     const submitButton = screen.getByRole('button', { name: /masuk/i });
 
     await user.type(emailInput, 'test@example.com');
@@ -199,35 +213,60 @@ describe('Auth ReturnTo Flow', () => {
   it('should handle session expiry with proper returnTo', async () => {
     // Simulate being on assessment page
     const currentLocation = '/assessment/456/review';
+    const originalLocation = window.location;
+    let mockedHref = `http://localhost${currentLocation}`;
 
-    // Mock the auth:unauthorized event
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: {
+        ...originalLocation,
+        pathname: currentLocation,
+        search: '',
+        hash: '',
+        get href() {
+          return mockedHref;
+        },
+        set href(value: string) {
+          mockedHref = value;
+        },
+        assign: vi.fn((value: string) => {
+          mockedHref = value;
+        }),
+        replace: vi.fn((value: string) => {
+          mockedHref = value;
+        }),
+      },
+    });
+
     const unauthorizedEvent = new CustomEvent('auth:unauthorized', {
       detail: { message: 'Session expired' },
     });
 
-    // Set up location
-    Object.defineProperty(window, 'location', {
-      value: {
-        pathname: currentLocation,
-        search: '',
-        hash: '',
-        href: `http://localhost${currentLocation}`,
-      },
-      writable: true,
-    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[currentLocation]}>
+          <AuthProvider>
+            <div>Protected</div>
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
 
-    // Dispatch unauthorized event
     window.dispatchEvent(unauthorizedEvent);
 
-    // Check that sessionStorage was updated
     await waitFor(() => {
-      const stored = sessionStorage.getItem('auth:postLoginRedirect');
-      expect(stored).toBe(currentLocation);
+      expect(sessionStorage.getItem('auth:postLoginRedirect')).toBe(currentLocation);
     });
 
-    // Check that error message was stored
     const errorMsg = sessionStorage.getItem('auth:lastAuthErrorMessage');
     expect(errorMsg).toContain('Session expired');
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
   });
 
   it('should not create infinite loops when returnTo is login page', () => {

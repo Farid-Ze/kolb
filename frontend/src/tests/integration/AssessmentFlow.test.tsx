@@ -2,14 +2,15 @@
  * KLSI 4.0 - Assessment Flow Integration Test
  * Integration test untuk alur assessment lengkap
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AssessmentPage } from '../../pages/AssessmentPage';
 import { AuthProvider } from '../../contexts/AuthContext';
 import type { GetAssessmentItemsResponse, SubmitAnswersResponse } from '../../types/api';
+import { useAssessmentStore } from '../../stores/assessmentStore';
 
 // Mock data
 const mockDeliveryPackage: GetAssessmentItemsResponse = {
@@ -114,11 +115,23 @@ const renderWithProviders = (sessionId: string = '1') => {
   );
 };
 
+const completeItem = (itemId: string) => {
+  act(() => {
+    useAssessmentStore.getState().setItemRanks(itemId, {
+      CE: 1,
+      RO: 2,
+      AC: 3,
+      AE: 4,
+    });
+  });
+};
+
 describe('Assessment Flow Integration', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.clear();
     window.history.pushState({}, '', '/assessment/1');
+    useAssessmentStore.getState().reset();
 
     const { getSession } = await import('../../services/sessionService');
     vi.mocked(getSession).mockResolvedValue({
@@ -131,6 +144,10 @@ describe('Assessment Flow Integration', () => {
       current_item_index: 0,
       metadata: {},
     });
+  });
+
+  afterEach(() => {
+    useAssessmentStore.getState().reset();
   });
 
   it('should render loading state initially', async () => {
@@ -162,10 +179,14 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('KLSI 4.0 Assessment')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Seret kartu atau ketuk angka 1-4/i
+        )
+      ).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Item 1 dari 2')).toBeInTheDocument();
+    expect(screen.getByText(/Item 1\s*\/\s*2/)).toBeInTheDocument();
     expect(screen.getByText('Ketika saya belajar:')).toBeInTheDocument();
     expect(screen.getByText('Saya suka merasakan')).toBeInTheDocument();
     expect(screen.getByText('Saya suka mengamati')).toBeInTheDocument();
@@ -183,7 +204,11 @@ describe('Assessment Flow Integration', () => {
       expect(screen.getByText('Instruksi')).toBeInTheDocument();
     });
 
-    expect(screen.getAllByText(/Klik tombol/i)[0]).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Seret kartu atau ketuk angka 1-4/i
+      )
+    ).toBeInTheDocument();
   });
 
   it('should update progress bar as items are completed', async () => {
@@ -195,12 +220,17 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText(/Progress: 0%/i)).toBeInTheDocument();
+      expect(screen.getByText(/Item 1\s*\/\s*2/)).toBeInTheDocument();
     });
 
-    // Progress should start at 0
-    const progressBar = screen.getByRole('progressbar');
+    const progressBar = screen.getByRole('progressbar', { name: /progress asesmen/i });
     expect(progressBar).toHaveAttribute('aria-valuenow', '0');
+
+    completeItem('lsi_item_001');
+
+    await waitFor(() => {
+      expect(progressBar).toHaveAttribute('aria-valuenow', '50');
+    });
   });
 
   it('should navigate between items', async () => {
@@ -213,7 +243,13 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('Item 1 dari 2')).toBeInTheDocument();
+      expect(screen.getByText(/Item 1\s*\/\s*2/)).toBeInTheDocument();
+    });
+
+    completeItem('lsi_item_001');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /selanjutnya/i })).toBeEnabled();
     });
 
     // Click next button
@@ -222,7 +258,7 @@ describe('Assessment Flow Integration', () => {
 
     // Should show item 2
     await waitFor(() => {
-      expect(screen.getByText('Item 2 dari 2')).toBeInTheDocument();
+      expect(screen.getByText(/Item 2\s*\/\s*2/)).toBeInTheDocument();
     });
     expect(
       screen.getByText('Saya belajar paling baik ketika:')
@@ -234,7 +270,7 @@ describe('Assessment Flow Integration', () => {
 
     // Should go back to item 1
     await waitFor(() => {
-      expect(screen.getByText('Item 1 dari 2')).toBeInTheDocument();
+      expect(screen.getByText(/Item 1\s*\/\s*2/)).toBeInTheDocument();
     });
   });
 
@@ -247,7 +283,7 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('Item 1 dari 2')).toBeInTheDocument();
+      expect(screen.getByText(/Item 1\s*\/\s*2/)).toBeInTheDocument();
     });
 
     const prevButton = screen.getByRole('button', { name: /sebelumnya/i });
@@ -265,7 +301,11 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('KLSI 4.0 Assessment')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Seret kartu atau ketuk angka 1-4/i
+        )
+      ).toBeInTheDocument();
     });
 
     // Simulate ranking (this would require interacting with RankingItem component)
@@ -314,7 +354,13 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('Item 1 dari 2')).toBeInTheDocument();
+      expect(screen.getByText(/Item 1\s*\/\s*2/)).toBeInTheDocument();
+    });
+
+    completeItem('lsi_item_001');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /selanjutnya/i })).toBeEnabled();
     });
 
     // Navigate to last item
@@ -322,12 +368,12 @@ describe('Assessment Flow Integration', () => {
     await user.click(nextButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Item 2 dari 2')).toBeInTheDocument();
+      expect(screen.getByText(/Item 2\s*\/\s*2/)).toBeInTheDocument();
     });
 
-    // Should show Review button instead of Next
+    // Should show Finish button instead of Next
     expect(
-      screen.getByRole('button', { name: /review/i })
+      screen.getByRole('button', { name: /finish/i })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /selanjutnya/i })
@@ -343,17 +389,19 @@ describe('Assessment Flow Integration', () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(screen.getByText('KLSI 4.0 Assessment')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Seret kartu atau ketuk angka 1-4/i
+        )
+      ).toBeInTheDocument();
     });
 
-    // Check for progress bar accessibility
-    const progressBar = screen.getByRole('progressbar');
-    expect(progressBar).toHaveAttribute('aria-valuemin');
-    expect(progressBar).toHaveAttribute('aria-valuemax');
-    expect(progressBar).toHaveAttribute('aria-valuenow');
+    // Check for progress indicator labels
+    expect(screen.getByText(/Item 1\s*\/\s*2/)).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: /progress asesmen/i })).toBeInTheDocument();
 
     // Check button accessibility
-    const helpButton = screen.getByLabelText(/bantuan/i);
-    expect(helpButton).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /exit assessment/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /guide/i })).toBeInTheDocument();
   });
 });

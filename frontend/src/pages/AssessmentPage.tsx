@@ -77,6 +77,7 @@ export const AssessmentPage: React.FC = () => {
   
   const currentResponse = currentItem ? responses[currentItem.item_id] : undefined;
   const currentItemMeta = currentItem ? responseMeta[currentItem.item_id] : undefined;
+  const normalizedProgress = Math.round(progress);
 
   // Spring configuration (Guidelines.md Section 2.3.1)
   const springConfig = {
@@ -195,7 +196,8 @@ export const AssessmentPage: React.FC = () => {
       <PageShell>
         <RoomContent>
           <div className="max-w-4xl mx-auto space-y-6">
-            <GlassMaterial intensity="medium" className="p-6">
+            <GlassMaterial intensity="medium" className="p-6 space-y-2">
+              <p className="text-sm text-white/70">Memuat asesmen...</p>
               <Skeleton className="h-8 w-[200px] mb-2 bg-white/10" />
               <Skeleton className="h-5 w-[150px] bg-white/10" />
             </GlassMaterial>
@@ -277,7 +279,15 @@ export const AssessmentPage: React.FC = () => {
                     </motion.div>
                 )}
             </div>
-            <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div
+              role="progressbar"
+              aria-label="Progress asesmen"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={normalizedProgress}
+              aria-valuetext={`${normalizedProgress}% selesai`}
+              className="w-32 h-1 bg-white/10 rounded-full overflow-hidden"
+            >
                 <motion.div 
                     className="h-full bg-emerald-500"
                     initial={{ width: 0 }}
@@ -296,6 +306,7 @@ export const AssessmentPage: React.FC = () => {
           animate="visible"
           className="w-full max-w-3xl mx-auto space-y-4"
         >
+          <h2 className="text-center text-lg font-semibold text-white">Instruksi</h2>
           <p className="text-center text-sm text-white/70">
           Seret kartu atau ketuk angka 1-4 untuk memberi peringkat dari paling hingga paling tidak mencerminkan diri Anda.
           </p>
@@ -330,7 +341,8 @@ export const AssessmentPage: React.FC = () => {
             <button
                 onClick={prevItem}
                 disabled={!canGoPrev}
-                className="p-4 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md disabled:opacity-30 transition-all group"
+              aria-label="Sebelumnya"
+              className="p-4 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md disabled:opacity-30 transition-all group"
             >
                 <ChevronLeft className="w-6 h-6 text-white/70 group-hover:text-white" />
             </button>
@@ -346,7 +358,8 @@ export const AssessmentPage: React.FC = () => {
             {canGoNext ? (
                 <button
                     onClick={nextItem}
-                    className="p-4 rounded-full bg-white text-black hover:scale-105 transition-transform shadow-lg shadow-white/10"
+                aria-label="Selanjutnya"
+                className="p-4 rounded-full bg-white text-black hover:scale-105 transition-transform shadow-lg shadow-white/10"
                 >
                     <ChevronRight className="w-6 h-6" />
                 </button>

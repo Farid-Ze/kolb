@@ -138,12 +138,14 @@ describe('Login Flow Integration', () => {
       },
     };
 
-    vi.mocked(loginWithEmail).mockImplementation(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      return mockLoginResponse;
-    });
+    let resolveLogin: (() => void) | undefined;
+    vi.mocked(loginWithEmail).mockImplementation(
+      () =>
+        new Promise<LoginResponse>((resolve) => {
+          resolveLogin = () => resolve(mockLoginResponse);
+        })
+    );
 
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
@@ -157,31 +159,27 @@ describe('Login Flow Integration', () => {
     const submitButton = screen.getByRole('button', { name: /masuk/i });
     await user.click(submitButton);
 
-    // Verify loading state disables button
+    // Verify loading state disables button while mutation pending
     await waitFor(() => {
       expect(submitButton).toBeDisabled();
     });
 
+    resolveLogin?.();
+
     // Wait for login to complete
-    await waitFor(() => {
-      expect(loginWithEmail).toHaveBeenCalledWith(
-        'test@example.com',
-        'password123'
-      );
-    });
+    expect(loginWithEmail).toHaveBeenCalledWith('test@example.com', 'password123');
 
     // Verify localStorage was updated
     await waitFor(() => {
-      expect(setItemSpy).toHaveBeenCalledWith('accessToken', 'mock-token-123');
-      expect(setItemSpy).toHaveBeenCalledWith(
-        'user',
+      expect(localStorage.getItem('accessToken')).toBe('mock-token-123');
+      expect(localStorage.getItem('user')).toBe(
         JSON.stringify(mockLoginResponse.user)
       );
     });
 
     // Verify navigation
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/');
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     });
   });
 
