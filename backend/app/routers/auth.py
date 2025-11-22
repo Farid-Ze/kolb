@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -80,8 +80,3 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     expires_in = settings.access_token_expire_minutes * 60
     return Token(access_token=token, expires_in=expires_in)
 
-@router.get("/me", response_model=UserOut)
-def get_me(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
-    from app.services.security import get_current_user
-    user = get_current_user(authorization, db)
-    return user

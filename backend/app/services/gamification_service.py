@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.klsi.gamification import GamificationBadge, UserAchievement
 from app.models.klsi.user import User
@@ -31,5 +31,14 @@ class GamificationService:
             # Simple level logic: 1 level per 1000 points
             user.current_lvl = 1 + (user.zen_points // 1000)
         return user
+
+    def list_user_achievements(self, db: Session, user_id: int):
+        return (
+            db.query(UserAchievement)
+            .options(joinedload(UserAchievement.badge))
+            .filter(UserAchievement.user_id == user_id)
+            .order_by(UserAchievement.awarded_at.desc())
+            .all()
+        )
 
 gamification_service = GamificationService()

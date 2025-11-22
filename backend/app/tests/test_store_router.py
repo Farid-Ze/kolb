@@ -25,6 +25,13 @@ def _create_user(session: Session, email: str) -> User:
     return user
 
 
+def _grant_badge(session: Session, user: User, slug: str = "the-seeker"):
+    badge = session.query(GamificationBadge).filter_by(slug=slug).first()
+    assert badge is not None
+    session.add(UserAchievement(user_id=user.id, badge_id=badge.id))
+    session.commit()
+
+
 def test_store_products_seeded(client: TestClient, session: Session):
     user = _create_user(session, "store-seed@example.com")
     try:
@@ -61,5 +68,76 @@ def test_store_badge_gating(client: TestClient, session: Session):
         assert updated.status_code == 200
         refreshed = next(item for item in updated.json() if item["id"] == gated_product.id)
         assert refreshed["eligible"] is True
+    finally:
+        _clear_overrides()
+
+
+def test_store_checkout_updates_points_and_fund(client: TestClient, session: Session):
+    user = _create_user(session, "store-checkout@example.com")
+    user.zen_points = 1000
+    session.commit()
+    product = (
+        session.query(StoreProduct)
+        .filter(StoreProduct.required_badge_id.is_(None))
+        .first()
+    )
+    assert product is not None
+
+    try:
+        _override_user(user)
+        payload = {"productId": product.id, "contributionPoints": 50}
+        response = client.post("/store/checkout", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        session.refresh(user)
+        assert data["remainingPoints"] == user.zen_points == 1000 - product.price_points - 50
+
+        fund = client.get("/store/community-fund")
+        assert fund.status_code == 200
+        fund_payload = fund.json()
+        assert fund_payload["totalPoints"] >= 50
+        assert fund_payload["contributors"] >= 1
+    finally:
+        _clear_overrides()
+
+
+def test_store_checkout_requires_badge(client: TestClient, session: Session):
+    user = _create_user(session, "store-checkout-badge@example.com")
+    user.zen_points = 1000
+    session.commit()
+    gated_product = (
+        session.query(StoreProduct)
+        .filter(StoreProduct.required_badge_id.isnot(None))
+        .first()
+    )
+    assert gated_product is not None
+
+    try:
+        _override_user(user)
+        payload = {"productId": gated_product.id}
+        response = client.post("/store/checkout", json=payload)
+        assert response.status_code == 403
+
+        _grant_badge(session, user, slug="the-seeker")
+        session.refresh(user)
+        response2 = client.post("/store/checkout", json=payload)
+        assert response2.status_code == 200
+    finally:
+        _clear_overrides()
+
+
+def test_store_checkout_requires_balance(client: TestClient, session: Session):
+    user = _create_user(session, "store-checkout-balance@example.com")
+    user.zen_points = 10
+    session.commit()
+    product = session.query(StoreProduct).first()
+    assert product is not None
+
+    try:
+        _override_user(user)
+        payload = {"productId": product.id}
+        response = client.post("/store/checkout", json=payload)
+        assert response.status_code == 400
+        assert "Insufficient" in response.json()["detail"]
     finally:
         _clear_overrides()

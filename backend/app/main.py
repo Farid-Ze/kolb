@@ -18,6 +18,7 @@ from app.core.sentinels import UNKNOWN
 from app.routers.admin import router as admin_router
 from app.routers.assessments import router as assessments_router
 from app.routers.auth import router as auth_router
+from app.routers.users import router as users_router
 from app.routers.exceptions import register_exception_handlers
 from app.routers.reports import router as reports_router
 from app.routers.results import router as results_router
@@ -121,6 +122,7 @@ register_exception_handlers(app)
 
 # Register routers at import time so tests see routes without requiring startup
 app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(assessments_router)
 app.include_router(sessions_router)
 app.include_router(engine_router)
