@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -9,6 +9,7 @@ from app.core.logging import get_logger
 from app.db.database import get_db
 from app.db.repositories import UserRepository
 from app.schemas.auth import Role, Token, UserCreate, UserOut
+from app.schemas.base import CamelModel
 from app.services.security import create_access_token, hash_password, verify_password
 from app.i18n.id_messages import AuthMessages
 
@@ -65,11 +66,21 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         raise
     return user
 
+class LoginRequest(CamelModel):
+    email: str
+    password: str
+
 @router.post("/login", response_model=Token)
-def login(email: str, password: str, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user_repo = UserRepository(db)
-    user = user_repo.get_by_email(email)
-    if not user or not user.password_hash or not verify_password(password, user.password_hash):
+    user = user_repo.get_by_email(payload.email)
+    if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail=AuthMessages.INVALID_CREDENTIALS)
     token = create_access_token(str(user.id))
     return Token(access_token=token)
+
+@router.get("/me", response_model=UserOut)
+def get_me(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+    from app.services.security import get_current_user
+    user = get_current_user(authorization, db)
+    return user

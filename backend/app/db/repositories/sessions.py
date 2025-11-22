@@ -141,3 +141,16 @@ class SessionRepository(Repository[Session]):
             .order_by(AssessmentSession.end_time.desc(), AssessmentSession.id.desc())
             .all()
         )
+
+    def get_by_user(
+        self,
+        user_id: int,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[AssessmentSession]:
+        """List sessions for a user with optional status filter."""
+        query = self.db.query(AssessmentSession).filter(AssessmentSession.user_id == user_id)
+        if status:
+            query = query.filter(AssessmentSession.status == status)
+        return query.offset(skip).limit(limit).all()

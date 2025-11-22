@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from datetime import datetime
+from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -177,3 +178,15 @@ class OperationStatus(CamelModel):
 
 class SessionOperationResult(OperationStatus):
     result: dict[str, Any] | None = None
+
+
+class SessionListResponse(CamelModel):
+    id: int
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    status: str
+    assessment_id: str
+    assessment_version: str
+
+    class Config:
+        from_attributes = True
