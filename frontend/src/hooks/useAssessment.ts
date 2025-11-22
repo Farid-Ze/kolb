@@ -182,56 +182,46 @@ export const useAssessment = ({
     setHasPendingSave(next);
   }, []);
 
-  const settleFlushResolvers = useCallback((error?: Error) => {
-    if (!flushResolversRef.current.length) {
-      return;
-    }
-    const pending = [...flushResolversRef.current];
+  const settleFlushResolvers = useCallback(() => {
+    flushResolversRef.current.forEach(({ resolve }) => resolve());
     flushResolversRef.current = [];
-    pending.forEach(({ resolve, reject }) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve();
-      }
-    });
   }, []);
 
-  const processQueue = useCallback(() => {
-    if (isProcessingQueueRef.current) {
-      return;
-    }
-    const job = saveQueueRef.current;
-    if (!job) {
-      updatePendingSaveFlag(false);
+  const processQueue = useCallback(async () => {
+    if (isProcessingQueueRef.current || !saveQueueRef.current) {
+      if (!isProcessingQueueRef.current && !saveQueueRef.current) {
+        settleFlushResolvers();
+      }
       return;
     }
 
-    saveQueueRef.current = null;
     isProcessingQueueRef.current = true;
+    const { payload, keepalive } = saveQueueRef.current;
+    saveQueueRef.current = null; // Clear queue immediately to allow new updates
 
-    void autosaveMutation
-      .mutateAsync({ payload: job.payload, keepalive: job.keepalive, changedItemId: job.changedItemId })
-      .then(
-        () => {
-          isProcessingQueueRef.current = false;
-          if (saveQueueRef.current) {
-            processQueue();
-          } else {
-            updatePendingSaveFlag(false);
-            settleFlushResolvers();
-          }
-        },
-        (error: Error) => {
-          isProcessingQueueRef.current = false;
-          settleFlushResolvers(error);
-          if (saveQueueRef.current) {
-            processQueue();
-          } else {
-            updatePendingSaveFlag(false);
-          }
-        }
-      );
+    try {
+      await autosaveMutation.mutateAsync({ payload, keepalive });
+      
+      // If more items were queued while processing, process them
+      if (saveQueueRef.current) {
+        isProcessingQueueRef.current = false;
+        processQueue();
+      } else {
+        isProcessingQueueRef.current = false;
+        updatePendingSaveFlag(false);
+        settleFlushResolvers();
+      }
+    } catch (error) {
+      console.error('Autosave failed:', error);
+      isProcessingQueueRef.current = false;
+      // Don't clear pending flag on error so we can retry
+      
+      // Reject flush resolvers if we can't save
+      if (!keepalive) {
+        flushResolversRef.current.forEach(({ reject }) => reject(error instanceof Error ? error : new Error(String(error))));
+        flushResolversRef.current = [];
+      }
+    }
   }, [autosaveMutation, settleFlushResolvers, updatePendingSaveFlag]);
 
   const enqueueAutosave = useCallback((payload: SubmitAnswersRequest, keepalive = false, changedItemId?: string) => {
@@ -286,7 +276,9 @@ export const useAssessment = ({
     }
 
     const payload = buildSubmitPayload(latestResponsesRef.current);
-    if (hasCompletedResponses(payload.responses)) {
+    const hasCompleted = hasCompletedResponses(payload.responses);
+
+    if (hasCompleted) {
       saveQueueRef.current = { payload, keepalive: false };
       updatePendingSaveFlag(true);
       processQueue();
@@ -441,14 +433,19 @@ export const useAssessment = ({
   }, [responses]);
 
   // Cleanup timeout on unmount
+  const flushWithKeepaliveRef = useRef(flushWithKeepalive);
+  useEffect(() => {
+    flushWithKeepaliveRef.current = flushWithKeepalive;
+  }, [flushWithKeepalive]);
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
-      void flushPendingSaves();
+      flushWithKeepaliveRef.current();
     };
-  }, [flushPendingSaves]);
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {

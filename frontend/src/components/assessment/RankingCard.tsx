@@ -94,8 +94,8 @@ export const RankingCard = ({
         >
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm uppercase tracking-wide text-gray-500">{label}</p>
-              <p className="text-base font-medium text-black">{option.text}</p>
+              <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+              <p className="text-base font-medium text-slate-900 dark:text-white">{option.text}</p>
             </div>
             <motion.span
               initial={{ scale: 0.9, opacity: 0.6 }}

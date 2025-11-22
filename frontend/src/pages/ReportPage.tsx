@@ -29,7 +29,11 @@ import { InterpretationNotes } from '../components/report/InterpretationNotes';
 const LoadingState = () => (
 	<PageShell>
 		<RoomContent>
-			<div className="flex flex-col items-center justify-center min-h-[60vh] gap-2 text-center">
+			<div 
+				role="status" 
+				aria-label="Memuat laporan"
+				className="flex flex-col items-center justify-center min-h-[60vh] gap-2 text-center"
+			>
 				<div className="w-12 h-12 border-4 border-muted/30 border-t-primary rounded-full animate-spin" />
 				<p className="text-foreground">Memproses laporan...</p>
 				<p className="text-muted-foreground">Memuat laporan gaya belajar</p>
@@ -210,6 +214,7 @@ export const ReportPage: React.FC = () => {
 						<div className="flex flex-wrap items-center gap-3 print:hidden">
 							<button
 								onClick={() => navigate('/reports')}
+								aria-label="Kembali ke daftar laporan"
 								className="inline-flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm font-semibold text-foreground hover:bg-white/10 print:hidden"
 							>
 								<ArrowLeft className="h-4 w-4" />

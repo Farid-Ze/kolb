@@ -400,6 +400,7 @@ export const AssessmentReviewPage: React.FC = () => {
           onClick={() => {
             void handleBackToAssessment();
           }}
+          aria-label="Kembali ke halaman asesmen"
           className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md transition-all text-sm font-medium text-white/70 hover:text-white group"
           whileHover={{ x: -4 }}
         >
@@ -568,6 +569,7 @@ export const AssessmentReviewPage: React.FC = () => {
                           void handleFinalize();
                         }}
                         disabled={!isComplete || finalizeMutation.isPending || autosaveBusy}
+                        aria-label="Finalisasi dan kirim jawaban"
                         className="px-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         whileHover={isComplete && !autosaveBusy ? { scale: 1.05 } : {}}
                         whileTap={isComplete && !autosaveBusy ? { scale: 0.95 } : {}}

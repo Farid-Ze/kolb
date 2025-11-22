@@ -254,10 +254,14 @@ export const AssessmentPage: React.FC = () => {
 
   return (
     <PageShell>
+      <h1 style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: '0' }}>
+        Assessment Session
+      </h1>
       {/* Header - Minimal & Cinematic */}
       <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-start pointer-events-none">
         <motion.button
           onClick={handleBack}
+          aria-label="Keluar dari asesmen"
           className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md transition-all text-sm font-medium text-white/70 hover:text-white group"
           whileHover={{ x: -4 }}
         >
@@ -307,8 +311,8 @@ export const AssessmentPage: React.FC = () => {
           animate="visible"
           className="w-full max-w-3xl mx-auto space-y-4"
         >
-          <h2 className="text-center text-lg font-semibold text-black">Instruksi</h2>
-          <p className="text-center text-sm text-gray-700">
+          <h2 data-testid="instruction-heading" className="text-center text-lg font-semibold text-slate-900 dark:text-white">Instruksi</h2>
+          <p className="text-center text-sm text-slate-700 dark:text-slate-300">
           Seret kartu atau ketuk angka 1-4 untuk memberi peringkat dari paling hingga paling tidak mencerminkan diri Anda.
           </p>
           <p
@@ -373,6 +377,7 @@ export const AssessmentPage: React.FC = () => {
 
             <button
                 onClick={handleOpenGuide}
+                aria-label="Buka panduan asesmen"
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-md text-sm text-white/60 hover:text-white transition-all"
             >
                 <HelpCircle className="w-4 h-4" />
@@ -391,6 +396,7 @@ export const AssessmentPage: React.FC = () => {
                 <button
                     onClick={handleReview}
                     disabled={!isComplete}
+                    aria-label="Selesaikan asesmen dan tinjau jawaban"
                     className="px-6 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                     <CheckCircle className="w-5 h-5" />
