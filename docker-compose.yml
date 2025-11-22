@@ -1,34 +1,47 @@
 version: '3.9'
 services:
   db:
-    image: postgres:18
+    image: postgres:15
+    restart: unless-stopped
     environment:
       POSTGRES_USER: klsi
       POSTGRES_PASSWORD: klsi
       POSTGRES_DB: klsi
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U klsi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql
+      - pgdata:/var/lib/postgresql/data
+
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg2://klsi:klsi@db:5432/klsi
       JWT_SECRET_KEY: change-me
       ENV: prod
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.production
+    restart: unless-stopped
     depends_on:
       - api
     ports:
       - "3000:80"
+
 volumes:
   pgdata: {}

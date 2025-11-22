@@ -75,6 +75,23 @@ class AssessmentItemResponse(Base):
 
     session: Mapped["AssessmentSession"] = relationship(back_populates="item_responses")
 
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "item_id",
+            name="uq_assessment_item_responses_session_item",
+        ),
+        CheckConstraint(
+            "response_rank BETWEEN 1 AND 4",
+            name="ck_assessment_item_responses_rank_range",
+        ),
+        CheckConstraint(
+            "item_id BETWEEN 1 AND 12",
+            name="ck_assessment_item_responses_item_range",
+        ),
+        Index("ix_assessment_item_responses_session", "session_id"),
+    )
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession

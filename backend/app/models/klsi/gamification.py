@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -36,6 +36,10 @@ class UserAchievement(Base):
 
     user: Mapped["User"] = relationship(back_populates="achievements")
     badge: Mapped["GamificationBadge"] = relationship(back_populates="achievements")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "badge_id", name="uq_user_achievements_user_badge"),
+    )
 
 
 if TYPE_CHECKING:  # pragma: no cover

@@ -19,7 +19,7 @@ class StoreProduct(Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
-    base_price: Mapped[int] = mapped_column(Integer)
+    price_points: Mapped[int] = mapped_column(Integer)
     required_badge_id: Mapped[Optional[int]] = mapped_column(ForeignKey("gamification_badges.id"), nullable=True)
     meta: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 

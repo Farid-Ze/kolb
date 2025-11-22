@@ -12,14 +12,14 @@ class ProductBase(CamelModel):
     slug: str
     name: str
     description: str
-    base_price: int
+    price_points: int
     required_badge_id: int | None = None
     meta: dict[str, Any] | None = None
 
 
 class ProductOut(ProductBase):
     id: int
-    is_unlocked: bool = True
+    eligible: bool = True
     model_config = ConfigDict(from_attributes=True)
 
 

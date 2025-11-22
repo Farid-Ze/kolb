@@ -49,7 +49,7 @@ class StoreService:
                 raise StoreServiceError("Badge requirement not satisfied", status_code=403)
 
             quantity = max(1, cart_item.quantity)
-            line_total = product.base_price * quantity
+            line_total = product.price_points * quantity
             total_amount += line_total
 
             db.add(
@@ -57,7 +57,7 @@ class StoreService:
                     order_id=order_id,
                     product_id=product.id,
                     quantity=quantity,
-                    price_at_purchase=product.base_price,
+                    price_at_purchase=product.price_points,
                 )
             )
 
@@ -78,10 +78,10 @@ class StoreService:
             "slug": product.slug,
             "name": product.name,
             "description": product.description,
-            "base_price": product.base_price,
+            "price_points": product.price_points,
             "required_badge_id": product.required_badge_id,
             "meta": product.meta,
-            "is_unlocked": eligible,
+            "eligible": eligible,
         }
 
     def _require_product(self, db: Session, product_id: int) -> StoreProduct:

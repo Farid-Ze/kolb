@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, Text, JSON
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, Text, JSON, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,10 @@ class SphereNode(Base):
     user: Mapped["User"] = relationship(back_populates="sphere_nodes")
     reflections: Mapped[list["MemoryReflection"]] = relationship(back_populates="sphere_node")
 
+    __table_args__ = (
+        Index("ix_sphere_nodes_user_id", "user_id"),
+    )
+
 
 class MemoryReflection(Base):
     __tablename__ = "memory_reflections"
@@ -40,6 +44,10 @@ class MemoryReflection(Base):
 
     user: Mapped["User"] = relationship(back_populates="reflections")
     sphere_node: Mapped[Optional["SphereNode"]] = relationship(back_populates="reflections")
+
+    __table_args__ = (
+        Index("ix_memory_reflections_user_id", "user_id"),
+    )
 
 
 if TYPE_CHECKING:  # pragma: no cover

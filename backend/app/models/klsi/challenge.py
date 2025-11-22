@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -37,6 +37,10 @@ class UserChallenge(Base):
 
     user: Mapped["User"] = relationship(back_populates="challenges")
     challenge: Mapped["GrowthChallenge"] = relationship(back_populates="user_challenges")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "challenge_id", name="uq_user_challenges_user_challenge"),
+    )
 
 
 if TYPE_CHECKING:  # pragma: no cover

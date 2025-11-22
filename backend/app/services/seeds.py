@@ -137,7 +137,7 @@ STORE_PRODUCT_TEMPLATES = [
         "slug": "zen-reflection-journal",
         "name": "Zen Reflection Journal",
         "description": "Notebook with prompts curated for each learning mode to keep tunnel insights alive.",
-        "base_price": 150_000,
+        "price_points": 150_000,
         "required_badge_slug": None,
         "meta": {
             "category": "journaling",
@@ -150,7 +150,7 @@ STORE_PRODUCT_TEMPLATES = [
         "slug": "seeker-momentum-kit",
         "name": "Seeker Momentum Kit",
         "description": "Badge-gated kit with challenge cards and a vinyl sticker for first-time finalists.",
-        "base_price": 0,
+        "price_points": 0,
         "required_badge_slug": "the-seeker",
         "meta": {
             "category": "swag",
@@ -163,7 +163,7 @@ STORE_PRODUCT_TEMPLATES = [
         "slug": "impact-canvas-pack",
         "name": "Impact Canvas Pack",
         "description": "Printable canvases that map CE/RO/AC/AE thinking into squad planning rituals.",
-        "base_price": 220_000,
+        "price_points": 220_000,
         "required_badge_slug": None,
         "meta": {
             "category": "toolkit",
@@ -669,7 +669,7 @@ def seed_store_products(db: Session) -> None:
             product.slug = template["slug"]
             product.description = template["description"]
             product.name = template["name"]
-            product.base_price = template["base_price"]
+            product.price_points = template["price_points"]
             product.required_badge_id = required_badge_id
             product.meta = meta
         else:
@@ -678,7 +678,7 @@ def seed_store_products(db: Session) -> None:
                     slug=template["slug"],
                     name=template["name"],
                     description=template["description"],
-                    base_price=template["base_price"],
+                    price_points=template["price_points"],
                     required_badge_id=required_badge_id,
                     meta=meta,
                 )

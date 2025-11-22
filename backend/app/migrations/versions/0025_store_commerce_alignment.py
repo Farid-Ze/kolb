@@ -32,6 +32,7 @@ def _upgrade_store_products(bind) -> None:
         return
 
     columns = {col["name"] for col in inspector.get_columns("store_products")}
+    indexes = {idx["name"] for idx in inspector.get_indexes("store_products")}
 
     if "slug" not in columns:
         op.add_column(
@@ -40,6 +41,9 @@ def _upgrade_store_products(bind) -> None:
         )
         op.execute(text("UPDATE store_products SET slug = 'product-' || id WHERE slug IS NULL"))
         op.alter_column("store_products", "slug", nullable=False, existing_type=sa.String(length=100))
+        columns.add("slug")
+
+    if "slug" in columns and "ix_store_products_slug" not in indexes:
         op.create_index(
             "ix_store_products_slug",
             "store_products",
@@ -47,17 +51,25 @@ def _upgrade_store_products(bind) -> None:
             unique=True,
         )
 
-    if "base_price" not in columns:
+    if "price_points" not in columns:
         op.add_column(
             "store_products",
-            sa.Column("base_price", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column("price_points", sa.Integer(), nullable=False, server_default="0"),
         )
-        op.execute(text("UPDATE store_products SET base_price = COALESCE(price_points, 0)"))
-        op.alter_column("store_products", "base_price", server_default=None, existing_type=sa.Integer(), nullable=False)
+        op.execute(text("UPDATE store_products SET price_points = COALESCE(base_price, 0)"))
+        op.alter_column(
+            "store_products",
+            "price_points",
+            server_default=None,
+            existing_type=sa.Integer(),
+            nullable=False,
+        )
+        columns.add("price_points")
 
-    if "price_points" in columns:
+    if "base_price" in columns:
+        op.execute(text("UPDATE store_products SET price_points = COALESCE(base_price, price_points, 0)"))
         with op.batch_alter_table("store_products", recreate="always") as batch_op:
-            batch_op.drop_column("price_points")
+            batch_op.drop_column("base_price")
 
 
 def _recreate_store_orders(bind) -> None:
@@ -96,19 +108,22 @@ def _recreate_store_orders(bind) -> None:
 
 def _ensure_order_items_table(bind) -> None:
     inspector = sa.inspect(bind)
-    if "store_order_items" in inspector.get_table_names():
-        return
+    table_exists = "store_order_items" in inspector.get_table_names()
+    if not table_exists:
+        op.create_table(
+            "store_order_items",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("order_id", sa.String(length=50), sa.ForeignKey("store_orders.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("product_id", sa.Integer(), sa.ForeignKey("store_products.id"), nullable=False),
+            sa.Column("quantity", sa.Integer(), nullable=False, server_default="1"),
+            sa.Column("price_at_purchase", sa.Integer(), nullable=False),
+        )
 
-    op.create_table(
-        "store_order_items",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("order_id", sa.String(length=50), sa.ForeignKey("store_orders.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("product_id", sa.Integer(), sa.ForeignKey("store_products.id"), nullable=False),
-        sa.Column("quantity", sa.Integer(), nullable=False, server_default="1"),
-        sa.Column("price_at_purchase", sa.Integer(), nullable=False),
-    )
-    op.create_index("ix_store_order_items_order", "store_order_items", ["order_id"])
-    op.create_index("ix_store_order_items_product", "store_order_items", ["product_id"])
+    existing_indexes = {idx["name"] for idx in inspector.get_indexes("store_order_items")}
+    if "ix_store_order_items_order" not in existing_indexes:
+        op.create_index("ix_store_order_items_order", "store_order_items", ["order_id"])
+    if "ix_store_order_items_product" not in existing_indexes:
+        op.create_index("ix_store_order_items_product", "store_order_items", ["product_id"])
 
 
 def upgrade() -> None:
