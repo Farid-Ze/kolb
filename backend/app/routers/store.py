@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.store import CheckoutRequest, CheckoutResponse, CommunityFundOut, ProductOut
+from app.schemas.store import CheckoutRequest, ProductOut, StoreOrderOut
 from app.services.security import get_current_user
 from app.services.store_service import StoreServiceError, store_service
 
@@ -20,28 +20,14 @@ def get_product(product_id: int, db: Session = Depends(get_db), current_user = D
     return product
 
 
-@router.get("/community-fund", response_model=CommunityFundOut)
-def get_community_fund(db: Session = Depends(get_db)):
-    return store_service.community_fund_snapshot(db)
-
-
-@router.post("/checkout", response_model=CheckoutResponse)
+@router.post("/checkout", response_model=StoreOrderOut)
 def checkout(
     payload: CheckoutRequest,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
     try:
-        order, remaining_points, fund = store_service.checkout(
-            db,
-            current_user.id,
-            product_id=payload.product_id,
-            contribution_points=payload.contribution_points,
-        )
+        order = store_service.create_order(db, current_user.id, payload)
     except StoreServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    return {
-        "order_id": order.id,
-        "remaining_points": remaining_points,
-        "community_fund": fund,
-    }
+    return order

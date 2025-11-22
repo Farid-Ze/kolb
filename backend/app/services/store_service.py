@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from sqlalchemy import func
+import uuid
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.klsi.gamification import UserAchievement
-from app.models.klsi.store import StoreOrder, StoreProduct
-from app.models.klsi.user import User
+from app.models.klsi.store import StoreOrder, StoreOrderItem, StoreProduct
+from app.schemas.store import CheckoutRequest
 
 
 class StoreServiceError(Exception):
@@ -17,82 +19,73 @@ class StoreServiceError(Exception):
 
 class StoreService:
     def list_products(self, db: Session, user_id: int):
-        products = db.query(StoreProduct).all()
+        products = db.execute(select(StoreProduct)).scalars().all()
         return [self._serialize_product(db, user_id, product) for product in products]
 
     def get_product_details(self, db: Session, user_id: int, product_id: int):
-        product = self._get_product(db, product_id)
+        product = db.get(StoreProduct, product_id)
         if not product:
             return None
         return self._serialize_product(db, user_id, product)
 
-    def community_fund_snapshot(self, db: Session):
-        total_points = db.query(func.coalesce(func.sum(StoreOrder.contribution_points), 0)).scalar() or 0
-        contributor_count = db.query(func.count(func.distinct(StoreOrder.user_id))).scalar() or 0
-        order_count = db.query(func.count(StoreOrder.id)).scalar() or 0
-        last_contribution = db.query(func.max(StoreOrder.created_at)).scalar()
-        return {
-            "total_points": int(total_points),
-            "contributors": int(contributor_count),
-            "orders": int(order_count),
-            "last_contribution_at": last_contribution,
-        }
+    def create_order(self, db: Session, user_id: int, payload: CheckoutRequest) -> StoreOrder:
+        if not payload.items:
+            raise StoreServiceError("Cart cannot be empty")
 
-    def checkout(
-        self,
-        db: Session,
-        user_id: int,
-        *,
-        product_id: int,
-        contribution_points: int = 0,
-    ):
-        if contribution_points < 0:
-            raise StoreServiceError("Contribution must be zero or positive")
-
-        product = self._require_product(db, product_id)
-        if not self._is_product_eligible(db, user_id, product):
-            raise StoreServiceError("Badge requirement not satisfied", status_code=403)
-
-        user = db.query(User).filter_by(id=user_id).first()
-        if not user:
-            raise StoreServiceError("User not found", status_code=404)
-
-        total_cost = product.price_points + contribution_points
-        current_points = user.zen_points or 0
-        if total_cost > current_points:
-            raise StoreServiceError("Insufficient zen points for checkout")
-
-        user.zen_points = current_points - total_cost
-        user.current_lvl = max(1, 1 + (user.zen_points // 1000))
-
+        order_id = f"ORDER-{uuid.uuid4().hex[:8].upper()}"
         order = StoreOrder(
+            id=order_id,
             user_id=user_id,
-            product_id=product.id,
-            points_spent=product.price_points,
-            contribution_points=contribution_points,
+            total_amount=0,
+            payment_status="pending",
         )
         db.add(order)
         db.flush()
-        fund_snapshot = self.community_fund_snapshot(db)
+
+        total_amount = 0
+        for cart_item in payload.items:
+            product = self._require_product(db, cart_item.product_id)
+            if not self._is_product_eligible(db, user_id, product):
+                raise StoreServiceError("Badge requirement not satisfied", status_code=403)
+
+            quantity = max(1, cart_item.quantity)
+            line_total = product.base_price * quantity
+            total_amount += line_total
+
+            db.add(
+                StoreOrderItem(
+                    order_id=order_id,
+                    product_id=product.id,
+                    quantity=quantity,
+                    price_at_purchase=product.base_price,
+                )
+            )
+
+        if total_amount <= 0:
+            raise StoreServiceError("Unable to calculate order total")
+
+        order.total_amount = total_amount
+        order.snap_token = f"SNAP-{uuid.uuid4().hex[:10].upper()}"
+
         db.commit()
-        return order, user.zen_points, fund_snapshot
+        db.refresh(order)
+        return order
 
     def _serialize_product(self, db: Session, user_id: int, product: StoreProduct) -> dict:
         eligible = self._is_product_eligible(db, user_id, product)
         return {
             "id": product.id,
+            "slug": product.slug,
             "name": product.name,
             "description": product.description,
-            "price_points": product.price_points,
+            "base_price": product.base_price,
+            "required_badge_id": product.required_badge_id,
             "meta": product.meta,
-            "eligible": eligible,
+            "is_unlocked": eligible,
         }
 
-    def _get_product(self, db: Session, product_id: int):
-        return db.query(StoreProduct).filter_by(id=product_id).first()
-
     def _require_product(self, db: Session, product_id: int) -> StoreProduct:
-        product = self._get_product(db, product_id)
+        product = db.get(StoreProduct, product_id)
         if not product:
             raise StoreServiceError("Product not found", status_code=404)
         return product

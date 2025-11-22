@@ -3,33 +3,47 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from app.schemas.base import CamelModel
 
-class ProductOut(CamelModel):
-    id: int
+
+class ProductBase(CamelModel):
+    slug: str
     name: str
     description: str
-    price_points: int
+    base_price: int
+    required_badge_id: int | None = None
     meta: dict[str, Any] | None = None
-    eligible: bool
 
 
-class CommunityFundOut(CamelModel):
-    total_points: int
-    contributors: int
-    orders: int
-    last_contribution_at: datetime | None = None
+class ProductOut(ProductBase):
+    id: int
+    is_unlocked: bool = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CartItem(CamelModel):
+    product_id: int
+    quantity: int = Field(default=1, ge=1)
 
 
 class CheckoutRequest(CamelModel):
+    items: list[CartItem]
+
+
+class StoreOrderItemOut(CamelModel):
     product_id: int
-    contribution_points: int = 0
+    quantity: int
+    price_at_purchase: int
+    model_config = ConfigDict(from_attributes=True)
 
 
-class CheckoutResponse(CamelModel):
-    order_id: int
-    remaining_points: int
-    community_fund: CommunityFundOut
+class StoreOrderOut(CamelModel):
+    id: str
+    total_amount: int
+    payment_status: str
+    snap_token: str | None = None
+    created_at: datetime
+    items: list[StoreOrderItemOut] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)

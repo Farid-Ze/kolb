@@ -134,36 +134,42 @@ CHOICE_TEXT = {
 
 STORE_PRODUCT_TEMPLATES = [
     {
+        "slug": "zen-reflection-journal",
         "name": "Zen Reflection Journal",
         "description": "Notebook with prompts curated for each learning mode to keep tunnel insights alive.",
-        "price_points": 150,
+        "base_price": 150_000,
         "required_badge_slug": None,
         "meta": {
             "category": "journaling",
             "image_url": "/static/store/journal.png",
             "includes": ["40 guided pages", "LFI micro-coaching tips"],
+            "currency": "IDR",
         },
     },
     {
+        "slug": "seeker-momentum-kit",
         "name": "Seeker Momentum Kit",
         "description": "Badge-gated kit with challenge cards and a vinyl sticker for first-time finalists.",
-        "price_points": 0,
+        "base_price": 0,
         "required_badge_slug": "the-seeker",
         "meta": {
             "category": "swag",
             "image_url": "/static/store/momentum-kit.png",
             "contains": ["challenge cards", "limited sticker"],
+            "currency": "IDR",
         },
     },
     {
+        "slug": "impact-canvas-pack",
         "name": "Impact Canvas Pack",
         "description": "Printable canvases that map CE/RO/AC/AE thinking into squad planning rituals.",
-        "price_points": 220,
+        "base_price": 220_000,
         "required_badge_slug": None,
         "meta": {
             "category": "toolkit",
             "image_url": "/static/store/impact-canvas.png",
             "filetype": "pdf",
+            "currency": "IDR",
         },
     },
 ]
@@ -646,7 +652,7 @@ def seed_store_products(db: Session) -> None:
         for badge in db.query(GamificationBadge).all()
     }
     existing_products = {
-        product.name: product
+        product.slug: product
         for product in db.query(StoreProduct).all()
     }
 
@@ -658,18 +664,21 @@ def seed_store_products(db: Session) -> None:
         if meta:
             meta = json.loads(json.dumps(meta))  # defensive copy for JSON columns
 
-        product = existing_products.get(template["name"])
+        product = existing_products.get(template["slug"])
         if product:
+            product.slug = template["slug"]
             product.description = template["description"]
-            product.price_points = template["price_points"]
+            product.name = template["name"]
+            product.base_price = template["base_price"]
             product.required_badge_id = required_badge_id
             product.meta = meta
         else:
             db.add(
                 StoreProduct(
+                    slug=template["slug"],
                     name=template["name"],
                     description=template["description"],
-                    price_points=template["price_points"],
+                    base_price=template["base_price"],
                     required_badge_id=required_badge_id,
                     meta=meta,
                 )

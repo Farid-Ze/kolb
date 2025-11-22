@@ -33,10 +33,14 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
         )
 
-    existing_indexes = {idx["name"] for idx in inspector.get_indexes("store_orders")} if "store_orders" in existing_tables else set()
-    if "ix_store_orders_user_id" not in existing_indexes:
+    # Refresh inspector metadata now that the table may have been created above
+    inspector = inspect(bind)
+    table_columns = {col["name"] for col in inspector.get_columns("store_orders")}
+    existing_indexes = {idx["name"] for idx in inspector.get_indexes("store_orders")}
+
+    if "user_id" in table_columns and "ix_store_orders_user_id" not in existing_indexes:
         op.create_index("ix_store_orders_user_id", "store_orders", ["user_id"])
-    if "ix_store_orders_product_id" not in existing_indexes:
+    if "product_id" in table_columns and "ix_store_orders_product_id" not in existing_indexes:
         op.create_index("ix_store_orders_product_id", "store_orders", ["product_id"])
 
 

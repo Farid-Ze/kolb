@@ -30,7 +30,7 @@ from .user import User
 from .gamification import GamificationBadge, UserAchievement
 from .challenge import GrowthChallenge, UserChallenge
 from .sphere import SphereNode, MemoryReflection
-from .store import StoreProduct, StoreOrder
+from .store import StoreProduct, StoreOrder, StoreOrderItem
 
 __all__ = [
     "AgeGroup",
@@ -77,4 +77,5 @@ __all__ = [
     "MemoryReflection",
     "StoreProduct",
     "StoreOrder",
+    "StoreOrderItem",
 ]
