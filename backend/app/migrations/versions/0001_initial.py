@@ -8,6 +8,13 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
+
+from app.db.database import Base
+
+# Import ORM modules so Base.metadata is fully populated before create_all
+import app.models.engine  # noqa: F401  # pylint: disable=unused-import
+import app.models.klsi  # noqa: F401  # pylint: disable=unused-import
 
 # revision identifiers, used by Alembic.
 revision = '0001_initial'
@@ -16,14 +23,20 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-    # Create all tables from SQLAlchemy metadata
-    # We rely on autogenerate-like approach: create_missing tables
-    # For simplicity, call op.create_table for key tables if not exists would be complex;
-    # instead, execute metadata.create_all prior to migrations. Here we add constraints and views.
+  # Materialize ORM schema so Alembic can bootstrap a blank database
+  bind = op.get_bind()
+  metadata = Base.metadata
+  metadata.bind = bind
+  metadata.create_all(bind, checkfirst=True)
 
-    # Add unique constraint to normative_conversion_table
-    conn = op.get_bind()
-    dialect = conn.dialect.name
+  conn = bind
+  dialect = conn.dialect.name
+
+  inspector = inspect(bind)
+  existing_tables = set(inspector.get_table_names())
+  if "normative_conversion_table" not in existing_tables:
+    raise RuntimeError("normative_conversion_table must exist after metadata bootstrap")
+
     if dialect == 'postgresql':
         op.execute(
             sa.text(

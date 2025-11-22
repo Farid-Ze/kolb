@@ -19,65 +19,97 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "instruments",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("code", sa.String(length=40), nullable=False),
-        sa.Column("name", sa.String(length=200), nullable=False),
-        sa.Column("version", sa.String(length=20), nullable=False),
-        sa.Column("default_strategy_code", sa.String(length=40), nullable=True),
-        sa.Column("description", sa.String(length=500), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-        sa.UniqueConstraint("code", name="uq_instruments_code"),
-    )
-    op.create_index("ix_instruments_code", "instruments", ["code"], unique=True)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    tables = set(inspector.get_table_names())
 
-    op.create_table(
-        "instrument_scales",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("instrument_id", sa.Integer(), nullable=False),
-        sa.Column("scale_code", sa.String(length=20), nullable=False),
-        sa.Column("display_name", sa.String(length=200), nullable=False),
-        sa.Column("description", sa.String(length=500), nullable=True),
-        sa.Column("rendering_order", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(["instrument_id"], ["instruments.id"], name="fk_instrument_scales_instrument"),
-        sa.UniqueConstraint("instrument_id", "scale_code", name="uq_instrument_scale_code"),
-    )
+    if "instruments" not in tables:
+        op.create_table(
+            "instruments",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("code", sa.String(length=40), nullable=False),
+            sa.Column("name", sa.String(length=200), nullable=False),
+            sa.Column("version", sa.String(length=20), nullable=False),
+            sa.Column("default_strategy_code", sa.String(length=40), nullable=True),
+            sa.Column("description", sa.String(length=500), nullable=True),
+            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+            sa.UniqueConstraint("code", name="uq_instruments_code"),
+        )
+    existing_indexes = {idx["name"] for idx in inspector.get_indexes("instruments")} if "instruments" in tables else set()
+    if "ix_instruments_code" not in existing_indexes:
+        op.create_index("ix_instruments_code", "instruments", ["code"], unique=True)
 
-    op.add_column("assessment_sessions", sa.Column("instrument_id", sa.Integer(), nullable=True))
-    op.add_column("assessment_sessions", sa.Column("strategy_code", sa.String(length=40), nullable=True))
-    op.create_foreign_key(
-        "fk_assessment_sessions_instrument",
-        "assessment_sessions",
-        "instruments",
-        ["instrument_id"],
-        ["id"],
-    )
+    if "instrument_scales" not in tables:
+        op.create_table(
+            "instrument_scales",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("instrument_id", sa.Integer(), nullable=False),
+            sa.Column("scale_code", sa.String(length=20), nullable=False),
+            sa.Column("display_name", sa.String(length=200), nullable=False),
+            sa.Column("description", sa.String(length=500), nullable=True),
+            sa.Column("rendering_order", sa.Integer(), nullable=True),
+            sa.ForeignKeyConstraint(["instrument_id"], ["instruments.id"], name="fk_instrument_scales_instrument"),
+            sa.UniqueConstraint("instrument_id", "scale_code", name="uq_instrument_scale_code"),
+        )
 
-    connection = op.get_bind()
+    dialect = bind.dialect.name
+
+    session_columns = {col["name"] for col in inspector.get_columns("assessment_sessions")}
+    if "instrument_id" not in session_columns:
+        op.add_column("assessment_sessions", sa.Column("instrument_id", sa.Integer(), nullable=True))
+    if "strategy_code" not in session_columns:
+        op.add_column("assessment_sessions", sa.Column("strategy_code", sa.String(length=40), nullable=True))
+    if dialect != "sqlite":
+        fk_names = {fk.get("name") for fk in inspector.get_foreign_keys("assessment_sessions")}
+        if "fk_assessment_sessions_instrument" not in fk_names:
+            op.create_foreign_key(
+                "fk_assessment_sessions_instrument",
+                "assessment_sessions",
+                "instruments",
+                ["instrument_id"],
+                ["id"],
+            )
+
+    connection = bind
 
     now = datetime.now(timezone.utc)
-    connection.execute(
-        sa.text(
-            "INSERT INTO instruments (code, name, version, default_strategy_code, description, is_active, created_at) "
-            "VALUES (:code, :name, :version, :strategy, :description, :active, :created_at)"
-        ),
-        {
-            "code": "KLSI",
-            "name": "Kolb Learning Style Inventory",
-            "version": "4.0",
-            "strategy": "KLSI4.0",
-            "description": "Kolb Learning Style Inventory 4.0",
-            "active": True,
-            "created_at": now,
-        },
-    )
-
-    instrument_id = connection.execute(
+    instrument_row = connection.execute(
         sa.text("SELECT id FROM instruments WHERE code = :code"),
         {"code": "KLSI"},
-    ).scalar_one()
+    ).scalar()
+    if instrument_row is None:
+        connection.execute(
+            sa.text(
+                "INSERT INTO instruments (code, name, version, default_strategy_code, description, is_active, created_at) "
+                "VALUES (:code, :name, :version, :strategy, :description, :active, :created_at)"
+            ),
+            {
+                "code": "KLSI",
+                "name": "Kolb Learning Style Inventory",
+                "version": "4.0",
+                "strategy": "KLSI4.0",
+                "description": "Kolb Learning Style Inventory 4.0",
+                "active": True,
+                "created_at": now,
+            },
+        )
+        instrument_row = connection.execute(
+            sa.text("SELECT id FROM instruments WHERE code = :code"),
+            {"code": "KLSI"},
+        ).scalar()
+
+    instrument_id = instrument_row
+    if instrument_id is None:
+        raise RuntimeError("Failed to resolve instrument id for KLSI seeding")
+
+    existing_scales = {
+        row[0]
+        for row in connection.execute(
+            sa.text("SELECT scale_code FROM instrument_scales WHERE instrument_id = :instrument_id"),
+            {"instrument_id": instrument_id},
+        )
+    }
 
     scale_rows = [
         ("CE", "Concrete Experience", 1),
@@ -89,6 +121,8 @@ def upgrade() -> None:
         ("LFI", "Learning Flexibility Index", 7),
     ]
     for code, display_name, order in scale_rows:
+        if code in existing_scales:
+            continue
         connection.execute(
             sa.text(
                 "INSERT INTO instrument_scales (instrument_id, scale_code, display_name, rendering_order) "
@@ -105,7 +139,7 @@ def upgrade() -> None:
     connection.execute(
         sa.text(
             "UPDATE assessment_sessions SET instrument_id = :instrument_id "
-            "WHERE assessment_id = :assessment_id AND assessment_version = :assessment_version"
+            "WHERE instrument_id IS NULL AND assessment_id = :assessment_id AND assessment_version = :assessment_version"
         ),
         {
             "instrument_id": instrument_id,

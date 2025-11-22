@@ -22,6 +22,7 @@ from app.schemas.session import (
     SingleItemResponsePayload,
     SingleItemResponse,
     AssessmentResponseBatch,
+    AssessmentItemResponsePayload,
 )
 from app.services.assessments import upsert_responses
 from app.core.config import settings
@@ -416,22 +417,26 @@ def submit_single_response(
     return SingleItemResponse(status="synced", progress=progress)
 
 @router.patch("/{session_id}/responses", status_code=204)
-def submit_responses(
+def upsert_session_responses(
     session_id: int,
-    payload: AssessmentResponseBatch,
+    payload: list[AssessmentItemResponsePayload],
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None)
+    authorization: str | None = Header(default=None),
 ):
     user = get_current_user(authorization, db)
-    repo = SessionRepository(db)
-    session = repo.get_by_id(session_id)
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized for this session")
-    if getattr(session, "is_finalized", False):
-         raise HTTPException(status_code=409, detail="Session already finalized")
+    engine_service = EngineSessionService(db)
+    engine_service.ensure_access(session_id, user)
 
-    upsert_responses(db, session_id, payload.responses)
+    upsert_responses(db, session_id, payload)
     return Response(status_code=204)
+
+
+@router.post("/{session_id}/finalize")
+def finalize_session_endpoint(
+    session_id: int,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    user = get_current_user(authorization, db)
+    engine_service = EngineSessionService(db)
+    return engine_service.finalize_session(session_id, user)

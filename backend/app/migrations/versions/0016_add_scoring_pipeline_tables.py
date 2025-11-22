@@ -48,52 +48,68 @@ SCORING_PIPELINE_NODES = sa.Table(
 
 
 def upgrade() -> None:
-    op.add_column(
-        "assessment_sessions",
-        sa.Column("pipeline_version", sa.String(length=40), nullable=True),
-    )
-    op.create_table(
-        "scoring_pipelines",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("instrument_id", sa.Integer(), nullable=False),
-        sa.Column("pipeline_code", sa.String(length=60), nullable=False),
-        sa.Column("version", sa.String(length=20), nullable=False),
-        sa.Column("description", sa.String(length=500), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("metadata_payload", sa.JSON(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-        sa.ForeignKeyConstraint(["instrument_id"], ["instruments.id"], name="fk_scoring_pipelines_instrument"),
-        sa.UniqueConstraint(
-            "instrument_id",
-            "pipeline_code",
-            "version",
-            name="uq_pipeline_per_instrument_version",
-        ),
-    )
-    op.create_table(
-        "scoring_pipeline_nodes",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("pipeline_id", sa.Integer(), nullable=False),
-        sa.Column("node_key", sa.String(length=50), nullable=False),
-        sa.Column("node_type", sa.String(length=40), nullable=False),
-        sa.Column("execution_order", sa.Integer(), nullable=False),
-        sa.Column("config", sa.JSON(), nullable=True),
-        sa.Column("next_node_key", sa.String(length=50), nullable=True),
-        sa.Column("is_terminal", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-        sa.ForeignKeyConstraint(["pipeline_id"], ["scoring_pipelines.id"], name="fk_pipeline_nodes_pipeline"),
-        sa.UniqueConstraint("pipeline_id", "node_key", name="uq_pipeline_node_key"),
-        sa.UniqueConstraint("pipeline_id", "execution_order", name="uq_pipeline_order"),
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
 
-    connection = op.get_bind()
+    session_columns = {col["name"] for col in inspector.get_columns("assessment_sessions")}
+    if "pipeline_version" not in session_columns:
+        op.add_column(
+            "assessment_sessions",
+            sa.Column("pipeline_version", sa.String(length=40), nullable=True),
+        )
+
+    tables = set(inspector.get_table_names())
+    if "scoring_pipelines" not in tables:
+        op.create_table(
+            "scoring_pipelines",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("instrument_id", sa.Integer(), nullable=False),
+            sa.Column("pipeline_code", sa.String(length=60), nullable=False),
+            sa.Column("version", sa.String(length=20), nullable=False),
+            sa.Column("description", sa.String(length=500), nullable=True),
+            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("metadata_payload", sa.JSON(), nullable=True),
+            sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+            sa.ForeignKeyConstraint(["instrument_id"], ["instruments.id"], name="fk_scoring_pipelines_instrument"),
+            sa.UniqueConstraint(
+                "instrument_id",
+                "pipeline_code",
+                "version",
+                name="uq_pipeline_per_instrument_version",
+            ),
+        )
+    if "scoring_pipeline_nodes" not in tables:
+        op.create_table(
+            "scoring_pipeline_nodes",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("pipeline_id", sa.Integer(), nullable=False),
+            sa.Column("node_key", sa.String(length=50), nullable=False),
+            sa.Column("node_type", sa.String(length=40), nullable=False),
+            sa.Column("execution_order", sa.Integer(), nullable=False),
+            sa.Column("config", sa.JSON(), nullable=True),
+            sa.Column("next_node_key", sa.String(length=50), nullable=True),
+            sa.Column("is_terminal", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+            sa.ForeignKeyConstraint(["pipeline_id"], ["scoring_pipelines.id"], name="fk_pipeline_nodes_pipeline"),
+            sa.UniqueConstraint("pipeline_id", "node_key", name="uq_pipeline_node_key"),
+            sa.UniqueConstraint("pipeline_id", "execution_order", name="uq_pipeline_order"),
+        )
+
+    connection = bind
 
     instrument_id = connection.execute(
         sa.text("SELECT id FROM instruments WHERE code = :code AND version = :version"),
         {"code": "KLSI", "version": "4.0"},
     ).scalar()
 
-    if instrument_id:
+    pipeline_exists = connection.execute(
+        sa.text(
+            "SELECT id FROM scoring_pipelines WHERE instrument_id = :instrument_id AND pipeline_code = :code AND version = :version"
+        ),
+        {"instrument_id": instrument_id, "code": "KLSI4.0", "version": "v1"},
+    ).scalar() if instrument_id else None
+
+    if instrument_id and not pipeline_exists:
         now = datetime.now(timezone.utc)
         insert_pipeline = sa.insert(SCORING_PIPELINES).values(
             instrument_id=instrument_id,
@@ -188,7 +204,7 @@ def upgrade() -> None:
         connection.execute(
             sa.text(
                 "UPDATE assessment_sessions SET pipeline_version = :version "
-                "WHERE instrument_id = :instrument_id"
+                "WHERE instrument_id = :instrument_id AND pipeline_version IS NULL"
             ),
             {
                 "version": "KLSI4.0:v1",

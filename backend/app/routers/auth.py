@@ -16,7 +16,7 @@ from app.i18n.id_messages import AuthMessages
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = get_logger("kolb.routers.auth", component="router")
 
-_KELAS_PATTERN = re.compile(r"IF-\d+")
+_KELAS_PATTERN = re.compile(r"^IF-\d{2}$")
 
 
 def _log_db_failure(event: str, **structured: Any) -> None:

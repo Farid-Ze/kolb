@@ -12,6 +12,7 @@ Create Date: 2025-11-14
 from __future__ import annotations
 
 from alembic import op
+import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0020_add_session_lookup_indexes"
@@ -36,6 +37,13 @@ def upgrade() -> None:
     # Get database dialect to check if we're using PostgreSQL
     bind = op.get_bind()
     dialect = bind.dialect.name
+    inspector = sa.inspect(bind)
+
+    def _has_index(table: str, name: str) -> bool:
+        try:
+            return any(idx["name"] == name for idx in inspector.get_indexes(table))
+        except Exception:  # pragma: no cover - fallback for tables without metadata
+            return False
     
     # Index on percentile_scores.session_id
     # Unique constraint already exists, but explicit index improves portability
@@ -44,38 +52,42 @@ def upgrade() -> None:
     if dialect == "postgresql":
         include_columns = ["norm_group_used"]  # Include for index-only scans
 
-    op.create_index(
-        "ix_percentile_scores_session_id",
-        "percentile_scores",
-        ["session_id"],
-        unique=True,
-        postgresql_include=include_columns,
-    )
+    if not _has_index("percentile_scores", "ix_percentile_scores_session_id"):
+        op.create_index(
+            "ix_percentile_scores_session_id",
+            "percentile_scores",
+            ["session_id"],
+            unique=True,
+            postgresql_include=include_columns,
+        )
     
     # Index on combination_scores.session_id
-    op.create_index(
-        "ix_combination_scores_session_id",
-        "combination_scores",
-        ["session_id"],
-        unique=True,
-    )
+    if not _has_index("combination_scores", "ix_combination_scores_session_id"):
+        op.create_index(
+            "ix_combination_scores_session_id",
+            "combination_scores",
+            ["session_id"],
+            unique=True,
+        )
     
     # Index on user_learning_styles.session_id
-    op.create_index(
-        "ix_user_learning_styles_session_id",
-        "user_learning_styles",
-        ["session_id"],
-        unique=True,
-    )
+    if not _has_index("user_learning_styles", "ix_user_learning_styles_session_id"):
+        op.create_index(
+            "ix_user_learning_styles_session_id",
+            "user_learning_styles",
+            ["session_id"],
+            unique=True,
+        )
     
     # Composite index on scale_provenance(session_id, scale_code)
     # This supports both lookups by session and by (session, scale) pairs
-    op.create_index(
-        "ix_scale_provenance_session_scale",
-        "scale_provenance",
-        ["session_id", "scale_code"],
-        unique=False,
-    )
+    if not _has_index("scale_provenance", "ix_scale_provenance_session_scale"):
+        op.create_index(
+            "ix_scale_provenance_session_scale",
+            "scale_provenance",
+            ["session_id", "scale_code"],
+            unique=False,
+        )
 
 
 def downgrade() -> None:

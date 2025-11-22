@@ -64,6 +64,11 @@ def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
+    columns = {col["name"] for col in inspector.get_columns("normative_conversion_table")}
+    if "norm_version" in columns:
+        # Already migrated; nothing to do.
+        return
+
     # ---- normative_conversion_table ----
     with op.batch_alter_table("normative_conversion_table") as batch_op:
         batch_op.add_column(sa.Column("norm_version", sa.String(length=40), nullable=False, server_default=_DEFAULT_VERSION))
