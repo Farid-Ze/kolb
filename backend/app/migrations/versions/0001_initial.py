@@ -23,19 +23,18 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-  # Materialize ORM schema so Alembic can bootstrap a blank database
-  bind = op.get_bind()
-  metadata = Base.metadata
-  metadata.bind = bind
-  metadata.create_all(bind, checkfirst=True)
+    # Materialize ORM schema so Alembic can bootstrap a blank database
+    bind = op.get_bind()
+    metadata = Base.metadata
+    metadata.create_all(bind, checkfirst=True)
 
-  conn = bind
-  dialect = conn.dialect.name
+    conn = bind
+    dialect = conn.dialect.name
 
-  inspector = inspect(bind)
-  existing_tables = set(inspector.get_table_names())
-  if "normative_conversion_table" not in existing_tables:
-    raise RuntimeError("normative_conversion_table must exist after metadata bootstrap")
+    inspector = inspect(bind)
+    existing_tables = set(inspector.get_table_names())
+    if "normative_conversion_table" not in existing_tables:
+        raise RuntimeError("normative_conversion_table must exist after metadata bootstrap")
 
     if dialect == 'postgresql':
         op.execute(
@@ -56,28 +55,29 @@ def upgrade() -> None:
         # For SQLite and others, try to add constraint directly (may not be supported)
         try:
             op.create_unique_constraint(
-                'uq_norm_group_scale_raw', 'normative_conversion_table', ['norm_group','scale_name','raw_score']
+                'uq_norm_group_scale_raw', 'normative_conversion_table', ['norm_group', 'scale_name', 'raw_score']
             )
         except Exception:
             pass
 
     # Create or replace view v_style_grid (PostgreSQL & SQLite compatible SELECT)
+    op.execute(sa.text("DROP VIEW IF EXISTS v_style_grid"))
     op.execute(
         sa.text(
             """
-            CREATE VIEW IF NOT EXISTS v_style_grid AS
+        CREATE VIEW v_style_grid AS
             SELECT s.id AS session_id,
                    s.user_id,
-                   cs.ACCE_raw,
-                   cs.AERO_raw,
+                   cs."ACCE_raw",
+                   cs."AERO_raw",
                    CASE
-                     WHEN cs.ACCE_raw <= 5 THEN 'Low'
-                     WHEN cs.ACCE_raw <= 14 THEN 'Mid'
+                     WHEN cs."ACCE_raw" <= 5 THEN 'Low'
+                     WHEN cs."ACCE_raw" <= 14 THEN 'Mid'
                      ELSE 'High'
                    END AS acce_band,
                    CASE
-                     WHEN cs.AERO_raw <= 0 THEN 'Low'
-                     WHEN cs.AERO_raw <= 11 THEN 'Mid'
+                     WHEN cs."AERO_raw" <= 0 THEN 'Low'
+                     WHEN cs."AERO_raw" <= 11 THEN 'Mid'
                      ELSE 'High'
                    END AS aero_band,
                    lst.style_name
@@ -98,7 +98,7 @@ def upgrade() -> None:
                   IF NOT EXISTS (
                     SELECT 1 FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'ix_assessment_sessions_completed'
                   ) THEN
-                    EXECUTE 'CREATE INDEX ix_assessment_sessions_completed ON assessment_sessions (user_id, end_time) WHERE status = ''Completed''';
+                    EXECUTE 'CREATE INDEX ix_assessment_sessions_completed ON assessment_sessions (user_id, end_time) WHERE status = ''completed''';
                   END IF;
                 END $$;
                 """

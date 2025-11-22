@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import inspect
+from sqlalchemy import inspect, Boolean
 
 
 # revision identifiers, used by Alembic.
@@ -57,7 +57,8 @@ def upgrade() -> None:
     if "percentile_scores" not in table_names:
         raise RuntimeError("percentile_scores table must exist before running this migration")
 
-    percentile_columns = {col["name"] for col in inspector.get_columns("percentile_scores")}
+    percentile_schema = inspector.get_columns("percentile_scores")
+    percentile_columns = {col["name"] for col in percentile_schema}
     if "norm_provenance" not in percentile_columns:
         op.add_column(
             "percentile_scores",
@@ -80,18 +81,24 @@ def upgrade() -> None:
         )
 
     if "used_fallback_any" in percentile_columns:
+        used_fallback_info = next((col for col in percentile_schema if col["name"] == "used_fallback_any"), None)
+        column_type = used_fallback_info["type"] if used_fallback_info else None
+        is_boolean = isinstance(column_type, Boolean)
         if bind.dialect.name != "sqlite":
-            op.alter_column(
-                "percentile_scores",
-                "used_fallback_any",
-                existing_type=sa.Integer(),
-                type_=sa.Boolean(),
-                existing_nullable=True,
-                server_default=sa.sql.expression.true(),
-            )
-            op.execute(
-                "UPDATE percentile_scores SET used_fallback_any = CASE WHEN used_fallback_any IN (1, '1', 't', 'true') THEN 1 ELSE 0 END"
-            )
+            if not is_boolean:
+                # Normalize legacy truthy values while column is still integer-based
+                op.execute(
+                    "UPDATE percentile_scores SET used_fallback_any = CASE WHEN used_fallback_any IN (1, '1', 't', 'true') THEN 1 ELSE 0 END"
+                )
+                op.alter_column(
+                    "percentile_scores",
+                    "used_fallback_any",
+                    existing_type=sa.Integer(),
+                    type_=sa.Boolean(),
+                    existing_nullable=True,
+                    server_default=sa.sql.expression.true(),
+                    postgresql_using="used_fallback_any::boolean",
+                )
             op.alter_column(
                 "percentile_scores",
                 "used_fallback_any",

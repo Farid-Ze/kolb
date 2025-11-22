@@ -6,7 +6,7 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -47,6 +47,35 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        if connection.dialect.name == "postgresql":
+            with connection.begin():
+                version_table_exists = connection.execute(
+                    text(
+                        """
+                        SELECT 1
+                        FROM information_schema.tables
+                        WHERE table_name = 'alembic_version'
+                          AND table_schema = current_schema()
+                        """
+                    )
+                ).scalar()
+                if not version_table_exists:
+                    connection.execute(text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(64) NOT NULL)"))
+                else:
+                    max_len = connection.execute(
+                        text(
+                            """
+                            SELECT character_maximum_length
+                            FROM information_schema.columns
+                            WHERE table_name = 'alembic_version'
+                              AND table_schema = current_schema()
+                              AND column_name = 'version_num'
+                            """
+                        )
+                    ).scalar()
+                    if max_len is not None and max_len < 64:
+                        connection.execute(text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)"))
+
         context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
         with context.begin_transaction():
             context.run_migrations()

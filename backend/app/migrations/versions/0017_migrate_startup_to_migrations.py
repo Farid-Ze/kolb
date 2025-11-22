@@ -86,7 +86,7 @@ def upgrade() -> None:
             """
             CREATE INDEX IF NOT EXISTS ix_assessment_sessions_completed 
             ON assessment_sessions (user_id, end_time)
-            WHERE status = 'Completed';
+            WHERE status = 'completed';
             """
         )
         # Create or replace view for style grid
@@ -95,16 +95,16 @@ def upgrade() -> None:
             CREATE OR REPLACE VIEW v_style_grid AS
             SELECT s.id AS session_id,
                    s.user_id,
-                   cs.ACCE_raw,
-                   cs.AERO_raw,
+                   cs."ACCE_raw",
+                   cs."AERO_raw",
                    CASE
-                       WHEN cs.ACCE_raw <= 5 THEN 'Low'
-                       WHEN cs.ACCE_raw <= 14 THEN 'Mid'
+                       WHEN cs."ACCE_raw" <= 5 THEN 'Low'
+                       WHEN cs."ACCE_raw" <= 14 THEN 'Mid'
                        ELSE 'High'
                    END AS acce_band,
                    CASE
-                       WHEN cs.AERO_raw <= 0 THEN 'Low'
-                       WHEN cs.AERO_raw <= 11 THEN 'Mid'
+                       WHEN cs."AERO_raw" <= 0 THEN 'Low'
+                       WHEN cs."AERO_raw" <= 11 THEN 'Mid'
                        ELSE 'High'
                    END AS aero_band,
                    lst.style_name

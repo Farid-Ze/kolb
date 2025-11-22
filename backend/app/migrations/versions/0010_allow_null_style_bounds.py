@@ -20,19 +20,19 @@ _COLUMNS = ("ACCE_min", "ACCE_max", "AERO_min", "AERO_max")
 
 _VIEW_SQL = sa.text(
     """
-    CREATE VIEW IF NOT EXISTS v_style_grid AS
+    CREATE VIEW v_style_grid AS
     SELECT s.id AS session_id,
                  s.user_id,
-                 cs.ACCE_raw,
-                 cs.AERO_raw,
+                 cs."ACCE_raw",
+                 cs."AERO_raw",
                  CASE
-                     WHEN cs.ACCE_raw <= 5 THEN 'Low'
-                     WHEN cs.ACCE_raw <= 14 THEN 'Mid'
+                     WHEN cs."ACCE_raw" <= 5 THEN 'Low'
+                     WHEN cs."ACCE_raw" <= 14 THEN 'Mid'
                      ELSE 'High'
                  END AS acce_band,
                  CASE
-                     WHEN cs.AERO_raw <= 0 THEN 'Low'
-                     WHEN cs.AERO_raw <= 11 THEN 'Mid'
+                     WHEN cs."AERO_raw" <= 0 THEN 'Low'
+                     WHEN cs."AERO_raw" <= 11 THEN 'Mid'
                      ELSE 'High'
                  END AS aero_band,
                  lst.style_name

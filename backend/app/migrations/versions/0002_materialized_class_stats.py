@@ -22,12 +22,12 @@ def upgrade() -> None:
     op.execute(sa.text(
         """
         CREATE MATERIALIZED VIEW IF NOT EXISTS mv_class_style_stats AS
-        SELECT u.kelas,
-               s.end_time::date AS date,
-               cs.ACCE_raw,
-               cs.AERO_raw,
-               CASE WHEN cs.ACCE_raw <= 5 THEN 'Low' WHEN cs.ACCE_raw <= 14 THEN 'Mid' ELSE 'High' END AS acce_band,
-               CASE WHEN cs.AERO_raw <= 0 THEN 'Low' WHEN cs.AERO_raw <= 11 THEN 'Mid' ELSE 'High' END AS aero_band,
+         SELECT u.kelas,
+             s.end_time::date AS date,
+             cs."ACCE_raw",
+             cs."AERO_raw",
+             CASE WHEN cs."ACCE_raw" <= 5 THEN 'Low' WHEN cs."ACCE_raw" <= 14 THEN 'Mid' ELSE 'High' END AS acce_band,
+             CASE WHEN cs."AERO_raw" <= 0 THEN 'Low' WHEN cs."AERO_raw" <= 11 THEN 'Mid' ELSE 'High' END AS aero_band,
                lst.style_name,
                COUNT(*) AS cnt
         FROM assessment_sessions s
@@ -35,8 +35,8 @@ def upgrade() -> None:
         JOIN combination_scores cs ON cs.session_id = s.id
         LEFT JOIN user_learning_styles uls ON uls.session_id = s.id
         LEFT JOIN learning_style_types lst ON lst.id = uls.primary_style_type_id
-        WHERE s.status = 'Completed'
-        GROUP BY u.kelas, s.end_time::date, cs.ACCE_raw, cs.AERO_raw, acce_band, aero_band, lst.style_name;
+        WHERE s.status = 'completed'
+        GROUP BY u.kelas, s.end_time::date, cs."ACCE_raw", cs."AERO_raw", acce_band, aero_band, lst.style_name;
         """
     ))
     # Indexes to speed up refresh and querying
