@@ -1,4 +1,12 @@
+from datetime import datetime, timezone
+
 from app.core.metrics import get_counters, metrics_registry
+from app.main import app
+from app.models.klsi.assessment import AssessmentSession
+from app.models.klsi.enums import SessionStatus
+from app.models.klsi.items import AssessmentItemResponse
+from app.models.klsi.user import User
+from app.services.security import get_current_user
 
 
 def setup_function():
@@ -65,3 +73,82 @@ def test_action_event_counts_roles_and_consent(client):
     assert counters["action.target.report"] == 1
     assert counters["action.consent.denied"] == 1
     assert counters["action.role.MEDIATOR"] == 1
+
+
+def test_assessment_telemetry_updates_existing_response(client, session):
+    user = User(full_name="Telemetry User", email="telemetry@example.com", nim="11112222", kelas="IF-01")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    assessment_session = AssessmentSession(
+        user_id=user.id,
+        status=SessionStatus.started,
+        start_time=datetime.now(timezone.utc),
+    )
+    session.add(assessment_session)
+    session.commit()
+    session.refresh(assessment_session)
+
+    item_response = AssessmentItemResponse(
+        session_id=assessment_session.id,
+        item_id=1,
+        response_rank=2,
+        response_latency_ms=1000,
+    )
+    session.add(item_response)
+    session.commit()
+    session.refresh(item_response)
+
+    app.dependency_overrides[get_current_user] = lambda: user
+
+    payload = {
+        "sessionId": assessment_session.id,
+        "itemId": 1,
+        "responseRank": 3,
+        "responseLatencyMs": 8450,
+        "blurEvents": 2,
+        "meta": {"tabHiddenMs": 1200},
+    }
+    response = client.post("/telemetry/assessment", json=payload)
+    assert response.status_code == 202
+    assert response.json()["ok"] is True
+
+    session.refresh(item_response)
+    assert item_response.response_rank == 3
+    assert item_response.response_latency_ms == 8450
+    assert item_response.telemetry == {"blur_events": 2, "meta": {"tabHiddenMs": 1200}}
+
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_assessment_telemetry_rejects_foreign_session(client, session):
+    owner = User(full_name="Owner", email="owner@example.com", nim="33334444", kelas="IF-02")
+    outsider = User(full_name="Outsider", email="outsider@example.com", nim="55556666", kelas="IF-03")
+    session.add_all([owner, outsider])
+    session.commit()
+    session.refresh(owner)
+    session.refresh(outsider)
+
+    assessment_session = AssessmentSession(
+        user_id=owner.id,
+        status=SessionStatus.started,
+        start_time=datetime.now(timezone.utc),
+    )
+    session.add(assessment_session)
+    session.commit()
+    session.refresh(assessment_session)
+
+    app.dependency_overrides[get_current_user] = lambda: outsider
+
+    payload = {
+        "sessionId": assessment_session.id,
+        "itemId": 1,
+        "responseRank": 2,
+        "responseLatencyMs": 900,
+    }
+    response = client.post("/telemetry/assessment", json=payload)
+    assert response.status_code == 403
+    assert "detail" in response.json()
+
+    app.dependency_overrides.pop(get_current_user, None)

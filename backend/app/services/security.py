@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Depends
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
+from app.db.database import get_db
 from app.core.config import settings
 from app.db.repositories import UserRepository
 from app.i18n.id_messages import AuthorizationMessages, SecurityMessages
@@ -106,7 +107,7 @@ def decode_access_token(token: str) -> dict:
         raise ValueError(SecurityMessages.TOKEN_VALIDATION_FAILED.format(detail=str(e)))
 
 
-def get_current_user(authorization: str | None = Header(default=None), db: Session | None = None):
+def get_current_user(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
     """FastAPI dependency for extracting and validating current user from JWT.
     
     Args:

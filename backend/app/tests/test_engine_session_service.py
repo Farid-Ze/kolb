@@ -8,7 +8,7 @@ import pytest
 from app.assessments.klsi_v4.definition import CONTEXT_NAMES
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.user import User
-from app.models.klsi.items import AssessmentItem, UserResponse
+from app.models.klsi.items import AssessmentItem, AssessmentItemResponse, UserResponse
 from app.models.klsi.learning import LFIContextScore
 from app.schemas.session import (
     AutosaveItemRank,
@@ -18,7 +18,7 @@ from app.schemas.session import (
     SessionSubmissionPayload,
 )
 from app.services.engine import EngineSessionService
-from app.models.klsi.enums import SessionStatus
+from app.models.klsi.enums import ItemType, SessionStatus
 from app.tests.helpers import build_seeded_memory_db, seed_complete_session
 import app.services.engine as engine_module
 
@@ -46,6 +46,29 @@ def _build_payload() -> SessionSubmissionPayload:
             )
         )
     return SessionSubmissionPayload(items=items, contexts=contexts[:8])
+
+
+def _seed_native_forced_choice(db, session_id: int) -> None:
+    rank_map = {"CE": 4, "RO": 3, "AC": 2, "AE": 1}
+    items = (
+        db.query(AssessmentItem)
+        .filter(AssessmentItem.item_type == ItemType.learning_style)
+        .order_by(AssessmentItem.item_number.asc())
+        .all()
+    )
+    latency = 100
+    for item in items:
+        for choice in item.choices:
+            db.add(
+                AssessmentItemResponse(
+                    session_id=session_id,
+                    item_id=choice.id,
+                    response_rank=rank_map[choice.learning_mode.value],
+                    response_latency_ms=latency,
+                )
+            )
+            latency += 3
+    db.flush()
 
 
 def _serialize_delivery_payload(db) -> dict[str, Any]:
@@ -222,5 +245,62 @@ def test_autosave_responses_maps_option_codes(monkeypatch):
         assert set(payload["ranks"].keys()) == {
             option["id"] for option in first_item["options"]
         }
+    finally:
+        db.close()
+
+
+def test_finalize_session_prefers_native_pipeline(monkeypatch):
+    db = build_seeded_memory_db()
+    try:
+        session = seed_complete_session(db)
+        user = db.get(User, session.user_id)
+        assert user is not None
+        _seed_native_forced_choice(db, session.id)
+        db.commit()
+
+        def fail_runtime(*args, **kwargs):  # noqa: ARG001
+            raise AssertionError("runtime path should not run when native data is present")
+
+        monkeypatch.setattr(engine_module.runtime, "finalize_with_audit", fail_runtime)
+
+        service = EngineSessionService(db)
+        result = service.finalize_session(session.id, user)
+        db.refresh(session)
+
+        assert session.is_finalized is True
+        assert session.pipeline_version == "native:v1"
+        assert result["override"] is False
+        assert result["ACCE"] is not None
+        assert session.results_json is not None
+        kite = session.results_json.get("kite_coordinates") or {}
+        assert kite.get("CE") == 48
+        assert kite.get("AE") == 12
+    finally:
+        db.close()
+
+
+def test_finalize_session_falls_back_to_runtime_when_native_missing(monkeypatch):
+    db = build_seeded_memory_db()
+    try:
+        session = seed_complete_session(db)
+        user = db.get(User, session.user_id)
+        assert user is not None
+
+        original_finalize = engine_module.runtime.finalize_with_audit
+        call_tracker: dict[str, bool] = {}
+
+        def tracking_finalize(*args, **kwargs):
+            call_tracker["invoked"] = True
+            return original_finalize(*args, **kwargs)
+
+        monkeypatch.setattr(engine_module.runtime, "finalize_with_audit", tracking_finalize)
+
+        service = EngineSessionService(db)
+        result = service.finalize_session(session.id, user)
+        db.refresh(session)
+
+        assert call_tracker.get("invoked") is True
+        assert result["override"] is False
+        assert session.pipeline_version != "native:v1"
     finally:
         db.close()

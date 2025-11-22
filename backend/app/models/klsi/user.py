@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Date, DateTime, Enum, Integer, String
+from sqlalchemy import Date, DateTime, Enum, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -28,6 +28,10 @@ class User(Base):
     country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     occupation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     role: Mapped[Optional[str]] = mapped_column(String(20), default="MAHASISWA")
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    zen_points: Mapped[int] = mapped_column(Integer, default=0)
+    current_lvl: Mapped[int] = mapped_column(Integer, default=1)
+    life_motto: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -36,7 +40,14 @@ class User(Base):
     )
 
     sessions: Mapped[list["AssessmentSession"]] = relationship(back_populates="user")
+    achievements: Mapped[list["UserAchievement"]] = relationship(back_populates="user")
+    challenges: Mapped[list["UserChallenge"]] = relationship(back_populates="user")
+    sphere_nodes: Mapped[list["SphereNode"]] = relationship(back_populates="user")
+    reflections: Mapped[list["MemoryReflection"]] = relationship(back_populates="user")
 
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from app.models.klsi.assessment import AssessmentSession
+    from app.models.klsi.gamification import UserAchievement
+    from app.models.klsi.challenge import UserChallenge
+    from app.models.klsi.sphere import SphereNode, MemoryReflection

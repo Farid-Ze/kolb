@@ -77,7 +77,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail=AuthMessages.INVALID_CREDENTIALS)
     token = create_access_token(str(user.id))
-    return Token(access_token=token)
+    expires_in = settings.access_token_expire_minutes * 60
+    return Token(access_token=token, expires_in=expires_in)
 
 @router.get("/me", response_model=UserOut)
 def get_me(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):

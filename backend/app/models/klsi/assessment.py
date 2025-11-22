@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -30,10 +31,13 @@ class AssessmentSession(Base):
     pipeline_version: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     session_type: Mapped[str] = mapped_column(String(20), default="Initial")
     days_since_last_session: Mapped[Optional[int]] = mapped_column(Integer)
+    is_finalized: Mapped[bool] = mapped_column(Boolean, default=False)
+    results_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
     instrument: Mapped[Optional["Instrument"]] = relationship(back_populates="sessions")
     responses: Mapped[list["UserResponse"]] = relationship(back_populates="session")
+    item_responses: Mapped[list["AssessmentItemResponse"]] = relationship(back_populates="session")
     scale_score: Mapped[Optional["ScaleScore"]] = relationship(back_populates="session", uselist=False)
     combination_score: Mapped[Optional["CombinationScore"]] = relationship(back_populates="session", uselist=False)
     learning_style: Mapped[Optional["UserLearningStyle"]] = relationship(back_populates="session", uselist=False)
@@ -73,4 +77,4 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from app.models.klsi.norms import PercentileScore
     from app.models.klsi.user import User
-    from app.models.klsi.items import UserResponse
+    from app.models.klsi.items import UserResponse, AssessmentItemResponse

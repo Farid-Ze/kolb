@@ -9,6 +9,9 @@ __all__ = [
     "SessionStatus",
     "ItemType",
     "LearningMode",
+    "BadgeRarity",
+    "ChallengeStatus",
+    "ReflectionType",
 ]
 
 
@@ -54,3 +57,21 @@ class LearningMode(enum.Enum):
     RO = "RO"
     AC = "AC"
     AE = "AE"
+
+
+class BadgeRarity(enum.Enum):
+    common = "common"
+    rare = "rare"
+    legendary = "legendary"
+
+
+class ChallengeStatus(enum.Enum):
+    active = "Active"
+    completed = "Completed"
+
+
+class ReflectionType(enum.Enum):
+    thinking = "Thinking"
+    feeling = "Feeling"
+    acting = "Acting"
+    watching = "Watching"

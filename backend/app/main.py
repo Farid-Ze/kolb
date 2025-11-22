@@ -20,12 +20,24 @@ from app.routers.assessments import router as assessments_router
 from app.routers.auth import router as auth_router
 from app.routers.exceptions import register_exception_handlers
 from app.routers.reports import router as reports_router
+from app.routers.results import router as results_router
 from app.routers.research import router as research_router
 from app.routers.score import router as score_router
 from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
 from app.routers.telemetry import router as telemetry_router
-from app.services.seeds import seed_assessment_items, seed_engine_authoring, seed_instruments, seed_learning_styles
+from app.routers.store import router as store_router
+from app.routers.sphere import router as sphere_router
+from app.routers.challenges import router as challenges_router
+from app.services.seeds import (
+    seed_assessment_items,
+    seed_engine_authoring,
+    seed_gamification_badges,
+    seed_growth_challenges,
+    seed_instruments,
+    seed_store_products,
+    seed_learning_styles,
+)
 from app.engine.registry import engine_registry
 
 # Ensure instrument authoring manifest and plugins register on import
@@ -89,6 +101,9 @@ async def lifespan(app: FastAPI):
             seed_learning_styles(db)
             seed_assessment_items(db)
             seed_engine_authoring(db)
+            seed_gamification_badges(db)
+            seed_store_products(db)
+            seed_growth_challenges(db)
     if settings.i18n_preload_enabled:
         logger.info("startup_preload_i18n", extra={"structured_data": {"i18n_preload_enabled": True}})
         stats = preload_i18n_resources()
@@ -111,10 +126,14 @@ app.include_router(sessions_router)
 app.include_router(engine_router)
 app.include_router(admin_router)
 app.include_router(reports_router)
+app.include_router(results_router)
 app.include_router(score_router)
 app.include_router(teams_router)
 app.include_router(research_router)
 app.include_router(telemetry_router)
+app.include_router(store_router)
+app.include_router(sphere_router)
+app.include_router(challenges_router)
 
 if GUIDES_STATIC_DIR.exists():
     app.mount(

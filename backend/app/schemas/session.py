@@ -190,3 +190,14 @@ class SessionListResponse(CamelModel):
 
     class Config:
         from_attributes = True
+
+
+class AssessmentItemResponsePayload(CamelModel):
+    item_id: int
+    response_rank: int = Field(ge=1, le=4)
+    response_latency_ms: int
+    blur_events: int | None = 0
+
+
+class AssessmentResponseBatch(CamelModel):
+    responses: list[AssessmentItemResponsePayload]

@@ -118,6 +118,7 @@ class SessionRepository(Repository[Session]):
                 joinedload(AssessmentSession.scale_score),
                 joinedload(AssessmentSession.combination_score),
                 joinedload(AssessmentSession.learning_style).joinedload(UserLearningStyle.style_type),
+                joinedload(AssessmentSession.percentile_score),
                 joinedload(AssessmentSession.lfi_index),
             )
             .filter(AssessmentSession.user_id == user_id)

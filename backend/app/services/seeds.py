@@ -16,10 +16,13 @@ from app.models.engine import (
     RuleType,
 )
 from app.models.klsi.enums import ItemType, LearningMode
+from app.models.klsi.challenge import GrowthChallenge
 from app.models.klsi.instrument import Instrument, InstrumentScale, ScoringPipeline, ScoringPipelineNode
 from app.models.klsi.items import AssessmentItem, ItemChoice
 from app.models.klsi.learning import LearningStyleType
 from app.i18n.id_styles import STYLE_BRIEF_ID
+from app.models.klsi.gamification import GamificationBadge, BadgeRarity
+from app.models.klsi.store import StoreProduct
 
 def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
     cfg = load_config()
@@ -127,6 +130,43 @@ CHOICE_TEXT = {
     LearningMode.AC: "Saya berpikir tentang gagasan",
     LearningMode.AE: "Saya mencoba melakukannya",
 }
+
+
+STORE_PRODUCT_TEMPLATES = [
+    {
+        "name": "Zen Reflection Journal",
+        "description": "Notebook with prompts curated for each learning mode to keep tunnel insights alive.",
+        "price_points": 150,
+        "required_badge_slug": None,
+        "meta": {
+            "category": "journaling",
+            "image_url": "/static/store/journal.png",
+            "includes": ["40 guided pages", "LFI micro-coaching tips"],
+        },
+    },
+    {
+        "name": "Seeker Momentum Kit",
+        "description": "Badge-gated kit with challenge cards and a vinyl sticker for first-time finalists.",
+        "price_points": 0,
+        "required_badge_slug": "the-seeker",
+        "meta": {
+            "category": "swag",
+            "image_url": "/static/store/momentum-kit.png",
+            "contains": ["challenge cards", "limited sticker"],
+        },
+    },
+    {
+        "name": "Impact Canvas Pack",
+        "description": "Printable canvases that map CE/RO/AC/AE thinking into squad planning rituals.",
+        "price_points": 220,
+        "required_badge_slug": None,
+        "meta": {
+            "category": "toolkit",
+            "image_url": "/static/store/impact-canvas.png",
+            "filetype": "pdf",
+        },
+    },
+]
 
 
 SCALE_DEFS = [
@@ -518,3 +558,123 @@ def seed_engine_authoring(db: Session) -> None:
                 config=dict(definition["config"]),
             )
         )
+
+
+def seed_gamification_badges(db: Session):
+    badges = [
+        {"slug": "the-seeker", "name": "The Seeker", "rarity": BadgeRarity.common},
+    ]
+    
+    for b in badges:
+        existing = db.query(GamificationBadge).filter_by(slug=b["slug"]).first()
+        if not existing:
+            badge = GamificationBadge(slug=b["slug"], name=b["name"], rarity=b["rarity"])
+            db.add(badge)
+    db.commit()
+
+
+def seed_growth_challenges(db: Session):
+    templates = [
+        {
+            "target_style_deficiency": "CE_low",
+            "title": "Empathy Field Notes",
+            "description": "Interview two community members about their challenges and document emotions in a shared journal.",
+            "societal_impact": "Builds listening muscles and surfaces grassroots issues for the organizing team.",
+        },
+        {
+            "target_style_deficiency": "RO_low",
+            "title": "Reflection Sprint",
+            "description": "Set aside 15 minutes after each study session to write what worked, what felt unclear, and why.",
+            "societal_impact": "Improves collective learning retrospectives across squads.",
+        },
+        {
+            "target_style_deficiency": "AC_low",
+            "title": "Framework Remix",
+            "description": "Select a national policy issue and map it onto the Kolb cycle to derive at least three hypotheses.",
+            "societal_impact": "Encourages data-informed thinking for social innovation.",
+        },
+        {
+            "target_style_deficiency": "AE_low",
+            "title": "Micro Pilot",
+            "description": "Design and run a 48-hour experiment that tests one hypothesis with real beneficiaries.",
+            "societal_impact": "Creates visible momentum and feedback loops for the cohort.",
+        },
+        # Additional Challenges
+        {
+            "target_style_deficiency": "CE_low",
+            "title": "The Listener's Circle",
+            "description": "Host a 30-minute listening circle where you only ask open-ended questions and cannot offer solutions.",
+            "societal_impact": "Deepens community trust and psychological safety.",
+        },
+        {
+            "target_style_deficiency": "RO_low",
+            "title": "Daily Digest",
+            "description": "Keep a daily log of 'Surprises' and 'Confirmations' for one week to train observation skills.",
+            "societal_impact": "Reduces reactive decision making in the organization.",
+        },
+        {
+            "target_style_deficiency": "AC_low",
+            "title": "Concept Map",
+            "description": "Draw a concept map connecting three seemingly unrelated problems in your community.",
+            "societal_impact": "Identifies systemic root causes rather than symptoms.",
+        },
+        {
+            "target_style_deficiency": "AE_low",
+            "title": "Prototype Tuesday",
+            "description": "Build a cardboard or paper prototype of a solution and get feedback from 5 users in one day.",
+            "societal_impact": "Accelerates innovation cycles and reduces waste.",
+        },
+    ]
+
+    for template in templates:
+        existing = (
+            db.query(GrowthChallenge)
+            .filter_by(target_style_deficiency=template["target_style_deficiency"])
+            .first()
+        )
+        if not existing:
+            challenge = GrowthChallenge(**template)
+            db.add(challenge)
+    db.commit()
+
+
+def seed_store_products(db: Session) -> None:
+    """Ensure ZenStore products exist with badge gating metadata."""
+
+    badge_lookup = {
+        badge.slug: badge.id
+        for badge in db.query(GamificationBadge).all()
+    }
+    existing_products = {
+        product.name: product
+        for product in db.query(StoreProduct).all()
+    }
+
+    changed = False
+    for template in STORE_PRODUCT_TEMPLATES:
+        required_badge_slug = template.get("required_badge_slug")
+        required_badge_id = badge_lookup.get(required_badge_slug) if required_badge_slug else None
+        meta = template.get("meta") or None
+        if meta:
+            meta = json.loads(json.dumps(meta))  # defensive copy for JSON columns
+
+        product = existing_products.get(template["name"])
+        if product:
+            product.description = template["description"]
+            product.price_points = template["price_points"]
+            product.required_badge_id = required_badge_id
+            product.meta = meta
+        else:
+            db.add(
+                StoreProduct(
+                    name=template["name"],
+                    description=template["description"],
+                    price_points=template["price_points"],
+                    required_badge_id=required_badge_id,
+                    meta=meta,
+                )
+            )
+        changed = True
+
+    if changed:
+        db.commit()

@@ -21,13 +21,16 @@ from app.schemas.session import (
     SessionOperationResult,
     SingleItemResponsePayload,
     SingleItemResponse,
+    AssessmentResponseBatch,
 )
+from app.services.assessments import upsert_responses
 from app.core.config import settings
 from app.core.metrics import inc_counter
 from app.models.klsi.items import UserResponse, ItemChoice
 from app.models.klsi.learning import LFIContextScore
 from app.models.klsi.enums import SessionStatus
 from app.i18n.id_messages import SessionErrorMessages
+from app.services.engine import EngineSessionService
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -279,28 +282,9 @@ def finalize(session_id: int, db: Session = Depends(get_db), authorization: str 
     if not validation_snapshot.get("ready", False):
         issues = validation_snapshot.get("issues", [])
         raise HTTPException(status_code=400, detail={"issues": issues, "diagnostics": validation_snapshot.get("diagnostics")})
-    def _payload_builder(res: dict) -> bytes:
-        combination = res.get("combination")
-        lfi = res.get("lfi")
-        if not combination or not lfi:
-            return b""
-        return (
-            f"user:{user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
-            f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
-        ).encode("utf-8")
-
-    result = runtime.finalize_with_audit(
-        db,
-        session_id,
-        actor_email=user.email,
-        action="FINALIZE_SESSION_USER",
-        build_payload=_payload_builder,
-    )
-    db.commit()
-
-    # Audit persisted within runtime transaction
-
-    return SessionOperationResult(result=adapt_engine_to_api_payload(result))
+    engine_service = EngineSessionService(db)
+    result = engine_service.finalize_session(session_id, user)
+    return SessionOperationResult(result=result)
 
 @router.get("/{session_id}/validation", response_model=dict)
 def session_validation(session_id: int, db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
@@ -430,3 +414,24 @@ def submit_single_response(
     progress = min(100.0, (responded_count / 12.0) * 100.0)
 
     return SingleItemResponse(status="synced", progress=progress)
+
+@router.patch("/{session_id}/responses", status_code=204)
+def submit_responses(
+    session_id: int,
+    payload: AssessmentResponseBatch,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None)
+):
+    user = get_current_user(authorization, db)
+    repo = SessionRepository(db)
+    session = repo.get_by_id(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this session")
+    if getattr(session, "is_finalized", False):
+         raise HTTPException(status_code=409, detail="Session already finalized")
+
+    upsert_responses(db, session_id, payload.responses)
+    return Response(status_code=204)

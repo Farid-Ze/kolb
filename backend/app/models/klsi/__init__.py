@@ -11,7 +11,7 @@ from .enums import (
     SessionStatus,
 )
 from .instrument import Instrument, InstrumentScale, ScoringPipeline, ScoringPipelineNode
-from .items import AssessmentItem, ItemChoice, UserResponse
+from .items import AssessmentItem, ItemChoice, UserResponse, AssessmentItemResponse
 from .learning import (
     BackupLearningStyle,
     CombinationScore,
@@ -27,6 +27,10 @@ from .report_share import ReportShareLink
 from .research import ReliabilityResult, ResearchStudy, ValidityEvidence
 from .team import Team, TeamAssessmentRollup, TeamMember
 from .user import User
+from .gamification import GamificationBadge, UserAchievement
+from .challenge import GrowthChallenge, UserChallenge
+from .sphere import SphereNode, MemoryReflection
+from .store import StoreProduct
 
 __all__ = [
     "AgeGroup",
@@ -45,6 +49,7 @@ __all__ = [
     "AssessmentItem",
     "ItemChoice",
     "UserResponse",
+    "AssessmentItemResponse",
     "ScaleScore",
     "CombinationScore",
     "LearningStyleType",
@@ -64,4 +69,11 @@ __all__ = [
     "ReliabilityResult",
     "ValidityEvidence",
     "ReportShareLink",
+    "GamificationBadge",
+    "UserAchievement",
+    "GrowthChallenge",
+    "UserChallenge",
+    "SphereNode",
+    "MemoryReflection",
+    "StoreProduct",
 ]

@@ -20,6 +20,7 @@ class UserCreate(CamelModel):
 class Token(CamelModel):
     access_token: str
     token_type: str = "bearer"
+    expires_in: int
 
 class UserOut(CamelModel):
     id: int
@@ -29,4 +30,8 @@ class UserOut(CamelModel):
     nim: str | None = None
     kelas: str | None = None
     tahun_masuk: int | None = None
+    avatar_url: str | None = None
+    zen_points: int | None = None
+    current_lvl: int | None = None
+    life_motto: str | None = None
     model_config = ConfigDict(from_attributes=True)

@@ -30,6 +30,7 @@ if str(project_root) not in sys.path:
 os.environ.setdefault("JWT_SECRET_KEY", "alembic-migrate-secret")
 
 from app.db.database import Base  # noqa: E402
+import app.models.klsi  # noqa: F401, E402
 
 target_metadata = Base.metadata
 

@@ -1,10 +1,17 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field
+from sqlalchemy.orm import Session
 
 from app.core.metrics import inc_counter
+from app.db.database import get_db
+from app.db.repositories import SessionRepository
+from app.i18n.id_messages import SessionErrorMessages
 from app.schemas.base import CamelModel
+from app.schemas.telemetry import AssessmentTelemetryPayload
+from app.services.security import get_current_user
+from app.services.telemetry_service import telemetry_service
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 
@@ -75,4 +82,19 @@ def record_action(event: ActionEvent):
     consent_bucket = "granted" if event.consent else "denied"
     inc_counter(f"action.consent.{consent_bucket}")
     inc_counter(f"action.role.{event.actor_role}")
+    return {"ok": True}
+
+
+@router.post("/assessment", status_code=202)
+def record_assessment_telemetry(
+    payload: AssessmentTelemetryPayload,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    repo = SessionRepository(db)
+    session = repo.get_for_user(payload.session_id, current_user.id)
+    if not session or session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
+
+    telemetry_service.record_assessment_item_event(db, payload)
     return {"ok": True}

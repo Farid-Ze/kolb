@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
-from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String, UniqueConstraint, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -12,6 +13,7 @@ __all__ = [
     "AssessmentItem",
     "ItemChoice",
     "UserResponse",
+    "AssessmentItemResponse",
 ]
 
 
@@ -59,6 +61,19 @@ class UserResponse(Base):
 
     session: Mapped["AssessmentSession"] = relationship(back_populates="responses")
     choice: Mapped[ItemChoice] = relationship(back_populates="responses")
+
+
+class AssessmentItemResponse(Base):
+    __tablename__ = "assessment_item_responses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"))
+    item_id: Mapped[int] = mapped_column(Integer)  # 1-12
+    response_rank: Mapped[int] = mapped_column(Integer)  # 1-4
+    response_latency_ms: Mapped[int] = mapped_column(Integer)
+    telemetry: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+
+    session: Mapped["AssessmentSession"] = relationship(back_populates="item_responses")
 
 
 if TYPE_CHECKING:  # pragma: no cover

@@ -15,6 +15,9 @@ from app.services.seeds import (
     seed_assessment_items,
     seed_instruments,
     seed_engine_authoring,
+    seed_gamification_badges,
+    seed_store_products,
+    seed_growth_challenges,
 )
 
 
@@ -34,6 +37,9 @@ def db_setup():
         seed_learning_styles(db)
         seed_assessment_items(db)
         seed_engine_authoring(db)
+        seed_gamification_badges(db)
+        seed_store_products(db)
+        seed_growth_challenges(db)
         db.commit()
     yield
 

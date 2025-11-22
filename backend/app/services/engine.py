@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
+
+from app.assessments.constants import (
+    CONTEXT_COUNT_LFI,
+    ITEM_COUNT_KLSI4,
+    LEARNING_MODES,
+    RANK_SUM_PER_ITEM,
+)
+from app.assessments.klsi_v4.logic import (
+    assign_learning_style as logic_assign_learning_style,
+    compute_longitudinal_delta,
+)
 
 from app.core.errors import (
     ConfigurationError,
@@ -13,10 +25,22 @@ from app.core.errors import (
     SessionFinalizedError,
     SessionNotFoundError,
 )
+from app.core.logging import get_logger
 from app.db.repositories.assessment import LFIContextRepository, UserResponseRepository
 from app.db.repositories.sessions import SessionRepository
 from app.engine.runtime import runtime
-from app.models.klsi.enums import SessionStatus
+from app.models.klsi.assessment import AssessmentSessionDelta
+from app.models.klsi.enums import LearningMode, SessionStatus
+from app.models.klsi.items import AssessmentItemResponse, ItemChoice
+from app.models.klsi.learning import (
+    BackupLearningStyle,
+    CombinationScore,
+    LFIContextScore,
+    LearningFlexibilityIndex,
+    ScaleScore,
+    UserLearningStyle,
+)
+from app.models.klsi.norms import PercentileScore
 from app.schemas.session import (
     AutosaveItemRank,
     LegacyItemSubmissionPayload,
@@ -25,12 +49,24 @@ from app.schemas.session import (
 )
 from app.services.validation import run_session_validations, validate_full_submission_payload
 from app.i18n.id_messages import SessionErrorMessages, ValidationMessages
+from app.services.assessments import build_kite_coordinates, detect_blindspots, detect_strengths
+from app.services.scoring import (
+    apply_percentiles,
+    compute_combination_scores,
+    compute_lfi,
+)
+from app.services.challenge_service import challenge_service
+from app.services.gamification_service import gamification_service
+from app.services.sphere_service import sphere_service
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.assessment import AssessmentSession
     from app.models.klsi.items import UserResponse
     from app.models.klsi.learning import LFIContextScore
     from app.models.klsi.user import User
+
+
+logger = get_logger("kolb.services.engine", component="service")
 
 
 class EngineSessionService:
@@ -174,13 +210,30 @@ class EngineSessionService:
         session = self._load_authorized_session(session_id, user)
         if session.status == SessionStatus.completed:
             raise SessionFinalizedError(SessionErrorMessages.ALREADY_COMPLETED)
-        result = runtime.finalize_with_audit(
-            self.db,
-            session_id,
-            actor_email=user.email,
-            action="FINALIZE_SESSION_USER",
-            build_payload=self._build_standard_audit_payload(user.email, session_id),
-        )
+        use_native = self._should_use_native_pipeline(session.id)
+        if use_native:
+            result = self._finalize_native_session(session)
+        else:
+            result = runtime.finalize_with_audit(
+                self.db,
+                session_id,
+                actor_email=user.email,
+                action="FINALIZE_SESSION_USER",
+                build_payload=self._build_standard_audit_payload(user.email, session_id),
+            )
+        snapshot = self._persist_results_snapshot(session_id, result)
+        blindspots = snapshot.get("blindspots", [])
+
+        self._safe_assign_growth_challenges(user.id, blindspots)
+        self._safe_apply_gamification(user.id)
+        self._safe_create_sphere_event(user.id, session_id)
+
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
         return self._transform_finalize_result(result, override=result.get("override", False))
 
     def force_finalize(
@@ -212,6 +265,169 @@ class EngineSessionService:
         self._load_authorized_session(session_id, viewer)
         viewer_role = "MEDIATOR" if viewer.role == "MEDIATOR" else None
         return runtime.build_report(self.db, session_id, viewer_role)
+
+    def _should_use_native_pipeline(self, session_id: int) -> bool:
+        """Return True when assessment_item_responses + LFI contexts are complete."""
+
+        response_count = (
+            self.db.query(AssessmentItemResponse.id)
+            .filter(AssessmentItemResponse.session_id == session_id)
+            .count()
+        )
+        if response_count < ITEM_COUNT_KLSI4 * len(LEARNING_MODES):
+            return False
+        context_count = (
+            self.db.query(LFIContextScore.id)
+            .filter(LFIContextScore.session_id == session_id)
+            .count()
+        )
+        return context_count >= CONTEXT_COUNT_LFI
+
+    def _finalize_native_session(self, session: "AssessmentSession") -> Dict[str, Any]:
+        rows = self._load_native_responses(session.id)
+        totals = self._summarize_forced_choice_rows(rows)
+        scale = self._upsert_scale_score(session.id, totals)
+        self._reset_session_artifacts(session.id)
+        combo = compute_combination_scores(self.db, scale)
+        style, intensity_metrics = logic_assign_learning_style(self.db, combo)
+        percentiles = self._apply_percentiles_native(session.id, scale, combo)
+        lfi = self._compute_lfi_native(session.id)
+        delta = self._compute_delta_native(session.id, combo, lfi, intensity_metrics)
+        session.status = SessionStatus.completed
+        session.end_time = datetime.now(timezone.utc)
+        session.pipeline_version = "native:v1"
+        self.db.flush()
+        result = {
+            "combination": combo,
+            "style": style,
+            "lfi": lfi,
+            "percentiles": percentiles,
+            "delta": delta,
+            "validation": {"issues": []},
+            "override": False,
+        }
+        return result
+
+    def _load_native_responses(
+        self,
+        session_id: int,
+    ) -> list[tuple[AssessmentItemResponse, int, LearningMode | None]]:
+        raw_rows = (
+            self.db.query(
+                AssessmentItemResponse,
+                ItemChoice.item_id,
+                ItemChoice.learning_mode,
+            )
+            .join(ItemChoice, ItemChoice.id == AssessmentItemResponse.item_id)
+            .filter(AssessmentItemResponse.session_id == session_id)
+            .all()
+        )
+        rows = [
+            (response, int(assessment_item_id), learning_mode)
+            for response, assessment_item_id, learning_mode in raw_rows
+        ]
+        if not rows:
+            raise InvalidAssessmentData(ValidationMessages.ITEMS_INCOMPLETE)
+        return rows
+
+    def _summarize_forced_choice_rows(
+        self,
+        rows: Sequence[tuple[AssessmentItemResponse, int, LearningMode | None]],
+    ) -> dict[str, int]:
+        totals = {mode: 0 for mode in LEARNING_MODES}
+        per_item_ranks: dict[int, list[int]] = defaultdict(list)
+        expected_per_item = sorted(range(1, len(LEARNING_MODES) + 1))
+        for response, assessment_item_id, learning_mode in rows:
+            if learning_mode is None:
+                raise InvalidAssessmentData(ValidationMessages.ITEM_OPTION_NOT_FOUND)
+            rank = int(response.response_rank)
+            if rank < 1 or rank > len(LEARNING_MODES):
+                raise InvalidAssessmentData(ValidationMessages.ITEM_RANK_PERMUTATION)
+            mode_key = learning_mode.value
+            if mode_key not in totals:
+                raise InvalidAssessmentData(ValidationMessages.ITEM_OPTION_NOT_FOUND)
+            per_item_ranks[int(assessment_item_id)].append(rank)
+            totals[mode_key] += rank
+        if len(per_item_ranks) != ITEM_COUNT_KLSI4:
+            raise InvalidAssessmentData(ValidationMessages.ITEMS_INCOMPLETE)
+        for ranks in per_item_ranks.values():
+            if sorted(ranks) != expected_per_item:
+                raise InvalidAssessmentData(ValidationMessages.ITEM_RANK_PERMUTATION)
+        expected_total = ITEM_COUNT_KLSI4 * RANK_SUM_PER_ITEM
+        actual_total = sum(totals.values())
+        if actual_total != expected_total:
+            raise InvalidAssessmentData(ValidationMessages.ITEM_RANK_GAPS)
+        return totals
+
+    def _upsert_scale_score(self, session_id: int, totals: dict[str, int]) -> ScaleScore:
+        scale = (
+            self.db.query(ScaleScore)
+            .filter(ScaleScore.session_id == session_id)
+            .one_or_none()
+        )
+        if scale is None:
+            scale = ScaleScore(
+                session_id=session_id,
+                CE_raw=totals["CE"],
+                RO_raw=totals["RO"],
+                AC_raw=totals["AC"],
+                AE_raw=totals["AE"],
+            )
+            self.db.add(scale)
+        else:
+            scale.CE_raw = totals["CE"]
+            scale.RO_raw = totals["RO"]
+            scale.AC_raw = totals["AC"]
+            scale.AE_raw = totals["AE"]
+        self.db.flush()
+        return scale
+
+    def _reset_session_artifacts(self, session_id: int) -> None:
+        self.db.query(CombinationScore).filter(
+            CombinationScore.session_id == session_id
+        ).delete(synchronize_session=False)
+        self.db.query(UserLearningStyle).filter(
+            UserLearningStyle.session_id == session_id
+        ).delete(synchronize_session=False)
+        self.db.query(BackupLearningStyle).filter(
+            BackupLearningStyle.session_id == session_id
+        ).delete(synchronize_session=False)
+        self.db.query(PercentileScore).filter(
+            PercentileScore.session_id == session_id
+        ).delete(synchronize_session=False)
+        self.db.query(LearningFlexibilityIndex).filter(
+            LearningFlexibilityIndex.session_id == session_id
+        ).delete(synchronize_session=False)
+        self.db.query(AssessmentSessionDelta).filter(
+            AssessmentSessionDelta.session_id == session_id
+        ).delete(synchronize_session=False)
+        self.db.flush()
+
+    def _apply_percentiles_native(
+        self,
+        session_id: int,
+        scale: ScaleScore,
+        combo: CombinationScore,
+    ) -> PercentileScore:
+        return apply_percentiles(self.db, scale, combo)
+
+    def _compute_lfi_native(self, session_id: int) -> LearningFlexibilityIndex:
+        return compute_lfi(self.db, session_id)
+
+    def _compute_delta_native(
+        self,
+        session_id: int,
+        combo: CombinationScore,
+        lfi: LearningFlexibilityIndex,
+        intensity_metrics: Any,
+    ) -> AssessmentSessionDelta | None:
+        return compute_longitudinal_delta(
+            self.db,
+            session_id,
+            combo,
+            lfi,
+            intensity_metrics,
+        )
 
     def ensure_access(self, session_id: int, user: "User") -> None:
         """Expose access guard for routers needing pre-flight checks."""
@@ -438,3 +654,97 @@ class EngineSessionService:
         if override_reason is not None:
             payload["override_reason"] = override_reason
         return payload
+
+    def _persist_results_snapshot(self, session_id: int, result: Dict[str, Any]) -> Dict[str, Any]:
+        session = self._sessions.get_with_details(session_id)
+        if not session:
+            return {}
+
+        kite_coordinates = build_kite_coordinates(session)
+        blindspots = detect_blindspots(kite_coordinates)
+        strengths = detect_strengths(kite_coordinates)
+
+        percentiles_payload = self._percentiles_payload(
+            result.get("percentiles"), getattr(session, "percentile_score", None)
+        )
+        runtime_lfi = result.get("lfi")
+        lfi_score = getattr(runtime_lfi, "LFI_score", None)
+        if lfi_score is None:
+            lfi_score = getattr(getattr(session, "lfi_index", None), "LFI_score", None)
+
+        session.results_json = {
+            "kite_coordinates": kite_coordinates,
+            "lfi_score": lfi_score,
+            "percentiles": percentiles_payload,
+            "blindspots": blindspots,
+            "strengths": strengths,
+        }
+        session.is_finalized = True
+        return {"blindspots": blindspots, "strengths": strengths}
+
+    @staticmethod
+    def _percentiles_payload(runtime_percentiles: Any, model_percentiles: Any) -> Optional[Dict[str, Any]]:
+        source = runtime_percentiles or model_percentiles
+        if not source:
+            return None
+        if isinstance(source, dict):
+            return {
+                "CE": source.get("CE"),
+                "RO": source.get("RO"),
+                "AC": source.get("AC"),
+                "AE": source.get("AE"),
+                "ACCE": source.get("ACCE"),
+                "AERO": source.get("AERO"),
+                "norm_group": source.get("norm_group"),
+                "norm_version": source.get("norm_version"),
+            }
+        return {
+            "CE": getattr(source, "CE_percentile", None),
+            "RO": getattr(source, "RO_percentile", None),
+            "AC": getattr(source, "AC_percentile", None),
+            "AE": getattr(source, "AE_percentile", None),
+            "ACCE": getattr(source, "ACCE_percentile", None),
+            "AERO": getattr(source, "AERO_percentile", None),
+            "norm_group": getattr(source, "norm_group_used", None),
+            "norm_version": getattr(source, "norm_version_used", None),
+        }
+
+    def _safe_assign_growth_challenges(self, user_id: int, blindspots: list[str]) -> None:
+        deficiency_codes = [f"{dimension}_low" for dimension in blindspots]
+        if not deficiency_codes:
+            return
+        try:
+            challenge_service.assign_challenges_for_deficiencies(
+                self.db,
+                user_id,
+                deficiency_codes,
+            )
+        except Exception:
+            logger.exception(
+                "assign_growth_challenge_failed",
+                extra={"structured_data": {"user_id": user_id, "deficiencies": deficiency_codes}},
+            )
+
+    def _safe_apply_gamification(self, user_id: int) -> None:
+        try:
+            gamification_service.award_badge(self.db, user_id, "the-seeker")
+            gamification_service.add_points(self.db, user_id, 100)
+        except Exception:
+            logger.exception(
+                "gamification_award_failed",
+                extra={"structured_data": {"user_id": user_id, "badge": "the-seeker"}},
+            )
+
+    def _safe_create_sphere_event(self, user_id: int, session_id: int) -> None:
+        try:
+            sphere_service.create_node_for_event(
+                self.db, 
+                user_id, 
+                "assessment_completed", 
+                {"session_id": session_id}
+            )
+        except Exception:
+            logger.exception(
+                "sphere_node_creation_failed",
+                extra={"structured_data": {"user_id": user_id, "session_id": session_id}},
+            )
