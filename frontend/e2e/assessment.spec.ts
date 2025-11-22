@@ -256,5 +256,9 @@ test.describe('Assessment Flow', () => {
     } else {
         await expect(page).toHaveURL(`/report/${mockSessionId}`);
     }
+
+    // Check accessibility on report page
+    const scanReport = await new AxeBuilder({ page }).analyze();
+    expect(scanReport.violations).toEqual([]);
   });
 });

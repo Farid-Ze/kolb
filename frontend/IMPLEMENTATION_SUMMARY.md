@@ -12,6 +12,19 @@
 7.  **Print Optimization**: Implemented high-fidelity print styles for reports (`@media print`).
 8.  **Performance Optimization**: Implemented code splitting and reduced initial bundle size by ~40%.
 9.  **Mediator UI Polish**: Enhanced `EnhancedAnalyticsPanel` with better visualizations and print support.
+10. **Research Dashboard**: Implemented `ResearchDashboardPage` with empty state handling and study list visualization.
+
+### Recent Quality Improvements (November 2025 - Update)
+1.  **E2E Test Expansion**:
+    - **Room Navigation**: Fixed flaky tests caused by UI overlay interception using direct DOM event dispatching.
+    - **Research Dashboard**: Added coverage for empty states and data loading scenarios.
+    - **Assessment Flow**: Integrated `axe-core` for automated accessibility scanning of the Report Page.
+    - **Cinematic Journey**: Expanded `rooms.spec.ts` to verify content integrity across all 5 learning stages (Intro -> Active Experimentation).
+2.  **Accessibility Fixes**:
+    - Resolved semantic heading hierarchy issues in `NonDiagnosticNotice` (changed `h3` to `h2` to match document outline).
+    - Added `type="button"` to `AnimatedListItem` for better keyboard support.
+    - Added `aria-hidden="true"` to `ModalLayer` backdrop to prevent screen reader focus on purely visual elements.
+    - Verified WCAG compliance for the critical Report Page flow.
 
 ### Verification
 - **Assessment Flow**: Verified with `AssessmentFlow.test.tsx` and `AssessmentLFI.test.tsx`.
@@ -22,5 +35,5 @@
 - **Build**: Verified production build passes with strict TypeScript checks.
 
 ### Next Steps
-- **Accessibility**: Continue improving ARIA labels and keyboard navigation (currently good coverage).
-- **Room Navigation Tests**: Expand E2E coverage to include the full cinematic room journey.
+- **Performance**: Monitor bundle size and optimize large dependencies (e.g., `framer-motion`, `recharts`).
+- **Documentation**: Update component documentation in Storybook (if applicable).

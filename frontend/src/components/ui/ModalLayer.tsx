@@ -105,6 +105,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = ({
             exit={{ opacity: 0 }}
             transition={transition}
             onClick={closeOnBackdropClick ? onClose : undefined}
+            aria-hidden="true"
             style={{
               // Backdrop blur & dim effect (Guidelines.md §1.6)
               backdropFilter: reduceTransparency ? 'none' : 'blur(8px)',

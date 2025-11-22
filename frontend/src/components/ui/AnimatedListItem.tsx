@@ -125,6 +125,7 @@ export const AnimatedListItem: React.FC<AnimatedListItemProps> = ({
         className
       )}
       onClick={onClick}
+      type={onClick ? 'button' : undefined}
       layoutId={layoutId}
       {...motionProps}
       {...hoverProps}

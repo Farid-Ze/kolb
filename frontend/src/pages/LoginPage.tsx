@@ -139,7 +139,18 @@ export const LoginPage: React.FC = () => {
       toast.success('Login berhasil! Selamat datang ' + userData.name);
       
       // Navigate to stored intent or home page
-      navigate(resolveRedirectTarget(), { replace: true });
+      const target = resolveRedirectTarget();
+      if (target === '/') {
+        if (userData.role === 'MEDIATOR') {
+          navigate('/mediator', { replace: true });
+          return;
+        }
+        if (userData.role === 'RESEARCHER') {
+          navigate('/research', { replace: true });
+          return;
+        }
+      }
+      navigate(target, { replace: true });
     },
     // Task 15: toast.error on mutation error
     onError: (error: Error) => {

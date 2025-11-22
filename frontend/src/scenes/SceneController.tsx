@@ -121,7 +121,7 @@ export const SceneController: React.FC = () => {
             </header>
 
             <AnimatePresence initial={false} custom={direction} mode="popLayout">
-                <motion.main
+                <motion.div
                     key={currentRoomIndex}
                     custom={direction}
                     variants={variants}
@@ -139,7 +139,7 @@ export const SceneController: React.FC = () => {
                     <React.Suspense fallback={<RoomFallback />}>
                         <CurrentRoomComponent />
                     </React.Suspense>
-                </motion.main>
+                </motion.div>
             </AnimatePresence>
 
             {/* HUD / Navigation */}

@@ -85,9 +85,10 @@ export const NonDiagnosticNotice: React.FC<NonDiagnosticNoticeProps> = ({
           <p className="text-xs font-semibold uppercase tracking-wide text-chart-3 mb-1">
             Penting
           </p>
-          <h3 className="text-base text-foreground font-semibold mb-2">
+          {/* Changed to h2 to maintain heading hierarchy (h1 -> h2) in ReportPage */}
+          <h2 className="text-base text-foreground font-semibold mb-2">
             Penggunaan Bertanggung Jawab
-          </h3>
+          </h2>
           <LongFormText maxCharacters={70}>
             {resolvedMessage}
           </LongFormText>
