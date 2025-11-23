@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 
 import { useAuth } from '../features/auth/hooks/useAuth'
+import { PipelinesPanel } from '../features/admin/components/PipelinesPanel'
+import { ResearchPanel } from '../features/admin/components/ResearchPanel'
+import { TeamsPanel } from '../features/admin/components/TeamsPanel'
 
 export function AdminPage() {
   const { user, isLoading } = useAuth()
@@ -38,27 +41,9 @@ export function AdminPage() {
       </div>
 
       <div className="min-h-[400px] rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6">
-        {activeTab === 'teams' && (
-          <div>
-            <h2 className="text-lg font-medium">Team Management</h2>
-            <p className="text-[var(--zen-text-muted)]">Manage student groups and facilitators.</p>
-            {/* TODO: List teams */}
-          </div>
-        )}
-        {activeTab === 'research' && (
-          <div>
-            <h2 className="text-lg font-medium">Research Studies</h2>
-            <p className="text-[var(--zen-text-muted)]">Configure active studies and consent forms.</p>
-            {/* TODO: List studies */}
-          </div>
-        )}
-        {activeTab === 'pipelines' && (
-          <div>
-            <h2 className="text-lg font-medium">Scoring Pipelines</h2>
-            <p className="text-[var(--zen-text-muted)]">Monitor and trigger scoring jobs.</p>
-            {/* TODO: Pipeline controls */}
-          </div>
-        )}
+        {activeTab === 'teams' && <TeamsPanel />}
+        {activeTab === 'research' && <ResearchPanel />}
+        {activeTab === 'pipelines' && <PipelinesPanel />}
       </div>
     </section>
   )
