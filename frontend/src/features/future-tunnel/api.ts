@@ -23,6 +23,18 @@ export async function submitAllResponses(sessionId: number, payload: SessionSubm
   return data
 }
 
+export async function submitSingleResponse(
+  sessionId: number,
+  itemId: number,
+  responseMap: Record<string, number>,
+): Promise<{ status: string; progress: number }> {
+  const { data } = await apiClient.post<{ status: string; progress: number }>(`/sessions/${sessionId}/response`, {
+    itemId,
+    responseMap,
+  })
+  return data
+}
+
 export async function finalizeSession(sessionId: number): Promise<SessionOperationResult> {
   const { data } = await apiClient.post<SessionOperationResult>(`/sessions/${sessionId}/finalize`, {})
   return data

@@ -11,7 +11,7 @@ import type {
 } from '../../../entities/session/model'
 import { useAuth } from '../../auth'
 import { useAssessmentTelemetry } from '../../telemetry'
-import { autosaveSession, fetchSessionItems, fetchSessionState, startSession, submitAllResponses } from '../api'
+import { autosaveSession, fetchSessionItems, fetchSessionState, startSession, submitAllResponses, submitSingleResponse } from '../api'
 import type { TunnelContextDraft, TunnelItemDraft, TunnelPhase } from '../model'
 
 type ContextDraftMap = Record<string, TunnelContextDraft>
@@ -389,9 +389,29 @@ export function useTunnelSession() {
   const totalContexts = LFI_CONTEXTS.length
   const canSubmit = Boolean(sessionId) && totalItems > 0 && rankedItemsCount === totalItems && contextsCompleteCount === totalContexts
 
+  const submitMutation = useMutation({
+    mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: number; payload: SessionSubmissionPayload }) =>
+      submitAllResponses(targetSessionId, payload),
+  })
+
+  const singleResponseMutation = useMutation({
+    mutationFn: ({
+      sessionId: targetSessionId,
+      itemId,
+      responseMap,
+    }: {
+      sessionId: number
+      itemId: number
+      responseMap: Record<string, number>
+    }) => submitSingleResponse(targetSessionId, itemId, responseMap),
+  })
+
   const setOptionRank = useCallback(
     (itemId: number, choiceId: number, rank: number | null) => {
       markItemInteraction(itemId)
+
+      let newRanks: Record<number, number> = {}
+
       setDrafts((prev) => {
         const next = { ...prev }
         const existing = next[itemId] ?? {
@@ -411,11 +431,28 @@ export function useTunnelSession() {
           })
           ranks[choiceId] = rank
         }
+        newRanks = ranks
         next[itemId] = { ...existing, ranks }
         return next
       })
+
+      // Check if item is complete and submit incrementally
+      const item = learningItems.find((i) => i.id === itemId)
+      if (item && sessionId) {
+        // Reconstruct draft to check completion
+        const tempDraft: TunnelItemDraft = {
+          itemId,
+          ranks: newRanks,
+          responseLatencyMs: 0,
+          blurEvents: 0,
+        }
+        const modeRanks = deriveModeRanks(item, tempDraft)
+        if (modeRanks) {
+          singleResponseMutation.mutate({ sessionId, itemId, responseMap: modeRanks })
+        }
+      }
     },
-    [markItemInteraction],
+    [markItemInteraction, learningItems, sessionId, singleResponseMutation],
   )
 
   const setContextRank = useCallback((contextName: string, mode: ModeCode, rank: number | null) => {
@@ -443,11 +480,6 @@ export function useTunnelSession() {
       return next
     })
   }, [])
-
-  const submitMutation = useMutation({
-    mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: number; payload: SessionSubmissionPayload }) =>
-      submitAllResponses(targetSessionId, payload),
-  })
 
   const buildSubmissionPayload = useCallback((): SessionSubmissionPayload => ({
     items: learningItems.map((item) => {

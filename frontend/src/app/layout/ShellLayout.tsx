@@ -14,8 +14,15 @@ const links = [
 ]
 
 export function ShellLayout() {
-  const { isAuthenticated, logout } = useAuthContext()
+  const { isAuthenticated, logout, remainingMs } = useAuthContext()
   const { theme, preference, setPreference, toggleTheme } = useTheme()
+
+  const timeUntilLock = remainingMs ? Math.max(0, remainingMs - 45 * 60 * 1000) : 0
+  const formatTime = (ms: number) => {
+    const minutes = Math.floor(ms / 60000)
+    const seconds = Math.floor((ms % 60000) / 1000)
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
 
   return (
     <div className="min-h-screen bg-[var(--zen-bg)] text-[var(--zen-text)]">
@@ -64,13 +71,20 @@ export function ShellLayout() {
               </button>
             </div>
             {isAuthenticated ? (
-              <button
-                className="rounded-md border border-[var(--zen-border)] px-3 py-1 text-[var(--zen-text)] transition hover:border-[color:var(--zen-accent)]"
-                onClick={logout}
-                type="button"
-              >
-                Logout
-              </button>
+              <div className="flex items-center gap-4">
+                {timeUntilLock > 0 && (
+                  <span className="text-xs font-mono text-[var(--zen-text-muted)]" title="Time remaining before session lock">
+                    {formatTime(timeUntilLock)}
+                  </span>
+                )}
+                <button
+                  className="rounded-md border border-[var(--zen-border)] px-3 py-1 text-[var(--zen-text)] transition hover:border-[color:var(--zen-accent)]"
+                  onClick={logout}
+                  type="button"
+                >
+                  Logout
+                </button>
+              </div>
             ) : (
               <NavLink
                 to="/auth"

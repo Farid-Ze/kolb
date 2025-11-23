@@ -1,579 +1,294 @@
-# Zenotika 3.0 – Backend Architecture Blueprint (Target State)
-Status: APPROVED BLUEPRINT (Pending Implementation)
-Baseline Context: `kolb/backend` (v2.0) -> Target: Zenotika v3.0
+# Zenotika Frontend & Platform – Agile Backlog (Master Plan)
 
-> **CRITICAL NOTE:** This document describes the **TARGET** architecture. Features marked with [*] requires immediate DB Migrations & Logic Implementation on top of the existing `kolb-backend` codebase.
-
-> Goal: This document is the **single source of truth (SSOT)** for Zenotika’s backend architecture, aligned with the existing `kolb` backend. It covers concepts, folder structure, contracts, and key flows in ~500 lines.
-
----
-
-## 1. System Overview
-
-### 1.1 Vision
-
-Zenotika is an **ecosystem for human growth & nation building**, not just a psychometric test.
-
-Core ideas:
-
-- Users are **dynamic**; we persist **vectors and histories**, not static types.
-- Assessments exist to surface **blindspots** and then prescribe **Growth Challenges**.
-- The system merges:
-  - **Future (Self)** – psychometrics & learning style engine.
-  - **Zenosphere (Past)** – 3D memory archive.
-  - **ZenStore (Present)** – identity, badges, and economic contribution.
-
-### 1.2 Tech & Constraints
-
-- **Backend**: FastAPI, SQLAlchemy, Alembic.
-- **DB**: PostgreSQL; JSONB where flexibility is needed.
-- **Frontend**: SPA (client-side rendering), offline capable for assessments.
-- **Baseline**: Must stay compatible with existing `kolb` backend layout and patterns.
+> This is the **master Markdown backlog** for Zenotika (frontend + platform) aligned with `kolb` backend and Zenotika 3.0 blueprint.
+>
+> - Hierarchy: **Stream → Epic → Story → Tasks**.
+> - Each Task has ID, dependencies, and estimates so it can be **converted into a Gantt chart**.
 
 ---
 
-## 2. High-Level Architecture
+## Legend
 
-### 2.1 Layered Organization
-
-- **Routers** (`app/routers`): HTTP endpoints. No business logic.
-- **Schemas** (`app/schemas`): Pydantic request/response models.
-- **Services** (`app/services`): Domain logic (scoring, blindspots, challenges, gamification).
-- **Models** (`app/models`): SQLAlchemy ORM mappings.
-- **Core** (`app/core`): cross-cutting concerns (config, security, logging).
-- **DB** (`app/db`): database session and base declarations.
-- **Domain Data** (`app/assessments`, `app/instruments`, `app/data`, `app/i18n`):
-  - Psychometric keys, items, norms; not written at runtime.
-- **Migrations** (`app/migrations`): Alembic scripts; all schema changes go here.
+- **ID format**: `Z3-[STREAM]-[EPIC]-[STORY]-[SEQ]`
+  - STREAM: `PLT` (Platform), `FUT`, `SPH`, `STO`, `ADM`, `QLT`
+- **EstimatedDays**: calendar days or ideal dev days (you decide).
 
 ---
 
-## 3. Trinity Architecture
+## Stream 1 – Platform & Frontend Infrastructure (PLT)
 
-Zenotika’s domain is decomposed as:
+### Epic PLT-1 – Frontend Foundation & Scaffolding
 
-- **Future (Self)**  
-  Assessment engine: sessions, responses, scoring, kite coordinates, blindspots.
+#### Story PLT-1-A – Initialize Frontend Monolith (`frontend/`)
 
-- **Zenosphere (Past)**  
-  3D spatial archive of experiences and reflections, tied to learning modes.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-PLT-1-A-01 | Decide frontend base stack (Vite+React+TS) and document rationale |  | 1 |  | frontend,architecture |
+| Z3-PLT-1-A-02 | Scaffold `frontend/` with Vite (React+TS) and basic scripts | Z3-PLT-1-A-01 | 1 |  | frontend |
+| Z3-PLT-1-A-03 | Configure TypeScript strict mode (`tsconfig.json`) | Z3-PLT-1-A-02 | 1 |  | frontend,quality |
+| Z3-PLT-1-A-04 | Setup ESLint + Prettier with recommended rules | Z3-PLT-1-A-02 | 1 |  | frontend,quality |
+| Z3-PLT-1-A-05 | Integrate frontend lint/test with existing pre-commit hooks | Z3-PLT-1-A-04 | 1 |  | platform,devops |
+| Z3-PLT-1-A-06 | Add basic `README_frontend.md` for dev onboarding | Z3-PLT-1-A-02 | 1 |  | docs |
 
-- **ZenStore (Present)**  
-  Identity, badges, points, gated store products, and community fund.
+#### Story PLT-1-B – Project Structure Aligned with Backend
 
-### 3.1 Trinity Diagram (Mermaid)
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-PLT-1-B-01 | Create base folder structure `src/{app,shared,entities,features,pages}` | Z3-PLT-1-A-02 | 1 |  | frontend,architecture |
+| Z3-PLT-1-B-02 | Document mapping: routers → features (auth, sessions, engine, results, sphere, store, telemetry, challenges) | Z3-PLT-1-B-01 | 1 |  | docs,architecture |
+| Z3-PLT-1-B-03 | Implement `app/App.tsx` with React Router shell | Z3-PLT-1-B-01 | 1 |  | frontend |
+| Z3-PLT-1-B-04 | Define route map: `/`, `/login`, `/future/tunnel`, `/future/dashboard`, `/sphere`, `/store`, `/admin`, `/me` | Z3-PLT-1-B-03 | 1 |  | frontend,ux |
+| Z3-PLT-1-B-05 | Add `TunnelLayout` (no navbar) and `ShellLayout` (with nav) components | Z3-PLT-1-B-03 | 1 |  | frontend,ux |
 
-```mermaid
-flowchart LR
-    subgraph FUTURE["Future (Self) – Assessment Engine"]
-        U[User] --> AS[Assessment Sessions]
-        AS --> AIR[Item Responses]
-        AS --> ENG[Engine: LFI / Kite / Blindspots]
-    end
+### Epic PLT-2 – Shared API Client & Type System
 
-    subgraph SPHERE["Zenosphere (Past) – 3D Archive"]
-        U --> SN[Sphere Nodes]
-        SN --> MR[Memory Reflections]
-    end
+#### Story PLT-2-A – HTTP Client
 
-    subgraph STORE["ZenStore (Present) – Identity & Economy"]
-        U --> BA[Badges & Achievements]
-        U --> ZP[Zen Points & Levels]
-        BA --> SP[Store Products]
-        ZP --> SP
-    end
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-PLT-2-A-01 | Implement `shared/api/client.ts` using Axios or Fetch wrapper | Z3-PLT-1-A-02 | 1 |  | frontend,api |
+| Z3-PLT-2-A-02 | Configure base URL from env (`VITE_BACKEND_URL`) | Z3-PLT-2-A-01 | 0.5 |  | frontend,devops |
+| Z3-PLT-2-A-03 | Add request interceptor for `Authorization: Bearer <token>` | Z3-PLT-2-A-01 | 1 |  | frontend,security |
+| Z3-PLT-2-A-04 | Add response interceptor: handle 401/403 and route to login | Z3-PLT-2-A-03 | 1 |  | frontend,security |
+| Z3-PLT-2-A-05 | Add generic error shape and logging hook | Z3-PLT-2-A-01 | 1 |  | frontend |
 
-    ENG -->|Blindspots| GC[Growth Challenges]
-    GC --> UC[User Challenges]
-    UC --> SN
-    UC --> BA
-```
+#### Story PLT-2-B – Type Mapping from Backend Schemas
 
----
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-PLT-2-B-01 | Audit `backend/app/schemas/*.py` and list key schemas for frontend |  | 1 |  | architecture,backend |
+| Z3-PLT-2-B-02 | Create `entities/user/model.ts` from `schemas.user` | Z3-PLT-2-B-01 | 1 |  | frontend,types |
+| Z3-PLT-2-B-03 | Create `entities/session/model.ts` from `schemas.session` | Z3-PLT-2-B-01 | 1 |  | frontend,types |
+| Z3-PLT-2-B-04 | Create `entities/results/model.ts` from `schemas.results` | Z3-PLT-2-B-01 | 1 |  | frontend,types |
+| Z3-PLT-2-B-05 | Create `entities/store/model.ts` from `schemas.store` | Z3-PLT-2-B-01 | 1 |  | frontend,types |
+| Z3-PLT-2-B-06 | Create `entities/sphere/model.ts` from `schemas.sphere` | Z3-PLT-2-B-01 | 1 |  | frontend,types |
+| Z3-PLT-2-B-07 | Mark Zenotika-only fields (e.g. `zen_points`, badges) as optional | Z3-PLT-2-B-02 | 1 |  | frontend,architecture |
 
-## 4. Folder Layout (Backend)
+### Epic PLT-3 – State Management, React Query, and Theming
 
-```text
-backend/
-  app/
-    main.py
-    core/
-      config.py
-      security.py
-      logging.py
-      errors.py
-    db/
-      base.py
-      session.py
-    models/
-      user.py
-      assessment.py
-      challenge.py
-      sphere.py
-      store.py
-    schemas/
-      auth.py
-      user.py
-      sessions.py
-      results.py
-      challenges.py
-      sphere.py
-      store.py
-      telemetry.py
-    services/
-      auth_service.py
-      user_service.py
-      assessment_service.py
-      engine.py
-      challenge_service.py
-      sphere_service.py
-      store_service.py
-      gamification_service.py
-    routers/
-      auth.py
-      users.py
-      sessions.py
-      results.py
-      challenges.py
-      sphere.py
-      store.py
-      telemetry.py
-      health.py
-    assessments/
-    instruments/
-    data/
-    i18n/
-    migrations/
-```
+#### Story PLT-3-A – Providers & Hooks
 
-**Rules:**
-
-- Routers only **coordinate** (validate + call services); never contain scoring or DB logic.
-- Services may depend on:
-  - Models, other services, and read-only domain config (from `assessments/`, `data/`).
-- Models never import services or routers.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-PLT-3-A-01 | Add `QueryClientProvider` hooked to React Query | Z3-PLT-1-A-02 | 1 |  | frontend |
+| Z3-PLT-3-A-02 | Implement `AuthProvider` using JWT token in memory + localStorage | Z3-PLT-2-A-03 | 2 |  | frontend,security |
+| Z3-PLT-3-A-03 | Implement `useAuth()` hook exposing user + token + TTL | Z3-PLT-3-A-02 | 1 |  | frontend |
+| Z3-PLT-3-A-04 | Implement global time-lock checker (force logout if `exp-now < 45min`) | Z3-PLT-3-A-03 | 1 |  | frontend,security |
+| Z3-PLT-3-A-05 | Add ThemeProvider (light/dark, Zenotika brand tokens) | Z3-PLT-1-B-05 | 2 |  | frontend,ux |
 
 ---
 
-## 4.1 Required Migrations (The Gap)
-To align the codebase with this SSOT, the following Engineering Tasks are mandatory:
+## Stream 2 – Future (Self) / Assessment Engine UX (FUT)
 
-1.  **Identity Upgrade:**
-    * Add columns to `users`: `avatar_url`, `zen_points`, `current_lvl`, `life_motto`.
-    * Create tables: `gamification_badges`, `user_achievements`.
-2.  **Assessment Hardening:**
-    * Create table: `assessment_item_responses` (Critical for Audit/Telemetry).
-    * Create tables: `growth_challenges`, `user_challenges`.
-3.  **Ecosystem Expansion:**
-    * Create new modules: `app/models/sphere.py` & `app/models/store.py`.
-4.  **Auth Update:**
-    * Update `Token` schema to include `expires_in` (integer seconds) for easier frontend TTL handling.
+### Epic FUT-1 – Auth & Onboarding
 
-## 5. Core Domain Models (Conceptual)
+#### Story FUT-1-A – Registration Flow
 
-> Note: exact implementation lives under `app/models`. This section defines the **conceptual contract**, not exact Python code.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-FUT-1-A-01 | Design registration UX wireframe based on `auth.register` rules |  | 1 |  | ux,frontend |
+| Z3-FUT-1-A-02 | Implement `features/auth/api.ts` for `POST /auth/register` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-1-A-03 | Create `RegisterForm` with fields: full_name, email, nim, kelas, tahun_masuk, password | Z3-FUT-1-A-02 | 2 |  | frontend,ux |
+| Z3-FUT-1-A-04 | Client-side validation aligning with backend regex/rules | Z3-FUT-1-A-03 | 1 |  | frontend,validation |
+| Z3-FUT-1-A-05 | Handle registration errors using `AuthMessages` mapping | Z3-FUT-1-A-03 | 1 |  | frontend |
 
-### 5.1 Core Identity (Cluster A)
+#### Story FUT-1-B – Login & TTL Handling
 
-**Table: `users`**
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-FUT-1-B-01 | Implement `features/auth/api.ts` for `POST /auth/login` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-1-B-02 | Implement `LoginForm` with email + password | Z3-FUT-1-B-01 | 1 |  | frontend,ux |
+| Z3-FUT-1-B-03 | Decode JWT token `exp` to compute TTL | Z3-PLT-3-A-03 | 1 |  | frontend,security |
+| Z3-FUT-1-B-04 | Implement pre-assessment time-lock check on `/future/tunnel` entry | Z3-FUT-1-B-03 | 1 |  | frontend,ux,security |
+| Z3-FUT-1-B-05 | Show remaining time before expiry in header/status bar | Z3-FUT-1-B-03 | 1 |  | frontend,ux |
 
-- `id` (PK, bigint)
-- `nim` (string, unique, 8 digits)
-- `email` (string, unique)
-- `class` (string, regex `^IF-\d{2}$`)
-- `avatar_url` (string, nullable)
-- `zen_points` (int, default 0)
-- `current_lvl` (int, default 1)
-- `life_motto` (text, nullable)
-- Timestamps: `created_at`, `updated_at`
+### Epic FUT-2 – Future Tunnel (`/future/tunnel`)
 
-**Table: `gamification_badges`**
+#### Story FUT-2-A – Session Lifecycle
 
-- `id` (PK)
-- `slug` (unique, e.g. `"the-seeker"`)
-- `name`
-- `rarity` (e.g. `"common"`, `"rare"`, `"legendary"`)
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-FUT-2-A-01 | Implement `startSession()` calling `POST /sessions/start` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-2-A-02 | Implement `getSessionItems(sessionId)` from `GET /sessions/{id}/items` | Z3-FUT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-2-A-03 | Model local assessment state (answers, latencies, blur counts) | Z3-FUT-2-A-02 | 2 |  | frontend |
+| Z3-FUT-2-A-04 | Ensure strict ownership check UX (forbidden if session not owned) | Z3-FUT-2-A-02 | 1 |  | frontend,security |
+| Z3-FUT-2-A-05 | Implement submit/finalize flow using engine/session schemas | Z3-FUT-2-A-03 | 2 |  | frontend,api |
 
-**Table: `user_achievements`**
+#### Story FUT-2-B – Tunnel UI & UX Safeguards
 
-- `id` (PK)
-- `user_id` (FK → users.id)
-- `badge_id` (FK → gamification_badges.id)
-- `awarded_at` (timestamp)
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-FUT-2-B-01 | Implement `FutureTunnelPage` with `TunnelLayout` (no nav) | Z3-PLT-1-B-05 | 2 |  | frontend,ux |
+| Z3-FUT-2-B-02 | Build `ItemRankCard` enforcing no duplicate ranks (1–4) | Z3-FUT-2-A-03 | 2 |  | frontend,validation |
+| Z3-FUT-2-B-03 | Add `TunnelProgress` component reflecting item completion | Z3-FUT-2-A-03 | 1 |  | frontend |
+| Z3-FUT-2-B-04 | Implement auto-save or periodic submission if supported | Z3-FUT-2-A-05 | 2 |  | frontend |
+| Z3-FUT-2-B-05 | Implement unsaved-changes warning if user tries to exit tunnel | Z3-FUT-2-A-03 | 1 |  | frontend,ux |
 
----
+### Epic FUT-3 – Future Dashboard (`/future/dashboard`)
 
-### 5.2 Psychometrics & Growth (Cluster B – Future)
+#### Story FUT-3-A – Latest Results View
 
-**Table: `assessment_sessions`**
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-FUT-3-A-01 | Implement `getLatestResults()` from `routers/results` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-3-A-02 | Map kite/percentile/primary style to TS models | Z3-FUT-3-A-01 | 1 |  | frontend,types |
+| Z3-FUT-3-A-03 | Implement `KiteChart` visualization | Z3-FUT-3-A-02 | 2 |  | frontend,ux,data-viz |
+| Z3-FUT-3-A-04 | Implement `StrengthsBlindspots` component | Z3-FUT-3-A-02 | 2 |  | frontend |
+| Z3-FUT-3-A-05 | Integrate with `/future/dashboard` page | Z3-FUT-3-A-03 | 1 |  | frontend |
 
-- `id` (PK)
-- `user_id` (FK → users.id)
-- `is_finalized` (bool, default false)
-- `created_at`, `updated_at`
-- Optional JSONB `results_json`:
-  - `kite_coordinates` (4D vector)
-  - `lfi_score`
-  - `percentiles`
-  - `blindspots`
-  - `strengths`
+#### Story FUT-3-B – Growth Challenges Panel
 
-**Table: `assessment_item_responses`**
-
-- `id` (PK)
-- `session_id` (FK → assessment_sessions.id)
-- `item_id` (smallint, 1–12)
-- `response_rank` (smallint, 1–4)
-- `response_latency_ms` (int)
-- Optional JSONB `telemetry` (aggregated blur events, etc.)
-
-**Table: `growth_challenges`**
-
-- `id` (PK)
-- `target_style_deficiency` (string, e.g. `"AE_low"`, `"Reflector_low"`)
-- `title`
-- `description`
-- `societal_impact` (text)
-
-**Table: `user_challenges`**
-
-- `id` (PK)
-- `user_id` (FK → users.id)
-- `challenge_id` (FK → growth_challenges.id)
-- `status` (enum: `Active`, `Completed`)
-- `proof_url` (string, nullable)
-- `created_at`, `completed_at` (nullable)
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-FUT-3-B-01 | Implement `getUserChallenges()` from `routers/challenges` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-3-B-02 | Build `MyChallengesPanel` UI (list + status) | Z3-FUT-3-B-01 | 1 |  | frontend |
+| Z3-FUT-3-B-03 | Display linkage between blindspots and suggested challenges | Z3-FUT-3-A-04 | 1 |  | frontend,ux |
 
 ---
 
-### 5.3 Zenosphere (Cluster C – Past)
+## Stream 3 – Zenosphere (Past) (SPH)
 
-**Table: `sphere_nodes`**
+### Epic SPH-1 – Sphere Nodes Visualization
 
-- `id` (PK)
-- `user_id` (FK → users.id)
-- `pos_x`, `pos_y`, `pos_z` (float)
-- `unlock_date` (timestamp)
-- Optional JSONB `meta` (linked challenge, event type, tags)
+#### Story SPH-1-A – API Integration
 
-**Table: `memory_reflections`**
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-SPH-1-A-01 | Implement `listSphereNodes()` from `routers/sphere` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-SPH-1-A-02 | Map `sphere_nodes` schema to TS model | Z3-SPH-1-A-01 | 1 |  | frontend,types |
 
-- `id` (PK)
-- `user_id` (FK → users.id)
-- `sphere_node_id` (FK → sphere_nodes.id, nullable)
-- `content` (text)
-- `reflection_type` (enum: `Thinking`, `Feeling`, `Acting`, `Watching`)
-- `created_at`
+#### Story SPH-1-B – 2D/3D Sphere View (MVP)
 
----
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-SPH-1-B-01 | Design minimal 2D / radial layout for nodes | Z3-SPH-1-A-02 | 2 |  | frontend,ux,data-viz |
+| Z3-SPH-1-B-02 | Implement `SphereTimeline` or map view | Z3-SPH-1-B-01 | 3 |  | frontend |
+| Z3-SPH-1-B-03 | Add selection interaction to open reflections for a node | Z3-SPH-1-B-02 | 2 |  | frontend |
 
-### 5.4 Store (Cluster D – Present)
+### Epic SPH-2 – Reflections
 
-**Table: `store_products`**
+#### Story SPH-2-A – CRUD Reflections
 
-- `id` (PK)
-- `name`
-- `description`
-- `base_price` (int)
-- `required_badge_id` (FK → gamification_badges.id, nullable)
-- Optional JSONB `meta`:
-  - images, available sizes, stock info, etc.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-SPH-2-A-01 | Implement `listReflections()` and `createReflection()` from `routers/sphere` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-SPH-2-A-02 | Create `ReflectionForm` UI with reflection_type selector | Z3-SPH-2-A-01 | 2 |  | frontend,ux |
+| Z3-SPH-2-A-03 | Render reflections list filtered by type & node | Z3-SPH-2-A-01 | 2 |  | frontend |
 
 ---
 
-## 6. Auth & Gatekeeper Logic
+## Stream 4 – ZenStore & Gamification (STO)
 
-### 6.1 Auth Flow
+### Epic STO-1 – Storefront
 
-- **Registration** (`POST /api/v1/auth/register`)
-  - Validates:
-    - `nim`: `^[0-9]{8}$`
-    - `class`: `^IF-\d{2}$`
-    - `email`: standard email pattern.
-  - Creates `User` and hashes password (if password-based auth is used).
-- **Login** (`POST /api/v1/auth/login`)
-  - Issues token with:
-    - `sub` (user_id)
-    - `exp` (absolute expiry)
-  - Returns token **and** expiry (or TTL) in response.
+#### Story STO-1-A – Product Listing
 
-### 6.2 Time-Lock & TTL Policy (Frontend+Backend Contract)
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-STO-1-A-01 | Implement `listProducts()` from `routers/store` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-STO-1-A-02 | Map store product schema to TS model (`required_badge`, meta) | Z3-STO-1-A-01 | 1 |  | frontend,types |
+| Z3-STO-1-A-03 | Implement `StorePage` with product cards and eligibility markers | Z3-STO-1-A-02 | 2 |  | frontend,ux |
 
-- Backend:
-  - Token expiry drives security; no special logic required for “time-lock”.
-- Frontend:
-  - On page load:
-    - Decode or store `token_exp`.
-    - If `exp - now < 45 minutes`:
-      - Call `force_logout()` and redirect to login.
-  - **Start Assessment** button:
-    - Disabled if `exp - now < minimum_assessment_duration` (e.g., 30–45 min).
+#### Story STO-1-B – Product Detail
 
----
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-STO-1-B-01 | Implement `getProductDetail(productId)` | Z3-STO-1-A-01 | 1 |  | frontend,api |
+| Z3-STO-1-B-02 | Build `ProductDetailPage` | Z3-STO-1-B-01 | 2 |  | frontend,ux |
 
-## 7. Assessment Flow (Future / Self)
+### Epic STO-2 – Gamification & Identity Extensions
 
-### 7.1 “Tunnel” UX Contract
+#### Story STO-2-A – User Badges & Achievements (Zenotika Optional Fields)
 
-- Route: `/future/tunnel` (frontend).
-- Requirements:
-  - Distraction-free:
-    - No navbar/sidebar/footer.
-  - State:
-    - One active `assessment_session` per ongoing assessment.
-    - Rank 4 options (1–4) for 12 items.
-    - Real-time validation: no duplicate ranks per item.
-
-### 7.2 Session Lifecycle API
-
-- **Start Session**  
-  `POST /api/v1/sessions/start`
-  - Auth required.
-  - Creates `AssessmentSession` with `is_finalized = false`.
-  - Returns:
-    - `session_id`
-    - `created_at`
-    - `can_finalize` (optional flag, for future use).
-
-- **Upsert Responses**  
-  `PATCH /api/v1/sessions/{session_id}/responses`
-  - Body: list of `{ item_id, response_rank, response_latency_ms, blur_events? }`
-  - Behavior:
-    - Idempotent UPSERT per `(session_id, item_id)`.
-    - Validates ranks (1–4) and no duplicate ranks per item in a single payload.
-  - If `is_finalized = true` → return 409 or 400.
-
-- **Finalize Session (The Handshake)**  
-  `POST /api/v1/sessions/{session_id}/finalize`
-  - Service steps:
-    1. Load all responses for session.
-    2. Pass to `services.engine.score_session`.
-    3. Compute:
-       - LFI.
-       - Percentiles.
-       - `kite_coordinates`.
-       - `strengths` & `blindspots`.
-    4. Persist `results_json` in `assessment_sessions`.
-    5. Set `is_finalized = true`.
-    6. Award:
-       - Badge `"the-seeker"` (if first time).
-       - Zen points and maybe a `sphere_node`.
-  - Frontend:
-    - On `200 OK`, **immediately wipe** assessment answers from `localStorage`.
-
-### 7.3 Engine Responsibilities
-
-File: `services/engine.py`:
-
-- `score_session(session_id)`:
-  - Collect `AssessmentItemResponse` records.
-  - Use scoring keys/weights from `assessments/` or `data/`.
-  - Output:
-    - `lfi_score: float`
-    - `kite_coordinates: dict[str, float]` (e.g. `{"CE": 0.7, "RO": 0.4, "AC": 0.2, "AE": 0.9}`)
-    - `percentiles: dict[str, float]`
-- `detect_blindspots(kite_coordinates)`:
-  - Sort dimensions by value.
-  - Bottom 1–2 become `blindspots`.
-  - Top 1–2 become `strengths`.
-
-Blindspots are **input to Growth Challenges**, **not labels** on the user.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-STO-2-A-01 | Add optional badges/zen_points fields in `entities/user/model.ts` | Z3-PLT-2-B-02 | 1 |  | frontend,types |
+| Z3-STO-2-A-02 | Implement `UserBadgeRow` component | Z3-STO-2-A-01 | 1 |  | frontend |
+| Z3-STO-2-A-03 | Integrate badges display into `/me` and `/future/dashboard` | Z3-STO-2-A-02 | 2 |  | frontend |
 
 ---
 
-## 8. Telemetry
+## Stream 5 – Admin / Research / Teams (ADM)
 
-### 8.1 Data & Endpoint
+### Epic ADM-1 – Admin Console (`/admin`)
 
-- Data:
-  - `response_latency_ms` (per item).
-  - `blur_events`: count or aggregated representation per item or session.
-- Endpoint:
-  - `POST /api/v1/telemetry/assessment`
-  - Called via `navigator.sendBeacon` when the user answers or on unload.
-- Storage:
-  - Either:
-    - In `assessment_item_responses.telemetry` JSONB, or
-    - Separate `assessment_telemetry` table, linked by `session_id`.
+#### Story ADM-1-A – Access Control & Shell
 
-### 8.2 Usage
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-ADM-1-A-01 | Add route guard for `/admin` requiring mediator/admin role | Z3-FUT-1-B-01 | 1 |  | frontend,security |
+| Z3-ADM-1-A-02 | Implement `AdminPage` shell with sidebar | Z3-ADM-1-A-01 | 2 |  | frontend,ux |
 
-- Strictly analytics:
-  - UX improvements.
-  - No direct impact on scoring or user “type”.
+#### Story ADM-1-B – Norms, Pipelines, and Instrument Admin
 
----
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-ADM-1-B-01 | Integrate with selected admin endpoints (`/admin`) from router | Z3-PLT-2-A-01 | 2 |  | frontend,api |
+| Z3-ADM-1-B-02 | Build UI for pipeline listing and activation | Z3-ADM-1-B-01 | 3 |  | frontend |
+| Z3-ADM-1-B-03 | Build basic upload/import UI for norms if needed | Z3-ADM-1-B-01 | 3 |  | frontend |
 
-## 9. Zenosphere (Sphere & Reflections)
+### Epic ADM-2 – Teams & Research Dashboards
 
-### 9.1 APIs
+#### Story ADM-2-A – Teams Overview
 
-- **List Nodes**  
-  `GET /api/v1/sphere/nodes`
-  - Returns unlocked `sphere_nodes` for user.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-ADM-2-A-01 | Implement `listTeams()` from `routers/teams` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-ADM-2-A-02 | Visualize team rollup stats (KLSI distribution) | Z3-ADM-2-A-01 | 3 |  | frontend,data-viz |
 
-- **Create Node (Service Use Only)**  
-  - Called internally on key events:
-    - First assessment finalization.
-    - Completion of certain challenges.
-  - `sphere_service.create_node_for_event(user, event_type, metadata)`.
+#### Story ADM-2-B – Research Studies
 
-- **List Reflections**  
-  `GET /api/v1/sphere/reflections`
-  - Returns reflections for the user, optionally filtered by `reflection_type`.
-
-- **Create Reflection**  
-  `POST /api/v1/sphere/reflections`
-  - Body:
-    - `sphere_node_id` (optional)
-    - `content`
-    - `reflection_type` (Thinking / Feeling / Acting / Watching)
-
-### 9.2 Learning Style–Aware Prompts
-
-- `sphere_service.get_prompt_for_user(user_id)`:
-  - Uses latest assessment `kite_coordinates` and style inference.
-  - Example:
-    - Reflector-leaning → prompt: “What does this experience mean for you?”
-    - Activist-leaning → prompt: “What action will you take next?”
-
-Prompts can be stored in `i18n/` configs keyed by style and `reflection_type`.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-ADM-2-B-01 | Integrate `research` router for study CRUD | Z3-PLT-2-A-01 | 2 |  | frontend,api |
+| Z3-ADM-2-B-02 | Build `ResearchStudyList` and detail view | Z3-ADM-2-B-01 | 3 |  | frontend |
 
 ---
 
-## 10. ZenStore, Badges & Economy
+## Stream 6 – Quality, Observability, Governance (QLT)
 
-### 10.1 Store APIs
+### Epic QLT-1 – Testing
 
-- **List Products**  
-  `GET /api/v1/store/products`
-  - Returns:
-    - Product basic data.
-    - `eligible: bool` for current user.
-  - `store_service.is_product_eligible(user, product)`:
-    - If `required_badge_id` is null → true.
-    - Else check `user_achievements`.
+#### Story QLT-1-A – Unit & Integration Tests
 
-- **Product Detail**  
-  `GET /api/v1/store/products/{product_id}`
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-QLT-1-A-01 | Setup Vitest or Jest with React Testing Library | Z3-PLT-1-A-02 | 2 |  | frontend,quality |
+| Z3-QLT-1-A-02 | Write tests for `features/auth` (login/register) | Z3-FUT-1-A-03 | 3 |  | frontend,quality |
+| Z3-QLT-1-A-03 | Write tests for `features/future-tunnel` core logic | Z3-FUT-2-A-03 | 4 |  | frontend,quality |
+| Z3-QLT-1-A-04 | Write tests for `features/future-dashboard` data mapping | Z3-FUT-3-A-02 | 3 |  | frontend,quality |
 
-- **Checkout** (if implemented)
-  - `POST /api/v1/store/checkout`
-  - Deduct `zen_points`, log transaction, optionally update `community_fund`.
+### Epic QLT-2 – E2E and UX Telemetry
 
-### 10.2 Gamification Service
+#### Story QLT-2-A – E2E Flows
 
-- `gamification_service.award_badge(user, slug)`
-  - Ensures idempotency (no duplicate achievement rows).
-- `gamification_service.add_points(user, points)`
-  - Adjusts `zen_points`, recomputes `current_lvl` by defined rules.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-QLT-2-A-01 | Setup Playwright or Cypress for E2E tests | Z3-PLT-1-A-02 | 2 |  | frontend,quality |
+| Z3-QLT-2-A-02 | E2E: register → login → /future/tunnel → finalize | Z3-QLT-2-A-01 | 3 |  | frontend,quality |
 
-### 10.3 “The Seeker” Badge
+#### Story QLT-2-B – Telemetry Integration (Frontend → Backend)
 
-- Awarded when:
-  - User successfully finalizes their first assessment session.
-- Implementation:
-  - `assessment_service.finalize_session` calls:
-    - `gamification_service.award_badge(user, "the-seeker")`.
+| ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
+| --- | --- | --- | --- | --- | --- |
+| Z3-QLT-2-B-01 | Implement `useTelemetryBeacon()` hook (sendBeacon to `/telemetry`) | Z3-PLT-2-A-01 | 2 |  | frontend,api |
+| Z3-QLT-2-B-02 | Integrate latency/blur event capture into `FutureTunnelPage` | Z3-FUT-2-A-03 | 2 |  | frontend |
+| Z3-QLT-2-B-03 | Verify telemetry payload schema against backend implementation | Z3-QLT-2-B-01 | 1 |  | frontend,backend |
 
 ---
 
-## 11. Sitemap–to–API Mapping
+## How to Use This File for Gantt Chart
 
-### 11.1 ZenWEB (`/`)
+1. **Import / copy** this Markdown into:
+   - Excel / Google Sheets (one row per task).
+   - Tools seperti Jira, ClickUp, Notion (import table).
+2. Gunakan kolom:
+   - `ID` sebagai unique key.
+   - `DependsOn` untuk membuat **dependency edges** di Gantt.
+   - `EstimatedDays` sebagai duration.
+3. Anda bisa menambah kolom:
+   - `StartDate`, `EndDate`, `Milestone` sesuai kebutuhan tool.
 
-- Frontend:
-  - Landing, auth, onboarding.
-  - Handles TTL-based **force logout** and **time-lock** logic.
-- Backend:
-  - `routers.auth`, `routers.users`.
-
-### 11.2 IFL Engine (`/future`)
-
-- `/future/dashboard`
-  - Uses:
-    - `GET /api/v1/sessions/latest/results`
-    - `GET /api/v1/challenges/user`
-- `/future/tunnel`
-  - Uses:
-    - `POST /api/v1/sessions/start`
-    - `PATCH /api/v1/sessions/{id}/responses`
-    - `POST /api/v1/sessions/{id}/finalize`
-
-### 11.3 Milestones (`/sphere`)
-
-- `/sphere`
-  - Uses:
-    - `GET /api/v1/sphere/nodes`
-    - `GET /api/v1/sphere/reflections`
-    - `POST /api/v1/sphere/reflections`
-
-### 11.4 ZenStore (`/store`)
-
-- `/store`
-  - Uses:
-    - `GET /api/v1/store/products`
-    - `GET /api/v1/store/community-fund` (if implemented)
-- `/store/product/:id`
-  - Uses:
-    - `GET /api/v1/store/products/{id}`
-
-### 11.5 Command Center (`/admin`)
-
-- Admin-only views for:
-  - Challenges, badges, store products, instruments.
-- Backend:
-  - Could be separate routers with role-based access (e.g., `routers.admin_challenges`, etc.).
-
-### 11.6 Profile (`/me`)
-
-- Uses:
-  - `GET /api/v1/users/me`
-  - `GET /api/v1/users/me/achievements`
-  - `GET /api/v1/challenges/user`
-
----
-
-## 12. Non-Functional & Governance
-
-### 12.1 Migrations
-
-- Every schema change → **Alembic migration** in `app/migrations`.
-- No manual schema drift allowed.
-
-### 12.2 Logging & Observability
-
-- Standard JSON logs:
-  - Request ID / correlation ID.
-  - User ID where available.
-- Key events to log:
-  - Registration, login failures.
-  - Session finalization.
-  - Challenge completion.
-  - Badge awards.
-
-### 12.3 Versioning
-
-- All Zenotika APIs under `/api/v1/...`.
-- Breaking changes:
-  - Introduce `/api/v2/...` when necessary.
-  - Keep `v1` stable for existing clients until deprecation.
-
----
-
-## 13. Implementation Priorities (MVP Path)
-
-1. **Core Identity & Auth**
-   - `users`, `auth` endpoints, TTL enforcement semantics.
-2. **Assessment Core**
-   - Sessions, item responses, engine scoring, finalization.
-3. **Results & Growth Challenges**
-   - `results` endpoint with kite + blindspots.
-   - Challenge assignment logic and `user_challenges`.
-4. **Gamification Backbone**
-   - Badges, achievements, awarding “The Seeker”.
-5. **Sphere & Store**
-   - Minimal sphere nodes + reflections.
-   - Badge-gated product listing.
-
-> This SSOT should be kept in sync with the actual codebase. Any divergence must be resolved by **updating this document first**, then implementing corresponding code and migrations.
+> Untuk mencapai total ~1000 task, Anda bisa:
+> - Memperbanyak rincian per Story (misalnya pecah UI/logic/test/docs untuk setiap halaman).
+> - Duplikasi pola di tiap stream untuk variasi device, i18n, A/B test, dsb.

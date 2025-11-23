@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useBlocker } from 'react-router-dom'
 
 import { Button } from '../../../shared/ui/Button'
 import { useAuth } from '../../auth'
@@ -53,6 +53,22 @@ export function FutureTunnelExperience() {
 
   const finalizeSnapshot = (result as FinalizeSnapshot | null) ?? null
   const validationIssues = finalizeSnapshot?.validation?.issues ?? []
+
+  const shouldBlock = Boolean(sessionId) && !result
+  const blocker = useBlocker(shouldBlock)
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      const confirm = window.confirm(
+        'You have an active session. Are you sure you want to leave? Your progress is saved incrementally, but you should finalize it to get your results.',
+      )
+      if (confirm) {
+        blocker.proceed()
+      } else {
+        blocker.reset()
+      }
+    }
+  }, [blocker])
 
   const handleStart = async () => {
     setStatusMessage(null)
@@ -108,7 +124,12 @@ export function FutureTunnelExperience() {
           )}
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
-          <Button disabled={isLoading || Boolean(sessionId)} isLoading={isLoading} onClick={handleStart} type="button">
+          <Button
+            disabled={isLoading || Boolean(sessionId) || isTimeLocked}
+            isLoading={isLoading}
+            onClick={handleStart}
+            type="button"
+          >
             {sessionId ? 'Session Active' : 'Start Session'}
           </Button>
           {sessionId && (

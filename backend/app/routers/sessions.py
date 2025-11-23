@@ -431,12 +431,3 @@ def upsert_session_responses(
     return Response(status_code=204)
 
 
-@router.post("/{session_id}/finalize")
-def finalize_session_endpoint(
-    session_id: int,
-    db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
-):
-    user = get_current_user(authorization, db)
-    engine_service = EngineSessionService(db)
-    return engine_service.finalize_session(session_id, user)

@@ -18,9 +18,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setTokenState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY))
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const { expiresAt } = useAuthTokenMetadata(token)
-  const remainingMs = expiresAt ? expiresAt - Date.now() : null
+  const remainingMs = expiresAt ? Math.max(0, expiresAt - now) : null
   const isTimeLocked = remainingMs !== null && remainingMs <= TIMELOCK_THRESHOLD_MS
 
   const setToken = useCallback((value: string | null) => {
@@ -85,12 +91,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return
     }
     if (isTimeLocked) {
+      // If we are time-locked, we logout immediately to enforce fresh session
       logout()
       return
     }
+    // Also set a timeout for the exact moment we cross the threshold
+    const timeUntilLock = Math.max(0, (expiresAt - Date.now()) - TIMELOCK_THRESHOLD_MS)
     const timeoutId = window.setTimeout(() => {
       logout()
-    }, Math.max(0, expiresAt - Date.now()))
+    }, timeUntilLock)
     return () => window.clearTimeout(timeoutId)
   }, [token, expiresAt, isTimeLocked, logout])
 

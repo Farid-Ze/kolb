@@ -143,8 +143,8 @@ class KLSI4Plugin(
             options = [
                 {
                     "id": choice.id,
-                    "learning_mode": choice.learning_mode.value,
-                    "text": choice.choice_text,
+                    "code": choice.learning_mode.value,
+                    "label": choice.choice_text,
                 }
                 for choice in item.choices
             ]
@@ -204,8 +204,8 @@ class KLSI4Plugin(
                         option_payload.append(
                             {
                                 "id": legacy_choice_id,
-                                "learning_mode": option.learning_mode,
-                                "text": option.option_text,
+                                "code": option.learning_mode,
+                                "label": option.option_text,
                             }
                         )
                     if not option_payload:

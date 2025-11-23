@@ -3,11 +3,12 @@ import type { UserChallenge } from '../../../entities/challenge/model'
 interface ChallengesPanelProps {
   challenges: UserChallenge[]
   isLoading: boolean
+  blindspots?: string[]
 }
 
-export function ChallengesPanel({ challenges, isLoading }: ChallengesPanelProps) {
+export function ChallengesPanel({ challenges, isLoading, blindspots = [] }: ChallengesPanelProps) {
   return (
-    <div className="space-y-4 rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6 shadow-sm">
+    <div className="space-y-6 rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6 shadow-sm">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-[var(--zen-text-muted)]">Growth Challenges</p>
@@ -15,6 +16,17 @@ export function ChallengesPanel({ challenges, isLoading }: ChallengesPanelProps)
         </div>
         <span className="text-sm text-[var(--zen-text-muted)]">{challenges.length} active</span>
       </div>
+
+      {blindspots.length > 0 && (
+        <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-4">
+          <h3 className="mb-2 text-sm font-semibold text-amber-900">Recommended Focus Areas</h3>
+          <p className="text-sm text-amber-800">
+            Based on your assessment, consider selecting challenges that help you develop your{' '}
+            <span className="font-medium">{blindspots.join(', ')}</span> capabilities.
+          </p>
+        </div>
+      )}
+
       {isLoading ? (
         <p className="text-sm text-[var(--zen-text-muted)]">Loading challenges…</p>
       ) : challenges.length === 0 ? (

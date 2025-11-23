@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { useStorefront } from '../hooks/useStorefront'
 import { Button } from '../../../shared/ui/Button'
@@ -59,7 +60,9 @@ export function Storefront() {
               <article className="rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-4 shadow-sm" key={product.id}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-[var(--zen-text)]">{product.name}</h2>
+                    <Link to={`/store/product/${product.id}`} className="hover:underline">
+                      <h2 className="text-lg font-semibold text-[var(--zen-text)]">{product.name}</h2>
+                    </Link>
                     <p className="text-sm text-[var(--zen-text-muted)]">{product.description}</p>
                   </div>
                   <p className="text-sm font-semibold text-[var(--zen-text)]">Rp {product.basePrice.toLocaleString('id-ID')}</p>
