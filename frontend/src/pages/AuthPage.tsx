@@ -48,16 +48,16 @@ export function AuthPage() {
   return (
     <section className="mx-auto max-w-md space-y-6">
       <div className="space-y-2 text-center">
-        <p className="text-sm uppercase tracking-wide text-slate-500">Auth</p>
+        <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Auth</p>
         <h1 className="text-2xl font-semibold">Access Zenotika</h1>
-        <p className="text-slate-600">Sign in with your existing account or register with campus credentials.</p>
+        <p className="text-[var(--zen-text-muted)]">Sign in with your existing account or register with campus credentials.</p>
       </div>
-      <div className="flex rounded-md border border-slate-200 bg-white p-1 text-sm font-medium text-slate-500">
+      <div className="flex rounded-md border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-1 text-sm font-medium text-[var(--zen-text-muted)]">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             className={`flex-1 rounded-md px-3 py-2 transition ${
-              activeTab === tab.key ? 'bg-slate-900 text-white' : 'hover:bg-slate-100'
+              activeTab === tab.key ? 'bg-[var(--zen-text)] text-[var(--zen-bg)]' : 'hover:bg-[var(--zen-border)]'
             }`}
             onClick={() => setActiveTab(tab.key)}
             type="button"
@@ -68,14 +68,14 @@ export function AuthPage() {
       </div>
       {error && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {success && <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p>}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6 shadow-sm">
         {activeTab === 'login' ? (
           <LoginForm onSubmit={handleLogin} />
         ) : (
           <RegisterForm onSubmit={handleRegister} />
         )}
       </div>
-      {isLoading && <p className="text-center text-xs text-slate-400">Syncing profile…</p>}
+      {isLoading && <p className="text-center text-xs text-[var(--zen-text-muted)]">Syncing profile…</p>}
     </section>
   )
 }

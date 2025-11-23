@@ -1,19 +1,62 @@
-import type { ButtonHTMLAttributes } from 'react'
-import { Loader2 } from 'lucide-react'
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+import { cn } from "../lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-[var(--zen-text)] text-[var(--zen-bg)] hover:bg-[var(--zen-text)]/90",
+        destructive:
+          "bg-red-500 text-white hover:bg-red-500/90",
+        outline:
+          "border border-[var(--zen-border)] bg-[var(--zen-bg)] hover:bg-[var(--zen-bg-elevated)] hover:text-[var(--zen-text)]",
+        secondary:
+          "bg-[var(--zen-bg-elevated)] text-[var(--zen-text)] hover:bg-[var(--zen-bg-elevated)]/80",
+        ghost: "hover:bg-[var(--zen-bg-elevated)] hover:text-[var(--zen-text)]",
+        link: "text-[var(--zen-text)] underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
   isLoading?: boolean
 }
 
-export function Button({ className = '', isLoading, children, disabled, ...rest }: ButtonProps) {
-  return (
-    <button
-      className={`inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-      disabled={disabled || isLoading}
-      {...rest}
-    >
-      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      {children}
-    </button>
-  )
-}
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, isLoading, children, disabled, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        disabled={disabled || isLoading}
+        {...props}
+      >
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {children}
+      </Comp>
+    )
+  }
+)
+Button.displayName = "Button"
+
+export { Button, buttonVariants }

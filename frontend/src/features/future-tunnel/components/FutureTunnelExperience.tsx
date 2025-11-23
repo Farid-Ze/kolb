@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { formatContextDescription, MODE_CODES } from '../../../entities/session/constants'
 import { Button } from '../../../shared/ui/Button'
 import { useAuth } from '../../auth'
 import { useTunnelSession } from '../hooks/useTunnelSession'
+import { AssessmentContextCard } from './AssessmentContextCard'
+import { AssessmentItemCard } from './AssessmentItemCard'
 
 type FinalizeSnapshot = {
   ACCE?: number
@@ -142,108 +143,59 @@ export function FutureTunnelExperience() {
         <>
           <section className="space-y-4">
             <header className="flex flex-col gap-1">
-              <p className="text-sm uppercase tracking-wide text-slate-400">Forced-choice items</p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+              <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Forced-choice items</p>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)]">
                 <span>
-                  {rankedItemsCount}/{totalItems} completed
+                  {rankedItemsCount}/{totalItems} items ranked
                 </span>
                 <span>Progress: {itemsProgressPercent}%</span>
               </div>
-              <p className="text-slate-500">Rank each option 1–4 with no duplicates per item.</p>
+              <p className="text-[var(--zen-text-muted)]">Rank each option 1–4 with no duplicates per item.</p>
             </header>
-            {isFetchingItems && <p className="text-slate-400">Loading assessment items…</p>}
+            {isFetchingItems && <p className="text-[var(--zen-text-muted)]">Loading assessment items…</p>}
             <div className="grid gap-4">
               {items.map((item) => (
-                <article key={item.id} className="space-y-4 rounded-2xl border border-slate-800/40 bg-slate-900/40 p-5">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Item #{item.number}</p>
-                    <h3 className="text-xl font-semibold text-white">{item.stem}</h3>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {item.options?.map((option) => {
-                      const currentRank = drafts[item.id]?.ranks?.[option.id] ?? null
-                      return (
-                        <label key={option.id} className="space-y-2 rounded-xl border border-slate-800/60 bg-slate-900/60 p-3 text-sm text-slate-200">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-white">{option.code ?? option.id}</span>
-                            <span className="text-xs uppercase tracking-wide text-slate-500">Rank</span>
-                          </div>
-                          <p className="text-slate-400">{option.label}</p>
-                          <select
-                            className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
-                            onBlur={() => setActiveItem(null)}
-                            onChange={(event) =>
-                              setOptionRank(item.id, option.id, event.target.value ? Number(event.target.value) : null)
-                            }
-                            onFocus={() => setActiveItem(item.id)}
-                            value={currentRank ?? ''}
-                          >
-                            <option value="">–</option>
-                            {[1, 2, 3, 4].map((rank) => (
-                              <option key={rank} value={rank}>
-                                {rank}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </article>
+                <AssessmentItemCard
+                  key={item.id}
+                  item={item}
+                  draftRanks={drafts[item.id]?.ranks}
+                  onRankChange={setOptionRank}
+                  onFocus={setActiveItem}
+                  onBlur={() => setActiveItem(null)}
+                />
               ))}
             </div>
           </section>
 
           <section className="space-y-4">
             <header className="flex flex-col gap-1">
-              <p className="text-sm uppercase tracking-wide text-slate-400">Learning Flexibility contexts</p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+              <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Learning Flexibility contexts</p>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)]">
                 <span>
                   {contextsCompleteCount}/{totalContexts} contexts ranked
                 </span>
                 <span>Progress: {contextsProgressPercent}%</span>
               </div>
-              <p className="text-slate-500">Assign a unique rank (1–4) for each mode per context.</p>
+              <p className="text-[var(--zen-text-muted)]">Assign a unique rank (1–4) for each mode per context.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
-              {contextNames.map((contextName) => {
-                const context = contextDrafts[contextName]
-                return (
-                  <article key={contextName} className="space-y-3 rounded-2xl border border-slate-800/40 bg-slate-900/40 p-5">
-                    <h3 className="text-lg font-semibold text-white">{formatContextDescription(contextName)}</h3>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {MODE_CODES.map((mode) => (
-                        <label key={mode} className="space-y-2 text-sm">
-                          <span className="text-xs uppercase tracking-wide text-slate-400">{mode}</span>
-                          <select
-                            className="w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
-                            onChange={(event) =>
-                              setContextRank(contextName, mode, event.target.value ? Number(event.target.value) : null)
-                            }
-                            value={context?.[mode] ?? ''}
-                          >
-                            <option value="">–</option>
-                            {[1, 2, 3, 4].map((rank) => (
-                              <option key={rank} value={rank}>
-                                {rank}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      ))}
-                    </div>
-                  </article>
-                )
-              })}
+              {contextNames.map((contextName) => (
+                <AssessmentContextCard
+                  key={contextName}
+                  contextName={contextName}
+                  draft={contextDrafts[contextName]}
+                  onRankChange={setContextRank}
+                />
+              ))}
             </div>
           </section>
 
-          <section className="space-y-4 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-6">
-            <header className="flex flex-col gap-1 text-white">
-              <p className="text-sm uppercase tracking-wide text-slate-400">Finalize</p>
-              <p className="text-slate-200">Both forced-choice items and contexts must be complete before submission.</p>
+          <section className="space-y-4 rounded-2xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6">
+            <header className="flex flex-col gap-1 text-[var(--zen-text)]">
+              <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Finalize</p>
+              <p className="text-[var(--zen-text-muted)]">Both forced-choice items and contexts must be complete before submission.</p>
             </header>
-            <div className="flex flex-wrap gap-6 text-sm text-slate-300">
+            <div className="flex flex-wrap gap-6 text-sm text-[var(--zen-text-muted)]">
               <span>Items complete: {rankedItemsCount}/{totalItems}</span>
               <span>Contexts complete: {contextsCompleteCount}/{totalContexts}</span>
             </div>
@@ -300,7 +252,7 @@ export function FutureTunnelExperience() {
           )}
         </>
       ) : (
-        <p className="text-center text-slate-500">Start a session to unlock the forced-choice tunnel.</p>
+        <p className="text-center text-[var(--zen-text-muted)]">Start a session to unlock the forced-choice tunnel.</p>
       )}
     </div>
   )

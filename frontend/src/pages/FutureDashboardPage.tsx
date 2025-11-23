@@ -16,13 +16,13 @@ export function FutureDashboardPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-slate-500">Future / Self</p>
+        <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Future / Self</p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Assessment Dashboard</h1>
-            <p className="text-slate-600">Review your latest kite coordinates and growth challenges.</p>
+            <h1 className="text-3xl font-semibold text-[var(--zen-text)]">Assessment Dashboard</h1>
+            <p className="text-[var(--zen-text-muted)]">Review your latest kite coordinates and growth challenges.</p>
           </div>
-          {isLoadingResults && <span className="text-sm text-slate-500">Refreshing results…</span>}
+          {isLoadingResults && <span className="text-sm text-[var(--zen-text-muted)]">Refreshing results…</span>}
         </div>
       </header>
 

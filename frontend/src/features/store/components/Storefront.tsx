@@ -33,9 +33,9 @@ export function Storefront() {
     <section className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-4">
         <header className="space-y-4">
-          <p className="text-sm uppercase tracking-wide text-slate-500">ZenStore</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Badge-gated items</h1>
-          <p className="text-slate-600">Products are tailored to your achievements; eligibility is enforced server-side.</p>
+          <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">ZenStore</p>
+          <h1 className="text-3xl font-semibold text-[var(--zen-text)]">Badge-gated items</h1>
+          <p className="text-[var(--zen-text-muted)]">Products are tailored to your achievements; eligibility is enforced server-side.</p>
           <div className="flex flex-wrap items-center gap-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 text-emerald-900">
             <div>
               <p className="text-xs uppercase tracking-wide text-emerald-600">Community fund</p>
@@ -52,17 +52,17 @@ export function Storefront() {
           </div>
         </header>
         {isLoadingProducts ? (
-          <p className="text-sm text-slate-500">Loading products…</p>
+          <p className="text-sm text-[var(--zen-text-muted)]">Loading products…</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {products.map((product) => (
-              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" key={product.id}>
+              <article className="rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-4 shadow-sm" key={product.id}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">{product.name}</h2>
-                    <p className="text-sm text-slate-500">{product.description}</p>
+                    <h2 className="text-lg font-semibold text-[var(--zen-text)]">{product.name}</h2>
+                    <p className="text-sm text-[var(--zen-text-muted)]">{product.description}</p>
                   </div>
-                  <p className="text-sm font-semibold text-slate-800">Rp {product.basePrice.toLocaleString('id-ID')}</p>
+                  <p className="text-sm font-semibold text-[var(--zen-text)]">Rp {product.basePrice.toLocaleString('id-ID')}</p>
                 </div>
                 <Button
                   className="mt-4 w-full"
@@ -78,24 +78,24 @@ export function Storefront() {
         )}
       </div>
 
-      <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <aside className="space-y-4 rounded-2xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6 shadow-sm">
         <header className="space-y-1">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Cart</p>
-          <h2 className="text-xl font-semibold text-slate-900">{totalItems} item(s)</h2>
+          <p className="text-xs uppercase tracking-wide text-[var(--zen-text-muted)]">Cart</p>
+          <h2 className="text-xl font-semibold text-[var(--zen-text)]">{totalItems} item(s)</h2>
         </header>
         <ul className="space-y-3 text-sm">
-          {cart.length === 0 && <li className="text-slate-500">Your cart is empty.</li>}
+          {cart.length === 0 && <li className="text-[var(--zen-text-muted)]">Your cart is empty.</li>}
           {cart.map((item) => {
             const product = products.find((p) => p.id === item.productId)
             if (!product) return null
             return (
               <li key={item.productId} className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-slate-900">{product.name}</p>
-                  <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
+                  <p className="font-medium text-[var(--zen-text)]">{product.name}</p>
+                  <p className="text-xs text-[var(--zen-text-muted)]">Qty: {item.quantity}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-900">
+                  <span className="text-sm font-semibold text-[var(--zen-text)]">
                     Rp {(product.basePrice * item.quantity).toLocaleString('id-ID')}
                   </span>
                   <button className="text-xs text-rose-500" onClick={() => removeFromCart(item.productId)} type="button">
