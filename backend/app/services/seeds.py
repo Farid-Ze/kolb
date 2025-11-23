@@ -1,5 +1,7 @@
 import json
 from datetime import datetime, timezone
+from pathlib import Path
+
 from sqlalchemy.orm import Session, joinedload
 
 from app.assessments.klsi_v4 import load_config
@@ -23,6 +25,15 @@ from app.models.klsi.learning import LearningStyleType
 from app.i18n.id_styles import STYLE_BRIEF_ID
 from app.models.klsi.gamification import GamificationBadge, BadgeRarity
 from app.models.klsi.store import StoreProduct
+
+
+_RESOURCES_DIR = Path(__file__).resolve().parent.parent / "instruments" / "klsi4" / "resources"
+
+
+def _load_klsi_localization(locale: str = "id") -> dict:
+    path = _RESOURCES_DIR / f"{locale}_items.json"
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
 def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
     cfg = load_config()
@@ -86,49 +97,16 @@ STYLE_DEFS = [
 ]
 
 
-ITEM_STEMS = [
-    "Saya belajar paling baik saat mengalami langsung.",
-    "Saya memahami ide dengan mengamati refleksi.",
-    "Saya menganalisis konsep melalui logika.",
-    "Saya menguji ide dengan bertindak.",
-    "Saya fokus pada perasaan ketika memulai belajar.",
-    "Saya menelaah dari berbagai sudut pandang.",
-    "Saya menyusun model konseptual untuk memahami.",
-    "Saya mencoba menerapkan ide secara praktis.",
-    "Saya menggali pengalaman orang lain.",
-    "Saya mencatat pola dan hubungan.",
-    "Saya menghubungkan teori dengan praktik.",
-    "Saya belajar dengan melakukan eksperimen singkat.",
-]
+_LOCALIZATION = _load_klsi_localization("id")
 
-LFI_CONTEXTS = [
-    "Starting_Something_New",
-    "Influencing_Someone",
-    "Getting_To_Know_Someone",
-    "Learning_In_A_Group",
-    "Planning_Something",
-    "Analyzing_Something",
-    "Evaluating_An_Opportunity",
-    "Choosing_Between_Alternatives",
-]
-
-LFI_STEMS = {
-    "Starting_Something_New": "Ketika memulai sesuatu yang baru...",
-    "Influencing_Someone": "Ketika mempengaruhi orang lain...",
-    "Getting_To_Know_Someone": "Ketika mengenal seseorang...",
-    "Learning_In_A_Group": "Ketika belajar dalam kelompok...",
-    "Planning_Something": "Ketika merencanakan sesuatu...",
-    "Analyzing_Something": "Ketika menganalisis sesuatu...",
-    "Evaluating_An_Opportunity": "Ketika mengevaluasi peluang...",
-    "Choosing_Between_Alternatives": "Ketika memilih antara alternatif...",
-}
-
-
+ITEM_STEMS = _LOCALIZATION["itemStems"]
+LFI_CONTEXTS = _LOCALIZATION["lfiContexts"]
+LFI_STEMS = _LOCALIZATION["lfiStems"]
 CHOICE_TEXT = {
-    LearningMode.CE: "Saya mengandalkan perasaan saya",
-    LearningMode.RO: "Saya mengamati dengan cermat",
-    LearningMode.AC: "Saya berpikir tentang gagasan",
-    LearningMode.AE: "Saya mencoba melakukannya",
+    LearningMode.CE: _LOCALIZATION["choices"]["CE"],
+    LearningMode.RO: _LOCALIZATION["choices"]["RO"],
+    LearningMode.AC: _LOCALIZATION["choices"]["AC"],
+    LearningMode.AE: _LOCALIZATION["choices"]["AE"],
 }
 
 

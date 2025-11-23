@@ -25,9 +25,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => clearInterval(interval)
   }, [])
 
-  const { expiresAt } = useAuthTokenMetadata(token)
+  const { expiresAt, role: tokenRole } = useAuthTokenMetadata(token)
   const remainingMs = expiresAt ? Math.max(0, expiresAt - now) : null
   const isTimeLocked = remainingMs !== null && remainingMs <= TIMELOCK_THRESHOLD_MS
+  const isMediator = (tokenRole === 'MEDIATOR') || (user?.role === 'MEDIATOR') || false
 
   const setToken = useCallback((value: string | null) => {
     setTokenState(value)
@@ -136,6 +137,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user,
       expiresAt,
       remainingMs,
+      tokenRole,
+      isMediator,
       isTimeLocked,
       isAuthenticated: Boolean(token),
       isLoading,
@@ -143,7 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       refreshUser,
       logout,
     }),
-    [token, user, expiresAt, remainingMs, isTimeLocked, isLoading, loginWithCredentials, refreshUser, logout],
+    [token, user, expiresAt, remainingMs, tokenRole, isMediator, isTimeLocked, isLoading, loginWithCredentials, refreshUser, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -8,6 +8,8 @@ export type AuthContextValue = {
   user: User | null
   expiresAt: number | null
   remainingMs: number | null
+  tokenRole: string | null
+  isMediator: boolean
   isTimeLocked: boolean
   isAuthenticated: boolean
   isLoading: boolean

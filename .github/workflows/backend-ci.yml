@@ -46,9 +46,18 @@ jobs:
         env:
           PYTHONPATH: backend
 
+      - name: Run migrations
+        run: |
+          cd backend
+          alembic upgrade head
+        env:
+          PYTHONPATH: .
+          JWT_SECRET_KEY: "ci-test-secret-key"
+
       - name: Run tests
         run: |
           python -m pip install pytest
           pytest -q
         env:
           PYTHONPATH: backend
+          JWT_SECRET_KEY: "ci-test-secret-key"

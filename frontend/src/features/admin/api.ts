@@ -94,3 +94,46 @@ export async function importNorms(file: File, normGroup: string, normVersion = '
   })
   return data
 }
+
+// --- Pipelines ---
+
+export interface AdminPipeline {
+  id: number
+  version: string
+  pipelineCode: string | null
+  description: string | null
+  isActive: boolean
+}
+
+export interface ListPipelinesResponse {
+  instrumentCode: string
+  pipelines: AdminPipeline[]
+}
+
+export async function listPipelines(instrumentCode: string): Promise<ListPipelinesResponse> {
+  const { data } = await apiClient.get<ListPipelinesResponse>(`/admin/instruments/${instrumentCode}/pipelines`)
+  return data
+}
+
+export interface ClonePipelineRequest {
+  version: string
+  pipelineCode?: string | null
+  description?: string | null
+  metadata?: Record<string, unknown> | null
+}
+
+export async function clonePipeline(
+  instrumentCode: string,
+  pipelineId: number,
+  payload: ClonePipelineRequest,
+  instrumentVersion?: string,
+): Promise<AdminPipeline> {
+  const { data } = await apiClient.post<AdminPipeline>(
+    `/admin/instruments/${instrumentCode}/pipelines/${pipelineId}/clone`,
+    payload,
+    {
+      params: instrumentVersion ? { instrument_version: instrumentVersion } : undefined,
+    },
+  )
+  return data
+}

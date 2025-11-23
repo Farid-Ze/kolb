@@ -7,13 +7,18 @@ import { ResearchPanel } from '../features/admin/components/ResearchPanel'
 import { TeamsPanel } from '../features/admin/components/TeamsPanel'
 
 export function AdminPage() {
-  const { user, isLoading } = useAuth()
+  const { token, isMediator, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<'teams' | 'research' | 'pipelines'>('teams')
 
-  if (isLoading) return null
-  if (!user || user.role !== 'MEDIATOR') {
+  if (!token && !isLoading) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (token && !isMediator) {
     return <Navigate to="/" replace />
   }
+
+  if (isLoading) return null
 
   return (
     <section className="space-y-6">

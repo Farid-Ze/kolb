@@ -1,0 +1,42 @@
+{
+  "itemStems": [
+    "Saya belajar paling baik saat mengalami langsung.",
+    "Saya memahami ide dengan mengamati refleksi.",
+    "Saya menganalisis konsep melalui logika.",
+    "Saya menguji ide dengan bertindak.",
+    "Saya fokus pada perasaan ketika memulai belajar.",
+    "Saya menelaah dari berbagai sudut pandang.",
+    "Saya menyusun model konseptual untuk memahami.",
+    "Saya mencoba menerapkan ide secara praktis.",
+    "Saya menggali pengalaman orang lain.",
+    "Saya mencatat pola dan hubungan.",
+    "Saya menghubungkan teori dengan praktik.",
+    "Saya belajar dengan melakukan eksperimen singkat."
+  ],
+  "lfiContexts": [
+    "Starting_Something_New",
+    "Influencing_Someone",
+    "Getting_To_Know_Someone",
+    "Learning_In_A_Group",
+    "Planning_Something",
+    "Analyzing_Something",
+    "Evaluating_An_Opportunity",
+    "Choosing_Between_Alternatives"
+  ],
+  "lfiStems": {
+    "Starting_Something_New": "Ketika memulai sesuatu yang baru...",
+    "Influencing_Someone": "Ketika mempengaruhi orang lain...",
+    "Getting_To_Know_Someone": "Ketika mengenal seseorang...",
+    "Learning_In_A_Group": "Ketika belajar dalam kelompok...",
+    "Planning_Something": "Ketika merencanakan sesuatu...",
+    "Analyzing_Something": "Ketika menganalisis sesuatu...",
+    "Evaluating_An_Opportunity": "Ketika mengevaluasi peluang...",
+    "Choosing_Between_Alternatives": "Ketika memilih antara alternatif..."
+  },
+  "choices": {
+    "CE": "Saya mengandalkan perasaan saya",
+    "RO": "Saya mengamati dengan cermat",
+    "AC": "Saya berpikir tentang gagasan",
+    "AE": "Saya mencoba melakukannya"
+  }
+}
