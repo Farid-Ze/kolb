@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas.challenges import ChallengeCompletionPayload, UserChallengeOut
@@ -14,7 +13,7 @@ router = APIRouter(prefix="/challenges", tags=["challenges"])
 
 @router.get("/user", response_model=list[UserChallengeOut])
 def list_user_challenges(
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     return challenge_service.list_user_challenges(db, current_user.id)
@@ -24,7 +23,7 @@ def list_user_challenges(
 def complete_user_challenge(
     challenge_id: int,
     payload: ChallengeCompletionPayload,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
     try:

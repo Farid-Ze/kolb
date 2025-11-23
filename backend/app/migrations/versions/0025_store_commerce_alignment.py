@@ -51,25 +51,25 @@ def _upgrade_store_products(bind) -> None:
             unique=True,
         )
 
-    if "price_points" not in columns:
+    if "base_price" not in columns:
         op.add_column(
             "store_products",
-            sa.Column("price_points", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column("base_price", sa.Integer(), nullable=False, server_default="0"),
         )
-        op.execute(text("UPDATE store_products SET price_points = COALESCE(base_price, 0)"))
+        op.execute(text("UPDATE store_products SET base_price = COALESCE(price_points, 0)"))
         op.alter_column(
             "store_products",
-            "price_points",
+            "base_price",
             server_default=None,
             existing_type=sa.Integer(),
             nullable=False,
         )
-        columns.add("price_points")
+        columns.add("base_price")
 
-    if "base_price" in columns:
-        op.execute(text("UPDATE store_products SET price_points = COALESCE(base_price, price_points, 0)"))
+    if "price_points" in columns:
+        op.execute(text("UPDATE store_products SET base_price = COALESCE(price_points, base_price, 0)"))
         with op.batch_alter_table("store_products", recreate="always") as batch_op:
-            batch_op.drop_column("base_price")
+            batch_op.drop_column("price_points")
 
 
 def _recreate_store_orders(bind) -> None:

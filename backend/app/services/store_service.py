@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.klsi.gamification import UserAchievement
 from app.models.klsi.store import StoreOrder, StoreOrderItem, StoreProduct
+from app.models.klsi.user import User
 from app.schemas.store import CheckoutRequest
 
 
@@ -32,11 +33,14 @@ class StoreService:
         if not payload.items:
             raise StoreServiceError("Cart cannot be empty")
 
+        user = self._require_user(db, user_id)
+
         order_id = f"ORDER-{uuid.uuid4().hex[:8].upper()}"
         order = StoreOrder(
             id=order_id,
             user_id=user_id,
             total_amount=0,
+            contribution_points=max(0, payload.contribution_points or 0),
             payment_status="pending",
         )
         db.add(order)
@@ -49,7 +53,7 @@ class StoreService:
                 raise StoreServiceError("Badge requirement not satisfied", status_code=403)
 
             quantity = max(1, cart_item.quantity)
-            line_total = product.price_points * quantity
+            line_total = product.base_price * quantity
             total_amount += line_total
 
             db.add(
@@ -57,18 +61,25 @@ class StoreService:
                     order_id=order_id,
                     product_id=product.id,
                     quantity=quantity,
-                    price_at_purchase=product.price_points,
+                    price_at_purchase=product.base_price,
                 )
             )
 
-        if total_amount <= 0:
-            raise StoreServiceError("Unable to calculate order total")
+        current_points = user.zen_points or 0
+        if order.contribution_points > current_points:
+            raise StoreServiceError("Insufficient zen points for contribution", status_code=400)
+
+        if order.contribution_points:
+            user.zen_points = current_points - order.contribution_points
 
         order.total_amount = total_amount
-        order.snap_token = f"SNAP-{uuid.uuid4().hex[:10].upper()}"
+        if order.total_amount > 0:
+            order.snap_token = f"SNAP-{uuid.uuid4().hex[:10].upper()}"
 
         db.commit()
+        db.refresh(user)
         db.refresh(order)
+        setattr(order, "remaining_points", user.zen_points)
         return order
 
     def _serialize_product(self, db: Session, user_id: int, product: StoreProduct) -> dict:
@@ -78,7 +89,7 @@ class StoreService:
             "slug": product.slug,
             "name": product.name,
             "description": product.description,
-            "price_points": product.price_points,
+            "base_price": product.base_price,
             "required_badge_id": product.required_badge_id,
             "meta": product.meta,
             "eligible": eligible,
@@ -90,6 +101,12 @@ class StoreService:
             raise StoreServiceError("Product not found", status_code=404)
         return product
 
+    def _require_user(self, db: Session, user_id: int) -> User:
+        user = db.get(User, user_id)
+        if not user:
+            raise StoreServiceError("User not found", status_code=404)
+        return user
+
     def _is_product_eligible(self, db: Session, user_id: int, product: StoreProduct) -> bool:
         if not product.required_badge_id:
             return True
@@ -99,6 +116,23 @@ class StoreService:
             .first()
         )
         return has_badge is not None
+
+    def get_community_fund_summary(self, db: Session) -> dict[str, int]:
+        total_points = (
+            db.query(func.coalesce(func.sum(StoreOrder.contribution_points), 0))
+            .scalar()
+            or 0
+        )
+        contributors = (
+            db.query(func.count(func.distinct(StoreOrder.user_id)))
+            .filter(StoreOrder.contribution_points > 0)
+            .scalar()
+            or 0
+        )
+        return {
+            "total_points": int(total_points),
+            "contributors": int(contributors),
+        }
 
 
 store_service = StoreService()

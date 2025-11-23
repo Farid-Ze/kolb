@@ -90,7 +90,9 @@ def test_store_checkout_updates_points_and_fund(client: TestClient, session: Ses
         assert response.status_code == 200
         data = response.json()
         session.refresh(user)
-        assert data["remainingPoints"] == user.zen_points == 1000 - product.price_points - 50
+        assert data["remainingPoints"] == user.zen_points == 1000 - 50
+        assert data["totalAmount"] == product.base_price
+        assert data["snapToken"] is not None
 
         fund = client.get("/store/community-fund")
         assert fund.status_code == 200
@@ -137,7 +139,11 @@ def test_store_checkout_requires_balance(client: TestClient, session: Session):
         _override_user(user)
         payload = {"productId": product.id}
         response = client.post("/store/checkout", json=payload)
-        assert response.status_code == 400
-        assert "Insufficient" in response.json()["detail"]
+        assert response.status_code == 200
+
+        over_contribution = {"productId": product.id, "contributionPoints": 50}
+        response2 = client.post("/store/checkout", json=over_contribution)
+        assert response2.status_code == 400
+        assert "contribution" in response2.json()["detail"].lower()
     finally:
         _clear_overrides()

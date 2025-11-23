@@ -274,7 +274,7 @@ To align the codebase with this SSOT, the following Engineering Tasks are mandat
 - `id` (PK)
 - `name`
 - `description`
-- `price_points` (int)
+- `base_price` (int)
 - `required_badge_id` (FK → gamification_badges.id, nullable)
 - Optional JSONB `meta`:
   - images, available sizes, stock info, etc.

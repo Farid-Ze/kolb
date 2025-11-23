@@ -85,7 +85,7 @@ def upgrade() -> None:
             sa.Column("id", sa.Integer(), nullable=False),
             sa.Column("name", sa.String(length=255), nullable=False),
             sa.Column("description", sa.Text(), nullable=False),
-            sa.Column("price_points", sa.Integer(), nullable=False),
+            sa.Column("base_price", sa.Integer(), nullable=False),
             sa.Column("required_badge_id", sa.Integer(), nullable=True),
             sa.Column("meta", sa.JSON(), nullable=True),
             sa.ForeignKeyConstraint(["required_badge_id"], ["gamification_badges.id"]),

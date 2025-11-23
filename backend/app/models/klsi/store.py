@@ -19,7 +19,7 @@ class StoreProduct(Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
-    price_points: Mapped[int] = mapped_column(Integer)
+    base_price: Mapped[int] = mapped_column(Integer)
     required_badge_id: Mapped[Optional[int]] = mapped_column(ForeignKey("gamification_badges.id"), nullable=True)
     meta: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
@@ -33,6 +33,7 @@ class StoreOrder(Base):
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     total_amount: Mapped[int] = mapped_column(Integer)
+    contribution_points: Mapped[int] = mapped_column(Integer, default=0)
     payment_status: Mapped[str] = mapped_column(String(20), default="pending")
     snap_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

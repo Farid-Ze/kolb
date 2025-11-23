@@ -2,7 +2,6 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field
-from sqlalchemy.orm import Session
 
 from app.core.metrics import inc_counter
 from app.db.database import get_db
@@ -88,7 +87,7 @@ def record_action(event: ActionEvent):
 @router.post("/assessment", status_code=202)
 def record_assessment_telemetry(
     payload: AssessmentTelemetryPayload,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = SessionRepository(db)
