@@ -18,10 +18,10 @@ class UserRepository:
         self.db = db
 
     def get(self, user_id: int) -> Optional[User]:
-        return self.db.query(User).filter(User.id == user_id).first()
+        return self.db.execute(select(User).filter(User.id == user_id)).scalars().first()
 
     def get_by_email(self, email: str) -> Optional[User]:
-        return self.db.query(User).filter(User.email == email).first()
+        return self.db.execute(select(User).filter(User.email == email)).scalars().first()
 
     def create(
         self,

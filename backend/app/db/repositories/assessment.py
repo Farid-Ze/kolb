@@ -170,7 +170,7 @@ class AsyncUserResponseRepository:
             )
             .filter(UserResponse.session_id == session_id)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
 
 @dataclass
@@ -204,3 +204,37 @@ class LFIContextRepository(Repository[Session]):
             .filter(LFIContextScore.session_id == session_id)
             .all()
         )
+
+
+@dataclass
+class AsyncLFIContextRepository:
+    """Async Repository for accessing LFI context scores."""
+    db: AsyncSession
+
+    def record_context(
+        self,
+        *,
+        session_id: int,
+        context_name: str,
+        CE: int,
+        RO: int,
+        AC: int,
+        AE: int,
+    ) -> LFIContextScore:
+        entity = LFIContextScore(
+            session_id=session_id,
+            context_name=context_name,
+            CE_rank=CE,
+            RO_rank=RO,
+            AC_rank=AC,
+            AE_rank=AE,
+        )
+        self.db.add(entity)
+        return entity
+
+    async def list_for_session(self, session_id: int) -> List[LFIContextScore]:
+        result = await self.db.execute(
+            select(LFIContextScore)
+            .filter(LFIContextScore.session_id == session_id)
+        )
+        return list(result.scalars().all())

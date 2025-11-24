@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES, validate_lfi_context_ranks
 from app.core.errors import InvalidAssessmentData
@@ -237,6 +238,45 @@ def validate_full_submission_payload(db: Session, payload: SessionSubmissionPayl
 
     item_repo = AssessmentItemRepository(db)
     expected_ids = set(item_repo.get_learning_item_ids())
+    provided_ids = {entry.item_id for entry in payload.items}
+
+    missing = expected_ids - provided_ids
+    if missing:
+        raise InvalidAssessmentData(
+            BatchPayloadMessages.MISSING_ITEMS,
+            detail={"missing_item_ids": sorted(missing)},
+        )
+
+    extra = provided_ids - expected_ids
+    if extra:
+        raise InvalidAssessmentData(
+            BatchPayloadMessages.UNKNOWN_ITEMS,
+            detail={"unknown_item_ids": sorted(extra)},
+        )
+
+    allowed_contexts = set(CONTEXT_NAMES)
+    provided_contexts = {ctx.context_name for ctx in payload.contexts}
+    unknown_contexts = provided_contexts - allowed_contexts
+    if unknown_contexts:
+        raise InvalidAssessmentData(
+            BatchPayloadMessages.UNKNOWN_CONTEXTS,
+            detail={"unknown_contexts": sorted(unknown_contexts)},
+        )
+
+    # Reuse core validator to ensure permutation semantics for ranks
+    context_payload = [
+        {"CE": ctx.CE, "RO": ctx.RO, "AC": ctx.AC, "AE": ctx.AE}
+        for ctx in payload.contexts
+    ]
+    validate_lfi_context_ranks(context_payload)
+
+
+async def validate_full_submission_payload_async(db: AsyncSession, payload: SessionSubmissionPayload) -> None:
+    """Fail-fast validation for batch submissions before persistence (Async)."""
+    from app.db.repositories.assessment import AsyncAssessmentItemRepository
+
+    item_repo = AsyncAssessmentItemRepository(db)
+    expected_ids = set(await item_repo.get_learning_item_ids())
     provided_ids = {entry.item_id for entry in payload.items}
 
     missing = expected_ids - provided_ids

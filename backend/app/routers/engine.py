@@ -169,16 +169,18 @@ async def autosave_session_items(
     return SessionOperationResult(result=result)
 
 
+from app.services.engine_async import AsyncEngineSessionService
+
 @router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult)
 async def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
-    db: Session = Depends(get_db),
+    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically."""
-    service = EngineSessionService(db)
-    result = await run_in_threadpool(service.submit_full_batch, session_id, current_user, payload)
+    """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically (Async)."""
+    service = AsyncEngineSessionService(async_db)
+    result = await service.submit_full_batch(session_id, current_user, payload)
     return SessionOperationResult(result=result)
 
 

@@ -9,6 +9,7 @@ from typing import Any, Callable
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import (
@@ -688,6 +689,28 @@ class EngineRuntime:
                 log_event="finalize_audit_success",
                 extra={"actor": actor_email, "action": action},
             )
+
+    async def finalize_with_audit_async(
+        self,
+        db: AsyncSession,
+        session_id: int,
+        *,
+        actor_email: str,
+        action: str,
+        build_payload: Callable[[dict[str, Any]], bytes],
+        skip_validation: bool = False,
+    ) -> dict[str, Any]:
+        """Async wrapper for finalize_with_audit using run_sync to bridge to legacy engine."""
+        return await db.run_sync(
+            lambda session: self.finalize_with_audit(
+                session,
+                session_id,
+                actor_email=actor_email,
+                action=action,
+                build_payload=build_payload,
+                skip_validation=skip_validation,
+            )
+        )
 
     def build_report(self, db: Session, session_id: int, viewer_role: str | None) -> dict:
         session = self._resolve_session(db, session_id)
