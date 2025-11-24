@@ -3,13 +3,15 @@ import { expect, test } from '@playwright/test'
 test.describe('Authentication Flow', () => {
   test('should allow user to login', async ({ page }) => {
     // Mock the login API
-    await page.route('**/auth/login', async (route) => {
+    await page.route(/.*\/auth\/login/, async (route) => {
+      console.log('Intercepted login request');
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           accessToken: 'fake-jwt-token',
           tokenType: 'bearer',
+          expiresIn: 3600,
           user: {
             id: 1,
             email: 'test@example.com',
@@ -21,7 +23,7 @@ test.describe('Authentication Flow', () => {
     })
 
     // Mock the user profile API (called after login)
-    await page.route('**/auth/me', async (route) => {
+    await page.route(/.*\/users\/me/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

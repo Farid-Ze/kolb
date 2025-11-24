@@ -2,7 +2,6 @@ from datetime import date, datetime, time
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.repositories import (
@@ -10,7 +9,6 @@ from app.db.repositories import (
     ResearchStudyRepository,
     ValidityRepository,
 )
-from app.models.klsi.user import User
 from app.schemas.research import (
     ReliabilityCreate,
     ResearchStudyCreate,
@@ -28,7 +26,7 @@ router = APIRouter(prefix="/research", tags=["research"])
 logger = get_logger("kolb.routers.research", component="router")
 
 
-def _log_db_failure(event: str, *, user: User, operation: str, **structured: Any) -> None:
+def _log_db_failure(event: str, *, user: Any, operation: str, **structured: Any) -> None:
     payload = {
         "user_id": user.id,
         "user_email": user.email,
@@ -53,8 +51,8 @@ def _end_of_day(value: Optional[date]) -> Optional[datetime]:
 @router.post("/studies", response_model=ResearchStudyOut)
 def create_study(
     payload: ResearchStudyCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -77,11 +75,11 @@ def create_study(
 
 @router.get("/studies", response_model=List[ResearchStudyOut])
 def list_studies(
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     q: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -92,8 +90,8 @@ def list_studies(
 @router.get("/studies/{study_id}", response_model=ResearchStudyOut)
 def get_study(
     study_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -108,8 +106,8 @@ def get_study(
 def update_study(
     study_id: int,
     payload: ResearchStudyUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -140,8 +138,8 @@ def update_study(
 @router.delete("/studies/{study_id}", response_model=dict)
 def delete_study(
     study_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -180,8 +178,8 @@ def delete_study(
 def add_reliability(
     study_id: int,
     payload: ReliabilityCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -214,8 +212,8 @@ def add_reliability(
 def add_validity(
     study_id: int,
     payload: ValidityCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -247,8 +245,8 @@ def add_validity(
 @router.get("/studies/{study_id}/reliability", response_model=list[dict])
 def list_reliability(
     study_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -263,8 +261,8 @@ def list_reliability(
 @router.get("/studies/{study_id}/validity", response_model=list[dict])
 def list_validity(
     study_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -285,8 +283,8 @@ def list_validity(
 @router.get("/studies/{study_id}/data", response_model=ResearchStudyDataOut)
 def get_study_data(
     study_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
     start_date: Optional[date] = Query(default=None),
     end_date: Optional[date] = Query(default=None),
     learning_style: Optional[str] = Query(default=None),

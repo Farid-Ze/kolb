@@ -2,7 +2,6 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -24,7 +23,7 @@ def _log_db_failure(event: str, **structured: Any) -> None:
 
 
 @router.post("/register", response_model=UserOut)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
+def register(payload: UserCreate, db: Any = Depends(get_db)):
     # domain restriction for mahasiswa accounts
     domain = payload.email.split("@")[-1].lower()
     if domain != settings.allowed_student_domain and payload.nim:
@@ -71,7 +70,7 @@ class LoginRequest(CamelModel):
     password: str
 
 @router.post("/login", response_model=Token)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, db: Any = Depends(get_db)):
     user_repo = UserRepository(db)
     user = user_repo.get_by_email(payload.email)
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):

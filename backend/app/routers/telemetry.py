@@ -1,14 +1,12 @@
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field
-from sqlalchemy.orm import Session
 
 from app.core.metrics import inc_counter
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import SessionErrorMessages
-from app.models.klsi.user import User
 from app.schemas.base import CamelModel
 from app.schemas.telemetry import AssessmentTelemetryPayload
 from app.services.security import get_current_user
@@ -89,20 +87,13 @@ def record_action(event: ActionEvent):
 @router.post("/assessment", status_code=202)
 def record_assessment_telemetry(
     payload: AssessmentTelemetryPayload,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     repo = SessionRepository(db)
     session = repo.get_for_user(payload.session_id, current_user.id)
     if not session or session.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     
-    telemetry_service.record_assessment_telemetry(
-        db,
-        session_id=payload.session_id,
-        blur_events=payload.blur_events,
-        focus_events=payload.focus_events,
-        device_info=payload.device_info,
-    )
-    db.commit()
+    telemetry_service.record_assessment_item_event(db, payload)
     return {"ok": True}

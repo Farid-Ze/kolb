@@ -7,6 +7,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.klsi.assessment import AssessmentSession
+    from app.models.klsi.user import User
+
 __all__ = ["ReportShareLink"]
 
 
@@ -30,6 +36,6 @@ class ReportShareLink(Base):
     access_count: Mapped[int] = mapped_column(Integer, default=0)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    session = relationship("AssessmentSession")
-    owner = relationship("User", foreign_keys=[owner_id])
-    mediator = relationship("User", foreign_keys=[mediator_id])
+    session: Mapped[AssessmentSession] = relationship()
+    owner: Mapped[User] = relationship(foreign_keys=[owner_id])
+    mediator: Mapped[User] = relationship(foreign_keys=[mediator_id])

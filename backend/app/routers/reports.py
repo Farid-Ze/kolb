@@ -1,12 +1,10 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import SessionErrorMessages
-from app.models.klsi.user import User
 from app.schemas.report import ReportPayload, ReportSummaryPayload, as_report_payload
 from app.schemas.report_share import ReportShareCreate, ReportShareOut
 from app.services.report import build_report
@@ -23,8 +21,8 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 def try_get_current_user(
     authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db)
-) -> User | None:
+    db: Any = Depends(get_db)
+) -> Any | None:
     """Attempt to resolve current user; return None on auth errors."""
     if not authorization:
         return None
@@ -38,8 +36,8 @@ def try_get_current_user(
 
 @router.get("/self", response_model=list[ReportSummaryPayload])
 def list_self_reports(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     return list_report_summaries(db, user_id=current_user.id)
 
@@ -47,8 +45,8 @@ def list_self_reports(
 @router.get("/{session_id}", response_model=ReportPayload)
 def get_report(
     session_id: int,
-    db: Session = Depends(get_db),
-    viewer: User | None = Depends(try_get_current_user)
+    db: Any = Depends(get_db),
+    viewer: Any | None = Depends(try_get_current_user)
 ):
     repo = SessionRepository(db)
     session = repo.get_by_id(session_id)
@@ -77,8 +75,8 @@ def get_report(
 def create_report_share(
     session_id: int,
     payload: ReportShareCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     try:
         service = ReportShareService(db)
@@ -110,7 +108,7 @@ def create_report_share(
 @router.get("/shared/{share_token}", response_model=ReportPayload)
 def get_shared_report(
     share_token: str,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:

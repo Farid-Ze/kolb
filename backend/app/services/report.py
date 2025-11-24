@@ -130,12 +130,14 @@ def _classify_development(acce: int | None, aero: int | None, acc_assm: int | No
     else:
         deep_level = ReportDeepLearningLabels.REGISTRATIVE
 
-    rationale_parts = []
-    rationale_parts.append(f"intensity={intensity}")
-    rationale_parts.append(f"LFI={lfi:.2f}")
-    rationale_parts.append(f"|ACCE|={abs_acc}, |AERO|={abs_aer}")
-    rationale_parts.append(f"Acc-Assm={acc_assm}, Conv-Div={conv_div}")
-    rationale = "; ".join(rationale_parts)
+    rationale = _build_development_rationale(
+        intensity=intensity,
+        lfi=lfi,
+        abs_acc=abs_acc,
+        abs_aer=abs_aer,
+        acc_assm=acc_assm,
+        conv_div=conv_div,
+    )
 
     disclaimer = ReportMessages.DEVELOPMENT_DISCLAIMER
     return {
@@ -144,6 +146,20 @@ def _classify_development(acce: int | None, aero: int | None, acc_assm: int | No
         "rationale": rationale,
         "disclaimer": disclaimer
     }
+
+
+def _build_development_rationale(*, intensity: int, lfi: float, abs_acc: int, abs_aer: int, acc_assm: int, conv_div: int) -> str:
+    """Construct a structured rationale string for development classification.
+
+    Future-proof: Designed to be replaced by PEP 750 template strings in Python 3.14.
+    Current implementation uses f-strings for performance and readability.
+    """
+    return (
+        f"intensity={intensity}; "
+        f"LFI={lfi:.2f}; "
+        f"|ACCE|={abs_acc}, |AERO|={abs_aer}; "
+        f"Acc-Assm={acc_assm}, Conv-Div={conv_div}"
+    )
 
 
 def _derive_meta_learning(ac: int | None, ce: int | None, ae: int | None, ro: int | None,

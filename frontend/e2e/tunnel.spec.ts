@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test.describe('Future Tunnel Assessment', () => {
   test.beforeEach(async ({ page }) => {
     // Mock Auth
-    await page.route('**/auth/me', async (route) => {
+    await page.route(/.*\/users\/me/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -24,7 +24,7 @@ test.describe('Future Tunnel Assessment', () => {
 
   test('should complete a session', async ({ page }) => {
     // Mock Start Session
-    await page.route('**/sessions/start', async (route) => {
+    await page.route('**/engine/sessions/start', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -36,29 +36,31 @@ test.describe('Future Tunnel Assessment', () => {
     })
 
     // Mock Fetch Items
-    await page.route('**/sessions/123/items', async (route) => {
+    await page.route('**/engine/sessions/123/delivery', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 1,
-            number: 1,
-            type: 'Learning_Style',
-            stem: 'When I learn...',
-            options: [
-              { id: 101, label: 'I like to feel', code: 'CE' },
-              { id: 102, label: 'I like to watch', code: 'RO' },
-              { id: 103, label: 'I like to think', code: 'AC' },
-              { id: 104, label: 'I like to do', code: 'AE' },
-            ],
-          },
-        ]),
+        body: JSON.stringify({
+          items: [
+            {
+              id: 1,
+              number: 1,
+              type: 'Learning_Style',
+              stem: 'When I learn...',
+              options: [
+                { id: 101, label: 'I like to feel', code: 'CE' },
+                { id: 102, label: 'I like to watch', code: 'RO' },
+                { id: 103, label: 'I like to think', code: 'AC' },
+                { id: 104, label: 'I like to do', code: 'AE' },
+              ],
+            },
+          ]
+        }),
       })
     })
 
     // Mock Submit Response (Autosave)
-    await page.route('**/sessions/123/submit', async (route) => {
+    await page.route('**/engine/sessions/123/submit_all', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -67,7 +69,7 @@ test.describe('Future Tunnel Assessment', () => {
     })
 
     // Mock Finalize
-    await page.route('**/sessions/123/finalize', async (route) => {
+    await page.route('**/engine/sessions/123/finalize', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -82,7 +84,10 @@ test.describe('Future Tunnel Assessment', () => {
     await page.goto('/future/tunnel')
 
     // Start Session
-    await page.getByRole('button', { name: /start/i }).click()
+    const startButton = page.getByRole('button', { name: /start/i })
+    await expect(startButton).toBeVisible()
+    await expect(startButton).toBeEnabled()
+    await startButton.click()
 
     // Wait for items to load
     await expect(page.getByText('When I learn...')).toBeVisible()

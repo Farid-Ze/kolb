@@ -260,18 +260,7 @@ def test_router_modules_do_not_newly_import_sqlalchemy_session():
 
     repo_root = Path(__file__).resolve().parents[3]
     routers_dir = repo_root / "backend" / "app" / "routers"
-    legacy_allowlist = {
-        Path("backend/app/routers/admin.py"),
-        Path("backend/app/routers/challenges.py"),
-        Path("backend/app/routers/engine.py"),
-        Path("backend/app/routers/reports.py"),
-        Path("backend/app/routers/research.py"),
-        Path("backend/app/routers/sessions.py"),
-        Path("backend/app/routers/sphere.py"),
-        Path("backend/app/routers/store.py"),
-        Path("backend/app/routers/teams.py"),
-        Path("backend/app/routers/telemetry.py"),
-    }
+    legacy_allowlist = set()
 
     found_files: set[Path] = set()
     violations: list[Path] = []
@@ -301,16 +290,8 @@ def test_router_modules_avoid_direct_model_imports():
     repo_root = Path(__file__).resolve().parents[3]
     routers_dir = repo_root / "backend" / "app" / "routers"
     legacy_allowlist = {
-        Path("backend/app/routers/admin.py"),
-        Path("backend/app/routers/challenges.py"),
         Path("backend/app/routers/engine.py"),
-        Path("backend/app/routers/reports.py"),
-        Path("backend/app/routers/research.py"),
         Path("backend/app/routers/sessions.py"),
-        Path("backend/app/routers/sphere.py"),
-        Path("backend/app/routers/store.py"),
-        Path("backend/app/routers/teams.py"),
-        Path("backend/app/routers/telemetry.py"),
     }
 
     found_files: set[Path] = set()

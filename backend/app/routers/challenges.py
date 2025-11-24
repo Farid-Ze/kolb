@@ -1,8 +1,8 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.klsi.user import User
 from app.schemas.challenges import ChallengeCompletionPayload, UserChallengeOut
 from app.services.challenge_service import (
     ChallengeAlreadyCompletedError,
@@ -15,8 +15,8 @@ router = APIRouter(prefix="/challenges", tags=["challenges"])
 
 @router.get("/user", response_model=list[UserChallengeOut])
 def list_user_challenges(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user)
 ):
     return challenge_service.list_user_challenges(db, current_user.id)
 
@@ -25,8 +25,8 @@ def list_user_challenges(
 def complete_user_challenge(
     challenge_id: int,
     payload: ChallengeCompletionPayload,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     try:
         challenge = challenge_service.complete_challenge(

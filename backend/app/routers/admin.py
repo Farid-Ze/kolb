@@ -5,12 +5,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from pydantic import Field
-from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.repositories import NormativeConversionRepository
-from app.models.klsi.audit import AuditLog
-from app.models.klsi.user import User
+from app.db.repositories import NormativeConversionRepository, AuditRepository
 from app.engine.norms.factory import (
     build_composite_norm_provider,
     clear_norm_db_cache,
@@ -40,8 +37,8 @@ def import_norms(
     norm_group: str,
     file: UploadFile = File(...),
     norm_version: str = "default",
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_NORM_IMPORT_ONLY)
     
@@ -97,6 +94,7 @@ def import_norms(
             rows.append((scale_name, raw_score, percentile))
     batch_hash = sha256(content.encode('utf-8')).hexdigest()
     norm_repo = NormativeConversionRepository(db)
+    audit_repo = AuditRepository(db)
     inserted = 0
     try:
         # db.begin() is for transaction management.
@@ -113,12 +111,11 @@ def import_norms(
             )
             if created:
                 inserted += 1
-        db.add(
-            AuditLog(
-                actor=current_user.email,
-                action=f"norm_import:{norm_group}:{nv}",
-                payload_hash=batch_hash,
-            )
+        
+        audit_repo.log(
+            actor=current_user.email,
+            action=f"norm_import:{norm_group}:{nv}",
+            payload_hash=batch_hash,
         )
         db.commit()
     except Exception:
@@ -161,8 +158,8 @@ def import_norms(
 
 @router.get("/norms/cache-stats")
 def get_norm_cache_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     """Return in-process normative DB lookup cache statistics (Mediator only)."""
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_CACHE_STATS_ONLY)
@@ -177,8 +174,8 @@ def get_norm_cache_stats(
 
 @router.get("/norms/external-cache-stats")
 def get_external_norm_cache_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     """Statistik cache penyedia norma eksternal (Mediator only).
 
@@ -195,8 +192,8 @@ def get_external_norm_cache_stats(
 @router.get("/perf-metrics")
 def get_perf_metrics(
     reset: bool = False,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     """Return lightweight performance metrics (Mediator only).
 
@@ -236,8 +233,8 @@ def get_perf_metrics(
 def list_instrument_pipelines(
     instrument_code: str,
     instrument_version: str | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_PIPELINE_ACCESS_ONLY)
     return pipeline_service.list_pipelines(db, instrument_code, instrument_version)
@@ -248,8 +245,8 @@ def activate_instrument_pipeline(
     instrument_code: str,
     pipeline_id: int,
     instrument_version: str | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY)
     
@@ -285,8 +282,8 @@ def clone_instrument_pipeline(
     pipeline_id: int,
     payload: ClonePipelineRequest,
     instrument_version: str | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY)
     
@@ -319,8 +316,8 @@ def delete_instrument_pipeline(
     instrument_code: str,
     pipeline_id: int,
     instrument_version: str | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_PIPELINE_MUTATION_ONLY)
     

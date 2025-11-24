@@ -1,7 +1,6 @@
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header
-from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.services.assessments import get_latest_completed_assessment_summary
@@ -28,7 +27,7 @@ class AssessmentSessionResponse(CamelModel):
 
 @router.get("/latest", response_model=Optional[AssessmentSessionResponse])
 def get_latest_assessment(
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
     """

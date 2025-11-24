@@ -1,3 +1,4 @@
+from app.db.repositories.audit import AuditRepository
 from app.db.repositories.normative import NormativeConversionRepository, NormativeConversionRow
 from app.db.repositories.protocols import NormConversionReader
 from app.db.repositories.sessions import SessionRepository
@@ -49,4 +50,5 @@ __all__ = [
     "InstrumentRepository",
     "PipelineRepository",
     "StyleRepository",
+    "AuditRepository",
 ]

@@ -12,7 +12,6 @@ Constants are imported from app.assessments.constants to avoid magic numbers.
 
 from __future__ import annotations
 
-from collections import Counter
 from math import sqrt
 from typing import Iterable, Tuple
 
@@ -46,7 +45,9 @@ def aggregate_mode_scores(rank_tuples: Iterable[Tuple[str, int]]) -> ScoreVector
         This function is pure and testable without database access.
         Invalid mode names are silently ignored (defensive programming).
     """
-    totals = Counter({mode: 0 for mode in MODES})
+    # Optimization: Use direct dictionary update instead of Counter for speed
+    # This avoids the overhead of Counter's internal checks and method calls
+    totals = {"CE": 0, "RO": 0, "AC": 0, "AE": 0}
     for mode, value in rank_tuples:
         if mode in totals:
             totals[mode] += int(value)

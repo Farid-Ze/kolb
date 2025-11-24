@@ -40,7 +40,7 @@ class PercentileScore(Base):
     raw_outside_norm_range: Mapped[bool] = mapped_column(Boolean, default=False)
     truncated_scales: Mapped[dict | None] = mapped_column(JSON)
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="percentile_score")
+    session: Mapped[AssessmentSession] = relationship(back_populates="percentile_score")
 
 
 class NormativeConversionTable(Base):

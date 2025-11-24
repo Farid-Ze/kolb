@@ -206,6 +206,7 @@ class KLSI4Plugin(
                             {
                                 "id": legacy_choice_id,
                                 "code": option.learning_mode,
+                                "learning_mode": option.learning_mode,
                                 "label": option.option_text,
                             }
                         )
@@ -232,8 +233,9 @@ class KLSI4Plugin(
             options = [
                 {
                     "id": choice.id,
+                    "code": choice.learning_mode.value,
                     "learning_mode": choice.learning_mode.value,
-                    "text": choice.choice_text,
+                    "label": choice.choice_text,
                 }
                 for choice in context_item.choices
             ]
