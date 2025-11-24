@@ -41,8 +41,6 @@ from app.services.seeds import (
 )
 from app.engine.registry import engine_registry
 
-# Ensure instrument authoring manifest and plugins register on import
-importlib.import_module("app.instruments.klsi4")
 from app.routers.engine import router as engine_router
 
 
@@ -53,6 +51,12 @@ GUIDES_STATIC_DIR = BASE_DIR / "docs" / "guides"
 
 # Store application startup time for health endpoint
 _app_start_time = datetime.now(timezone.utc)
+
+
+def _register_explicit_plugins() -> None:
+    """Explicitly register known instrument plugins to avoid implicit side-effects."""
+    # KLSI 4.0
+    importlib.import_module("app.instruments.klsi4")
 
 
 def _auto_discover_plugins() -> dict[str, object]:
@@ -90,11 +94,13 @@ async def lifespan(app: FastAPI):
     See: migrations/versions/*.py for production schema changes
     """
     # Startup
+    _register_explicit_plugins()
+
     # NOTE: In production, disable create_all() via RUN_STARTUP_DDL=false env var
     # and rely on Alembic migrations only
     if settings.run_startup_ddl:
         logger.info("startup_execute_ddl", extra={"structured_data": {"run_startup_ddl": True}})
-        Base.metadata.create_all(bind=engine)
+        # Base.metadata.create_all(bind=engine)  # Removed per 2025 standards - use Alembic
     if settings.run_startup_seed:
         logger.info("startup_seed_data", extra={"structured_data": {"run_startup_seed": True}})
         with transactional_session() as db:

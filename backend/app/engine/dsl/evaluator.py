@@ -19,17 +19,19 @@ def evaluate_rule(rule_type: RuleType, expression: Mapping[str, Any], context: M
         raise DSLExecutionError("Expression must be a mapping")
     _ensure_safe_structure(expression)
 
-    if rule_type is RuleType.sum:
-        return _evaluate_sum(expression, context)
-    if rule_type is RuleType.diff:
-        return _evaluate_diff(expression, context)
-    if rule_type is RuleType.percentile:
-        return _evaluate_percentile(expression, context)
-    if rule_type is RuleType.classify:
-        return _evaluate_classify(expression, context)
-    if rule_type is RuleType.custom:
-        raise DSLExecutionError("CUSTOM rules require vetted runtime hooks and cannot run in pure DSL context")
-    raise DSLExecutionError(f"Unsupported rule type: {rule_type}")
+    match rule_type:
+        case RuleType.sum:
+            return _evaluate_sum(expression, context)
+        case RuleType.diff:
+            return _evaluate_diff(expression, context)
+        case RuleType.percentile:
+            return _evaluate_percentile(expression, context)
+        case RuleType.classify:
+            return _evaluate_classify(expression, context)
+        case RuleType.custom:
+            raise DSLExecutionError("CUSTOM rules require vetted runtime hooks and cannot run in pure DSL context")
+        case _:
+            raise DSLExecutionError(f"Unsupported rule type: {rule_type}")
 
 
 def _ensure_safe_structure(value: Any) -> None:

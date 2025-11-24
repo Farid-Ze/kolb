@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { LFI_CONTEXTS, MODE_CODES } from '../../../entities/session/constants'
 import type { ModeCode } from '../../../entities/session/constants'
@@ -7,20 +7,14 @@ import type {
   AssessmentItem,
   SessionAutosavePayload,
   SessionSubmissionPayload,
-  SessionOperationResult,
 } from '../../../entities/session/model'
 import { useAuth } from '../../auth'
 import { useAssessmentTelemetry } from '../../telemetry'
 import { autosaveSession, fetchSessionItems, fetchSessionState, startSession, submitAllResponses, submitSingleResponse } from '../api'
-import type { TunnelContextDraft, TunnelItemDraft, TunnelPhase } from '../model'
+import type { TunnelContextDraft, TunnelItemDraft } from '../model'
+import { useTunnelState } from './useTunnelState'
 
 type ContextDraftMap = Record<string, TunnelContextDraft>
-
-const buildInitialContextDrafts = (): ContextDraftMap =>
-  LFI_CONTEXTS.reduce<ContextDraftMap>((acc, contextName) => {
-    acc[contextName] = { contextName, CE: null, RO: null, AC: null, AE: null }
-    return acc
-  }, {})
 
 const isItemComplete = (draft: TunnelItemDraft | undefined): boolean => {
   if (!draft) {
@@ -105,14 +99,17 @@ const safeParseJSON = <T>(raw: string | null): T | null => {
 
 export function useTunnelSession() {
   const { isAuthenticated, isTimeLocked } = useAuth()
-  const [sessionId, setSessionId] = useState<number | null>(null)
-  const [phase, setPhase] = useState<TunnelPhase>('idle')
-  const [drafts, setDrafts] = useState<Record<number, TunnelItemDraft>>({})
-  const [contextDrafts, setContextDrafts] = useState<ContextDraftMap>(() => buildInitialContextDrafts())
-  const [submissionResult, setSubmissionResult] = useState<SessionOperationResult['result'] | null>(null)
-  const [submissionError, setSubmissionError] = useState<Error | null>(null)
-  const [lastAutosaveAt, setLastAutosaveAt] = useState<number | null>(null)
-  const [restoredFromDraft, setRestoredFromDraft] = useState(false)
+  const { state, dispatch } = useTunnelState()
+  const {
+    sessionId,
+    phase,
+    drafts,
+    contextDrafts,
+    submissionResult,
+    submissionError,
+    lastAutosaveAt,
+    restoredFromDraft,
+  } = state
 
   const telemetryMetricsRef = useRef<Record<number, ItemTelemetryMetrics>>({})
   const activeItemIdRef = useRef<number | null>(null)
@@ -123,8 +120,8 @@ export function useTunnelSession() {
   const sendTelemetry = useAssessmentTelemetry(sessionId)
 
   const acknowledgeRestoredDraft = useCallback(() => {
-    setRestoredFromDraft(false)
-  }, [])
+    dispatch({ type: 'ACKNOWLEDGE_RESTORED' })
+  }, [dispatch])
 
   const ensureItemMetrics = useCallback((itemId: number) => {
     let metrics = telemetryMetricsRef.current[itemId]
@@ -167,20 +164,13 @@ export function useTunnelSession() {
   }, [])
 
   const reset = useCallback(() => {
-    setSessionId(null)
-    setPhase('idle')
-    setDrafts({})
-    setContextDrafts(buildInitialContextDrafts())
-    setSubmissionResult(null)
-    setSubmissionError(null)
-    setLastAutosaveAt(null)
+    dispatch({ type: 'RESET' })
     telemetryMetricsRef.current = {}
     autosaveSignatureRef.current = null
     hydrationRef.current = false
     storageHydratedRef.current = false
     clearPersistentState()
-    setRestoredFromDraft(false)
-  }, [clearPersistentState])
+  }, [clearPersistentState, dispatch])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -199,29 +189,19 @@ export function useTunnelSession() {
     const storedSession = localStorage.getItem(SESSION_STORAGE_KEY)
     const storedDrafts = safeParseJSON<Record<number, TunnelItemDraft>>(localStorage.getItem(ITEM_DRAFTS_STORAGE_KEY))
     const storedContexts = safeParseJSON<ContextDraftMap>(localStorage.getItem(CONTEXT_DRAFTS_STORAGE_KEY))
-    startTransition(() => {
-      let restored = false
-      if (!sessionId && storedSession) {
-        const parsed = Number(storedSession)
-        if (Number.isFinite(parsed)) {
-          setSessionId(parsed)
-          setPhase('in-progress')
-          restored = true
-        }
+    
+    if (storedSession) {
+      const parsed = Number(storedSession)
+      if (Number.isFinite(parsed)) {
+        dispatch({
+          type: 'HYDRATE',
+          sessionId: parsed,
+          drafts: storedDrafts ?? undefined,
+          contextDrafts: storedContexts ?? undefined,
+        })
       }
-      if (storedDrafts) {
-        setDrafts(storedDrafts)
-        restored = true
-      }
-      if (storedContexts) {
-        setContextDrafts((prev) => ({ ...prev, ...storedContexts }))
-        restored = true
-      }
-      if (restored) {
-        setRestoredFromDraft(true)
-      }
-    })
-  }, [isAuthenticated, sessionId])
+    }
+  }, [isAuthenticated, dispatch])
 
   useEffect(() => {
     hydrationRef.current = false
@@ -276,20 +256,13 @@ export function useTunnelSession() {
 
   const startMutation = useMutation({
     mutationFn: () => startSession(),
-    onMutate: () => setPhase('loading'),
-    onError: () => setPhase('idle'),
+    onMutate: () => dispatch({ type: 'SET_PHASE', phase: 'loading' }),
+    onError: () => dispatch({ type: 'SET_PHASE', phase: 'idle' }),
     onSuccess: (response) => {
-      setSessionId(response.sessionId)
-      setPhase('in-progress')
-      setDrafts({})
-      setContextDrafts(buildInitialContextDrafts())
-      setSubmissionResult(null)
-      setSubmissionError(null)
-      setLastAutosaveAt(null)
+      dispatch({ type: 'START_SESSION', sessionId: response.sessionId })
       telemetryMetricsRef.current = {}
       autosaveSignatureRef.current = null
       hydrationRef.current = false
-      setRestoredFromDraft(false)
       if (typeof window !== 'undefined') {
         localStorage.setItem(SESSION_STORAGE_KEY, String(response.sessionId))
         localStorage.removeItem(ITEM_DRAFTS_STORAGE_KEY)
@@ -315,7 +288,7 @@ export function useTunnelSession() {
   const autosaveMutation = useMutation({
     mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: number; payload: SessionAutosavePayload }) =>
       autosaveSession(targetSessionId, payload),
-    onSuccess: () => setLastAutosaveAt(Date.now()),
+    onSuccess: () => dispatch({ type: 'SET_AUTOSAVE_SUCCESS' }),
   })
 
   const learningItems = useMemo(
@@ -332,48 +305,49 @@ export function useTunnelSession() {
       hydrationRef.current = true
       return
     }
-    startTransition(() => {
-      let restored = false
-      setDrafts((prev) => {
-        const next = { ...prev }
-        data.responses?.forEach((response) => {
-          const item = learningItems.find((entry) => entry.id === response.item_id)
-          if (!item) {
-            return
-          }
-          const mapped = mapResponseRanksToChoiceIds(item, response.ranks)
-          if (Object.keys(mapped).length) {
-            next[item.id] = {
-              itemId: item.id,
-              ranks: mapped,
-              responseLatencyMs: 0,
-              blurEvents: 0,
-            }
-            restored = true
-          }
-        })
-        return next
-      })
-      setContextDrafts((prev) => {
-        const next = { ...prev }
-        data.contexts?.forEach((ctx) => {
-          next[ctx.context_name] = {
-            contextName: ctx.context_name,
-            CE: ctx.CE,
-            RO: ctx.RO,
-            AC: ctx.AC,
-            AE: ctx.AE,
-          }
-          restored = true
-        })
-        return next
-      })
-      if (restored) {
-        setRestoredFromDraft(true)
+    
+    const newDrafts: Record<number, TunnelItemDraft> = {}
+    let hasRestored = false
+    
+    data.responses?.forEach((response) => {
+      const item = learningItems.find((entry) => entry.id === response.item_id)
+      if (!item) {
+        return
+      }
+      const mapped = mapResponseRanksToChoiceIds(item, response.ranks)
+      if (Object.keys(mapped).length) {
+        newDrafts[item.id] = {
+          itemId: item.id,
+          ranks: mapped,
+          responseLatencyMs: 0,
+          blurEvents: 0,
+        }
+        hasRestored = true
       }
     })
+
+    const newContextDrafts: ContextDraftMap = {}
+    data.contexts?.forEach((ctx) => {
+      newContextDrafts[ctx.context_name] = {
+        contextName: ctx.context_name,
+        CE: ctx.CE,
+        RO: ctx.RO,
+        AC: ctx.AC,
+        AE: ctx.AE,
+      }
+      hasRestored = true
+    })
+
+    if (hasRestored) {
+      dispatch({
+        type: 'HYDRATE',
+        sessionId,
+        drafts: Object.keys(newDrafts).length ? newDrafts : undefined,
+        contextDrafts: Object.keys(newContextDrafts).length ? newContextDrafts : undefined,
+      })
+    }
     hydrationRef.current = true
-  }, [sessionId, sessionStateQuery.data, learningItems])
+  }, [sessionId, sessionStateQuery.data, learningItems, dispatch])
 
   const rankedItemsCount = useMemo(
     () => learningItems.filter((item) => isItemComplete(drafts[item.id])).length,
@@ -411,30 +385,28 @@ export function useTunnelSession() {
       markItemInteraction(itemId)
 
       let newRanks: Record<number, number> = {}
-
-      setDrafts((prev) => {
-        const next = { ...prev }
-        const existing = next[itemId] ?? {
-          itemId,
-          ranks: {},
-          responseLatencyMs: 0,
-          blurEvents: 0,
-        }
-        const ranks = { ...existing.ranks }
-        if (rank === null) {
-          delete ranks[choiceId]
-        } else {
-          Object.entries(ranks).forEach(([key, currentRank]) => {
-            if (Number(key) !== choiceId && currentRank === rank) {
-              delete ranks[Number(key)]
-            }
-          })
-          ranks[choiceId] = rank
-        }
-        newRanks = ranks
-        next[itemId] = { ...existing, ranks }
-        return next
-      })
+      
+      // Calculate new ranks based on current state
+      const existing = drafts[itemId] ?? {
+        itemId,
+        ranks: {},
+        responseLatencyMs: 0,
+        blurEvents: 0,
+      }
+      const ranks = { ...existing.ranks }
+      if (rank === null) {
+        delete ranks[choiceId]
+      } else {
+        Object.entries(ranks).forEach(([key, currentRank]) => {
+          if (Number(key) !== choiceId && currentRank === rank) {
+            delete ranks[Number(key)]
+          }
+        })
+        ranks[choiceId] = rank
+      }
+      newRanks = ranks
+      
+      dispatch({ type: 'SET_ITEM_RANK', itemId, ranks: newRanks })
 
       // Check if item is complete and submit incrementally
       const item = learningItems.find((i) => i.id === itemId)
@@ -452,34 +424,31 @@ export function useTunnelSession() {
         }
       }
     },
-    [markItemInteraction, learningItems, sessionId, singleResponseMutation],
+    [markItemInteraction, learningItems, sessionId, singleResponseMutation, drafts, dispatch],
   )
 
   const setContextRank = useCallback((contextName: string, mode: ModeCode, rank: number | null) => {
-    setContextDrafts((prev) => {
-      const next = { ...prev }
-      const existing = next[contextName] ?? {
-        contextName,
-        CE: null,
-        RO: null,
-        AC: null,
-        AE: null,
-      }
-      const updated: TunnelContextDraft = { ...existing }
-      if (rank === null) {
-        updated[mode] = null
-      } else {
-        MODE_CODES.forEach((code) => {
-          if (code !== mode && updated[code] === rank) {
-            updated[code] = null
-          }
-        })
-        updated[mode] = rank
-      }
-      next[contextName] = updated
-      return next
-    })
-  }, [])
+    const existing = contextDrafts[contextName] ?? {
+      contextName,
+      CE: null,
+      RO: null,
+      AC: null,
+      AE: null,
+    }
+    const updated: TunnelContextDraft = { ...existing }
+    if (rank === null) {
+      updated[mode] = null
+    } else {
+      MODE_CODES.forEach((code) => {
+        if (code !== mode && updated[code] === rank) {
+          updated[code] = null
+        }
+      })
+      updated[mode] = rank
+    }
+    
+    dispatch({ type: 'SET_CONTEXT_RANK', contextName, draft: updated })
+  }, [contextDrafts, dispatch])
 
   const buildSubmissionPayload = useCallback((): SessionSubmissionPayload => ({
     items: learningItems.map((item) => {
@@ -587,22 +556,19 @@ export function useTunnelSession() {
     if (!canSubmit) {
       throw new Error('Complete all items and contexts before finalizing.')
     }
-    setPhase('submitting')
-    setSubmissionError(null)
+    dispatch({ type: 'SET_PHASE', phase: 'submitting' })
+    dispatch({ type: 'SET_SUBMISSION_ERROR', error: null as any }) // Reset error
     const payload = buildSubmissionPayload()
     try {
       const response = await submitMutation.mutateAsync({ sessionId, payload })
-      setSubmissionResult(response.result ?? null)
-      setPhase('completed')
+      dispatch({ type: 'SET_SUBMISSION_RESULT', result: response.result ?? null })
       clearPersistentState()
-      setRestoredFromDraft(false)
       return response
     } catch (error) {
-      setSubmissionError(error instanceof Error ? error : new Error('Unable to finalize session'))
-      setPhase('in-progress')
+      dispatch({ type: 'SET_SUBMISSION_ERROR', error: error instanceof Error ? error : new Error('Unable to finalize session') })
       throw error
     }
-  }, [sessionId, canSubmit, buildSubmissionPayload, submitMutation, clearPersistentState])
+  }, [sessionId, canSubmit, buildSubmissionPayload, submitMutation, clearPersistentState, dispatch])
 
   const start = useCallback(async () => {
     if (!isAuthenticated) {
@@ -618,7 +584,7 @@ export function useTunnelSession() {
     return response.sessionId
   }, [isAuthenticated, isTimeLocked, sessionId, startMutation])
 
-  const state = useMemo(
+  const stateSnapshot = useMemo(
     () => ({
       sessionId,
       phase,
@@ -680,5 +646,5 @@ export function useTunnelSession() {
     ],
   )
 
-  return state
+  return stateSnapshot
 }
