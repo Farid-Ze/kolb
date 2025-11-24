@@ -4,11 +4,11 @@ from typing import Optional
 from fastapi import Header, HTTPException, Depends
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.db.database import get_async_db
 from app.core.config import settings
-from app.db.repositories import UserRepository
+from app.db.repositories import UserRepository, AsyncUserRepository
 from app.i18n.id_messages import AuthorizationMessages, SecurityMessages
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -107,7 +107,7 @@ def decode_access_token(token: str) -> dict:
         raise ValueError(SecurityMessages.TOKEN_VALIDATION_FAILED.format(detail=str(e)))
 
 
-def get_current_user(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
+async def get_current_user(authorization: str | None = Header(default=None), db: AsyncSession = Depends(get_async_db)):
     """FastAPI dependency for extracting and validating current user from JWT.
     
     Args:
@@ -122,7 +122,7 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     
     Usage:
         @router.get("/protected")
-        def protected_route(current_user: User = Depends(get_current_user)):
+        async def protected_route(current_user: User = Depends(get_current_user)):
             return {"user_id": current_user.id}
     
     Security:
@@ -150,8 +150,8 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     if not db:
         raise HTTPException(status_code=500, detail=SecurityMessages.DB_SESSION_REQUIRED)
 
-    user_repo = UserRepository(db)
-    user = user_repo.get(user_id)
+    user_repo = AsyncUserRepository(db)
+    user = await user_repo.get(user_id)
     if not user:
         raise HTTPException(status_code=401, detail=SecurityMessages.USER_NOT_FOUND)
     

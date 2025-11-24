@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from app.db.repositories import SessionRepository
+from app.db.repositories import SessionRepository, AsyncSessionRepository
 from app.models.klsi.items import AssessmentItemResponse
 from app.schemas.session import AssessmentItemResponsePayload
 
@@ -16,6 +18,9 @@ __all__ = [
     "get_latest_assessment_results",
     "get_latest_completed_assessment_summary",
     "upsert_responses",
+    "get_latest_completed_assessment_summary_async",
+    "get_latest_assessment_results_async",
+    "upsert_responses_async",
 ]
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -47,6 +52,42 @@ def get_latest_completed_assessment_summary(db: Session, user_id: int) -> Option
 
     repo = SessionRepository(db)
     session = repo.get_latest_completed_for_user(user_id)
+    if not session:
+        return None
+
+    scale = getattr(session, "scale_score", None)
+    combo = getattr(session, "combination_score", None)
+    if not scale or not combo:
+        return None
+
+    learning_style = _resolve_learning_style_name(session)
+    lfi_score = getattr(getattr(session, "lfi_index", None), "LFI_score", None)
+    timestamp = session.end_time or session.start_time
+
+    results = {
+        "ac_score": scale.AC_raw,
+        "ce_score": scale.CE_raw,
+        "ae_score": scale.AE_raw,
+        "ro_score": scale.RO_raw,
+        "acce_score": combo.ACCE_raw,
+        "aero_score": combo.AERO_raw,
+        "learning_style": learning_style,
+        "lfi_score": lfi_score,
+    }
+
+    return {
+        "id": str(session.id),
+        "date": _serialize_timestamp(timestamp) or "",
+        "status": "completed",
+        "results": results,
+    }
+
+
+async def get_latest_completed_assessment_summary_async(db: AsyncSession, user_id: int) -> Optional[Dict[str, Any]]:
+    """Return the latest completed assessment summary for a user (Async)."""
+
+    repo = AsyncSessionRepository(db)
+    session = await repo.get_latest_completed_for_user(user_id)
     if not session:
         return None
 
@@ -148,6 +189,30 @@ def get_latest_assessment_results(db: Session, user_id: int) -> Optional[Dict[st
     }
 
 
+async def get_latest_assessment_results_async(db: AsyncSession, user_id: int) -> Optional[Dict[str, Any]]:
+    repo = AsyncSessionRepository(db)
+    session = await repo.get_latest_completed_for_user(user_id)
+    if not session:
+        return None
+
+    snapshot = session.results_json or {}
+    kite = snapshot.get("kite_coordinates") or build_kite_coordinates(session)
+    blindspots = snapshot.get("blindspots") or detect_blindspots(kite)
+    strengths = snapshot.get("strengths") or detect_strengths(kite)
+    percentiles = snapshot.get("percentiles") or _serialize_percentiles(getattr(session, "percentile_score", None))
+    lfi_score = snapshot.get("lfi_score") or getattr(getattr(session, "lfi_index", None), "LFI_score", None)
+
+    return {
+        "session_id": session.id,
+        "finalized_at": session.end_time or session.start_time,
+        "kite_coordinates": kite,
+        "blindspots": blindspots,
+        "strengths": strengths,
+        "lfi_score": lfi_score,
+        "percentiles": percentiles,
+    }
+
+
 def upsert_responses(db: Session, session_id: int, responses: list[AssessmentItemResponsePayload]):
     for resp in responses:
         existing = db.query(AssessmentItemResponse).filter_by(
@@ -172,3 +237,30 @@ def upsert_responses(db: Session, session_id: int, responses: list[AssessmentIte
             )
             db.add(new_resp)
     db.commit()
+
+
+async def upsert_responses_async(db: AsyncSession, session_id: int, responses: list[AssessmentItemResponsePayload]):
+    for resp in responses:
+        result = await db.execute(
+            select(AssessmentItemResponse).filter_by(
+                session_id=session_id, item_id=resp.item_id
+            )
+        )
+        existing = result.scalars().first()
+
+        telemetry_data = {"blur_events": resp.blur_events} if resp.blur_events is not None else {}
+
+        if existing:
+            existing.response_rank = resp.response_rank
+            existing.response_latency_ms = resp.response_latency_ms
+            existing.telemetry = telemetry_data
+        else:
+            new_resp = AssessmentItemResponse(
+                session_id=session_id,
+                item_id=resp.item_id,
+                response_rank=resp.response_rank,
+                response_latency_ms=resp.response_latency_ms,
+                telemetry=telemetry_data
+            )
+            db.add(new_resp)
+    await db.commit()

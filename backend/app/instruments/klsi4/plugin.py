@@ -144,6 +144,7 @@ class KLSI4Plugin(
                 {
                     "id": choice.id,
                     "code": choice.learning_mode.value,
+                    "learning_mode": choice.learning_mode.value,
                     "label": choice.choice_text,
                 }
                 for choice in item.choices

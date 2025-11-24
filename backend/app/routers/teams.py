@@ -4,6 +4,7 @@ from datetime import date
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -40,229 +41,256 @@ def _log_db_failure(event: str, **structured: Any) -> None:
 
 
 @router.post("/", response_model=TeamOut)
-def create_team(
+async def create_team(
     payload: TeamCreate,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ):
-    user = get_current_user(authorization, db)
-    _require_mediator(user)
-    repo = TeamRepository(db)
-    try:
-        existing = repo.find_by_name(payload.name)
-        if existing:
-            raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
-        team = repo.create(payload.name, payload.kelas, payload.description)
-        db.commit()
-        db.refresh(team)
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "teams_create_failed",
-            user_id=user.id,
-            team_name=payload.name,
-        )
-        raise
-    return team
+    _require_mediator(current_user)
+    
+    def _create():
+        repo = TeamRepository(db)
+        try:
+            existing = repo.find_by_name(payload.name)
+            if existing:
+                raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
+            team = repo.create(payload.name, payload.kelas, payload.description)
+            db.commit()
+            db.refresh(team)
+            return team
+        except Exception:
+            db.rollback()
+            _log_db_failure(
+                "teams_create_failed",
+                user_id=current_user.id,
+                team_name=payload.name,
+            )
+            raise
+
+    return await run_in_threadpool(_create)
 
 
 @router.get("/", response_model=list[TeamOut])
-def list_teams(
+async def list_teams(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     q: Optional[str] = Query(None),
 ):
-    repo = TeamRepository(db)
-    return repo.list(skip, limit, q)
+    def _list():
+        repo = TeamRepository(db)
+        return repo.list(skip, limit, q)
+    return await run_in_threadpool(_list)
 
 
 @router.get("/{team_id}", response_model=TeamOut)
-def get_team(team_id: int, db: Session = Depends(get_db)):
-    repo = TeamRepository(db)
-    team = repo.get(team_id)
-    if not team:
-        raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
-    return team
-
-
-@router.patch("/{team_id}", response_model=TeamOut)
-def update_team(
-    team_id: int,
-    payload: TeamUpdate,
-    db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
-):
-    user = get_current_user(authorization, db)
-    _require_mediator(user)
-    repo = TeamRepository(db)
-    try:
+async def get_team(team_id: int, db: Session = Depends(get_db)):
+    def _get():
+        repo = TeamRepository(db)
         team = repo.get(team_id)
         if not team:
             raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
-        if payload.name and payload.name != team.name:
-            existing = repo.find_by_name(payload.name)
-            if existing and existing.id != team_id:
-                raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
-            team.name = payload.name
-        if payload.kelas is not None:
-            team.kelas = payload.kelas
-        if payload.description is not None:
-            team.description = payload.description
-        db.flush()
-        db.commit()
-        db.refresh(team)
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "teams_update_failed",
-            team_id=team_id,
-            user_id=user.id,
-            updated_fields=list(payload.model_dump(exclude_unset=True).keys()),
-        )
-        raise
-    return team
+        return team
+    return await run_in_threadpool(_get)
+
+
+@router.patch("/{team_id}", response_model=TeamOut)
+async def update_team(
+    team_id: int,
+    payload: TeamUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_mediator(current_user)
+    
+    def _update():
+        repo = TeamRepository(db)
+        try:
+            team = repo.get(team_id)
+            if not team:
+                raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
+            if payload.name and payload.name != team.name:
+                existing = repo.find_by_name(payload.name)
+                if existing and existing.id != team_id:
+                    raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
+                team.name = payload.name
+            if payload.kelas is not None:
+                team.kelas = payload.kelas
+            if payload.description is not None:
+                team.description = payload.description
+            db.flush()
+            db.commit()
+            db.refresh(team)
+            return team
+        except Exception:
+            db.rollback()
+            _log_db_failure(
+                "teams_update_failed",
+                team_id=team_id,
+                user_id=current_user.id,
+                updated_fields=list(payload.model_dump(exclude_unset=True).keys()),
+            )
+            raise
+
+    return await run_in_threadpool(_update)
 
 
 @router.delete("/{team_id}", response_model=dict)
-def delete_team(
+async def delete_team(
     team_id: int,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ):
-    user = get_current_user(authorization, db)
-    _require_mediator(user)
-    team_repo = TeamRepository(db)
-    member_repo = TeamMemberRepository(db)
-    rollup_repo = TeamRollupRepository(db)
-    members_count: Optional[int] = None
-    rollup_count: Optional[int] = None
-    try:
-        team = team_repo.get(team_id)
-        if not team:
-            raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
-        members_count = member_repo.count_by_team(team_id)
-        rollup_count = rollup_repo.count_by_team(team_id)
-        if members_count > 0 or rollup_count > 0:
-            raise HTTPException(status_code=409, detail=TeamMessages.REMOVE_DEPENDENCIES_FIRST)
-        team_repo.delete(team)
-        db.commit()
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "teams_delete_failed",
-            team_id=team_id,
-            user_id=user.id,
-            members_count=members_count,
-            rollup_count=rollup_count,
-        )
-        raise
-    return {"ok": True}
+    _require_mediator(current_user)
+    
+    def _delete():
+        team_repo = TeamRepository(db)
+        member_repo = TeamMemberRepository(db)
+        rollup_repo = TeamRollupRepository(db)
+        members_count: Optional[int] = None
+        rollup_count: Optional[int] = None
+        try:
+            team = team_repo.get(team_id)
+            if not team:
+                raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
+            members_count = member_repo.count_by_team(team_id)
+            rollup_count = rollup_repo.count_by_team(team_id)
+            if members_count > 0 or rollup_count > 0:
+                raise HTTPException(status_code=409, detail=TeamMessages.REMOVE_DEPENDENCIES_FIRST)
+            team_repo.delete(team)
+            db.commit()
+        except Exception:
+            db.rollback()
+            _log_db_failure(
+                "teams_delete_failed",
+                team_id=team_id,
+                user_id=current_user.id,
+                members_count=members_count,
+                rollup_count=rollup_count,
+            )
+            raise
+        return {"ok": True}
+
+    return await run_in_threadpool(_delete)
 
 
 @router.get("/{team_id}/members", response_model=list[TeamMemberOut])
-def list_members(team_id: int, db: Session = Depends(get_db)):
-    repo = TeamMemberRepository(db)
-    return repo.list_by_team(team_id)
+async def list_members(team_id: int, db: Session = Depends(get_db)):
+    def _list_members():
+        repo = TeamMemberRepository(db)
+        return repo.list_by_team(team_id)
+    return await run_in_threadpool(_list_members)
 
 
 @router.post("/{team_id}/members", response_model=TeamMemberOut)
-def add_member(
+async def add_member(
     team_id: int,
     payload: TeamMemberAdd,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ):
-    user = get_current_user(authorization, db)
-    _require_mediator(user)
-    # Unique per (team,user)
-    repo = TeamMemberRepository(db)
-    try:
-        if repo.exists(team_id, payload.user_id):
-            raise HTTPException(status_code=409, detail=TeamMessages.MEMBER_EXISTS)
-        tm = repo.add(team_id, payload.user_id, payload.role_in_team)
-        db.commit()
-        db.refresh(tm)
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "teams_add_member_failed",
-            team_id=team_id,
-            user_id=user.id,
-            member_user_id=payload.user_id,
-        )
-        raise
-    return tm
+    _require_mediator(current_user)
+    
+    def _add_member():
+        repo = TeamMemberRepository(db)
+        try:
+            if repo.exists(team_id, payload.user_id):
+                raise HTTPException(status_code=409, detail=TeamMessages.MEMBER_EXISTS)
+            tm = repo.add(team_id, payload.user_id, payload.role_in_team)
+            db.commit()
+            db.refresh(tm)
+            return tm
+        except Exception:
+            db.rollback()
+            _log_db_failure(
+                "teams_add_member_failed",
+                team_id=team_id,
+                user_id=current_user.id,
+                member_user_id=payload.user_id,
+            )
+            raise
+
+    return await run_in_threadpool(_add_member)
 
 
 @router.delete("/{team_id}/members/{member_id}", response_model=dict)
-def remove_member(
+async def remove_member(
     team_id: int,
     member_id: int,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ):
-    user = get_current_user(authorization, db)
-    _require_mediator(user)
-    repo = TeamMemberRepository(db)
-    try:
-        tm = repo.get(team_id, member_id)
-        if not tm:
-            raise HTTPException(status_code=404, detail=TeamMessages.MEMBER_NOT_FOUND)
-        repo.delete(tm)
-        db.commit()
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "teams_remove_member_failed",
-            team_id=team_id,
-            user_id=user.id,
-            member_id=member_id,
-        )
-        raise
-    return {"ok": True}
+    _require_mediator(current_user)
+    
+    def _remove_member():
+        repo = TeamMemberRepository(db)
+        try:
+            tm = repo.get(team_id, member_id)
+            if not tm:
+                raise HTTPException(status_code=404, detail=TeamMessages.MEMBER_NOT_FOUND)
+            repo.delete(tm)
+            db.commit()
+        except Exception:
+            db.rollback()
+            _log_db_failure(
+                "teams_remove_member_failed",
+                team_id=team_id,
+                user_id=current_user.id,
+                member_id=member_id,
+            )
+            raise
+        return {"ok": True}
+
+    return await run_in_threadpool(_remove_member)
 
 
 @router.get("/{team_id}/rollups", response_model=list[TeamRollupOut])
-def list_rollups(team_id: int, db: Session = Depends(get_db)):
-    repo = TeamRollupRepository(db)
-    return repo.list_by_team(team_id)
+async def list_rollups(team_id: int, db: Session = Depends(get_db)):
+    def _list_rollups():
+        repo = TeamRollupRepository(db)
+        return repo.list_by_team(team_id)
+    return await run_in_threadpool(_list_rollups)
 
 
 @router.get("/{team_id}/rollup", response_model=TeamRollupDetail)
-def get_rollup(team_id: int, db: Session = Depends(get_db)):
-    try:
-        return build_team_rollup_snapshot(db, team_id)
-    except ValueError:
-        raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND) from None
+async def get_rollup(team_id: int, db: Session = Depends(get_db)):
+    def _get_rollup():
+        try:
+            return build_team_rollup_snapshot(db, team_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND) from None
+    return await run_in_threadpool(_get_rollup)
 
 
 @router.post("/{team_id}/rollup/run", response_model=TeamRollupOut)
-def run_rollup(
+async def run_rollup(
     team_id: int,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
     for_date: Optional[str] = Query(default=None, description="YYYY-MM-DD optional date filter"),
 ):
-    user = get_current_user(authorization, db)
-    _require_mediator(user)
-    d: Optional[date] = None
-    if for_date:
+    _require_mediator(current_user)
+    
+    def _run_rollup():
+        d: Optional[date] = None
+        if for_date:
+            try:
+                d = date.fromisoformat(for_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=TeamMessages.INVALID_DATE_FORMAT) from None
         try:
-            d = date.fromisoformat(for_date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=TeamMessages.INVALID_DATE_FORMAT) from None
-    try:
-        roll = compute_team_rollup(db, team_id=team_id, for_date=d)
-        db.commit()
-        db.refresh(roll)
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "teams_run_rollup_failed",
-            team_id=team_id,
-            user_id=user.id,
-            for_date=for_date,
-        )
-        raise
-    return roll
+            roll = compute_team_rollup(db, team_id=team_id, for_date=d)
+            db.commit()
+            db.refresh(roll)
+            return roll
+        except Exception:
+            db.rollback()
+            _log_db_failure(
+                "teams_run_rollup_failed",
+                team_id=team_id,
+                user_id=current_user.id,
+                for_date=for_date,
+            )
+            raise
+
+    return await run_in_threadpool(_run_rollup)

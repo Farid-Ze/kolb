@@ -275,7 +275,7 @@ export function useTunnelSession() {
   }, [ensureItemMetrics])
 
   const startMutation = useMutation({
-    mutationFn: startSession,
+    mutationFn: () => startSession(),
     onMutate: () => setPhase('loading'),
     onError: () => setPhase('idle'),
     onSuccess: (response) => {
@@ -402,7 +402,7 @@ export function useTunnelSession() {
     }: {
       sessionId: number
       itemId: number
-      responseMap: Record<string, number>
+      responseMap: Record<number, number>
     }) => submitSingleResponse(targetSessionId, itemId, responseMap),
   })
 
@@ -448,7 +448,7 @@ export function useTunnelSession() {
         }
         const modeRanks = deriveModeRanks(item, tempDraft)
         if (modeRanks) {
-          singleResponseMutation.mutate({ sessionId, itemId, responseMap: modeRanks })
+          singleResponseMutation.mutate({ sessionId, itemId, responseMap: newRanks })
         }
       }
     },

@@ -162,6 +162,9 @@ def _extract_localized_maps(locale_payload: LocalePayload) -> tuple[dict[int, di
 
 def _localize_options(option: MutableMapping[str, Any], localized: Mapping[str, Any]) -> None:
     mode = option.get("learning_mode")
+    if mode is not None and hasattr(mode, "value"):
+        mode = mode.value
+    
     if isinstance(mode, str):
         localized_options = localized.get("options")
         if isinstance(localized_options, Mapping):
@@ -193,7 +196,22 @@ def compose_delivery_payload(
         }
         options_payload: Any = getattr(item, "options", None)
         if isinstance(options_payload, list):
-            normalized_options: list[Any] = [dict(opt) if isinstance(opt, Mapping) else opt for opt in options_payload]
+            normalized_options: list[Any] = []
+            for opt in options_payload:
+                if isinstance(opt, Mapping):
+                    normalized_options.append(dict(opt))
+                elif hasattr(opt, "model_dump"):
+                    normalized_options.append(opt.model_dump())
+                elif hasattr(opt, "dict"):
+                    normalized_options.append(opt.dict())
+                else:
+                    # Fallback for ORM objects or simple namespaces
+                    d = {}
+                    for field in ["id", "option_code", "option_text", "learning_mode", "value", "metadata_payload"]:
+                        val = getattr(opt, field, None)
+                        if val is not None:
+                            d[field] = val
+                    normalized_options.append(d)
             entry["options"] = normalized_options
         else:
             entry["options"] = options_payload

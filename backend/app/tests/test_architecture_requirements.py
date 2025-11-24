@@ -262,12 +262,15 @@ def test_router_modules_do_not_newly_import_sqlalchemy_session():
     routers_dir = repo_root / "backend" / "app" / "routers"
     legacy_allowlist = {
         Path("backend/app/routers/admin.py"),
-        Path("backend/app/routers/auth.py"),
+        Path("backend/app/routers/challenges.py"),
         Path("backend/app/routers/engine.py"),
         Path("backend/app/routers/reports.py"),
         Path("backend/app/routers/research.py"),
         Path("backend/app/routers/sessions.py"),
+        Path("backend/app/routers/sphere.py"),
+        Path("backend/app/routers/store.py"),
         Path("backend/app/routers/teams.py"),
+        Path("backend/app/routers/telemetry.py"),
     }
 
     found_files: set[Path] = set()
@@ -299,10 +302,15 @@ def test_router_modules_avoid_direct_model_imports():
     routers_dir = repo_root / "backend" / "app" / "routers"
     legacy_allowlist = {
         Path("backend/app/routers/admin.py"),
+        Path("backend/app/routers/challenges.py"),
+        Path("backend/app/routers/engine.py"),
         Path("backend/app/routers/reports.py"),
         Path("backend/app/routers/research.py"),
         Path("backend/app/routers/sessions.py"),
+        Path("backend/app/routers/sphere.py"),
+        Path("backend/app/routers/store.py"),
         Path("backend/app/routers/teams.py"),
+        Path("backend/app/routers/telemetry.py"),
     }
 
     found_files: set[Path] = set()

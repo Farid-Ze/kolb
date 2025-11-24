@@ -133,9 +133,9 @@ def test_team_crud_and_member_and_rollup(client):
     )
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data['total_sessions'] >= 1
-    assert data['avg_lfi'] is not None
-    assert data['style_counts']
+    assert data['totalSessions'] >= 1
+    assert data['avgLfi'] is not None
+    assert data['styleCounts']
 
     # Attempt delete team should 409 (has member & rollup)
     r = client.delete(f'/teams/{team_id}', headers={'Authorization': f'Bearer {token_mediator}'})
@@ -354,23 +354,23 @@ def test_research_study_data_endpoint(client):
     r = client.get(f'/research/studies/{study_id}/data', headers=headers)
     assert r.status_code == 200, r.text
     payload = r.json()
-    assert payload['summary']['total_sessions'] == 1
-    assert payload['summary']['unique_participants'] == 1
-    assert len(payload['data_points']) == 1
-    assert payload['data_points'][0]['norm_group'] == 'Total'
+    assert payload['summary']['totalSessions'] == 1
+    assert payload['summary']['uniqueParticipants'] == 1
+    assert len(payload['dataPoints']) == 1
+    assert payload['dataPoints'][0]['normGroup'] == 'Total'
 
-    style_name = payload['data_points'][0]['learning_style']
+    style_name = payload['dataPoints'][0]['learningStyle']
     assert style_name
     r_filtered = client.get(
         f"/research/studies/{study_id}/data?learning_style={style_name}",
         headers=headers,
     )
     assert r_filtered.status_code == 200
-    assert len(r_filtered.json()['data_points']) == 1
+    assert len(r_filtered.json()['dataPoints']) == 1
 
     r_empty = client.get(
         f"/research/studies/{study_id}/data?learning_style=Nonexistent",
         headers=headers,
     )
     assert r_empty.status_code == 200
-    assert r_empty.json()['summary']['total_sessions'] == 0
+    assert r_empty.json()['summary']['totalSessions'] == 0

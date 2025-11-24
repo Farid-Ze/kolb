@@ -8,35 +8,38 @@ import type {
   SessionSubmissionPayload,
 } from '../../entities/session/model'
 
-export async function startSession(): Promise<SessionStartResponse> {
-  const { data } = await apiClient.post<SessionStartResponse>('/sessions/start', {})
+export async function startSession(instrumentCode = 'KLSI'): Promise<SessionStartResponse> {
+  const { data } = await apiClient.post<SessionStartResponse>('/engine/sessions/start', {
+    instrumentCode,
+  })
   return data
 }
 
 export async function fetchSessionItems(sessionId: number): Promise<AssessmentItem[]> {
-  const { data } = await apiClient.get<AssessmentItem[]>(`/sessions/${sessionId}/items`)
-  return data
+  const { data } = await apiClient.get<{ items: AssessmentItem[] }>(`/engine/sessions/${sessionId}/delivery`)
+  return data.items
 }
 
 export async function submitAllResponses(sessionId: number, payload: SessionSubmissionPayload): Promise<SessionOperationResult> {
-  const { data } = await apiClient.post<SessionOperationResult>(`/sessions/${sessionId}/submit_all_responses`, payload)
+  const { data } = await apiClient.post<SessionOperationResult>(`/engine/sessions/${sessionId}/submit_all`, payload)
   return data
 }
 
 export async function submitSingleResponse(
   sessionId: number,
   itemId: number,
-  responseMap: Record<string, number>,
-): Promise<{ status: string; progress: number }> {
-  const { data } = await apiClient.post<{ status: string; progress: number }>(`/sessions/${sessionId}/response`, {
-    itemId,
-    responseMap,
+  responseMap: Record<number, number>,
+): Promise<{ ok: boolean }> {
+  const { data } = await apiClient.post<{ ok: boolean }>(`/engine/sessions/${sessionId}/interactions`, {
+    kind: 'item',
+    item_id: itemId,
+    ranks: responseMap,
   })
   return data
 }
 
 export async function finalizeSession(sessionId: number): Promise<SessionOperationResult> {
-  const { data } = await apiClient.post<SessionOperationResult>(`/sessions/${sessionId}/finalize`, {})
+  const { data } = await apiClient.post<SessionOperationResult>(`/engine/sessions/${sessionId}/finalize`, {})
   return data
 }
 

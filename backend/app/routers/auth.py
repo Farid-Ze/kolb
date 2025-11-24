@@ -2,12 +2,12 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.db.database import get_db
-from app.db.repositories import UserRepository
+from app.db.database import get_async_db
+from app.db.repositories import UserRepository, AsyncUserRepository
 from app.schemas.auth import Role, Token, UserCreate, UserOut
 from app.schemas.base import CamelModel
 from app.services.security import create_access_token, hash_password, verify_password
@@ -24,7 +24,7 @@ def _log_db_failure(event: str, **structured: Any) -> None:
 
 
 @router.post("/register", response_model=UserOut)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
+async def register(payload: UserCreate, db: AsyncSession = Depends(get_async_db)):
     # domain restriction for mahasiswa accounts
     domain = payload.email.split("@")[-1].lower()
     if domain != settings.allowed_student_domain and payload.nim:
@@ -40,8 +40,8 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_CLASS_FORMAT)
         if not payload.tahun_masuk or payload.tahun_masuk < 1990 or payload.tahun_masuk > 2100:
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_ENROLLMENT_YEAR)
-    user_repo = UserRepository(db)
-    existing = user_repo.get_by_email(payload.email)
+    user_repo = AsyncUserRepository(db)
+    existing = await user_repo.get_by_email(payload.email)
     if existing:
         raise HTTPException(status_code=400, detail=AuthMessages.EMAIL_ALREADY_REGISTERED)
     user = user_repo.create(
@@ -54,10 +54,10 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         tahun_masuk=payload.tahun_masuk if role == Role.MAHASISWA else None,
     )
     try:
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     except Exception:
-        db.rollback()
+        await db.rollback()
         _log_db_failure(
             "auth_register_commit_failed",
             email=payload.email,
@@ -71,9 +71,9 @@ class LoginRequest(CamelModel):
     password: str
 
 @router.post("/login", response_model=Token)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user_repo = UserRepository(db)
-    user = user_repo.get_by_email(payload.email)
+async def login(payload: LoginRequest, db: AsyncSession = Depends(get_async_db)):
+    user_repo = AsyncUserRepository(db)
+    user = await user_repo.get_by_email(payload.email)
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail=AuthMessages.INVALID_CREDENTIALS)
     token = create_access_token(str(user.id))

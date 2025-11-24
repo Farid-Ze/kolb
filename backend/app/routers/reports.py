@@ -1,9 +1,11 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.db.database import get_db, get_async_db
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import SessionErrorMessages
 from app.models.klsi.user import User
@@ -21,12 +23,15 @@ from app.services.security import get_current_user
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-def _try_get_current_user(authorization: str | None, db: Session) -> User | None:
+async def try_get_current_user(
+    authorization: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_async_db)
+) -> User | None:
     """Attempt to resolve current user; return None on auth errors."""
     if not authorization:
         return None
     try:
-        return get_current_user(authorization, db)
+        return await get_current_user(authorization, db)
     except HTTPException as exc:
         if exc.status_code == 401:
             return None
@@ -34,24 +39,24 @@ def _try_get_current_user(authorization: str | None, db: Session) -> User | None
 
 
 @router.get("/self", response_model=list[ReportSummaryPayload])
-def list_self_reports(
+async def list_self_reports(
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ):
-    current_user = get_current_user(authorization, db)
-    return list_report_summaries(db, user_id=current_user.id)
+    return await run_in_threadpool(list_report_summaries, db, user_id=current_user.id)
 
 
 @router.get("/{session_id}", response_model=ReportPayload)
-def get_report(
+async def get_report(
     session_id: int,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None)
+    viewer: User | None = Depends(try_get_current_user)
 ):
-    # Get current viewer
-    viewer = _try_get_current_user(authorization, db)
-    repo = SessionRepository(db)
-    session = repo.get_by_id(session_id)
+    def _get_session():
+        repo = SessionRepository(db)
+        return repo.get_by_id(session_id)
+
+    session = await run_in_threadpool(_get_session)
     if not session:
         raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
     
@@ -66,22 +71,21 @@ def get_report(
             raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
     
     try:
-        data = build_report(db, session_id, viewer_role=viewer_role)
+        data = await run_in_threadpool(build_report, db, session_id, viewer_role=viewer_role)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
     return as_report_payload(data)
 
 
 @router.post("/{session_id}/share", response_model=ReportShareOut)
-def create_report_share(
+async def create_report_share(
     session_id: int,
     payload: ReportShareCreate,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ):
-    current_user = get_current_user(authorization, db)
-    service = ReportShareService(db)
-    try:
+    def _create_share():
+        service = ReportShareService(db)
         share, token = service.create_share(
             session_id=session_id,
             owner=current_user,
@@ -89,12 +93,16 @@ def create_report_share(
             expires_in_hours=payload.expires_in_hours,
             note=payload.note,
         )
+        db.commit()
+        return share, token
+
+    try:
+        share, token = await run_in_threadpool(_create_share)
     except SharePermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except ShareValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    db.commit()
     mediator_name = getattr(share.mediator, "full_name", None)
     return ReportShareOut(
         share_id=share.id,
@@ -108,30 +116,33 @@ def create_report_share(
 
 
 @router.get("/shared/{share_token}", response_model=ReportPayload)
-def get_shared_report(
+async def get_shared_report(
     share_token: str,
     db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ):
-    current_user = get_current_user(authorization, db)
-    service = ReportShareService(db)
-    try:
+    def _resolve_and_build():
+        service = ReportShareService(db)
         share = service.resolve_share(share_token=share_token, viewer=current_user)
+        data: dict[str, Any] = build_report(db, share.session_id, viewer_role="MEDIATOR")
+        data["share_context"] = {
+            "share_id": share.id,
+            "session_id": share.session_id,
+            "mediator_email": share.mediator_email,
+            "mediator_name": getattr(share.mediator, "full_name", None),
+            "owner_name": getattr(share.owner, "full_name", None),
+            "owner_email": getattr(share.owner, "email", None),
+            "expires_at": share.expires_at,
+            "note": share.note,
+        }
+        db.commit()
+        return data
+
+    try:
+        data = await run_in_threadpool(_resolve_and_build)
     except SharePermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except ShareValidationError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    data: dict[str, Any] = build_report(db, share.session_id, viewer_role="MEDIATOR")
-    data["share_context"] = {
-        "share_id": share.id,
-        "session_id": share.session_id,
-        "mediator_email": share.mediator_email,
-        "mediator_name": getattr(share.mediator, "full_name", None),
-        "owner_name": getattr(share.owner, "full_name", None),
-        "owner_email": getattr(share.owner, "email", None),
-        "expires_at": share.expires_at,
-        "note": share.note,
-    }
-    db.commit()
     return as_report_payload(data)

@@ -27,7 +27,6 @@ class CamelModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=_snake_to_camel,
         populate_by_name=True,
-        ser_json_tuples=True,
     )
 
 

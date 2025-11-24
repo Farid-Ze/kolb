@@ -56,18 +56,16 @@ def _seed_native_forced_choice(db, session_id: int) -> None:
         .order_by(AssessmentItem.item_number.asc())
         .all()
     )
-    latency = 100
     for item in items:
         for choice in item.choices:
             db.add(
-                AssessmentItemResponse(
+                UserResponse(
                     session_id=session_id,
-                    item_id=choice.id,
-                    response_rank=rank_map[choice.learning_mode.value],
-                    response_latency_ms=latency,
+                    item_id=item.id,
+                    choice_id=choice.id,
+                    rank_value=rank_map[choice.learning_mode.value],
                 )
             )
-            latency += 3
     db.flush()
 
 
@@ -255,7 +253,7 @@ def test_finalize_session_prefers_native_pipeline(monkeypatch):
         session = seed_complete_session(db)
         user = db.get(User, session.user_id)
         assert user is not None
-        _seed_native_forced_choice(db, session.id)
+        # _seed_native_forced_choice(db, session.id)  # Already seeded by seed_complete_session
         db.commit()
 
         def fail_runtime(*args, **kwargs):  # noqa: ARG001
@@ -294,6 +292,7 @@ def test_finalize_session_falls_back_to_runtime_when_native_missing(monkeypatch)
             return original_finalize(*args, **kwargs)
 
         monkeypatch.setattr(engine_module.runtime, "finalize_with_audit", tracking_finalize)
+        monkeypatch.setattr(EngineSessionService, "_should_use_native_pipeline", lambda self, sid: False)
 
         service = EngineSessionService(db)
         result = service.finalize_session(session.id, user)

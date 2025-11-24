@@ -30,12 +30,18 @@ from app.db.repositories.assessment import LFIContextRepository, UserResponseRep
 from app.db.repositories.sessions import SessionRepository
 from app.engine.runtime import runtime
 from app.models.klsi.assessment import AssessmentSessionDelta
-from app.models.klsi.enums import LearningMode, SessionStatus
-from app.models.klsi.items import AssessmentItemResponse, ItemChoice
+from app.models.klsi import (
+    AssessmentSession,
+    LearningMode,
+    LFIContextScore,
+    SessionStatus,
+    UserResponse,
+)
+from app.models.klsi.enums import ItemType
+from app.models.klsi.items import AssessmentItem, AssessmentItemResponse, ItemChoice
 from app.models.klsi.learning import (
     BackupLearningStyle,
     CombinationScore,
-    LFIContextScore,
     LearningFlexibilityIndex,
     ScaleScore,
     UserLearningStyle,
@@ -60,9 +66,6 @@ from app.services.gamification_service import gamification_service
 from app.services.sphere_service import sphere_service
 
 if TYPE_CHECKING:  # pragma: no cover
-    from app.models.klsi.assessment import AssessmentSession
-    from app.models.klsi.items import UserResponse
-    from app.models.klsi.learning import LFIContextScore
     from app.models.klsi.user import User
 
 
@@ -270,8 +273,8 @@ class EngineSessionService:
         """Return True when assessment_item_responses + LFI contexts are complete."""
 
         response_count = (
-            self.db.query(AssessmentItemResponse.id)
-            .filter(AssessmentItemResponse.session_id == session_id)
+            self.db.query(UserResponse.id)
+            .filter(UserResponse.session_id == session_id)
             .count()
         )
         if response_count < ITEM_COUNT_KLSI4 * len(LEARNING_MODES):
@@ -303,7 +306,7 @@ class EngineSessionService:
             "lfi": lfi,
             "percentiles": percentiles,
             "delta": delta,
-            "validation": {"issues": []},
+            "validation": {"ready": True, "issues": [], "diagnostics": {}},
             "override": False,
         }
         return result
@@ -311,15 +314,19 @@ class EngineSessionService:
     def _load_native_responses(
         self,
         session_id: int,
-    ) -> list[tuple[AssessmentItemResponse, int, LearningMode | None]]:
+    ) -> list[tuple[UserResponse, int, LearningMode | None]]:
         raw_rows = (
             self.db.query(
-                AssessmentItemResponse,
+                UserResponse,
                 ItemChoice.item_id,
                 ItemChoice.learning_mode,
             )
-            .join(ItemChoice, ItemChoice.id == AssessmentItemResponse.item_id)
-            .filter(AssessmentItemResponse.session_id == session_id)
+            .join(ItemChoice, ItemChoice.id == UserResponse.choice_id)
+            .join(AssessmentItem, AssessmentItem.id == ItemChoice.item_id)
+            .filter(
+                UserResponse.session_id == session_id,
+                AssessmentItem.item_type == ItemType.learning_style,
+            )
             .all()
         )
         rows = [
@@ -332,7 +339,7 @@ class EngineSessionService:
 
     def _summarize_forced_choice_rows(
         self,
-        rows: Sequence[tuple[AssessmentItemResponse, int, LearningMode | None]],
+        rows: Sequence[tuple[UserResponse, int, LearningMode | None]],
     ) -> dict[str, int]:
         totals = {mode: 0 for mode in LEARNING_MODES}
         per_item_ranks: dict[int, list[int]] = defaultdict(list)
@@ -340,7 +347,7 @@ class EngineSessionService:
         for response, assessment_item_id, learning_mode in rows:
             if learning_mode is None:
                 raise InvalidAssessmentData(ValidationMessages.ITEM_OPTION_NOT_FOUND)
-            rank = int(response.response_rank)
+            rank = int(response.rank_value)
             if rank < 1 or rank > len(LEARNING_MODES):
                 raise InvalidAssessmentData(ValidationMessages.ITEM_RANK_PERMUTATION)
             mode_key = learning_mode.value

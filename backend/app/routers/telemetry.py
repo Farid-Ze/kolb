@@ -1,12 +1,15 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import Field
+from sqlalchemy.orm import Session
 
 from app.core.metrics import inc_counter
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import SessionErrorMessages
+from app.models.klsi.user import User
 from app.schemas.base import CamelModel
 from app.schemas.telemetry import AssessmentTelemetryPayload
 from app.services.security import get_current_user
@@ -42,7 +45,7 @@ class ActionEvent(CamelModel):
 
 
 @router.post("/guide-open", status_code=202)
-def record_guide_open(event: GuideOpenEvent):
+async def record_guide_open(event: GuideOpenEvent):
     if not event.guide_id.strip():
         raise HTTPException(status_code=422, detail="guide_id cannot be blank")
 
@@ -60,7 +63,7 @@ def record_guide_open(event: GuideOpenEvent):
 
 
 @router.post("/page-view", status_code=202)
-def record_page_view(event: PageViewEvent):
+async def record_page_view(event: PageViewEvent):
     inc_counter("page.view.total")
     normalized_path = event.page_path.strip().replace(" ", "_")
     inc_counter(f"page.view.path.{normalized_path}")
@@ -74,7 +77,7 @@ def record_page_view(event: PageViewEvent):
 
 
 @router.post("/action", status_code=202)
-def record_action(event: ActionEvent):
+async def record_action(event: ActionEvent):
     inc_counter("action.total")
     inc_counter(f"action.type.{event.action_type}")
     inc_counter(f"action.target.{event.action_target}")
@@ -85,15 +88,18 @@ def record_action(event: ActionEvent):
 
 
 @router.post("/assessment", status_code=202)
-def record_assessment_telemetry(
+async def record_assessment_telemetry(
     payload: AssessmentTelemetryPayload,
-    db = Depends(get_db),
-    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    repo = SessionRepository(db)
-    session = repo.get_for_user(payload.session_id, current_user.id)
-    if not session or session.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
+    def _record():
+        repo = SessionRepository(db)
+        session = repo.get_for_user(payload.session_id, current_user.id)
+        if not session or session.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
 
-    telemetry_service.record_assessment_item_event(db, payload)
-    return {"ok": True}
+        telemetry_service.record_assessment_item_event(db, payload)
+        return {"ok": True}
+
+    return await run_in_threadpool(_record)
