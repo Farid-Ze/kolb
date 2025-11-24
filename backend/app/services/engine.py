@@ -755,3 +755,43 @@ class EngineSessionService:
                 "sphere_node_creation_failed",
                 extra={"structured_data": {"user_id": user_id, "session_id": session_id}},
             )
+
+    def submit_single_response(self, session_id: int, user: "User", item_id: int, response_map: Dict[str, int]) -> Dict[str, Any]:
+        self._load_authorized_session(session_id, user)
+        
+        # 1. Fetch choices for the item to map Dimension -> Choice ID
+        choices = self.db.query(ItemChoice).filter(ItemChoice.item_id == item_id).all()
+        if not choices:
+            raise DomainError(f"Item {item_id} not found or has no choices")
+
+        # 2. Map response_map (Dimension -> Rank) to ranks (Choice ID -> Rank)
+        ranks = {}
+        for choice in choices:
+            # choice.learning_mode is an Enum (CE, RO, AC, AE)
+            mode_code = choice.learning_mode.name if hasattr(choice.learning_mode, "name") else str(choice.learning_mode)
+            if mode_code in response_map:
+                ranks[choice.id] = response_map[mode_code]
+        
+        if len(ranks) != 4:
+            raise InvalidAssessmentData("Could not map all 4 dimensions to choices for this item")
+
+        # 3. Construct runtime payload
+        runtime_payload = {
+            "kind": "item",
+            "item_id": item_id,
+            "ranks": ranks,
+        }
+
+        # 4. Submit to runtime
+        runtime.submit_payload(self.db, session_id, runtime_payload)
+
+        # 5. Calculate progress
+        responded_count = (
+            self.db.query(UserResponse.item_id)
+            .filter(UserResponse.session_id == session_id)
+            .distinct()
+            .count()
+        )
+        progress = min(100.0, (responded_count / 12.0) * 100.0)
+        return {"status": "synced", "progress": progress}
+

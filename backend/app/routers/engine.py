@@ -35,7 +35,6 @@ from app.core.metrics import (
 )
 from app.services.engine_async import AsyncEngineSessionService
 from app.i18n.id_messages import AuthorizationMessages, EngineMessages
-from app.models.klsi.user import User
 
 def _format_sunset(value: datetime | None) -> str | None:
     if value is None:
@@ -50,7 +49,7 @@ router = APIRouter(prefix="/engine", tags=["engine"])
 async def list_sessions(
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
     db: Any = Depends(get_db),
 ):
     """List all assessment sessions for the current user."""
@@ -80,7 +79,7 @@ class ForceFinalizeRequest(CamelModel):
 @router.get("/instruments", response_model=dict)
 def list_instruments(
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     # Any authenticated user may fetch instrument catalog metadata.
     specs = list_instrument_specs()
@@ -92,7 +91,7 @@ def get_instrument_manifest(
     instrument_code: str,
     instrument_version: str,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     try:
         spec = get_instrument_spec(instrument_code, instrument_version)
@@ -107,7 +106,7 @@ def get_instrument_locale_resource_endpoint(
     instrument_version: str,
     locale: str,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     try:
         payload = get_instrument_locale_resource(instrument_code, instrument_version, locale)
@@ -120,7 +119,7 @@ def get_instrument_locale_resource_endpoint(
 async def start_engine_session(
     payload: StartSessionRequest,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     service = AsyncEngineSessionService(db)
     session = await service.start_session(
@@ -136,7 +135,7 @@ async def get_delivery(
     session_id: int,
     locale: str | None = None,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     service = AsyncEngineSessionService(db)
     return await service.delivery_package(session_id, current_user, locale=locale)
@@ -147,7 +146,7 @@ async def get_session_items(
     session_id: int,
     locale: str | None = None,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     service = AsyncEngineSessionService(db)
     return await service.session_state(session_id, current_user, locale=locale)
@@ -159,7 +158,7 @@ async def autosave_session_items(
     payload: SessionAutosavePayload,
     locale: str | None = None,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     service = AsyncEngineSessionService(db)
     result = await service.autosave_responses(session_id, current_user, payload, locale=locale)
@@ -171,7 +170,7 @@ async def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically (Sync)."""
     service = AsyncEngineSessionService(db)
@@ -185,7 +184,7 @@ async def submit_interaction(
     payload: SubmissionPayload,
     response: Response,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     """Backward-compatible single interaction submission (deprecated).
     Retained to support existing clients and tests; prefer submit_all.
@@ -209,7 +208,7 @@ def engine_metrics(
     reset: bool = False,
     include_last_runs: bool = True,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     if current_user.role != "MEDIATOR":
         raise PermissionDeniedError(AuthorizationMessages.MEDIATOR_METRICS_ONLY)
@@ -233,7 +232,7 @@ def engine_metrics(
 async def finalize_session(
     session_id: int,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     service = AsyncEngineSessionService(db)
     result = await service.finalize_session(session_id, current_user)
@@ -244,7 +243,7 @@ async def finalize_session(
 async def validation_snapshot(
     session_id: int,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     """Expose run_session_validations snapshot via engine router."""
     service = AsyncEngineSessionService(db)
@@ -255,7 +254,7 @@ async def validation_snapshot(
 async def engine_report(
     session_id: int,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     service = AsyncEngineSessionService(db)
     report = await service.build_report(session_id, current_user)
@@ -267,7 +266,7 @@ async def force_finalize_session(
     session_id: int,
     request: ForceFinalizeRequest,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     service = AsyncEngineSessionService(db)
     result = await service.force_finalize(session_id, current_user, reason=request.reason)

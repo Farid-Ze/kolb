@@ -109,7 +109,7 @@ def create_report_share(
 def get_shared_report(
     share_token: str,
     db: Any = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     try:
         service = ReportShareService(db)

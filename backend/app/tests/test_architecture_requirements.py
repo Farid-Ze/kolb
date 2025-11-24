@@ -289,10 +289,7 @@ def test_router_modules_avoid_direct_model_imports():
 
     repo_root = Path(__file__).resolve().parents[3]
     routers_dir = repo_root / "backend" / "app" / "routers"
-    legacy_allowlist = {
-        Path("backend/app/routers/engine.py"),
-        Path("backend/app/routers/sessions.py"),
-    }
+    legacy_allowlist = set()
 
     found_files: set[Path] = set()
     violations: list[Path] = []

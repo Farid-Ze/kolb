@@ -106,6 +106,21 @@ class AsyncEngineSessionService:
             payload,
         )
 
+    async def submit_single_response(
+        self,
+        session_id: int,
+        user: "User",
+        item_id: int,
+        response_map: Dict[str, int],
+    ) -> Dict[str, Any]:
+        return await asyncio.to_thread(
+            self._sync_service.submit_single_response,
+            session_id,
+            user,
+            item_id,
+            response_map,
+        )
+
     async def finalize_session(self, session_id: int, user: "User") -> Dict[str, Any]:
         return await asyncio.to_thread(
             self._sync_service.finalize_session,
