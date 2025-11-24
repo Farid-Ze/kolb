@@ -4,7 +4,6 @@ from collections import Counter, defaultdict
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES, validate_lfi_context_ranks
 from app.core.errors import InvalidAssessmentData
@@ -269,15 +268,6 @@ def validate_full_submission_payload(db: Session, payload: SessionSubmissionPayl
         for ctx in payload.contexts
     ]
     validate_lfi_context_ranks(context_payload)
-
-
-async def validate_full_submission_payload_async(db: AsyncSession, payload: SessionSubmissionPayload) -> None:
-    """Fail-fast validation for batch submissions before persistence (Async)."""
-    from app.db.repositories.assessment import AsyncAssessmentItemRepository
-
-    item_repo = AsyncAssessmentItemRepository(db)
-    expected_ids = set(await item_repo.get_learning_item_ids())
-    provided_ids = {entry.item_id for entry in payload.items}
 
     missing = expected_ids - provided_ids
     if missing:

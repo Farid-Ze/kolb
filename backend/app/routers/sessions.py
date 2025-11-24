@@ -2,13 +2,11 @@ from datetime import timezone
 from email.utils import format_datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db, get_async_db
-from app.db.repositories import AsyncSessionRepository
+from app.db.database import get_db
+from app.db.repositories import SessionRepository
 from app.engine.runtime import runtime
 from app.models.klsi.user import User
 from app.services.security import get_current_user, decode_access_token
@@ -26,7 +24,7 @@ from app.schemas.session import (
     AssessmentResponseBatch,
     AssessmentItemResponsePayload,
 )
-from app.services.assessments import upsert_responses_async
+from app.services.assessments import upsert_responses
 from app.core.config import settings
 from app.core.metrics import inc_counter
 from app.models.klsi.items import UserResponse, ItemChoice
@@ -90,20 +88,19 @@ def _sunset_header_value() -> str | None:
     return format_datetime(aware.astimezone(timezone.utc))
 
 @router.post("/start", response_model=SessionStartResponse)
-async def start_session(
+def start_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    session = await run_in_threadpool(
-        runtime.start_session, db, current_user, instrument_code="KLSI", instrument_version="4.0"
+    session = runtime.start_session(
+        db, current_user, instrument_code="KLSI", instrument_version="4.0"
     )
     return SessionStartResponse(session_id=session.id)
 
 @router.get("/{session_id}/items", response_model=list)
-async def get_items(
+def get_items(
     session_id: int, 
     db: Session = Depends(get_db),
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -114,15 +111,15 @@ async def get_items(
     - Enforces strict ownership: users can only access their own sessions.
     - Returns 403 Forbidden if accessing another user's session.
     """
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_for_user(session_id, current_user.id)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
     
     # Prevent users from accessing sessions that do not belong to them
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
 
     # Return all items (20): 12 learning style + 8 LFI
-    delivery = await run_in_threadpool(runtime.delivery_package, db, session_id)
+    delivery = runtime.delivery_package(db, session_id)
     items = delivery.get("items", [])
     return [
         {
@@ -137,13 +134,12 @@ async def get_items(
     ]
 
 @router.post("/{session_id}/submit_item", response_model=OperationStatus, deprecated=True)
-async def submit_item(
+def submit_item(
     session_id: int, 
     item_id: int, 
     ranks: dict, 
     response: Response, 
     db: Session = Depends(get_db), 
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     # Optional runtime deprecation: return 410 Gone when DISABLE_LEGACY_SUBMISSION=1
@@ -157,8 +153,8 @@ async def submit_item(
         response.headers["Sunset"] = sunset_value
     inc_counter("deprecated.sessions.submit_item")
     
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_for_user(session_id, current_user.id)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     try:
@@ -166,11 +162,11 @@ async def submit_item(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     
-    await run_in_threadpool(runtime.submit_payload, db, session_id, submission.runtime_payload())
+    runtime.submit_payload(db, session_id, submission.runtime_payload())
     return OperationStatus()
 
 @router.post("/{session_id}/submit_context", response_model=OperationStatus, deprecated=True)
-async def submit_context(
+def submit_context(
     session_id: int,
     context_name: str,
     CE: int,
@@ -180,7 +176,6 @@ async def submit_context(
     response: Response,
     overwrite: bool = False,
     db: Session = Depends(get_db),
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     if settings.disable_legacy_submission and settings.environment not in ("dev", "development", "test"):
@@ -193,8 +188,8 @@ async def submit_context(
         response.headers["Sunset"] = sunset_value
     inc_counter("deprecated.sessions.submit_context")
     
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_for_user(session_id, current_user.id)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     try:
@@ -209,113 +204,107 @@ async def submit_context(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     
-    await run_in_threadpool(runtime.submit_payload, db, session_id, context_submission.runtime_payload())
+    runtime.submit_payload(db, session_id, context_submission.runtime_payload())
     return OperationStatus()
 
 
 @router.post("/{session_id}/submit_all_responses", response_model=SessionOperationResult)
-async def submit_all_responses(
+def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
     db: Session = Depends(get_db),
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
     """Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,
     followed by finalize. This reduces chattiness (22 calls → 1) and ensures atomicity.
     """
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_for_user(session_id, current_user.id)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     if sess.status == SessionStatus.completed:
         raise HTTPException(status_code=409, detail=SessionErrorMessages.ALREADY_COMPLETED)
 
-    def _sync_transaction():
-        try:
-            # Single transaction: insert all ranks then finalize
-            for item in payload.items:
-                for choice_id, rank_value in item.ranks.items():
-                    db.add(
-                        UserResponse(
-                            session_id=session_id,
-                            item_id=item.item_id,
-                            choice_id=int(choice_id),
-                            rank_value=int(rank_value),
-                        )
-                    )
-            for ctx in payload.contexts:
+    try:
+        # Single transaction: insert all ranks then finalize
+        for item in payload.items:
+            for choice_id, rank_value in item.ranks.items():
                 db.add(
-                    LFIContextScore(
+                    UserResponse(
                         session_id=session_id,
-                        context_name=ctx.context_name,
-                        CE_rank=ctx.CE,
-                        RO_rank=ctx.RO,
-                        AC_rank=ctx.AC,
-                        AE_rank=ctx.AE,
+                        item_id=item.item_id,
+                        choice_id=int(choice_id),
+                        rank_value=int(rank_value),
                     )
                 )
-            # Explicit flush because SessionLocal disables autoflush; finalize() queries must see the new ranks.
-            db.flush()
-            # After data persisted, run finalize using the engine runtime helper with audit
-            def _payload_builder(res: dict) -> bytes:
-                combination = res.get("combination")
-                lfi = res.get("lfi")
-                if not combination or not lfi:
-                    return b""
-                return (
-                    f"user:{current_user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
-                    f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
-                ).encode("utf-8")
-
-            result = runtime.finalize_with_audit(
-                db,
-                session_id,
-                actor_email=current_user.email,
-                action="FINALIZE_SESSION_USER_BATCH",
-                build_payload=_payload_builder,
+        for ctx in payload.contexts:
+            db.add(
+                LFIContextScore(
+                    session_id=session_id,
+                    context_name=ctx.context_name,
+                    CE_rank=ctx.CE,
+                    RO_rank=ctx.RO,
+                    AC_rank=ctx.AC,
+                    AE_rank=ctx.AE,
+                )
             )
-            db.commit()
+        # Explicit flush because SessionLocal disables autoflush; finalize() queries must see the new ranks.
+        db.flush()
+        # After data persisted, run finalize using the engine runtime helper with audit
+        def _payload_builder(res: dict) -> bytes:
+            combination = res.get("combination")
+            lfi = res.get("lfi")
+            if not combination or not lfi:
+                return b""
+            return (
+                f"user:{current_user.email};session:{session_id};ACCE:{combination.ACCE_raw};"
+                f"AERO:{combination.AERO_raw};LFI:{lfi.LFI_score}"
+            ).encode("utf-8")
 
-            result_payload = adapt_engine_to_api_payload(result)
-            return SessionOperationResult(result=result_payload)
-        except HTTPException:
-            raise
-        except Exception as exc:
-            # In case of constraint violations or other errors, rollback any pending txn
-            db.rollback()
-            raise HTTPException(status_code=500, detail=SessionErrorMessages.BATCH_FAILURE) from exc
+        result = runtime.finalize_with_audit(
+            db,
+            session_id,
+            actor_email=current_user.email,
+            action="FINALIZE_SESSION_USER_BATCH",
+            build_payload=_payload_builder,
+        )
+        db.commit()
 
-    return await run_in_threadpool(_sync_transaction)
+        result_payload = adapt_engine_to_api_payload(result)
+        return SessionOperationResult(result=result_payload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # In case of constraint violations or other errors, rollback any pending txn
+        db.rollback()
+        raise HTTPException(status_code=500, detail=SessionErrorMessages.BATCH_FAILURE) from exc
 
 @router.post("/{session_id}/finalize", response_model=SessionOperationResult)
-async def finalize(
+def finalize(
     session_id: int, 
     db: Session = Depends(get_db), 
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_for_user(session_id, current_user.id)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
     if sess.status == SessionStatus.completed:
         raise HTTPException(status_code=409, detail=SessionErrorMessages.ALREADY_COMPLETED)
     # Explicit guard: require all 8 LFI contexts present before finalize,
     # even if engine validation would catch it. Gives clearer 400 with detail.
-    validation_snapshot = await run_in_threadpool(run_session_validations, db, session_id)
+    validation_snapshot = run_session_validations(db, session_id)
     if not validation_snapshot.get("ready", False):
         issues = validation_snapshot.get("issues", [])
         raise HTTPException(status_code=400, detail={"issues": issues, "diagnostics": validation_snapshot.get("diagnostics")})
     engine_service = EngineSessionService(db)
-    result = await run_in_threadpool(engine_service.finalize_session, session_id, current_user)
+    result = engine_service.finalize_session(session_id, current_user)
     return SessionOperationResult(result=result)
 
 @router.get("/{session_id}/validation", response_model=dict)
-async def session_validation(
+def session_validation(
     session_id: int, 
     db: Session = Depends(get_db), 
-    async_db: AsyncSession = Depends(get_async_db),
     authorization: str | None = Header(default=None)
 ):
     """Mengembalikan status kelengkapan sesi (item ipsatif & konteks LFI)."""
@@ -328,33 +317,32 @@ async def session_validation(
                 token = parts[1]
                 payload = decode_access_token(token)
                 user_id = int(payload["sub"])
-                from app.db.repositories import AsyncUserRepository
-                user_repo = AsyncUserRepository(async_db)
-                viewer = await user_repo.get(user_id)
+                from app.db.repositories.user import UserRepository
+                user_repo = UserRepository(db)
+                viewer = user_repo.get(user_id)
         except Exception:
             viewer = None
             
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_by_id(session_id)
+    repo = SessionRepository(db)
+    sess = repo.get_by_id(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
     if viewer and viewer.role != 'MEDIATOR' and viewer.id != sess.user_id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
-    return await run_in_threadpool(run_session_validations, db, session_id)
+    return run_session_validations(db, session_id)
 
 @router.post("/{session_id}/force_finalize", response_model=SessionOperationResult)
-async def force_finalize(
+def force_finalize(
     session_id: int,
     request: ForceFinalizeRequest,
     db: Session = Depends(get_db),
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
     if current_user.role != "MEDIATOR":
         raise HTTPException(status_code=403, detail=SessionErrorMessages.MEDIATOR_OVERRIDE_FORBIDDEN)
     
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_by_id(session_id)
+    repo = SessionRepository(db)
+    sess = repo.get_by_id(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
 
@@ -367,19 +355,15 @@ async def force_finalize(
             f"reason:{request.reason or '-'};issues:{issue_codes or '-'}"
         ).encode("utf-8")
 
-    def _sync_force_finalize():
-        res = runtime.finalize_with_audit(
-            db,
-            session_id,
-            actor_email=current_user.email,
-            action="FORCE_FINALIZE_SESSION",
-            build_payload=_payload_builder_override,
-            skip_validation=True,
-        )
-        db.commit()
-        return res
-
-    result = await run_in_threadpool(_sync_force_finalize)
+    result = runtime.finalize_with_audit(
+        db,
+        session_id,
+        actor_email=current_user.email,
+        action="FORCE_FINALIZE_SESSION",
+        build_payload=_payload_builder_override,
+        skip_validation=True,
+    )
+    db.commit()
 
     combination = result.get("combination")
     lfi = result.get("lfi")
@@ -404,76 +388,72 @@ async def force_finalize(
 
 
 @router.post("/{session_id}/response", response_model=SingleItemResponse)
-async def submit_single_response(
+def submit_single_response(
     session_id: int,
     payload: SingleItemResponsePayload,
     db: Session = Depends(get_db),
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Real-time submission of a single item response (Walking Skeleton).
     Maps dimension codes (CE, RO, AC, AE) to choice IDs and submits to runtime.
     """
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_for_user(session_id, current_user.id)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
 
-    def _sync_submit_single():
-        # 1. Fetch choices for the item to map Dimension -> Choice ID
-        choices = db.query(ItemChoice).filter(ItemChoice.item_id == payload.item_id).all()
-        if not choices:
-            raise HTTPException(status_code=404, detail=f"Item {payload.item_id} not found or has no choices")
+    # 1. Fetch choices for the item to map Dimension -> Choice ID
+    choices = db.query(ItemChoice).filter(ItemChoice.item_id == payload.item_id).all()
+    if not choices:
+        raise HTTPException(status_code=404, detail=f"Item {payload.item_id} not found or has no choices")
 
-        # 2. Map response_map (Dimension -> Rank) to ranks (Choice ID -> Rank)
-        ranks = {}
-        for choice in choices:
-            # choice.learning_mode is an Enum (CE, RO, AC, AE)
-            mode_code = choice.learning_mode.name if hasattr(choice.learning_mode, "name") else str(choice.learning_mode)
-            if mode_code in payload.response_map:
-                ranks[choice.id] = payload.response_map[mode_code]
-        
-        if len(ranks) != 4:
-            raise HTTPException(status_code=400, detail="Could not map all 4 dimensions to choices for this item")
+    # 2. Map response_map (Dimension -> Rank) to ranks (Choice ID -> Rank)
+    ranks = {}
+    for choice in choices:
+        # choice.learning_mode is an Enum (CE, RO, AC, AE)
+        mode_code = choice.learning_mode.name if hasattr(choice.learning_mode, "name") else str(choice.learning_mode)
+        if mode_code in payload.response_map:
+            ranks[choice.id] = payload.response_map[mode_code]
+    
+    if len(ranks) != 4:
+        raise HTTPException(status_code=400, detail="Could not map all 4 dimensions to choices for this item")
 
-        # 3. Construct runtime payload
-        runtime_payload = {
-            "kind": "item",
-            "item_id": payload.item_id,
-            "ranks": ranks,
-        }
+    # 3. Construct runtime payload
+    runtime_payload = {
+        "kind": "item",
+        "item_id": payload.item_id,
+        "ranks": ranks,
+    }
 
-        # 4. Submit to runtime
-        runtime.submit_payload(db, session_id, runtime_payload)
+    # 4. Submit to runtime
+    runtime.submit_payload(db, session_id, runtime_payload)
 
-        # 5. Calculate progress (Simple approximation: count distinct items responded / 12)
-        # This is a lightweight query
-        responded_count = (
-            db.query(UserResponse.item_id)
-            .filter(UserResponse.session_id == session_id)
-            .distinct()
-            .count()
-        )
-        progress = min(100.0, (responded_count / 12.0) * 100.0)
-        return SingleItemResponse(status="synced", progress=progress)
+    # 5. Calculate progress (Simple approximation: count distinct items responded / 12)
+    # This is a lightweight query
+    responded_count = (
+        db.query(UserResponse.item_id)
+        .filter(UserResponse.session_id == session_id)
+        .distinct()
+        .count()
+    )
+    progress = min(100.0, (responded_count / 12.0) * 100.0)
+    return SingleItemResponse(status="synced", progress=progress)
 
-    return await run_in_threadpool(_sync_submit_single)
 
 @router.patch("/{session_id}/responses", status_code=204)
-async def upsert_session_responses(
+def upsert_session_responses(
     session_id: int,
     payload: list[AssessmentItemResponsePayload],
     db: Session = Depends(get_db),
-    async_db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
-    repo = AsyncSessionRepository(async_db)
-    sess = await repo.get_for_user(session_id, current_user.id)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
 
-    await upsert_responses_async(async_db, session_id, payload)
+    upsert_responses(db, session_id, payload)
     return Response(status_code=204)
 
 

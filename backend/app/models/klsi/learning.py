@@ -41,7 +41,7 @@ class ScaleScore(Base):
     AC_raw: Mapped[int] = mapped_column(Integer)
     AE_raw: Mapped[int] = mapped_column(Integer)
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="scale_score")
+    session: Mapped[AssessmentSession] = relationship(back_populates="scale_score")
 
 
 class CombinationScore(Base):
@@ -60,7 +60,7 @@ class CombinationScore(Base):
     balance_acce: Mapped[int] = mapped_column(Integer)
     balance_aero: Mapped[int] = mapped_column(Integer)
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="combination_score")
+    session: Mapped[AssessmentSession] = relationship(back_populates="combination_score")
 
 
 class LearningStyleType(Base):
@@ -94,7 +94,7 @@ class UserLearningStyle(Base):
     kite_coordinates: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     style_intensity_score: Mapped[int | None] = mapped_column(Integer)
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="learning_style")
+    session: Mapped[AssessmentSession] = relationship(back_populates="learning_style")
     style_type: Mapped[LearningStyleType] = relationship()
 
 
@@ -129,7 +129,7 @@ class LFIContextScore(Base):
         Index("ix_lfi_context_scores_session", "session_id"),
     )
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="lfi_context_scores")
+    session: Mapped[AssessmentSession] = relationship(back_populates="lfi_context_scores")
 
 
 class LearningFlexibilityIndex(Base):
@@ -145,7 +145,7 @@ class LearningFlexibilityIndex(Base):
     flexibility_level: Mapped[str | None] = mapped_column(String(20))
     norm_group_used: Mapped[str | None] = mapped_column(String(50))
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="lfi_index")
+    session: Mapped[AssessmentSession] = relationship(back_populates="lfi_index")
 
 
 class BackupLearningStyle(Base):
@@ -160,7 +160,7 @@ class BackupLearningStyle(Base):
     contexts_used: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     percentage: Mapped[int | None] = mapped_column(Integer)
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="backup_styles")
+    session: Mapped[AssessmentSession] = relationship(back_populates="backup_styles")
     style_type: Mapped[LearningStyleType] = relationship()
 
 
@@ -180,7 +180,7 @@ class ScaleProvenance(Base):
     norm_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     truncated: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    session: Mapped["AssessmentSession"] = relationship(back_populates="scale_provenances")
+    session: Mapped[AssessmentSession] = relationship(back_populates="scale_provenances")
 
     __table_args__ = (
         UniqueConstraint("session_id", "scale_code", name="uq_scale_provenance_session_scale"),

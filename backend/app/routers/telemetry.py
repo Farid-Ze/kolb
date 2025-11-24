@@ -1,7 +1,6 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.concurrency import run_in_threadpool
 from pydantic import Field
 from sqlalchemy.orm import Session
 
@@ -45,7 +44,7 @@ class ActionEvent(CamelModel):
 
 
 @router.post("/guide-open", status_code=202)
-async def record_guide_open(event: GuideOpenEvent):
+def record_guide_open(event: GuideOpenEvent):
     if not event.guide_id.strip():
         raise HTTPException(status_code=422, detail="guide_id cannot be blank")
 
@@ -63,7 +62,7 @@ async def record_guide_open(event: GuideOpenEvent):
 
 
 @router.post("/page-view", status_code=202)
-async def record_page_view(event: PageViewEvent):
+def record_page_view(event: PageViewEvent):
     inc_counter("page.view.total")
     normalized_path = event.page_path.strip().replace(" ", "_")
     inc_counter(f"page.view.path.{normalized_path}")
@@ -77,7 +76,7 @@ async def record_page_view(event: PageViewEvent):
 
 
 @router.post("/action", status_code=202)
-async def record_action(event: ActionEvent):
+def record_action(event: ActionEvent):
     inc_counter("action.total")
     inc_counter(f"action.type.{event.action_type}")
     inc_counter(f"action.target.{event.action_target}")
@@ -88,18 +87,22 @@ async def record_action(event: ActionEvent):
 
 
 @router.post("/assessment", status_code=202)
-async def record_assessment_telemetry(
+def record_assessment_telemetry(
     payload: AssessmentTelemetryPayload,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    def _record():
-        repo = SessionRepository(db)
-        session = repo.get_for_user(payload.session_id, current_user.id)
-        if not session or session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
-
-        telemetry_service.record_assessment_item_event(db, payload)
-        return {"ok": True}
-
-    return await run_in_threadpool(_record)
+    repo = SessionRepository(db)
+    session = repo.get_for_user(payload.session_id, current_user.id)
+    if not session or session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
+    
+    telemetry_service.record_assessment_telemetry(
+        db,
+        session_id=payload.session_id,
+        blur_events=payload.blur_events,
+        focus_events=payload.focus_events,
+        device_info=payload.device_info,
+    )
+    db.commit()
+    return {"ok": True}

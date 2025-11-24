@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -13,7 +11,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     """Register shared HTTP translators for domain-layer exceptions."""
 
     @app.exception_handler(DomainError)
-    async def _handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
+    def _handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
         if isinstance(exc.detail, dict):
             detail_payload: dict[str, Any] = {**exc.detail}
             detail_payload.setdefault("message", exc.message)

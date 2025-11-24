@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Self
 
 from pydantic import Field, model_validator
 
@@ -35,7 +33,7 @@ class ContextRanksWrite(CamelModel):
     AE: int = Field(ge=1, le=4)
 
     @model_validator(mode="after")
-    def _unique_ranks(self) -> "ContextRanksWrite":  # noqa: D401
+    def _unique_ranks(self) -> Self:  # noqa: D401
         """Ensure forced-choice permutation of ranks 1..4."""
         ranks = {self.CE, self.RO, self.AC, self.AE}
         if ranks != {1, 2, 3, 4}:
@@ -48,7 +46,7 @@ class ScorePreviewRequest(CamelModel):
     contexts: List[ContextRanksWrite]
 
     @model_validator(mode="after")
-    def _validate_context_count(self) -> "ScorePreviewRequest":
+    def _validate_context_count(self) -> Self:
         if len(self.contexts) != 8:
             raise ValueError(ValidationMessages.CONTEXT_COUNT_REQUIRED)
         return self

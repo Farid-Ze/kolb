@@ -45,7 +45,8 @@ def db_setup():
 
 @pytest.fixture()
 def client(db_setup):
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 @pytest.fixture()
 def session(db_setup):

@@ -1,10 +1,10 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
-from app.db.database import get_async_db
-from app.services.assessments import get_latest_completed_assessment_summary_async
+from app.db.database import get_db
+from app.services.assessments import get_latest_completed_assessment_summary
 from app.services.security import get_current_user
 from app.schemas.base import CamelModel
 
@@ -27,8 +27,8 @@ class AssessmentSessionResponse(CamelModel):
     results: AssessmentResults
 
 @router.get("/latest", response_model=Optional[AssessmentSessionResponse])
-async def get_latest_assessment(
-    db: AsyncSession = Depends(get_async_db),
+def get_latest_assessment(
+    db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
     """
@@ -45,7 +45,7 @@ async def get_latest_assessment(
     Raises:
         HTTPException(401): If the user is not authenticated.
     """
-    payload = await get_latest_completed_assessment_summary_async(db, current_user.id)
+    payload = get_latest_completed_assessment_summary(db, current_user.id)
     if not payload:
         return None
 

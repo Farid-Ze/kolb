@@ -1,11 +1,9 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db, get_async_db
+from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import SessionErrorMessages
 from app.models.klsi.user import User
@@ -23,15 +21,15 @@ from app.services.security import get_current_user
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-async def try_get_current_user(
+def try_get_current_user(
     authorization: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_async_db)
+    db: Session = Depends(get_db)
 ) -> User | None:
     """Attempt to resolve current user; return None on auth errors."""
     if not authorization:
         return None
     try:
-        return await get_current_user(authorization, db)
+        return get_current_user(authorization, db)
     except HTTPException as exc:
         if exc.status_code == 401:
             return None
@@ -39,24 +37,22 @@ async def try_get_current_user(
 
 
 @router.get("/self", response_model=list[ReportSummaryPayload])
-async def list_self_reports(
+def list_self_reports(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await run_in_threadpool(list_report_summaries, db, user_id=current_user.id)
+    return list_report_summaries(db, user_id=current_user.id)
 
 
 @router.get("/{session_id}", response_model=ReportPayload)
-async def get_report(
+def get_report(
     session_id: int,
     db: Session = Depends(get_db),
     viewer: User | None = Depends(try_get_current_user)
 ):
-    def _get_session():
-        repo = SessionRepository(db)
-        return repo.get_by_id(session_id)
+    repo = SessionRepository(db)
+    session = repo.get_by_id(session_id)
 
-    session = await run_in_threadpool(_get_session)
     if not session:
         raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
     
@@ -71,20 +67,20 @@ async def get_report(
             raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
     
     try:
-        data = await run_in_threadpool(build_report, db, session_id, viewer_role=viewer_role)
+        data = build_report(db, session_id, viewer_role=viewer_role)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
     return as_report_payload(data)
 
 
 @router.post("/{session_id}/share", response_model=ReportShareOut)
-async def create_report_share(
+def create_report_share(
     session_id: int,
     payload: ReportShareCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    def _create_share():
+    try:
         service = ReportShareService(db)
         share, token = service.create_share(
             session_id=session_id,
@@ -94,10 +90,6 @@ async def create_report_share(
             note=payload.note,
         )
         db.commit()
-        return share, token
-
-    try:
-        share, token = await run_in_threadpool(_create_share)
     except SharePermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except ShareValidationError as exc:
@@ -116,12 +108,12 @@ async def create_report_share(
 
 
 @router.get("/shared/{share_token}", response_model=ReportPayload)
-async def get_shared_report(
+def get_shared_report(
     share_token: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    def _resolve_and_build():
+    try:
         service = ReportShareService(db)
         share = service.resolve_share(share_token=share_token, viewer=current_user)
         data: dict[str, Any] = build_report(db, share.session_id, viewer_role="MEDIATOR")
@@ -136,10 +128,6 @@ async def get_shared_report(
             "note": share.note,
         }
         db.commit()
-        return data
-
-    try:
-        data = await run_in_threadpool(_resolve_and_build)
     except SharePermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except ShareValidationError as exc:

@@ -12,7 +12,6 @@ from sqlalchemy.exc import SQLAlchemyError
 import logging
 from sqlalchemy.pool import QueuePool, StaticPool
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 
@@ -224,66 +223,7 @@ def get_db():
         yield session
 
 
-def _build_async_engine() -> AsyncEngine:
-  """Build an async SQLAlchemy engine for future async routes.
 
-  Uses the same DATABASE_URL but expects an async driver when pointing to PostgreSQL
-  (e.g. postgresql+asyncpg://). This function is side-by-side with the sync engine
-  so existing code using `get_db` continues to work unchanged.
-  """
-  # Ensure we use the async driver for postgresql
-  db_url = settings.database_url
-  if db_url.startswith("postgresql://"):
-      db_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
-  
-  url: URL = make_url(db_url)
-  kwargs: dict[str, object] = {
-      "echo": False,
-      "future": True,
-      "pool_size": settings.db_pool_size,
-      "max_overflow": settings.db_max_overflow,
-  }
-
-  if url.get_backend_name() == "sqlite":
-      # Ensure we use the async driver for sqlite
-      if "aiosqlite" not in url.drivername:
-          url = url.set(drivername="sqlite+aiosqlite")
-
-      # For sqlite, async support would require aiosqlite; keep behaviour simple
-      connect_args: dict[str, object] = {"check_same_thread": False}
-      database = url.database or ""
-      if database.startswith("file:"):
-          connect_args["uri"] = True
-      kwargs["connect_args"] = connect_args
-      # SQLite doesn't support pool_size/max_overflow in the same way or might not need it for this setup
-      kwargs.pop("pool_size", None)
-      kwargs.pop("max_overflow", None)
-  
-  async_engine_instance: AsyncEngine = create_async_engine(str(url), **kwargs)
-
-  global ASYNC_ENGINE_CONFIG_SNAPSHOT
-  ASYNC_ENGINE_CONFIG_SNAPSHOT = {
-      "url": str(async_engine_instance.url),
-      "echo": kwargs.get("echo"),
-  }
-  logger.info("db_async_engine_config_snapshot", extra={"structured_data": ASYNC_ENGINE_CONFIG_SNAPSHOT})
-
-  return async_engine_instance
-
-
-async_engine: AsyncEngine = _build_async_engine()
-AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(async_engine, expire_on_commit=False)
-
-
-async def get_async_db():
-  """Async DB dependency for new async routes.
-
-  This does not replace `get_db`; existing sync routes keep using the
-  threadpool-safe synchronous Session. New `async def` routes can depend
-  on this to perform fully async DB I/O.
-  """
-  async with AsyncSessionLocal() as session:
-      yield session
 
 
 @contextmanager

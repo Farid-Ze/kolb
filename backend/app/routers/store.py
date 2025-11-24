@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -11,37 +10,37 @@ from app.services.store_service import StoreServiceError, store_service
 router = APIRouter(prefix="/store", tags=["store"])
 
 @router.get("/products", response_model=list[ProductOut])
-async def list_products(
+def list_products(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return await run_in_threadpool(store_service.list_products, db, current_user.id)
+    return store_service.list_products(db, current_user.id)
 
 @router.get("/products/{product_id}", response_model=ProductOut)
-async def get_product(
+def get_product(
     product_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    product = await run_in_threadpool(store_service.get_product_details, db, current_user.id, product_id)
+    product = store_service.get_product_details(db, current_user.id, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
 
 @router.post("/checkout", response_model=StoreOrderOut)
-async def checkout(
+def checkout(
     payload: CheckoutRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        order = await run_in_threadpool(store_service.create_order, db, current_user.id, payload)
+        order = store_service.create_order(db, current_user.id, payload)
     except StoreServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     return order
 
 
 @router.get("/community-fund", response_model=CommunityFundSummary)
-async def community_fund(db: Session = Depends(get_db)):
-    return await run_in_threadpool(store_service.get_community_fund_summary, db)
+def community_fund(db: Session = Depends(get_db)):
+    return store_service.get_community_fund_summary(db)

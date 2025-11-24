@@ -1,6 +1,6 @@
 from app.db.repositories.normative import NormativeConversionRepository, NormativeConversionRow
 from app.db.repositories.protocols import NormConversionReader
-from app.db.repositories.sessions import SessionRepository, AsyncSessionRepository
+from app.db.repositories.sessions import SessionRepository
 from app.db.repositories.team import (
     TeamRepository,
     TeamMemberRepository,
@@ -13,13 +13,11 @@ from app.db.repositories.research import (
     ReliabilityRepository,
     ValidityRepository,
 )
-from app.db.repositories.user import UserRepository, AsyncUserRepository
+from app.db.repositories.user import UserRepository
 from app.db.repositories.report_share import ReportShareRepository
 from app.db.repositories.assessment import (
     AssessmentItemRepository,
-    AsyncAssessmentItemRepository,
     UserResponseRepository,
-    AsyncUserResponseRepository,
     LFIContextRepository,
     ItemRankAggregate,
 )
@@ -34,7 +32,6 @@ __all__ = [
     "NormativeConversionRow",
     "NormConversionReader",
     "SessionRepository",
-    "AsyncSessionRepository",
     "TeamRepository",
     "TeamMemberRepository",
     "TeamRollupRepository",
@@ -44,12 +41,9 @@ __all__ = [
     "ReliabilityRepository",
     "ValidityRepository",
     "UserRepository",
-    "AsyncUserRepository",
     "ReportShareRepository",
     "AssessmentItemRepository",
-    "AsyncAssessmentItemRepository",
     "UserResponseRepository",
-    "AsyncUserResponseRepository",
     "LFIContextRepository",
     "ItemRankAggregate",
     "InstrumentRepository",
