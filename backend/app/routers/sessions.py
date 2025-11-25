@@ -1,4 +1,3 @@
-import asyncio
 from datetime import timezone
 from email.utils import format_datetime
 
@@ -29,7 +28,7 @@ from app.services.assessments import upsert_responses
 from app.core.config import settings
 from app.core.metrics import inc_counter
 from app.i18n.id_messages import SessionErrorMessages
-from app.services.engine_async import AsyncEngineSessionService
+from app.services.engine import EngineSessionService
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -86,18 +85,18 @@ def _sunset_header_value() -> str | None:
     return format_datetime(aware.astimezone(timezone.utc))
 
 @router.post("/start", response_model=SessionStartResponse)
-async def start_session(
+def start_session(
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    session = await service.start_session(
+    service = EngineSessionService(db)
+    session = service.start_session(
         current_user, instrument_code="KLSI", instrument_version="4.0"
     )
     return SessionStartResponse(session_id=session.id)
 
 @router.get("/{session_id}/items", response_model=list)
-async def get_items(
+def get_items(
     session_id: int, 
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -110,8 +109,8 @@ async def get_items(
     - Enforces strict ownership: users can only access their own sessions.
     - Returns 403 Forbidden if accessing another user's session.
     """
-    service = AsyncEngineSessionService(db)
-    delivery = await service.delivery_package(session_id, current_user)
+    service = EngineSessionService(db)
+    delivery = service.delivery_package(session_id, current_user)
     items = delivery.get("items", [])
     return [
         {
@@ -126,7 +125,7 @@ async def get_items(
     ]
 
 @router.post("/{session_id}/submit_item", response_model=OperationStatus, deprecated=True)
-async def submit_item(
+def submit_item(
     session_id: int, 
     item_id: int, 
     ranks: dict, 
@@ -150,12 +149,12 @@ async def submit_item(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     
-    service = AsyncEngineSessionService(db)
-    await service.submit_interaction(session_id, current_user, submission.runtime_payload())
+    service = EngineSessionService(db)
+    service.submit_interaction(session_id, current_user, submission.runtime_payload())
     return OperationStatus()
 
 @router.post("/{session_id}/submit_context", response_model=OperationStatus, deprecated=True)
-async def submit_context(
+def submit_context(
     session_id: int,
     context_name: str,
     CE: int,
@@ -189,13 +188,13 @@ async def submit_context(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     
-    service = AsyncEngineSessionService(db)
-    await service.submit_interaction(session_id, current_user, context_submission.runtime_payload())
+    service = EngineSessionService(db)
+    service.submit_interaction(session_id, current_user, context_submission.runtime_payload())
     return OperationStatus()
 
 
 @router.post("/{session_id}/submit_all_responses", response_model=SessionOperationResult)
-async def submit_all_responses(
+def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
     db: Any = Depends(get_db),
@@ -204,76 +203,73 @@ async def submit_all_responses(
     """Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,
     followed by finalize. This reduces chattiness (22 calls → 1) and ensures atomicity.
     """
-    service = AsyncEngineSessionService(db)
+    service = EngineSessionService(db)
     # Service handles validation, persistence, finalization, and error mapping (via DomainError)
-    result = await service.submit_full_batch(session_id, current_user, payload)
+    result = service.submit_full_batch(session_id, current_user, payload)
     return SessionOperationResult(result=result)
 
 @router.post("/{session_id}/finalize", response_model=SessionOperationResult)
-async def finalize(
+def finalize(
     session_id: int, 
     db: Any = Depends(get_db), 
     current_user: Any = Depends(get_current_user)
 ):
     # Explicit guard: require all 8 LFI contexts present before finalize,
     # even if engine validation would catch it. Gives clearer 400 with detail.
-    validation_snapshot = await asyncio.to_thread(run_session_validations, db, session_id)
+    validation_snapshot = run_session_validations(db, session_id)
     if not validation_snapshot.get("ready", False):
         issues = validation_snapshot.get("issues", [])
         raise HTTPException(status_code=400, detail={"issues": issues, "diagnostics": validation_snapshot.get("diagnostics")})
     
-    service = AsyncEngineSessionService(db)
-    result = await service.finalize_session(session_id, current_user)
+    service = EngineSessionService(db)
+    result = service.finalize_session(session_id, current_user)
     return SessionOperationResult(result=result)
 
 @router.get("/{session_id}/validation", response_model=dict)
-async def session_validation(
+def session_validation(
     session_id: int, 
     db: Any = Depends(get_db), 
     authorization: str | None = Header(default=None)
 ):
     """Mengembalikan status kelengkapan sesi (item ipsatif & konteks LFI)."""
-    def _sync_logic():
-        # Autentikasi opsional: jika token ada pastikan pemilik sesi atau mediator
-        viewer: Any | None = None
-        if authorization:
-            try:
-                parts = authorization.split(" ")
-                if len(parts) == 2 and parts[0].lower() == "bearer":
-                    token = parts[1]
-                    payload = decode_access_token(token)
-                    user_id = int(payload["sub"])
-                    from app.db.repositories.user import UserRepository
-                    user_repo = UserRepository(db)
-                    viewer = user_repo.get(user_id)
-            except Exception:
-                viewer = None
-                
-        repo = SessionRepository(db)
-        sess = repo.get_by_id(session_id)
-        if not sess:
-            raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
-        if viewer and viewer.role != 'MEDIATOR' and viewer.id != sess.user_id:
-            raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
-        return run_session_validations(db, session_id)
-
-    return await asyncio.to_thread(_sync_logic)
+    # Autentikasi opsional: jika token ada pastikan pemilik sesi atau mediator
+    viewer: Any | None = None
+    if authorization:
+        try:
+            parts = authorization.split(" ")
+            if len(parts) == 2 and parts[0].lower() == "bearer":
+                token = parts[1]
+                payload = decode_access_token(token)
+                user_id = int(payload["sub"])
+                from app.db.repositories.user import UserRepository
+                user_repo = UserRepository(db)
+                viewer = user_repo.get(user_id)
+        except Exception:
+            viewer = None
+            
+    repo = SessionRepository(db)
+    sess = repo.get_by_id(session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
+    if viewer and viewer.role != 'MEDIATOR' and viewer.id != sess.user_id:
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
+    return run_session_validations(db, session_id)
 
 @router.post("/{session_id}/force_finalize", response_model=SessionOperationResult)
-async def force_finalize(
+def force_finalize(
     session_id: int,
     request: ForceFinalizeRequest,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
+    service = EngineSessionService(db)
     # Service handles permission check, logic, and payload transformation
-    result = await service.force_finalize(session_id, current_user, reason=request.reason)
+    result = service.force_finalize(session_id, current_user, reason=request.reason)
     return SessionOperationResult(result=result)
 
 
 @router.post("/{session_id}/response", response_model=SingleItemResponse)
-async def submit_single_response(
+def submit_single_response(
     session_id: int,
     payload: SingleItemResponsePayload,
     db: Any = Depends(get_db),
@@ -283,29 +279,26 @@ async def submit_single_response(
     Real-time submission of a single item response (Walking Skeleton).
     Maps dimension codes (CE, RO, AC, AE) to choice IDs and submits to runtime.
     """
-    service = AsyncEngineSessionService(db)
-    result = await service.submit_single_response(
+    service = EngineSessionService(db)
+    result = service.submit_single_response(
         session_id, current_user, payload.item_id, payload.response_map
     )
     return SingleItemResponse(**result)
 
 
 @router.patch("/{session_id}/responses", status_code=204)
-async def upsert_session_responses(
+def upsert_session_responses(
     session_id: int,
     payload: list[AssessmentItemResponsePayload],
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    def _sync_logic():
-        repo = SessionRepository(db)
-        sess = repo.get_for_user(session_id, current_user.id)
-        if not sess or sess.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
+    repo = SessionRepository(db)
+    sess = repo.get_for_user(session_id, current_user.id)
+    if not sess or sess.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
 
-        upsert_responses(db, session_id, payload)
-    
-    await asyncio.to_thread(_sync_logic)
+    upsert_responses(db, session_id, payload)
     return Response(status_code=204)
 
 

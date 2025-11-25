@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from typing import Any, Literal, Optional
@@ -31,7 +30,7 @@ from app.core.metrics import (
     get_last_runs,
     inc_counter,
 )
-from app.services.engine_async import AsyncEngineSessionService
+from app.services.engine import EngineSessionService
 from app.i18n.id_messages import AuthorizationMessages, EngineMessages
 
 def _format_sunset(value: datetime | None) -> str | None:
@@ -44,7 +43,7 @@ router = APIRouter(prefix="/engine", tags=["engine"])
 
 
 @router.get("/sessions/", response_model=list[SessionListResponse])
-async def list_sessions(
+def list_sessions(
     skip: int = 0,
     limit: int = 100,
     current_user: Any = Depends(get_current_user),
@@ -52,7 +51,7 @@ async def list_sessions(
 ):
     """List all assessment sessions for the current user."""
     repo = SessionRepository(db)
-    sessions = await asyncio.to_thread(repo.get_by_user, current_user.id, skip=skip, limit=limit)
+    sessions = repo.get_by_user(current_user.id, skip=skip, limit=limit)
     return sessions
 
 
@@ -114,13 +113,13 @@ def get_instrument_locale_resource_endpoint(
 
 
 @router.post("/sessions/start", response_model=SessionStartResponse)
-async def start_engine_session(
+def start_engine_session(
     payload: StartSessionRequest,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    session = await service.start_session(
+    service = EngineSessionService(db)
+    session = service.start_session(
         current_user,
         instrument_code=payload.instrument_code,
         instrument_version=payload.instrument_version,
@@ -129,55 +128,55 @@ async def start_engine_session(
 
 
 @router.get("/sessions/{session_id}/delivery", response_model=dict)
-async def get_delivery(
+def get_delivery(
     session_id: int,
     locale: str | None = None,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    return await service.delivery_package(session_id, current_user, locale=locale)
+    service = EngineSessionService(db)
+    return service.delivery_package(session_id, current_user, locale=locale)
 
 
 @router.get("/sessions/{session_id}/items", response_model=dict)
-async def get_session_items(
+def get_session_items(
     session_id: int,
     locale: str | None = None,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    return await service.session_state(session_id, current_user, locale=locale)
+    service = EngineSessionService(db)
+    return service.session_state(session_id, current_user, locale=locale)
 
 
 @router.post("/sessions/{session_id}/items", response_model=SessionOperationResult)
-async def autosave_session_items(
+def autosave_session_items(
     session_id: int,
     payload: SessionAutosavePayload,
     locale: str | None = None,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    result = await service.autosave_responses(session_id, current_user, payload, locale=locale)
+    service = EngineSessionService(db)
+    result = service.autosave_responses(session_id, current_user, payload, locale=locale)
     return SessionOperationResult(result=result)
 
 
 @router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult)
-async def submit_all_responses(
+def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically (Sync)."""
-    service = AsyncEngineSessionService(db)
-    result = await service.submit_full_batch(session_id, current_user, payload)
+    service = EngineSessionService(db)
+    result = service.submit_full_batch(session_id, current_user, payload)
     return SessionOperationResult(result=result)
 
 
 @router.post("/sessions/{session_id}/interactions", response_model=OperationStatus)
-async def submit_interaction(
+def submit_interaction(
     session_id: int,
     payload: SubmissionPayload,
     response: Response,
@@ -187,8 +186,8 @@ async def submit_interaction(
     """Backward-compatible single interaction submission (deprecated).
     Retained to support existing clients and tests; prefer submit_all.
     """
-    service = AsyncEngineSessionService(db)
-    await service.ensure_access(session_id, current_user)
+    service = EngineSessionService(db)
+    service.ensure_access(session_id, current_user)
     # Deprecation telemetry
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = f"</engine/sessions/{session_id}/submit_all>; rel=successor-version"
@@ -197,7 +196,7 @@ async def submit_interaction(
     if sunset_header:
         response.headers["Sunset"] = sunset_header
     inc_counter("deprecated.engine.interactions")
-    await service.submit_interaction(session_id, current_user, payload.model_dump(exclude_unset=True))
+    service.submit_interaction(session_id, current_user, payload.model_dump(exclude_unset=True))
     return OperationStatus()
 
 
@@ -227,45 +226,45 @@ def engine_metrics(
 
 
 @router.post("/sessions/{session_id}/finalize", response_model=SessionOperationResult)
-async def finalize_session(
+def finalize_session(
     session_id: int,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    result = await service.finalize_session(session_id, current_user)
+    service = EngineSessionService(db)
+    result = service.finalize_session(session_id, current_user)
     return SessionOperationResult(result=result)
 
 
 @router.get("/sessions/{session_id}/validation", response_model=dict)
-async def validation_snapshot(
+def validation_snapshot(
     session_id: int,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Expose run_session_validations snapshot via engine router."""
-    service = AsyncEngineSessionService(db)
-    return await service.validation_snapshot(session_id, current_user)
+    service = EngineSessionService(db)
+    return service.validation_snapshot(session_id, current_user)
 
 
 @router.get("/sessions/{session_id}/report", response_model=ReportPayload)
-async def engine_report(
+def engine_report(
     session_id: int,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    report = await service.build_report(session_id, current_user)
+    service = EngineSessionService(db)
+    report = service.build_report(session_id, current_user)
     return as_report_payload(report)
 
 
 @router.post("/sessions/{session_id}/force-finalize", response_model=SessionOperationResult)
-async def force_finalize_session(
+def force_finalize_session(
     session_id: int,
     request: ForceFinalizeRequest,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    service = AsyncEngineSessionService(db)
-    result = await service.force_finalize(session_id, current_user, reason=request.reason)
+    service = EngineSessionService(db)
+    result = service.force_finalize(session_id, current_user, reason=request.reason)
     return SessionOperationResult(result=result)

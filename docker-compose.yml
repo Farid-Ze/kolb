@@ -21,12 +21,14 @@ services:
   api:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.experimental
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg2://klsi:klsi@db:5432/klsi
+      # Use psycopg 3 driver
+      DATABASE_URL: postgresql+psycopg://klsi:klsi@db:5432/klsi
       JWT_SECRET_KEY: change-me
       ENV: prod
+      PYTHON_GIL: 0
     depends_on:
       db:
         condition: service_healthy
