@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Assessment and instrument plugin registry.
 
 This module provides thread-safe registries for:

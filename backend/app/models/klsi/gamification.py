@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -22,8 +20,8 @@ class GamificationBadge(Base):
     icon_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     rarity: Mapped[BadgeRarity] = mapped_column(Enum(BadgeRarity), default=BadgeRarity.common)
 
-    achievements: Mapped[list[UserAchievement]] = relationship(back_populates="badge")
-    store_products: Mapped[list[StoreProduct]] = relationship(back_populates="required_badge")
+    achievements: Mapped[list["UserAchievement"]] = relationship(back_populates="badge")
+    store_products: Mapped[list["StoreProduct"]] = relationship(back_populates="required_badge")
 
 
 class UserAchievement(Base):
@@ -34,8 +32,8 @@ class UserAchievement(Base):
     badge_id: Mapped[int] = mapped_column(ForeignKey("gamification_badges.id"))
     awarded_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    user: Mapped[User] = relationship(back_populates="achievements")
-    badge: Mapped[GamificationBadge] = relationship(back_populates="achievements")
+    user: Mapped["User"] = relationship(back_populates="achievements")
+    badge: Mapped["GamificationBadge"] = relationship(back_populates="achievements")
 
     __table_args__ = (
         UniqueConstraint("user_id", "badge_id", name="uq_user_achievements_user_badge"),

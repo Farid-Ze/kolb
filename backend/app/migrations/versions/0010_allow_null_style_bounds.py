@@ -4,8 +4,6 @@ Revision ID: 0010_allow_null_style_bounds
 Revises: 0009_enforce_lfi_context_catalog
 Create Date: 2025-11-10
 """
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 

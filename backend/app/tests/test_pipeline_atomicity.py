@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pytest
 from collections.abc import Iterator
 from itertools import count

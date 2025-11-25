@@ -4,8 +4,6 @@ Revision ID: 0013_add_instruments
 Revises: 0012_backfill_scale_provenance
 Create Date: 2025-11-10
 """
-from __future__ import annotations
-
 from datetime import datetime, timezone
 
 from alembic import op

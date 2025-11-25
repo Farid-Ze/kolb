@@ -6,8 +6,6 @@ with the Kolb & Kolb (2013) specification and the repository's governance
 rules for psychometric parameters.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple

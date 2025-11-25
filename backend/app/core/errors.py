@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Domain-specific exception hierarchy for the KLSI engine.
 
 All error messages are centralized in app.i18n.id_messages for consistent localization.

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.assessments.klsi_v4 import logic
 from app.engine.norms.value_objects import PercentileResult
 

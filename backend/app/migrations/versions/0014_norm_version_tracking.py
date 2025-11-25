@@ -4,8 +4,6 @@ Revision ID: 0014_norm_version_tracking
 Revises: 0013_add_instruments
 Create Date: 2025-11-10
 """
-from __future__ import annotations
-
 import json
 from typing import Any, Dict
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
@@ -34,19 +32,19 @@ class AssessmentSession(Base):
     is_finalized: Mapped[bool] = mapped_column(Boolean, default=False)
     results_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
-    user: Mapped[User] = relationship(back_populates="sessions")
-    instrument: Mapped[Optional[Instrument]] = relationship(back_populates="sessions")
-    responses: Mapped[list[UserResponse]] = relationship(back_populates="session")
-    item_responses: Mapped[list[AssessmentItemResponse]] = relationship(back_populates="session")
-    scale_score: Mapped[Optional[ScaleScore]] = relationship(back_populates="session", uselist=False)
-    combination_score: Mapped[Optional[CombinationScore]] = relationship(back_populates="session", uselist=False)
-    learning_style: Mapped[Optional[UserLearningStyle]] = relationship(back_populates="session", uselist=False)
-    lfi_index: Mapped[Optional[LearningFlexibilityIndex]] = relationship(back_populates="session", uselist=False)
-    percentile_score: Mapped[Optional[PercentileScore]] = relationship(back_populates="session", uselist=False)
-    backup_styles: Mapped[list[BackupLearningStyle]] = relationship(back_populates="session")
-    lfi_context_scores: Mapped[list[LFIContextScore]] = relationship(back_populates="session")
-    delta: Mapped[Optional[AssessmentSessionDelta]] = relationship(back_populates="session", uselist=False)
-    scale_provenances: Mapped[list[ScaleProvenance]] = relationship(back_populates="session")
+    user: Mapped["User"] = relationship(back_populates="sessions")
+    instrument: Mapped[Optional["Instrument"]] = relationship(back_populates="sessions")
+    responses: Mapped[list["UserResponse"]] = relationship(back_populates="session")
+    item_responses: Mapped[list["AssessmentItemResponse"]] = relationship(back_populates="session")
+    scale_score: Mapped[Optional["ScaleScore"]] = relationship(back_populates="session", uselist=False)
+    combination_score: Mapped[Optional["CombinationScore"]] = relationship(back_populates="session", uselist=False)
+    learning_style: Mapped[Optional["UserLearningStyle"]] = relationship(back_populates="session", uselist=False)
+    lfi_index: Mapped[Optional["LearningFlexibilityIndex"]] = relationship(back_populates="session", uselist=False)
+    percentile_score: Mapped[Optional["PercentileScore"]] = relationship(back_populates="session", uselist=False)
+    backup_styles: Mapped[list["BackupLearningStyle"]] = relationship(back_populates="session")
+    lfi_context_scores: Mapped[list["LFIContextScore"]] = relationship(back_populates="session")
+    delta: Mapped[Optional["AssessmentSessionDelta"]] = relationship(back_populates="session", uselist=False)
+    scale_provenances: Mapped[list["ScaleProvenance"]] = relationship(back_populates="session")
 
 
 class AssessmentSessionDelta(Base):

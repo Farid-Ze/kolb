@@ -14,8 +14,6 @@ Use these protocols when:
 - Enabling structural type compatibility
 """
 
-from __future__ import annotations
-
 from typing import Any, Literal, Mapping, Protocol, runtime_checkable
 
 __all__ = [

@@ -1,7 +1,5 @@
 """Micro-benchmarks for engine DSL evaluator and KLSI scoring logic."""
 
-from __future__ import annotations
-
 import statistics
 import time
 from dataclasses import dataclass

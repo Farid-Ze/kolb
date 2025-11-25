@@ -6,8 +6,6 @@ concerns satisfies the TODO requirement to isolate supporting infrastructure
 from the core finalize pipeline, making the runtime easier to test and reuse.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Any, Callable, Protocol

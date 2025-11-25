@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .registry import (
     get_instrument_locale_resource,
     get_instrument_spec,

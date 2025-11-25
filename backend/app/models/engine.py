@@ -14,8 +14,6 @@ Non‑negotiables:
 Tables here are SAFE to evolve while we experiment with engine DSL.
 """
 
-from __future__ import annotations
-
 import enum
 from datetime import datetime, timezone
 from typing import Optional

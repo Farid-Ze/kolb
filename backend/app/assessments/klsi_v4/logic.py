@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import date, datetime
 from functools import lru_cache
 from threading import RLock

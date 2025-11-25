@@ -4,8 +4,6 @@ Revision ID: 0026_trinity_constraints
 Revises: 0025_store_commerce_alignment
 Create Date: 2025-11-22
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 

@@ -4,8 +4,6 @@ Revision ID: 0003_add_recommended_indexes
 Revises: 0002_materialized_class_stats
 Create Date: 2025-11-08
 """
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 

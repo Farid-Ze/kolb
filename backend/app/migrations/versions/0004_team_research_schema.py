@@ -4,8 +4,6 @@ Revision ID: 0004_team_research_schema
 Revises: 0003_add_recommended_indexes
 Create Date: 2025-11-08
 """
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect

@@ -4,8 +4,6 @@ Revision ID: 0024_store_orders_and_fund
 Revises: 37aa3d6772e2
 Create Date: 2025-11-22 15:45:00.000000
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -39,12 +37,12 @@ class User(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    sessions: Mapped[list[AssessmentSession]] = relationship(back_populates="user")
-    achievements: Mapped[list[UserAchievement]] = relationship(back_populates="user")
-    challenges: Mapped[list[UserChallenge]] = relationship(back_populates="user")
-    sphere_nodes: Mapped[list[SphereNode]] = relationship(back_populates="user")
-    reflections: Mapped[list[MemoryReflection]] = relationship(back_populates="user")
-    orders: Mapped[list[StoreOrder]] = relationship(back_populates="user")
+    sessions: Mapped[list["AssessmentSession"]] = relationship(back_populates="user")
+    achievements: Mapped[list["UserAchievement"]] = relationship(back_populates="user")
+    challenges: Mapped[list["UserChallenge"]] = relationship(back_populates="user")
+    sphere_nodes: Mapped[list["SphereNode"]] = relationship(back_populates="user")
+    reflections: Mapped[list["MemoryReflection"]] = relationship(back_populates="user")
+    orders: Mapped[list["StoreOrder"]] = relationship(back_populates="user")
 
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only

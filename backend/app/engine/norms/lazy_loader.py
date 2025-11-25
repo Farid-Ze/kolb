@@ -4,8 +4,6 @@ This module provides on-demand loading of norm data to reduce memory footprint
 and startup time when dealing with large norm tables.
 """
 
-from __future__ import annotations
-
 import logging
 from collections import defaultdict
 from dataclasses import dataclass

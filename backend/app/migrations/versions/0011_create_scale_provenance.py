@@ -4,8 +4,6 @@ Revision ID: 0011_create_scale_provenance
 Revises: 0010_allow_null_style_bounds
 Create Date: 2025-11-10
 """
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 

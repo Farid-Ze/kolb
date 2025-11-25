@@ -4,8 +4,6 @@ Revision ID: 0027_store_order_contributions
 Revises: 0026_trinity_constraints
 Create Date: 2025-11-23
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 

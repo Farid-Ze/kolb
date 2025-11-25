@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .audit import AuditLog
 from .assessment import AssessmentSession, AssessmentSessionDelta
 from .enums import (

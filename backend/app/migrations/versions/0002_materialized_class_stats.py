@@ -4,7 +4,6 @@ Revision ID: 0002_materialized_class_stats
 Revises: 0001_initial
 Create Date: 2025-11-08
 """
-from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op

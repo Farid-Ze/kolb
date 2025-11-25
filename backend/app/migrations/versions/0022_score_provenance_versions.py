@@ -4,8 +4,6 @@ Revision ID: 0022_score_provenance_versions
 Revises: 0021_report_share_links, 15984cc3761d
 Create Date: 2025-11-21
 """
-from __future__ import annotations
-
 from typing import Optional
 
 from alembic import op

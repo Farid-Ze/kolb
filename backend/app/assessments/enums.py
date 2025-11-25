@@ -10,8 +10,6 @@ Using enums instead of magic strings provides:
 - Clear documentation of allowed values
 """
 
-from __future__ import annotations
-
 from enum import Enum
 
 __all__ = [

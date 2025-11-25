@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pytest
 
 # This test suite validated legacy /sessions/* parity.

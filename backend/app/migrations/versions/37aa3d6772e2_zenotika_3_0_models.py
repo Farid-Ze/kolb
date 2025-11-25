@@ -4,8 +4,6 @@ Revision ID: 37aa3d6772e2
 Revises: 0023_zen_identity_upgrade
 Create Date: 2025-11-22 14:33:07.497448
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect

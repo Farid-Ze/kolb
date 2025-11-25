@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.services.report import build_report
 from app.services.scoring import finalize_session
 from app.tests.helpers import build_seeded_memory_db, seed_complete_session

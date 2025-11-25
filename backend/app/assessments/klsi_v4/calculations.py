@@ -10,8 +10,6 @@ All functions are:
 Constants are imported from app.assessments.constants to avoid magic numbers.
 """
 
-from __future__ import annotations
-
 from math import sqrt
 from typing import Iterable, Tuple
 

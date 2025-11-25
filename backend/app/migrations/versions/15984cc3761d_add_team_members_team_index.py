@@ -4,8 +4,6 @@ Revision ID: 15984cc3761d
 Revises: 0020_add_session_lookup_indexes
 Create Date: 2025-11-14 22:34:11.480577
 """
-from __future__ import annotations
-
 from alembic import op
 
 # revision identifiers, used by Alembic.

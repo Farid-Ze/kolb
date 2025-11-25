@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -28,9 +26,9 @@ class Instrument(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    sessions: Mapped[list[AssessmentSession]] = relationship(back_populates="instrument")
-    scales: Mapped[list[InstrumentScale]] = relationship(back_populates="instrument")
-    pipelines: Mapped[list[ScoringPipeline]] = relationship(back_populates="instrument")
+    sessions: Mapped[list["AssessmentSession"]] = relationship(back_populates="instrument")
+    scales: Mapped[list["InstrumentScale"]] = relationship(back_populates="instrument")
+    pipelines: Mapped[list["ScoringPipeline"]] = relationship(back_populates="instrument")
 
 
 class ScoringPipeline(Base):
@@ -45,8 +43,8 @@ class ScoringPipeline(Base):
     metadata_payload: Mapped[Optional[dict]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    instrument: Mapped[Instrument] = relationship(back_populates="pipelines")
-    nodes: Mapped[list[ScoringPipelineNode]] = relationship(
+    instrument: Mapped["Instrument"] = relationship(back_populates="pipelines")
+    nodes: Mapped[list["ScoringPipelineNode"]] = relationship(
         back_populates="pipeline",
         cascade="all, delete-orphan",
         order_by="ScoringPipelineNode.execution_order",

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from uuid import uuid4
 
 from app.assessments.klsi_v4.definition import CONTEXT_NAMES

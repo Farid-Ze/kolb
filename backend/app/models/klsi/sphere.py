@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
@@ -24,8 +22,8 @@ class SphereNode(Base):
     unlock_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     meta: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
-    user: Mapped[User] = relationship(back_populates="sphere_nodes")
-    reflections: Mapped[list[MemoryReflection]] = relationship(back_populates="sphere_node")
+    user: Mapped["User"] = relationship(back_populates="sphere_nodes")
+    reflections: Mapped[list["MemoryReflection"]] = relationship(back_populates="sphere_node")
 
     __table_args__ = (
         Index("ix_sphere_nodes_user_id", "user_id"),
@@ -42,8 +40,8 @@ class MemoryReflection(Base):
     reflection_type: Mapped[ReflectionType] = mapped_column(Enum(ReflectionType))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    user: Mapped[User] = relationship(back_populates="reflections")
-    sphere_node: Mapped[Optional[SphereNode]] = relationship(back_populates="reflections")
+    user: Mapped["User"] = relationship(back_populates="reflections")
+    sphere_node: Mapped[Optional["SphereNode"]] = relationship(back_populates="reflections")
 
     __table_args__ = (
         Index("ix_memory_reflections_user_id", "user_id"),

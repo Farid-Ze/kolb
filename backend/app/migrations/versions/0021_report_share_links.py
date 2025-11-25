@@ -4,8 +4,6 @@ Revision ID: 0021_report_share_links
 Revises: 0020_add_session_lookup_indexes
 Create Date: 2025-11-20
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect

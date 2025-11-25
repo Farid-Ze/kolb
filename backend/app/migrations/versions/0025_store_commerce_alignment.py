@@ -4,8 +4,6 @@ Revision ID: 0025_store_commerce_alignment
 Revises: 0024_store_orders_and_fund
 Create Date: 2025-11-22
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text

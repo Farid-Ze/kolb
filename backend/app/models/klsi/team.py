@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -24,8 +22,8 @@ class Team(Base):
     description: Mapped[Optional[str]] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    members: Mapped[list[TeamMember]] = relationship(back_populates="team")
-    rollups: Mapped[list[TeamAssessmentRollup]] = relationship(back_populates="team")
+    members: Mapped[list["TeamMember"]] = relationship(back_populates="team")
+    rollups: Mapped[list["TeamAssessmentRollup"]] = relationship(back_populates="team")
 
 
 class TeamMember(Base):
@@ -37,8 +35,8 @@ class TeamMember(Base):
     role_in_team: Mapped[Optional[str]] = mapped_column(String(50))
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    team: Mapped[Team] = relationship(back_populates="members")
-    user: Mapped[User] = relationship()
+    team: Mapped["Team"] = relationship(back_populates="members")
+    user: Mapped["User"] = relationship()
 
     __table_args__ = (
         UniqueConstraint("team_id", "user_id", name="uq_team_user_unique"),

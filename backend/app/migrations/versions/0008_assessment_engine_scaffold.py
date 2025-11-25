@@ -5,8 +5,6 @@ Revises: 0007_expand_norm_group
 Create Date: 2025-11-10
 """
 
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect, Boolean

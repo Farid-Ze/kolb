@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -21,7 +19,7 @@ class GrowthChallenge(Base):
     description: Mapped[str] = mapped_column(Text)
     societal_impact: Mapped[str] = mapped_column(Text)
 
-    user_challenges: Mapped[list[UserChallenge]] = relationship(back_populates="challenge")
+    user_challenges: Mapped[list["UserChallenge"]] = relationship(back_populates="challenge")
 
 
 class UserChallenge(Base):
@@ -35,8 +33,8 @@ class UserChallenge(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
-    user: Mapped[User] = relationship(back_populates="challenges")
-    challenge: Mapped[GrowthChallenge] = relationship(back_populates="user_challenges")
+    user: Mapped["User"] = relationship(back_populates="challenges")
+    challenge: Mapped["GrowthChallenge"] = relationship(back_populates="user_challenges")
 
     __table_args__ = (
         UniqueConstraint("user_id", "challenge_id", name="uq_user_challenges_user_challenge"),

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
@@ -23,8 +21,8 @@ class StoreProduct(Base):
     required_badge_id: Mapped[Optional[int]] = mapped_column(ForeignKey("gamification_badges.id"), nullable=True)
     meta: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
-    required_badge: Mapped[Optional[GamificationBadge]] = relationship(back_populates="store_products")
-    order_items: Mapped[list[StoreOrderItem]] = relationship(back_populates="product")
+    required_badge: Mapped[Optional["GamificationBadge"]] = relationship(back_populates="store_products")
+    order_items: Mapped[list["StoreOrderItem"]] = relationship(back_populates="product")
 
 
 class StoreOrder(Base):
@@ -40,8 +38,8 @@ class StoreOrder(Base):
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
 
-    user: Mapped[User] = relationship(back_populates="orders")
-    items: Mapped[list[StoreOrderItem]] = relationship(back_populates="order", cascade="all, delete-orphan")
+    user: Mapped["User"] = relationship(back_populates="orders")
+    items: Mapped[list["StoreOrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
 
 
 class StoreOrderItem(Base):

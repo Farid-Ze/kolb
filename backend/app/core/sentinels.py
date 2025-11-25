@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 class SentinelStr(str):
     """String-like sentinel that retains identity semantics."""
 

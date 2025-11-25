@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.data.norms import APPENDIX_TABLES
 from app.schemas.score import (
     ContextRanksWrite,

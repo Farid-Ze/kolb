@@ -151,6 +151,7 @@ def _classify_development(acce: int | None, aero: int | None, acc_assm: int | No
 def _build_development_rationale(*, intensity: int, lfi: float, abs_acc: int, abs_aer: int, acc_assm: int, conv_div: int) -> str:
     """Construct a structured rationale string for development classification.
 
+    # TODO: Migrate to PEP 750 t-strings
     Future-proof: Designed to be replaced by PEP 750 template strings in Python 3.14.
     Current implementation uses f-strings for performance and readability.
     """

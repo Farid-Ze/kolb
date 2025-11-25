@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any, Sequence, TypeAlias, TYPE_CHECKING
 
 from app.assessments.klsi_v4.types import BalanceMedians, CombinationMetrics, ScoreVector

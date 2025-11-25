@@ -4,8 +4,6 @@ Revision ID: 0019_normative_conv_composite_index
 Revises: 0018_perf_indexes
 Create Date: 2025-11-11
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 

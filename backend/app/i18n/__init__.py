@@ -11,8 +11,6 @@ Usage:
     >>> messages = get_i18n_resource("messages", "id")
 """
 
-from __future__ import annotations
-
 import json
 import logging
 from functools import lru_cache

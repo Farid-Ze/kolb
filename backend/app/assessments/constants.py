@@ -10,8 +10,6 @@ constants used throughout the assessment engine. Centralizing these values:
 All constants are immutable (Final) to prevent accidental modification.
 """
 
-from __future__ import annotations
-
 from typing import Final, Tuple
 
 __all__ = [

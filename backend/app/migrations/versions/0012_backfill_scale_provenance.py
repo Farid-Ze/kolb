@@ -4,8 +4,6 @@ Revision ID: 0012_backfill_scale_provenance
 Revises: 0011_create_scale_provenance
 Create Date: 2025-11-10
 """
-from __future__ import annotations
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 

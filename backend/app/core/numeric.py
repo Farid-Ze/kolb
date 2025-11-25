@@ -10,8 +10,6 @@ These utilities centralize numeric transformations to ensure consistency
 across the assessment engine and prevent common numeric errors.
 """
 
-from __future__ import annotations
-
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN, ROUND_UP, ROUND_HALF_EVEN
 from typing import TypeVar, Union
 

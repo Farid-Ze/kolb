@@ -4,8 +4,6 @@ Revision ID: 0016_add_scoring_pipeline_tables
 Revises: 0015_enforce_unique_lfi_context
 Create Date: 2025-11-11
 """
-from __future__ import annotations
-
 from datetime import datetime, timezone
 
 from alembic import op

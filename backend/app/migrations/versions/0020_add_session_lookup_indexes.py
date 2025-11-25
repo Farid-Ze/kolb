@@ -9,8 +9,6 @@ Revision ID: 0020_add_session_lookup_indexes
 Revises: 0019_normative_conv_composite_index
 Create Date: 2025-11-14
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 

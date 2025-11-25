@@ -4,8 +4,6 @@ Revision ID: 0015_enforce_unique_lfi_context
 Revises: 0014_norm_version_tracking
 Create Date: 2025-11-11
 """
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Optional, Any
 
 from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String, UniqueConstraint, JSON
@@ -28,7 +26,7 @@ class AssessmentItem(Base):
     item_order_position: Mapped[Optional[int]] = mapped_column(Integer)
     language: Mapped[str] = mapped_column(String(10), default="EN")
 
-    choices: Mapped[list[ItemChoice]] = relationship(back_populates="item")
+    choices: Mapped[list["ItemChoice"]] = relationship(back_populates="item")
 
 
 class ItemChoice(Base):
@@ -39,8 +37,8 @@ class ItemChoice(Base):
     learning_mode: Mapped[LearningMode] = mapped_column(Enum(LearningMode))
     choice_text: Mapped[str] = mapped_column(String(400))
 
-    item: Mapped[AssessmentItem] = relationship(back_populates="choices")
-    responses: Mapped[list[UserResponse]] = relationship(back_populates="choice")
+    item: Mapped["AssessmentItem"] = relationship(back_populates="choices")
+    responses: Mapped[list["UserResponse"]] = relationship(back_populates="choice")
 
 
 class UserResponse(Base):
@@ -59,8 +57,8 @@ class UserResponse(Base):
         Index("ix_user_responses_session_item", "session_id", "item_id"),
     )
 
-    session: Mapped[AssessmentSession] = relationship(back_populates="responses")
-    choice: Mapped[ItemChoice] = relationship(back_populates="responses")
+    session: Mapped["AssessmentSession"] = relationship(back_populates="responses")
+    choice: Mapped["ItemChoice"] = relationship(back_populates="responses")
 
 
 class AssessmentItemResponse(Base):
@@ -73,7 +71,7 @@ class AssessmentItemResponse(Base):
     response_latency_ms: Mapped[int] = mapped_column(Integer)
     telemetry: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
-    session: Mapped[AssessmentSession] = relationship(back_populates="item_responses")
+    session: Mapped["AssessmentSession"] = relationship(back_populates="item_responses")
 
     __table_args__ = (
         UniqueConstraint(

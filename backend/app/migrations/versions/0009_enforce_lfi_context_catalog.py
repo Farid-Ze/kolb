@@ -4,8 +4,6 @@ Revision ID: 0009_enforce_lfi_context_catalog
 Revises: 0008_assessment_engine_scaffold
 Create Date: 2025-11-10
 """
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 

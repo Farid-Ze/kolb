@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
@@ -36,6 +34,6 @@ class ReportShareLink(Base):
     access_count: Mapped[int] = mapped_column(Integer, default=0)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    session: Mapped[AssessmentSession] = relationship()
-    owner: Mapped[User] = relationship(foreign_keys=[owner_id])
-    mediator: Mapped[User] = relationship(foreign_keys=[mediator_id])
+    session: Mapped["AssessmentSession"] = relationship()
+    owner: Mapped["User"] = relationship(foreign_keys=[owner_id])
+    mediator: Mapped["User"] = relationship(foreign_keys=[mediator_id])

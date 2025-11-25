@@ -5,8 +5,6 @@ Revises: 0016_add_scoring_pipeline_tables
 Create Date: 2025-11-11
 """
 
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.sql import table, column

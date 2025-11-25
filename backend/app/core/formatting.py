@@ -5,8 +5,6 @@ heuristic percent scaling) so reports and runtime diagnostics follow the same
 rules — fulfilling the TODO that called for a dedicated formatting layer.
 """
 
-from __future__ import annotations
-
 from typing import Optional
 
 from app.core.numeric import clamp, safe_div, safe_round

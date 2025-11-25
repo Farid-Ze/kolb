@@ -10,8 +10,6 @@ All validators return clear error messages when validation fails,
 making debugging and user feedback straightforward.
 """
 
-from __future__ import annotations
-
 from typing import Dict, List, Tuple
 
 from app.assessments.constants import (

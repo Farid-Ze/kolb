@@ -4,8 +4,6 @@ Revision ID: 0018_perf_indexes
 Revises: 0017_migrate_startup_to_migrations
 Create Date: 2025-11-11
 """
-from __future__ import annotations
-
 from alembic import op
 import sqlalchemy as sa
 

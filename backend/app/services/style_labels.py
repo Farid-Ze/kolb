@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from functools import lru_cache
 
 from app.i18n.id_styles import STYLE_LABELS_ID

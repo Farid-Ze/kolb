@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 from app.engine.authoring import load_instrument_spec, register_instrument_spec
