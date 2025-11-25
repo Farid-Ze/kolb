@@ -10,7 +10,7 @@ from app.db.database import Base
 
 if TYPE_CHECKING:
     from app.models.klsi.user import User
-    from app.models.klsi.store import StoreProduct
+    from app.models.klsi.instrument import Instrument
 
 __all__ = ["AccessGrant"]
 
@@ -20,7 +20,7 @@ class AccessGrant(Base):
     id: Mapped[str] = mapped_column(String(50), primary_key=True, default=lambda: f"grant_{uuid.uuid4().hex[:12]}")
     grantor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     grantee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    instrument_id: Mapped[int] = mapped_column(ForeignKey("store_products.id"), nullable=False)
+    instrument_id: Mapped[int] = mapped_column(ForeignKey("instruments.id"), nullable=False)
     credits_allocated: Mapped[int] = mapped_column(Integer, default=1)
     credits_consumed: Mapped[int] = mapped_column(Integer, default=0)
     expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -31,4 +31,4 @@ class AccessGrant(Base):
     # Relationships
     grantor: Mapped["User"] = relationship("User", foreign_keys=[grantor_id])
     grantee: Mapped[Optional["User"]] = relationship("User", foreign_keys=[grantee_id])
-    instrument: Mapped["StoreProduct"] = relationship("StoreProduct")
+    instrument: Mapped["Instrument"] = relationship("Instrument")

@@ -1,7 +1,7 @@
 import { apiClient } from '../../shared/api/client'
-import type { UserChallenge } from '../../entities/challenge/model'
+import type { UserChallengeOut } from '../../shared/api/generated'
 
-export async function fetchUserChallenges(): Promise<UserChallenge[]> {
-  const { data } = await apiClient.get<UserChallenge[]>('/challenges/user')
+export async function fetchUserChallenges(): Promise<UserChallengeOut[]> {
+  const { data } = await apiClient.get<UserChallengeOut[]>('/challenges/user')
   return data
 }

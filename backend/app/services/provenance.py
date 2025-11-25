@@ -3,6 +3,7 @@ from typing import Dict, Iterable, Optional
 from sqlalchemy.orm import Session
 
 from app.core.sentinels import UNKNOWN
+from app.db.database import SessionLocal
 from app.engine.constants import ALL_SCALE_CODES
 from app.models.klsi.learning import CombinationScore, ScaleProvenance, ScaleScore
 from app.models.klsi.norms import PercentileScore
@@ -34,7 +35,7 @@ def _normalize_provenance(tag: str) -> tuple[str, Optional[str], Optional[str]]:
     return UNKNOWN, None, None
 
 
-def upsert_scale_provenance(
+def _upsert_scale_provenance_sync(
     db: Session,
     session_id: int,
     raw_scores: ScaleDict,
@@ -65,6 +66,23 @@ def upsert_scale_provenance(
                 truncated=bool(truncations.get(scale_code, False)),
             )
         )
+
+
+def log_provenance_background_task(
+    session_id: int,
+    raw_scores: ScaleDict,
+    percentile_map: Dict[str, Optional[float]],
+    provenance_map: Dict[str, str],
+    truncations: Dict[str, bool],
+) -> None:
+    """
+    Background task to log provenance. Creates its own DB session.
+    """
+    with SessionLocal() as db:
+        _upsert_scale_provenance_sync(
+            db, session_id, raw_scores, percentile_map, provenance_map, truncations
+        )
+        db.commit()
 
 
 def backfill_scale_provenance(
@@ -112,7 +130,7 @@ def backfill_scale_provenance(
             key: bool(percentile.truncated_scales.get(key)) if percentile.truncated_scales else False
             for key in ALL_SCALE_CODES
         }
-        upsert_scale_provenance(
+        _upsert_scale_provenance_sync(
             db,
             percentile.session_id,
             raw_scores,

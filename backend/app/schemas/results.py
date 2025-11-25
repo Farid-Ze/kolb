@@ -14,3 +14,5 @@ class AssessmentResultsResponse(CamelModel):
     strengths: list[str] = Field(default_factory=list)
     lfi_score: float | None = None
     percentiles: dict[str, Any] | None = None
+    cycle_phase: str | None = None
+    backup_style: str | None = None

@@ -21,7 +21,6 @@ class GamificationBadge(Base):
     rarity: Mapped[BadgeRarity] = mapped_column(Enum(BadgeRarity), default=BadgeRarity.common)
 
     achievements: Mapped[list["UserAchievement"]] = relationship(back_populates="badge")
-    store_products: Mapped[list["StoreProduct"]] = relationship(back_populates="required_badge")
 
 
 class UserAchievement(Base):
@@ -42,4 +41,3 @@ class UserAchievement(Base):
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
-    from app.models.klsi.store import StoreProduct

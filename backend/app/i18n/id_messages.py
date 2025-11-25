@@ -52,6 +52,7 @@ class ValidationMessages:
     CONTEXT_RANK_UNIQUE: str = "Setiap konteks harus menggunakan peringkat unik 1..4"
     CONTEXT_COUNT_REQUIRED: str = "Jumlah konteks harus tepat 8"
     ITEM_OPTION_NOT_FOUND: str = "Pilihan item tidak ditemukan"
+    SUBMISSION_TOO_FAST: str = "Waktu pengerjaan terlalu cepat. Mohon kerjakan dengan sungguh-sungguh."
 
 
 class BatchPayloadMessages:

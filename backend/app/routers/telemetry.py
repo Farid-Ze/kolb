@@ -4,15 +4,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field
 
 from app.core.metrics import inc_counter
+from app.core.logging import get_logger
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.i18n.id_messages import SessionErrorMessages
 from app.schemas.base import CamelModel
-from app.schemas.telemetry import AssessmentTelemetryPayload
+from app.schemas.telemetry import (
+    AssessmentTelemetryPayload,
+    TimeOnPageEvent,
+    ItemChangedEvent,
+    MouseMovementEvent,
+)
 from app.services.security import get_current_user
 from app.services.telemetry_service import telemetry_service
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
+logger = get_logger("kolb.telemetry")
 
 
 class GuideOpenEvent(CamelModel):
@@ -39,6 +46,35 @@ class ActionEvent(CamelModel):
     metadata: dict[str, str] | None = Field(default=None)
     consent: bool = True
     actor_role: Literal["STUDENT", "MEDIATOR", "ADMIN", "ANON"] = "ANON"
+
+
+@router.post("/time-on-page", status_code=202)
+def record_time_on_page(event: TimeOnPageEvent):
+    """Record duration spent on a page."""
+    # Pydantic validates duration_ms <= 1 hour
+    logger.info("telemetry.time_on_page", extra={"event": event.model_dump()})
+    return {"status": "recorded"}
+
+
+@router.post("/item-changed", status_code=202)
+def record_item_changed(event: ItemChangedEvent):
+    """Record when a user changes their answer."""
+    logger.info("telemetry.item_changed", extra={"event": event.model_dump()})
+    return {"status": "recorded"}
+
+
+@router.post("/mouse-movement", status_code=202)
+def record_mouse_movement(event: MouseMovementEvent):
+    """Record mouse movement (sampled)."""
+    # Filter spam/corrupt data
+    if event.x < 0 or event.y < 0:
+        return {"status": "ignored", "reason": "negative_coordinates"}
+    if event.x > event.viewport_width * 2 or event.y > event.viewport_height * 2:
+        # Allow some buffer for scroll/zoom but reject extreme outliers
+        return {"status": "ignored", "reason": "out_of_bounds"}
+        
+    logger.info("telemetry.mouse_movement", extra={"event": event.model_dump()})
+    return {"status": "recorded"}
 
 
 @router.post("/guide-open", status_code=202)

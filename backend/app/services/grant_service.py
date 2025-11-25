@@ -6,7 +6,7 @@ from sqlalchemy import select, update, func
 from sqlalchemy.orm import Session
 
 from app.models.klsi.grant import AccessGrant
-from app.models.klsi.store import StoreProduct
+from app.models.klsi.instrument import Instrument
 from app.models.klsi.user import User
 
 
@@ -43,7 +43,7 @@ class GrantService:
         Args:
             db: Database session.
             grantor_id: ID of the user granting the credits (e.g. Admin/Professor).
-            instrument_id: ID of the instrument (StoreProduct) being granted.
+            instrument_id: ID of the instrument (Instrument) being granted.
             grantee_id: ID of the recipient user. If None, this is a token grant.
             credits: Number of credits to allocate.
             expiry_date: Optional expiration date.
@@ -56,7 +56,7 @@ class GrantService:
         if not grantor:
             raise GrantServiceError(f"Grantor with ID {grantor_id} not found.")
             
-        instrument = db.get(StoreProduct, instrument_id)
+        instrument = db.get(Instrument, instrument_id)
         if not instrument:
             raise GrantServiceError(f"Instrument with ID {instrument_id} not found.")
 

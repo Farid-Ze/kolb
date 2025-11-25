@@ -24,7 +24,6 @@ from app.models.klsi.items import AssessmentItem, ItemChoice
 from app.models.klsi.learning import LearningStyleType
 from app.i18n.id_styles import STYLE_BRIEF_ID
 from app.models.klsi.gamification import GamificationBadge, BadgeRarity
-from app.models.klsi.store import StoreProduct
 
 
 _RESOURCES_DIR = Path(__file__).resolve().parent.parent / "instruments" / "klsi4" / "resources"
@@ -110,60 +109,6 @@ CHOICE_TEXT = {
 }
 
 
-STORE_PRODUCT_TEMPLATES = [
-    {
-        "slug": "klsi-4.0",
-        "name": "Kolb Learning Style Inventory 4.0",
-        "description": "Official assessment to discover your learning style.",
-        "base_price": 1,
-        "required_badge_slug": None,
-        "meta": {
-            "category": "assessment",
-            "instrument_code": "KLSI",
-            "instrument_version": "4.0",
-            "currency": "CREDIT",
-        },
-    },
-    {
-        "slug": "zen-reflection-journal",
-        "name": "Zen Reflection Journal",
-        "description": "Notebook with prompts curated for each learning mode to keep tunnel insights alive.",
-        "base_price": 150,
-        "required_badge_slug": None,
-        "meta": {
-            "category": "journaling",
-            "image_url": "/static/store/journal.png",
-            "includes": ["40 guided pages", "LFI micro-coaching tips"],
-            "currency": "IDR",
-        },
-    },
-    {
-        "slug": "seeker-momentum-kit",
-        "name": "Seeker Momentum Kit",
-        "description": "Badge-gated kit with challenge cards and a vinyl sticker for first-time finalists.",
-        "base_price": 0,
-        "required_badge_slug": "the-seeker",
-        "meta": {
-            "category": "swag",
-            "image_url": "/static/store/momentum-kit.png",
-            "contains": ["challenge cards", "limited sticker"],
-            "currency": "IDR",
-        },
-    },
-    {
-        "slug": "impact-canvas-pack",
-        "name": "Impact Canvas Pack",
-        "description": "Printable canvases that map CE/RO/AC/AE thinking into squad planning rituals.",
-        "base_price": 220,
-        "required_badge_slug": None,
-        "meta": {
-            "category": "toolkit",
-            "image_url": "/static/store/impact-canvas.png",
-            "filetype": "pdf",
-            "currency": "IDR",
-        },
-    },
-]
 
 
 SCALE_DEFS = [
@@ -635,46 +580,3 @@ def seed_growth_challenges(db: Session):
     db.commit()
 
 
-def seed_store_products(db: Session) -> None:
-    """Ensure ZenStore products exist with badge gating metadata."""
-
-    badge_lookup = {
-        badge.slug: badge.id
-        for badge in db.query(GamificationBadge).all()
-    }
-    existing_products = {
-        product.slug: product
-        for product in db.query(StoreProduct).all()
-    }
-
-    changed = False
-    for template in STORE_PRODUCT_TEMPLATES:
-        required_badge_slug = template.get("required_badge_slug")
-        required_badge_id = badge_lookup.get(required_badge_slug) if required_badge_slug else None
-        meta = template.get("meta") or None
-        if meta:
-            meta = json.loads(json.dumps(meta))  # defensive copy for JSON columns
-
-        product = existing_products.get(template["slug"])
-        if product:
-            product.slug = template["slug"]
-            product.description = template["description"]
-            product.name = template["name"]
-            product.base_price = template["base_price"]
-            product.required_badge_id = required_badge_id
-            product.meta = meta
-        else:
-            db.add(
-                StoreProduct(
-                    slug=template["slug"],
-                    name=template["name"],
-                    description=template["description"],
-                    base_price=template["base_price"],
-                    required_badge_id=required_badge_id,
-                    meta=meta,
-                )
-            )
-        changed = True
-
-    if changed:
-        db.commit()

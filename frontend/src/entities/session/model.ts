@@ -1,6 +1,20 @@
-export interface SessionStartResponse {
-  sessionId: number
-}
+import type {
+  SessionStartResponse as GenSessionStartResponse,
+  SessionSubmissionPayload as GenSessionSubmissionPayload,
+  ItemRank as GenItemRank,
+  ContextRank as GenContextRank,
+  SessionOperationResult as GenSessionOperationResult,
+  SessionAutosavePayload as GenSessionAutosavePayload,
+  AutosaveItemRank as GenAutosaveItemRank
+} from '../../shared/api/generated'
+
+export type SessionStartResponse = GenSessionStartResponse
+export type SessionSubmissionPayload = GenSessionSubmissionPayload
+export type ItemRankPayload = GenItemRank
+export type ContextRankPayload = GenContextRank
+export type SessionOperationResult = GenSessionOperationResult
+export type SessionAutosavePayload = GenSessionAutosavePayload
+export type AutosaveItemRank = GenAutosaveItemRank
 
 export interface AssessmentItemOption {
   id: number
@@ -15,39 +29,6 @@ export interface AssessmentItem {
   stem: string
   options: AssessmentItemOption[]
   category?: string | null
-}
-
-export interface ItemRankPayload {
-  itemId: number
-  ranks: Record<number, number>
-}
-
-export interface ContextRankPayload {
-  contextName: string
-  CE: number
-  RO: number
-  AC: number
-  AE: number
-}
-
-export interface AutosaveItemRank {
-  itemId: number
-  ranks: Record<string, number>
-}
-
-export interface SessionSubmissionPayload {
-  items: ItemRankPayload[]
-  contexts: ContextRankPayload[]
-}
-
-export interface SessionAutosavePayload {
-  responses: AutosaveItemRank[]
-  contexts: ContextRankPayload[]
-}
-
-export interface SessionOperationResult {
-  ok: boolean
-  result?: Record<string, unknown> | null
 }
 
 export interface AssessmentItemResponsePayload {

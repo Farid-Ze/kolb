@@ -64,7 +64,7 @@ from app.services.challenge_service import challenge_service
 from app.services.gamification_service import gamification_service
 from app.services.sphere_service import sphere_service
 from app.services.grant_service import GrantService, InsufficientCreditsError
-from app.models.klsi.store import StoreProduct
+from app.models.klsi.instrument import Instrument
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
@@ -84,7 +84,7 @@ class EngineSessionService:
 
     def start_session(
         self,
-        user: "User",
+        user: Optional["User"],
         *,
         instrument_code: str,
         instrument_version: Optional[str] = None,
@@ -94,17 +94,17 @@ class EngineSessionService:
         if instrument_code == "KLSI":
             version = instrument_version or "4.0"
             
-            # Fetch all products and filter in Python to avoid JSON dialect issues
+            # Fetch all instruments and filter in Python to avoid JSON dialect issues
             # This is acceptable as the product catalog is small (Registry pattern)
-            products = self.db.execute(select(StoreProduct)).scalars().all()
-            product = next(
-                (p for p in products if p.meta and p.meta.get("instrument_code") == instrument_code and p.meta.get("instrument_version") == version),
+            instruments = self.db.execute(select(Instrument)).scalars().all()
+            instrument = next(
+                (i for i in instruments if i.code == instrument_code and i.version == version),
                 None
             )
             
-            if product:
+            if instrument and user:
                 try:
-                    GrantService.redeem_credit(self.db, user.id, product.id)
+                    GrantService.redeem_credit(self.db, user.id, instrument.id)
                 except InsufficientCreditsError:
                     raise PermissionDeniedError(
                         SessionErrorMessages.INSUFFICIENT_CREDITS or "Insufficient credits to start this assessment."
@@ -201,6 +201,29 @@ class EngineSessionService:
             if session.status == SessionStatus.completed:
                 raise SessionFinalizedError()
 
+            # [Zenotika V4] Defensive Validation: Minimum Duration
+            # Reject submissions that are physically impossible for a human (e.g. < 45s)
+            MIN_DURATION_SECONDS = 45
+            now = datetime.now(timezone.utc)
+            
+            # 1. Server-side check
+            if session.start_time:
+                # Ensure start_time is timezone-aware or convert
+                start_aware = session.start_time
+                if start_aware.tzinfo is None:
+                    start_aware = start_aware.replace(tzinfo=timezone.utc)
+                
+                duration = (now - start_aware).total_seconds()
+                if duration < MIN_DURATION_SECONDS:
+                     logger.warning("defensive_validation_rejected", extra={"structured_data": {"session_id": session_id, "duration": duration, "reason": "too_fast_server"}})
+                     raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
+
+            # 2. Client-side check (if provided)
+            if payload.client_duration_ms is not None:
+                if payload.client_duration_ms < (MIN_DURATION_SECONDS * 1000):
+                     logger.warning("defensive_validation_rejected", extra={"structured_data": {"session_id": session_id, "client_duration": payload.client_duration_ms, "reason": "too_fast_client"}})
+                     raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
+
             # Validate before recording any ranks to ensure we never persist partial batches.
             validate_full_submission_payload(self.db, payload)
 
@@ -214,7 +237,15 @@ class EngineSessionService:
                 build_payload=self._build_standard_audit_payload(user.email, session_id),
             )
             self.db.commit()
-            return self._transform_finalize_result(result, override=result.get("override", False))
+            final_result = self._transform_finalize_result(result, override=result.get("override", False))
+            
+            # [Zenotika V4] Async Provenance Logging
+            if "percentiles" in result:
+                 provenance_payload = getattr(result["percentiles"], "_provenance_payload", None)
+                 if provenance_payload:
+                     final_result["_provenance_payload"] = provenance_payload
+            
+            return final_result
         except DomainError:
             self.db.rollback()
             raise
@@ -259,7 +290,16 @@ class EngineSessionService:
             self.db.rollback()
             raise
 
-        return self._transform_finalize_result(result, override=result.get("override", False))
+        final_result = self._transform_finalize_result(result, override=result.get("override", False))
+        
+        # [Zenotika V4] Async Provenance Logging
+        # Propagate payload to router for BackgroundTasks
+        if "percentiles" in result:
+             provenance_payload = getattr(result["percentiles"], "_provenance_payload", None)
+             if provenance_payload:
+                 final_result["_provenance_payload"] = provenance_payload
+                 
+        return final_result
 
     def force_finalize(
         self,

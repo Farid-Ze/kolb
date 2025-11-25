@@ -12,7 +12,7 @@ from app.schemas.score import (
 )
 from app.services.regression import predicted_curve
 from app.assessments.klsi_v4.calculations import calculate_lfi_variance
-from app.assessments.klsi_v4.logic import determine_style_from_percentiles, determine_backup_style_from_percentiles
+from app.assessments.klsi_v4.logic import determine_style_from_percentiles, determine_backup_style_from_percentiles, determine_cycle_phase
 
 
 def _percentiles(raw: RawTotalsWrite, acce: int, aero: int) -> ScorePreviewPercentiles:
@@ -53,6 +53,7 @@ def build_score_preview(payload: ScorePreviewRequest) -> ScorePreviewResponse:
 
     primary_name = determine_style_from_percentiles(acce_val, aero_val)
     backup_name = determine_backup_style_from_percentiles(acce_val, aero_val, primary_name)
+    cycle_phase = determine_cycle_phase(primary_name)
 
     response = ScorePreviewResponse(
         raw=ScorePreviewRaw(
@@ -66,7 +67,11 @@ def build_score_preview(payload: ScorePreviewRequest) -> ScorePreviewResponse:
             ACCOM_MINUS_ASSIM=accom_minus_assim,
             CONV_DIV=conv_div,
         ),
-        style=ScorePreviewStyle(primary_name=primary_name, backup_name=backup_name),
+        style=ScorePreviewStyle(
+            primary_name=primary_name, 
+            backup_name=backup_name,
+            cycle_phase=cycle_phase
+        ),
         lfi=ScorePreviewLFI(value=lfi_value),
         percentiles=pcts,
         analytics=ScorePreviewAnalytics(predicted_lfi_curve=predicted_curve()),

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.repositories import SessionRepository
 from app.models.klsi.items import AssessmentItemResponse
 from app.schemas.session import AssessmentItemResponsePayload
+from app.assessments.klsi_v4.logic import determine_backup_style_from_percentiles, determine_cycle_phase
 
 __all__ = [
     "build_kite_coordinates",
@@ -136,6 +137,22 @@ def get_latest_assessment_results(db: Session, user_id: int) -> Optional[Dict[st
     percentiles = snapshot.get("percentiles") or _serialize_percentiles(getattr(session, "percentile_score", None))
     lfi_score = snapshot.get("lfi_score") or getattr(getattr(session, "lfi_index", None), "LFI_score", None)
 
+    # Epic C-02 & C-03: Calculate Backup Style and Cycle Phase
+    backup_style = None
+    cycle_phase = None
+    
+    # Resolve primary style name
+    primary_style = _resolve_learning_style_name(session)
+    
+    if primary_style and primary_style != "Unknown":
+        cycle_phase = determine_cycle_phase(primary_style)
+        
+        if percentiles and "ACCE" in percentiles and "AERO" in percentiles:
+            acce_pct = percentiles["ACCE"]
+            aero_pct = percentiles["AERO"]
+            if isinstance(acce_pct, (int, float)) and isinstance(aero_pct, (int, float)):
+                backup_style = determine_backup_style_from_percentiles(float(acce_pct), float(aero_pct), primary_style)
+
     return {
         "session_id": session.id,
         "finalized_at": session.end_time or session.start_time,
@@ -144,6 +161,8 @@ def get_latest_assessment_results(db: Session, user_id: int) -> Optional[Dict[st
         "strengths": strengths,
         "lfi_score": lfi_score,
         "percentiles": percentiles,
+        "cycle_phase": cycle_phase,
+        "backup_style": backup_style,
     }
 
 

@@ -28,7 +28,6 @@ from .user import User
 from .gamification import GamificationBadge, UserAchievement
 from .challenge import GrowthChallenge, UserChallenge
 from .sphere import SphereNode, MemoryReflection
-from .store import StoreProduct, StoreOrder, StoreOrderItem
 from .grant import AccessGrant
 
 __all__ = [
@@ -75,7 +74,4 @@ __all__ = [
     "UserChallenge",
     "SphereNode",
     "MemoryReflection",
-    "StoreProduct",
-    "StoreOrder",
-    "StoreOrderItem",
 ]

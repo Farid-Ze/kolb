@@ -473,7 +473,7 @@ class EngineRuntime:
     def start_session(
         self,
         db: Session,
-        user: User,
+        user: User | None,
         instrument_code: str,
         instrument_version: str | None = None,
     ) -> AssessmentSession:
@@ -526,7 +526,8 @@ class EngineRuntime:
                 raise ConfigurationError(EngineMessages.MANIFEST_NOT_CONFIGURED) from exc
 
             session = AssessmentSession(
-                user_id=user.id,
+                user_id=user.id if user else None,
+                guest_token=str(uuid4()) if not user else None,
                 status=SessionStatus.started,
                 assessment_id=instrument.code,
                 assessment_version=instrument.version,
@@ -547,7 +548,7 @@ class EngineRuntime:
                         "structured_data": {
                             "instrument_code": instrument.code,
                             "instrument_version": instrument.version,
-                            "user_id": user.id,
+                            "user_id": user.id if user else None,
                             "correlation_id": correlation_id,
                         }
                     },
@@ -561,7 +562,7 @@ class EngineRuntime:
                         "session_id": session.id,
                         "instrument_code": instrument.code,
                         "instrument_version": instrument.version,
-                        "user_id": user.id,
+                        "user_id": user.id if user else None,
                         "duration_ms": duration_ms,
                         "correlation_id": correlation_id,
                     }

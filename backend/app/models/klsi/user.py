@@ -42,7 +42,6 @@ class User(Base):
     challenges: Mapped[list["UserChallenge"]] = relationship(back_populates="user")
     sphere_nodes: Mapped[list["SphereNode"]] = relationship(back_populates="user")
     reflections: Mapped[list["MemoryReflection"]] = relationship(back_populates="user")
-    orders: Mapped[list["StoreOrder"]] = relationship(back_populates="user")
 
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
@@ -50,4 +49,3 @@ if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from app.models.klsi.gamification import UserAchievement
     from app.models.klsi.challenge import UserChallenge
     from app.models.klsi.sphere import SphereNode, MemoryReflection
-    from app.models.klsi.store import StoreOrder

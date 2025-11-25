@@ -1,4 +1,4 @@
-import type { UserChallenge } from '../../../entities/challenge/model'
+import type { UserChallenge } from '../model'
 
 interface ChallengesPanelProps {
   challenges: UserChallenge[]

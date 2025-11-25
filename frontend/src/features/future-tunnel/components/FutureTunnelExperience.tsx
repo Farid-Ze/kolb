@@ -85,9 +85,18 @@ export function FutureTunnelExperience() {
     try {
       await finalize()
       setStatusMessage('Session finalized. Head to the dashboard or store to see new rewards!')
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      if (err instanceof Error) {
+      const detail = err?.response?.data?.detail
+      if (detail) {
+        if (typeof detail === 'string') {
+          setStatusMessage(detail)
+        } else if (detail.message) {
+          setStatusMessage(detail.message)
+        } else {
+          setStatusMessage('Submission failed.')
+        }
+      } else if (err instanceof Error) {
         setStatusMessage(err.message)
       } else {
         setStatusMessage('Unable to finalize session')
@@ -165,11 +174,17 @@ export function FutureTunnelExperience() {
           <section className="space-y-4">
             <header className="flex flex-col gap-1">
               <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Forced-choice items</p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)]">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)] w-full">
                 <span>
                   {rankedItemsCount}/{totalItems} items ranked
                 </span>
-                <span>Progress: {itemsProgressPercent}%</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--zen-bg-elevated)]">
+                  <div
+                    className="h-full bg-[var(--zen-primary)] transition-all duration-500"
+                    style={{ width: `${itemsProgressPercent}%` }}
+                  />
+                </div>
+                <span>{itemsProgressPercent}%</span>
               </div>
               <p className="text-[var(--zen-text-muted)]">Rank each option 1–4 with no duplicates per item.</p>
             </header>
@@ -191,11 +206,17 @@ export function FutureTunnelExperience() {
           <section className="space-y-4">
             <header className="flex flex-col gap-1">
               <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Learning Flexibility contexts</p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)]">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)] w-full">
                 <span>
                   {contextsCompleteCount}/{totalContexts} contexts ranked
                 </span>
-                <span>Progress: {contextsProgressPercent}%</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--zen-bg-elevated)]">
+                  <div
+                    className="h-full bg-[var(--zen-primary)] transition-all duration-500"
+                    style={{ width: `${contextsProgressPercent}%` }}
+                  />
+                </div>
+                <span>{contextsProgressPercent}%</span>
               </div>
               <p className="text-[var(--zen-text-muted)]">Assign a unique rank (1–4) for each mode per context.</p>
             </header>

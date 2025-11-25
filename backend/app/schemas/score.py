@@ -67,6 +67,7 @@ class ScorePreviewRaw(CamelModel):
 class ScorePreviewStyle(CamelModel):
     primary_name: Optional[str]
     backup_name: Optional[str] = None
+    cycle_phase: Optional[str] = None
 
 
 class ScorePreviewLFI(CamelModel):

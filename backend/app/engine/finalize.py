@@ -365,6 +365,11 @@ def finalize_assessment(
                     }
             db.flush()
 
+        # [Zenotika V4] Static Snapshotting for Data Integrity
+        # Persist the full calculation artifacts to prevent legacy data loss if norms change.
+        # This fulfills the "Legacy Data Loss" mitigation strategy.
+        session.results_json = artifact_snapshots
+
         # Canonical audit hash (sorted keys + salt for tamper resistance)
         audit_payload = {
             "session_id": session_id,

@@ -51,6 +51,7 @@ class ContextRank(CamelModel):
 class SessionSubmissionPayload(CamelModel):
     items: list[ItemRank] = Field(..., min_length=12, max_length=12)
     contexts: list[ContextRank] = Field(..., min_length=8, max_length=8)
+    client_duration_ms: int | None = Field(None, ge=0, description="Total duration spent by user in ms")
 
     @field_validator("items")
     @classmethod
@@ -168,6 +169,7 @@ class SessionAutosavePayload(CamelModel):
 
 class SessionStartResponse(CamelModel):
     session_id: int
+    guest_token: Optional[str] = None
 
 
 class OperationStatus(CamelModel):

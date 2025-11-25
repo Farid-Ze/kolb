@@ -2,17 +2,10 @@ import pytest
 import uuid
 from app.db.database import SessionLocal
 from app.models.klsi.user import User
-from app.models.klsi.store import StoreProduct
+from app.models.klsi.instrument import Instrument
 from app.services.grant_service import GrantService, InsufficientCreditsError
 from app.models.klsi.grant import AccessGrant
 
-@pytest.fixture
-def db():
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
 
 def test_allocate_and_redeem_credits(db):
     # Setup: Create a user with unique email
@@ -22,26 +15,26 @@ def test_allocate_and_redeem_credits(db):
     db.commit()
     db.refresh(user)
 
-    # Get a product (assuming seeded)
-    product = db.query(StoreProduct).first()
-    if not product:
-        # Create a dummy product if none exists
-        product = StoreProduct(
-            name="Test Product", 
-            description="Test Desc", 
-            price=100, 
-            is_active=True,
-            product_type="instrument"
+    # Get an instrument (assuming seeded)
+    instrument = db.query(Instrument).first()
+    if not instrument:
+        # Create a dummy instrument if none exists
+        instrument = Instrument(
+            code="TEST_INST",
+            name="Test Instrument",
+            version="1.0",
+            description="Test Desc",
+            is_active=True
         )
-        db.add(product)
+        db.add(instrument)
         db.commit()
-        db.refresh(product)
+        db.refresh(instrument)
 
     # 1. Allocate Credits
     grant = GrantService.allocate_credits(
         db, 
         grantor_id=user.id, # Self-grant for simplicity
-        instrument_id=product.id,
+        instrument_id=instrument.id,
         grantee_id=user.id,
         credits=5
     )
@@ -51,16 +44,16 @@ def test_allocate_and_redeem_credits(db):
     assert grant.credits_consumed == 0
     
     # 2. Check Balance
-    balance = GrantService.get_balance(db, user.id, product.id)
+    balance = GrantService.get_balance(db, user.id, instrument.id)
     assert balance == 5
     
     # 3. Redeem Credit
-    used_grant = GrantService.redeem_credit(db, user.id, product.id)
+    used_grant = GrantService.redeem_credit(db, user.id, instrument.id)
     assert used_grant.id == grant.id
     assert used_grant.credits_consumed == 1
     
     # 4. Check Balance again
-    balance = GrantService.get_balance(db, user.id, product.id)
+    balance = GrantService.get_balance(db, user.id, instrument.id)
     assert balance == 4
 
 def test_redeem_insufficient_credits(db):
@@ -69,18 +62,18 @@ def test_redeem_insufficient_credits(db):
     db.add(user)
     db.commit()
 
-    product = db.query(StoreProduct).first()
-    if not product:
-        product = StoreProduct(
-            name="Test Product 2", 
-            description="Test Desc", 
-            price=100, 
-            is_active=True,
-            product_type="instrument"
+    instrument = db.query(Instrument).first()
+    if not instrument:
+        instrument = Instrument(
+            code="TEST_INST_2",
+            name="Test Instrument 2",
+            version="1.0",
+            description="Test Desc",
+            is_active=True
         )
-        db.add(product)
+        db.add(instrument)
         db.commit()
-        db.refresh(product)
+        db.refresh(instrument)
 
     with pytest.raises(InsufficientCreditsError):
-        GrantService.redeem_credit(db, user.id, product.id)
+        GrantService.redeem_credit(db, user.id, instrument.id)

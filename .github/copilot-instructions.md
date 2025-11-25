@@ -108,21 +108,21 @@
 
 | ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
 | --- | --- | --- | --- | --- | --- |
-| Z3-FUT-2-A-01 | Implement `startSession()` calling `POST /sessions/start` | Z3-PLT-2-A-01 | 1 |  | frontend,api |
-| Z3-FUT-2-A-02 | Implement `getSessionItems(sessionId)` from `GET /sessions/{id}/items` | Z3-FUT-2-A-01 | 1 |  | frontend,api |
-| Z3-FUT-2-A-03 | Model local assessment state (answers, latencies, blur counts) | Z3-FUT-2-A-02 | 2 |  | frontend |
-| Z3-FUT-2-A-04 | Ensure strict ownership check UX (forbidden if session not owned) | Z3-FUT-2-A-02 | 1 |  | frontend,security |
-| Z3-FUT-2-A-05 | Implement submit/finalize flow using engine/session schemas | Z3-FUT-2-A-03 | 2 |  | frontend,api |
+| Z3-FUT-2-A-01 | Implement `startSession()` calling `POST /sessions/start` (DONE) | Z3-PLT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-2-A-02 | Implement `getSessionItems(sessionId)` from `GET /sessions/{id}/items` (DONE) | Z3-FUT-2-A-01 | 1 |  | frontend,api |
+| Z3-FUT-2-A-03 | Model local assessment state (answers, latencies, blur counts) (DONE) | Z3-FUT-2-A-02 | 2 |  | frontend |
+| Z3-FUT-2-A-04 | Ensure strict ownership check UX (forbidden if session not owned) (DONE) | Z3-FUT-2-A-02 | 1 |  | frontend,security |
+| Z3-FUT-2-A-05 | Implement submit/finalize flow using engine/session schemas (DONE) | Z3-FUT-2-A-03 | 2 |  | frontend,api |
 
 #### Story FUT-2-B – Tunnel UI & UX Safeguards
 
 | ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
 | --- | --- | --- | --- | --- | --- |
-| Z3-FUT-2-B-01 | Implement `FutureTunnelPage` with `TunnelLayout` (no nav) | Z3-PLT-1-B-05 | 2 |  | frontend,ux |
-| Z3-FUT-2-B-02 | Build `ItemRankCard` enforcing no duplicate ranks (1–4) | Z3-FUT-2-A-03 | 2 |  | frontend,validation |
-| Z3-FUT-2-B-03 | Add `TunnelProgress` component reflecting item completion | Z3-FUT-2-A-03 | 1 |  | frontend |
-| Z3-FUT-2-B-04 | Implement auto-save or periodic submission if supported | Z3-FUT-2-A-05 | 2 |  | frontend |
-| Z3-FUT-2-B-05 | Implement unsaved-changes warning if user tries to exit tunnel | Z3-FUT-2-A-03 | 1 |  | frontend,ux |
+| Z3-FUT-2-B-01 | Implement `FutureTunnelPage` with `TunnelLayout` (no nav) (DONE) | Z3-PLT-1-B-05 | 2 |  | frontend,ux |
+| Z3-FUT-2-B-02 | Build `ItemRankCard` enforcing no duplicate ranks (1–4) (DONE) | Z3-FUT-2-A-03 | 2 |  | frontend,validation |
+| Z3-FUT-2-B-03 | Add `TunnelProgress` component reflecting item completion (DONE) | Z3-FUT-2-A-03 | 1 |  | frontend |
+| Z3-FUT-2-B-04 | Implement auto-save or periodic submission if supported (DONE) | Z3-FUT-2-A-05 | 2 |  | frontend |
+| Z3-FUT-2-B-05 | Implement unsaved-changes warning if user tries to exit tunnel (DONE) | Z3-FUT-2-A-03 | 1 |  | frontend,ux |
 
 ### Epic FUT-3 – Future Dashboard (`/future/dashboard`)
 

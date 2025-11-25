@@ -72,6 +72,7 @@ const mapResponseRanksToChoiceIds = (item: AssessmentItem, ranks: Record<string,
 const SESSION_STORAGE_KEY = 'zenotika.tunnel.sessionId'
 const ITEM_DRAFTS_STORAGE_KEY = 'zenotika.tunnel.itemDrafts'
 const CONTEXT_DRAFTS_STORAGE_KEY = 'zenotika.tunnel.contextDrafts'
+const START_TIME_STORAGE_KEY = 'zenotika.tunnel.startTime'
 
 type ItemTelemetryMetrics = {
   startedAt: number
@@ -161,6 +162,7 @@ export function useTunnelSession() {
     localStorage.removeItem(SESSION_STORAGE_KEY)
     localStorage.removeItem(ITEM_DRAFTS_STORAGE_KEY)
     localStorage.removeItem(CONTEXT_DRAFTS_STORAGE_KEY)
+    localStorage.removeItem(START_TIME_STORAGE_KEY)
   }, [])
 
   const reset = useCallback(() => {
@@ -450,28 +452,35 @@ export function useTunnelSession() {
     dispatch({ type: 'SET_CONTEXT_RANK', contextName, draft: updated })
   }, [contextDrafts, dispatch])
 
-  const buildSubmissionPayload = useCallback((): SessionSubmissionPayload => ({
-    items: learningItems.map((item) => {
-      const ranks = drafts[item.id]?.ranks
-      if (!ranks || Object.keys(ranks).length !== MODE_CODES.length) {
-        throw new Error('Incomplete item ranks detected.')
-      }
-      return { itemId: item.id, ranks }
-    }),
-    contexts: LFI_CONTEXTS.map((contextName) => {
-      const draft = contextDrafts[contextName]
-      if (!isContextComplete(draft)) {
-        throw new Error('Incomplete context ranks detected.')
-      }
-      return {
-        contextName,
-        CE: draft.CE!,
-        RO: draft.RO!,
-        AC: draft.AC!,
-        AE: draft.AE!,
-      }
-    }),
-  }), [learningItems, drafts, contextDrafts])
+  const buildSubmissionPayload = useCallback((): SessionSubmissionPayload => {
+    const startTimeStr = typeof window !== 'undefined' ? window.localStorage.getItem(START_TIME_STORAGE_KEY) : null
+    const startTime = startTimeStr ? parseInt(startTimeStr, 10) : Date.now()
+    const duration = Date.now() - startTime
+
+    return {
+      items: learningItems.map((item) => {
+        const ranks = drafts[item.id]?.ranks
+        if (!ranks || Object.keys(ranks).length !== MODE_CODES.length) {
+          throw new Error('Incomplete item ranks detected.')
+        }
+        return { itemId: item.id, ranks }
+      }),
+      contexts: LFI_CONTEXTS.map((contextName) => {
+        const draft = contextDrafts[contextName]
+        if (!isContextComplete(draft)) {
+          throw new Error('Incomplete context ranks detected.')
+        }
+        return {
+          contextName,
+          CE: draft.CE!,
+          RO: draft.RO!,
+          AC: draft.AC!,
+          AE: draft.AE!,
+        }
+      }),
+      clientDurationMs: duration,
+    }
+  }, [learningItems, drafts, contextDrafts])
 
   useEffect(() => {
     if (!sessionId || !learningItems.length) {
@@ -531,7 +540,7 @@ export function useTunnelSession() {
         AE: draft.AE!,
       }
     })
-    if (!responses.length && !contextsPayload.length) {
+    if ((!responses || !responses.length) && !contextsPayload.length) {
       return
     }
     const payload: SessionAutosavePayload = {
@@ -581,6 +590,9 @@ export function useTunnelSession() {
       return sessionId
     }
     const response = await startMutation.mutateAsync()
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(START_TIME_STORAGE_KEY, Date.now().toString())
+    }
     return response.sessionId
   }, [isAuthenticated, isTimeLocked, sessionId, startMutation])
 

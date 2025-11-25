@@ -18,7 +18,8 @@ class AssessmentSession(Base):
     __tablename__ = "assessment_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    guest_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.started)

@@ -52,6 +52,19 @@ def register(payload: UserCreate, db: Any = Depends(get_db)):
         kelas=payload.kelas if role == Role.MAHASISWA else None,
         tahun_masuk=payload.tahun_masuk if role == Role.MAHASISWA else None,
     )
+    
+    # [Zenotika V4] Lazy Registration Merge
+    if payload.guest_session_id and payload.guest_token:
+        from app.db.repositories import SessionRepository
+        session_repo = SessionRepository(db)
+        session = session_repo.get_by_id(payload.guest_session_id)
+        
+        # Verify session exists, is anonymous, and token matches
+        if session and session.user_id is None and session.guest_token == payload.guest_token:
+            session.user_id = user.id
+            # Note: We don't retroactively update AuditLog actor (remains 'ANON' or similar)
+            # This preserves the history that it was taken anonymously.
+
     try:
         db.commit()
         db.refresh(user)

@@ -158,6 +158,30 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     return user
 
 
+def get_current_user_optional(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
+    """FastAPI dependency for optional user authentication.
+    
+    Returns:
+        User object if token is valid, None otherwise.
+    """
+    if not authorization:
+        return None
+    
+    parts = authorization.split(" ")
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    
+    token = parts[1]
+    
+    try:
+        payload = decode_access_token(token)
+        user_id = int(payload["sub"])
+        repo = UserRepository(db)
+        return repo.get(user_id)
+    except Exception:
+        return None
+
+
 def require_mediator(user, detail: str | None = None) -> None:
     """Ensure the authenticated user has MEDIATOR role.
 

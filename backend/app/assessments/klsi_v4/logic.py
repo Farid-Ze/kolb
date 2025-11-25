@@ -49,7 +49,7 @@ from app.core.config import settings
 
 if TYPE_CHECKING:
     from app.models.klsi.items import UserResponse
-from app.services.provenance import upsert_scale_provenance
+# from app.services.provenance import upsert_scale_provenance
 
 from app.data.norms import APPENDIX_TABLES
 
@@ -396,6 +396,22 @@ def _style_distance(acc: int, aer: int, window: StyleWindow) -> int:
     return dx + dy
 
 
+def determine_cycle_phase(style_name: str) -> str:
+    """Map learning style to the corresponding phase(s) of the Experiential Learning Cycle."""
+    mapping = {
+        "Experiencing": "Experiencing",
+        "Reflecting": "Reflecting",
+        "Thinking": "Thinking",
+        "Acting": "Acting",
+        "Initiating": "Acting & Experiencing",
+        "Imagining": "Experiencing & Reflecting",
+        "Analyzing": "Reflecting & Thinking",
+        "Deciding": "Thinking & Acting",
+        "Balancing": "Balanced",
+    }
+    return mapping.get(style_name, "Unknown")
+
+
 def determine_style_from_percentiles(acce_pct: float, aero_pct: float) -> str:
     """Determine learning style using KLSI 4.0 Nine-Style Typology (Kite) based on percentiles.
     
@@ -727,7 +743,17 @@ def apply_percentiles(
         },
     )
     db.add(entity)
-    upsert_scale_provenance(db, session_id, raw_scores, percentiles, provenance, truncations)
+    
+    # [Zenotika V4] Async Provenance Logging
+    # Attach payload to entity for upstream background task scheduling
+    setattr(entity, "_provenance_payload", {
+        "session_id": session_id,
+        "raw_scores": raw_scores,
+        "percentile_map": percentiles,
+        "provenance_map": provenance,
+        "truncations": truncations
+    })
+    
     return entity
 
 

@@ -168,9 +168,10 @@ Sebelum masuk ke backlog, kita harus menyepakati kamus baru untuk menggantikan m
 ### [C-03] Cycle of Learning & Feedback
 
 - **Target:** Frontend / Report Logic
-- **Status:** **PENDING**
+- **Status:** **DONE** (API updated with Cycle Phase and Backup Style)
 - **Tasks:**
-    1. [ ] Update API response to include "Cycle Phase" analysis based on LFI and Style.
+    1. [x] Update API response to include "Cycle Phase" analysis based on LFI and Style.
+    2. [x] Implement Backup Style calculation using Centroid Distance in Percentile Space.
 
 ### EPIC D: IDENTITY, TELEMETRY & PROVENANCE (Renamed from C)
 
@@ -179,25 +180,28 @@ Sebelum masuk ke backlog, kita harus menyepakati kamus baru untuk menggantikan m
 ### [D-01] Unified Identity (Zen ID)
 
 - **Target File:** `backend/app/models/klsi/user.py`
+- **Status:** **DONE** (Guest Access & Lazy Registration Merge implemented)
 - **Tasks:**
-    1. Audit tabel `User`. Pastikan tidak ada "Guest User" tanpa ID yang jelas.
-    2. Untuk kebutuhan "Future Tunnel" (yang mungkin anonim di awal), buat mekanisme *Lazy Registration*: User dapat `session_id` dulu, baru nanti di-merge ke `user_id` saat selesai.
-    3. Pastikan semua tabel (Results, Telemetry, Grants) merujuk ke `Zen ID` yang sama.
+    1. [x] Audit tabel `User`. Pastikan tidak ada "Guest User" tanpa ID yang jelas.
+    2. [x] Untuk kebutuhan "Future Tunnel" (yang mungkin anonim di awal), buat mekanisme *Lazy Registration*: User dapat `session_id` dulu, baru nanti di-merge ke `user_id` saat selesai.
+    3. [x] Pastikan semua tabel (Results, Telemetry, Grants) merujuk ke `Zen ID` yang sama.
 
-### [C-02] Async Provenance Logging
+### [D-02] Async Provenance Logging
 
 - **Target File:** `backend/app/services/provenance.py`
+- **Status:** **DONE** (BackgroundTasks implemented)
 - **Tasks:**
-    1. Ubah mekanisme logging provenance menjadi *Asynchronous* (`async def`).
-    2. Gunakan `asyncio.create_task` atau *Background Tasks* FastAPI agar user tidak perlu menunggu proses pencatatan log selesai untuk melihat hasil.
-    3. Pastikan log disimpan di tabel yang di-indeks berdasarkan `timestamp` dan `user_id`.
+    1. [x] Ubah mekanisme logging provenance menjadi *Asynchronous* (`async def`).
+    2. [x] Gunakan `asyncio.create_task` atau *Background Tasks* FastAPI agar user tidak perlu menunggu proses pencatatan log selesai untuk melihat hasil.
+    3. [x] Pastikan log disimpan di tabel yang di-indeks berdasarkan `timestamp` dan `user_id`.
 
-### [C-03] Telemetry Sanitization
+### [D-03] Telemetry Sanitization
 
 - **Target File:** `backend/app/schemas/telemetry.py`
+- **Status:** **DONE** (Strict Schemas & Filtering API implemented)
 - **Tasks:**
-    1. Definisikan schema ketat untuk event: `TimeOnPage`, `ItemChanged`, `MouseMovement`.
-    2. Filter data di level API: Jangan simpan data telemetri yang corrupt atau terlalu berisik (spam).
+    1. [x] Definisikan schema ketat untuk event: `TimeOnPage`, `ItemChanged`, `MouseMovement`.
+    2. [x] Filter data di level API: Jangan simpan data telemetri yang corrupt atau terlalu berisik (spam).
 
 ### EPIC D: FRONTEND SYNCHRONIZATION (Future Tunnel)
 
@@ -206,18 +210,20 @@ Sebelum masuk ke backlog, kita harus menyepakati kamus baru untuk menggantikan m
 ### [D-01] Type-Safe Contract (Codegen)
 
 - **Target:** `frontend/src/features/future-tunnel/model.ts`
+- **Status:** **DONE** (Client generated & integrated)
 - **Masalah:** Sering terjadi ketidakcocokan tipe data antara Backend (Python) dan Frontend (TS).
 - **Tasks:**
-    1. Setup script di `package.json` untuk menjalankan `openapi-typescript-codegen`.
-    2. Generate otomatis interface TypeScript dari `openapi.json` FastAPI setiap kali ada perubahan di Backend.
-    3. Refactor kode Frontend untuk menggunakan tipe data hasil generate ini.
+    1. [x] Setup script di `package.json` untuk menjalankan `openapi-typescript-codegen`.
+    2. [x] Generate otomatis interface TypeScript dari `openapi.json` FastAPI setiap kali ada perubahan di Backend.
+    3. [x] Refactor kode Frontend untuk menggunakan tipe data hasil generate ini.
 
 ### [D-02] Defensive Validation Layer
 
 - **Target:** `backend/app/routers/engine.py`
+- **Status:** **DONE** (Implemented in `engine.py` service layer)
 - **Tasks:**
-    1. Jangan percaya input Frontend. Lakukan validasi ulang logic di Backend.
-    2. Contoh: Jika Frontend mengirim `duration: 5s` untuk tes 50 soal, Backend harus menolak (mustahil/bot). Buat aturan validasi "Manusiawi".
+    1. [x] Jangan percaya input Frontend. Lakukan validasi ulang logic di Backend.
+    2. [x] Contoh: Jika Frontend mengirim `duration: 5s` untuk tes 50 soal, Backend harus menolak (mustahil/bot). Buat aturan validasi "Manusiawi".
 
 ## BAGIAN V: RISIKO & MITIGASI (BLIND SPOTS)
 
@@ -247,9 +253,10 @@ Kita akan mengeksekusi ini dalam urutan prioritas untuk meminimalkan gangguan pa
 
 **FASE 3: THE HARDENING (Minggu 4)**
 
-1. Aktifkan `provenance` logging secara penuh.
-2. Implementasi *Row Locking* pada transaksi kuota.
-3. Finalisasi migrasi data lama.
+1. [x] Aktifkan `provenance` logging secara penuh. (Done via D-02)
+2. [x] Implementasi *Row Locking* pada transaksi kuota. (Done via B-02)
+3. [x] Implementasi Static Snapshotting (`results_json`) untuk mitigasi *Legacy Data Loss*. (Done)
+4. Finalisasi migrasi data lama.
 
 **Penutup:**
 Master Plan V4 ini adalah cetak biru untuk mengubah Zenotika dari sekadar aplikasi menjadi infrastruktur riset yang *Robust*, *Scalable*, dan *Ethical*. Tidak ada lagi ambiguitas bisnis. Fokus penuh pada keunggulan teknis dan integritas data.

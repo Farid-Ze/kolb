@@ -1,4 +1,4 @@
-import type { AssessmentResults } from '../../../entities/result/model'
+import type { AssessmentResults } from '../model'
 
 interface PercentileSummaryProps {
   results?: AssessmentResults

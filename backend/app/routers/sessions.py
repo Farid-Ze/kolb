@@ -3,15 +3,16 @@ from email.utils import format_datetime
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, BackgroundTasks
 from pydantic import ValidationError
 
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.engine.runtime import runtime
-from app.services.security import get_current_user, decode_access_token
+from app.services.security import get_current_user, decode_access_token, get_current_user_optional
 from app.services.validation import run_session_validations
 from app.schemas.base import CamelModel
+from app.services.provenance import log_provenance_background_task
 from app.schemas.session import (
     SessionSubmissionPayload,
     LegacyItemSubmissionPayload,
@@ -87,13 +88,13 @@ def _sunset_header_value() -> str | None:
 @router.post("/start", response_model=SessionStartResponse)
 def start_session(
     db: Any = Depends(get_db),
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user_optional),
 ):
     service = EngineSessionService(db)
     session = service.start_session(
         current_user, instrument_code="KLSI", instrument_version="4.0"
     )
-    return SessionStartResponse(session_id=session.id)
+    return SessionStartResponse(session_id=session.id, guest_token=session.guest_token)
 
 @router.get("/{session_id}/items", response_model=list)
 def get_items(
@@ -197,6 +198,7 @@ def submit_context(
 def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
+    background_tasks: BackgroundTasks,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
@@ -206,11 +208,17 @@ def submit_all_responses(
     service = EngineSessionService(db)
     # Service handles validation, persistence, finalization, and error mapping (via DomainError)
     result = service.submit_full_batch(session_id, current_user, payload)
+    
+    if result and "_provenance_payload" in result:
+        prov_payload = result.pop("_provenance_payload")
+        background_tasks.add_task(log_provenance_background_task, **prov_payload)
+
     return SessionOperationResult(result=result)
 
 @router.post("/{session_id}/finalize", response_model=SessionOperationResult)
 def finalize(
     session_id: int, 
+    background_tasks: BackgroundTasks,
     db: Any = Depends(get_db), 
     current_user: Any = Depends(get_current_user)
 ):
@@ -223,6 +231,11 @@ def finalize(
     
     service = EngineSessionService(db)
     result = service.finalize_session(session_id, current_user)
+    
+    if result and "_provenance_payload" in result:
+        prov_payload = result.pop("_provenance_payload")
+        background_tasks.add_task(log_provenance_background_task, **prov_payload)
+
     return SessionOperationResult(result=result)
 
 @router.get("/{session_id}/validation", response_model=dict)

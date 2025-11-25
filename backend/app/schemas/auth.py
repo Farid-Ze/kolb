@@ -16,6 +16,9 @@ class UserCreate(CamelModel):
     nim: str | None = None
     kelas: str | None = None  # format IF-<number>
     tahun_masuk: int | None = None
+    guest_session_id: int | None = None
+    guest_token: str | None = None
+
 
 class Token(CamelModel):
     access_token: str

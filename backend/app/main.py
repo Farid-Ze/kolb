@@ -27,7 +27,6 @@ from app.routers.score import router as score_router
 from app.routers.sessions import router as sessions_router
 from app.routers.teams import router as teams_router
 from app.routers.telemetry import router as telemetry_router
-from app.routers.store import router as store_router
 from app.routers.sphere import router as sphere_router
 from app.routers.challenges import router as challenges_router
 from app.services.seeds import (
@@ -36,7 +35,6 @@ from app.services.seeds import (
     seed_gamification_badges,
     seed_growth_challenges,
     seed_instruments,
-    seed_store_products,
     seed_learning_styles,
 )
 from app.engine.registry import engine_registry
@@ -109,7 +107,6 @@ async def lifespan(app: FastAPI):
             seed_assessment_items(db)
             seed_engine_authoring(db)
             seed_gamification_badges(db)
-            seed_store_products(db)
             seed_growth_challenges(db)
     if settings.i18n_preload_enabled:
         logger.info("startup_preload_i18n", extra={"structured_data": {"i18n_preload_enabled": True}})
@@ -139,7 +136,6 @@ app.include_router(score_router)
 app.include_router(teams_router)
 app.include_router(research_router)
 app.include_router(telemetry_router)
-app.include_router(store_router)
 app.include_router(sphere_router)
 app.include_router(challenges_router)
 
