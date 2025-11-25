@@ -19,6 +19,7 @@ from app.services.seeds import (
     seed_store_products,
     seed_growth_challenges,
 )
+from sqlalchemy import text
 
 
 @pytest.fixture(scope="session")
@@ -30,6 +31,13 @@ def db_setup():
         if os.path.exists(path):
             engine.dispose()
             os.remove(path)
+            
+    # Drop dependent views first
+    with engine.connect() as conn:
+        conn.execute(text("DROP MATERIALIZED VIEW IF EXISTS mv_class_style_stats CASCADE"))
+        conn.execute(text("DROP VIEW IF EXISTS v_style_grid CASCADE"))
+        conn.commit()
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
@@ -42,6 +50,14 @@ def db_setup():
         seed_growth_challenges(db)
         db.commit()
     yield
+
+@pytest.fixture
+def db(db_setup):
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
 
 @pytest.fixture()
 def client(db_setup):

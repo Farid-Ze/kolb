@@ -11,14 +11,8 @@ from app.schemas.score import (
     ScorePreviewStyle,
 )
 from app.services.regression import predicted_curve
-from app.services.scoring import STYLE_CUTS, compute_kendalls_w
-
-
-def _compute_style(acce: int, aero: int) -> str | None:
-    for name, rule in STYLE_CUTS.items():
-        if rule(acce, aero):
-            return name
-    return None
+from app.assessments.klsi_v4.calculations import calculate_lfi_variance
+from app.assessments.klsi_v4.logic import determine_style_from_percentiles, determine_backup_style_from_percentiles
 
 
 def _percentiles(raw: RawTotalsWrite, acce: int, aero: int) -> ScorePreviewPercentiles:
@@ -48,8 +42,17 @@ def build_score_preview(payload: ScorePreviewRequest) -> ScorePreviewResponse:
     conv_div = (ac + ae) - (ce + ro)
 
     contexts = _contexts_to_dicts(payload.contexts)
-    W = compute_kendalls_w(contexts)
-    lfi_value = 1 - W
+    # Refactored to use Variance-based LFI (Epic C-01)
+    lfi_value = calculate_lfi_variance(contexts)
+
+    pcts = _percentiles(raw, acce, aero)
+    
+    # Refactored to use Kite Topology (Epic C-02)
+    acce_val = pcts.ACCE if pcts.ACCE is not None else 50.0
+    aero_val = pcts.AERO if pcts.AERO is not None else 50.0
+
+    primary_name = determine_style_from_percentiles(acce_val, aero_val)
+    backup_name = determine_backup_style_from_percentiles(acce_val, aero_val, primary_name)
 
     response = ScorePreviewResponse(
         raw=ScorePreviewRaw(
@@ -63,9 +66,9 @@ def build_score_preview(payload: ScorePreviewRequest) -> ScorePreviewResponse:
             ACCOM_MINUS_ASSIM=accom_minus_assim,
             CONV_DIV=conv_div,
         ),
-        style=ScorePreviewStyle(primary_name=_compute_style(acce, aero)),
+        style=ScorePreviewStyle(primary_name=primary_name, backup_name=backup_name),
         lfi=ScorePreviewLFI(value=lfi_value),
-        percentiles=_percentiles(raw, acce, aero),
+        percentiles=pcts,
         analytics=ScorePreviewAnalytics(predicted_lfi_curve=predicted_curve()),
     )
     return response

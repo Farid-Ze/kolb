@@ -112,6 +112,19 @@ CHOICE_TEXT = {
 
 STORE_PRODUCT_TEMPLATES = [
     {
+        "slug": "klsi-4.0",
+        "name": "Kolb Learning Style Inventory 4.0",
+        "description": "Official assessment to discover your learning style.",
+        "base_price": 1,
+        "required_badge_slug": None,
+        "meta": {
+            "category": "assessment",
+            "instrument_code": "KLSI",
+            "instrument_version": "4.0",
+            "currency": "CREDIT",
+        },
+    },
+    {
         "slug": "zen-reflection-journal",
         "name": "Zen Reflection Journal",
         "description": "Notebook with prompts curated for each learning mode to keep tunnel insights alive.",

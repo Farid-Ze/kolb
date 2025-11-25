@@ -1,3 +1,4 @@
+import math
 from datetime import date, datetime
 from functools import lru_cache
 from threading import RLock
@@ -11,6 +12,7 @@ from app.assessments.klsi_v4.calculations import (
     aggregate_mode_scores,
     calculate_combination_metrics,
     calculate_style_intensity,
+    calculate_lfi_variance,
 )
 from app.assessments.klsi_v4.enums import LearningStyleCode
 from app.assessments.klsi_v4.types import (
@@ -138,6 +140,21 @@ def _build_style_cuts() -> Dict[str, Any]:
 
 
 STYLE_CUTS = _build_style_cuts()
+
+# Centroids for the 9-Style Kite Topology (Percentile Space)
+# Used for calculating Backup Style (Second Closest)
+STYLE_CENTROIDS = {
+    "Initiating": (20.0, 80.0),    # Low AC-CE, High AE-RO
+    "Experiencing": (20.0, 50.0),  # Low AC-CE, Mid AE-RO
+    "Imagining": (20.0, 20.0),     # Low AC-CE, Low AE-RO
+    "Acting": (50.0, 80.0),        # Mid AC-CE, High AE-RO
+    "Balancing": (50.0, 50.0),     # Mid AC-CE, Mid AE-RO
+    "Reflecting": (50.0, 20.0),    # Mid AC-CE, Low AE-RO
+    "Deciding": (80.0, 80.0),      # High AC-CE, High AE-RO
+    "Thinking": (80.0, 50.0),      # High AC-CE, Mid AE-RO
+    "Analyzing": (80.0, 20.0),     # High AC-CE, Low AE-RO
+}
+
 STYLE_CODES: Tuple[LearningStyleCode, ...] = tuple(
     LearningStyleCode(name) for name in _cfg().style_windows.keys()
 )
@@ -168,8 +185,9 @@ def _describe_provenance(tag: str) -> Tuple[str, Optional[str], Optional[str]]:
         group, version = _split_norm_group_token(payload)
         return "external", group, version
     if tag.startswith("Appendix:"):
-        appendix_group = tag.split(":", 1)[1]
-        return "appendix", appendix_group, None
+        payload = tag.split(":", 1)[1]
+        group, version = _split_norm_group_token(payload)
+        return "appendix", group, version
     return UNKNOWN, None, None
 
 
@@ -378,53 +396,97 @@ def _style_distance(acc: int, aer: int, window: StyleWindow) -> int:
     return dx + dy
 
 
-def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLearningStyle, StyleIntensityMetrics]:
-    """Assign primary (and backup) style using DB windows exclusively.
+def determine_style_from_percentiles(acce_pct: float, aero_pct: float) -> str:
+    """Determine learning style using KLSI 4.0 Nine-Style Typology (Kite) based on percentiles.
+    
+    Boundaries:
+    - Low: < 40th percentile
+    - Mid: 40th - 60th percentile
+    - High: > 60th percentile
+    """
+    # Determine Y-axis (AC-CE) state
+    if acce_pct < 40:
+        y_state = "Low" # High CE
+    elif acce_pct > 60:
+        y_state = "High" # High AC
+    else:
+        y_state = "Mid" # Balanced
+        
+    # Determine X-axis (AE-RO) state
+    if aero_pct < 40:
+        x_state = "Low" # High RO
+    elif aero_pct > 60:
+        x_state = "High" # High AE
+    else:
+        x_state = "Mid" # Balanced
+        
+    # Map states to Styles
+    mapping = {
+        ("Low", "Low"): LearningStyleCode.IMAGINING,
+        ("Low", "Mid"): LearningStyleCode.EXPERIENCING,
+        ("Low", "High"): LearningStyleCode.INITIATING,
+        ("Mid", "Low"): LearningStyleCode.REFLECTING,
+        ("Mid", "Mid"): LearningStyleCode.BALANCING,
+        ("Mid", "High"): LearningStyleCode.ACTING,
+        ("High", "Low"): LearningStyleCode.ANALYZING,
+        ("High", "Mid"): LearningStyleCode.THINKING,
+        ("High", "High"): LearningStyleCode.DECIDING,
+    }
+    
+    return mapping[(y_state, x_state)]
 
-    This removes reliance on in-code STYLE_CUTS lambdas to avoid drift.
-    Windows are read from learning_style_types (ACCE_min/max, AERO_min/max).
+
+def determine_backup_style_from_percentiles(
+    acce_pct: float, 
+    aero_pct: float, 
+    primary_style: str
+) -> Optional[str]:
+    """Determine the second closest learning style using Euclidean distance to centroids."""
+    distances = []
+    for style, (cx, cy) in STYLE_CENTROIDS.items():
+        # Calculate Euclidean distance
+        # STYLE_CENTROIDS are defined as (AC-CE, AE-RO).
+        dist = math.sqrt((acce_pct - cx)**2 + (aero_pct - cy)**2)
+        distances.append((dist, style))
     
-    Design Decision: DB windows are the single source of truth for style classification.
-    Changes to windows in the database are reflected immediately without code deployment.
-    STYLE_CUTS remains as a helper/validator only and is NOT used for primary assignment.
+    # Sort by distance (ascending)
+    distances.sort(key=lambda x: x[0])
     
-    This prevents drift between configuration and implementation, ensuring that window
-    adjustments (e.g., from updated research or regional adaptations) are applied
-    consistently across all scoring pipelines.
+    # The first one should be the primary style (or very close to it).
+    # We want the first one that is NOT the primary style.
+    for _, style in distances:
+        if style != primary_style:
+            return style
+            
+    return None
+
+
+def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLearningStyle, StyleIntensityMetrics]:
+    """Assign primary style using Normative Percentiles (KLSI 4.0 Kite Topology).
+    
+    Refactored in Epic C-02 to use Percentiles instead of Raw Scores.
+    This replaces the legacy 'StyleWindow' logic which relied on raw score boundaries.
     """
     acc, aer = combo.ACCE_raw, combo.AERO_raw
 
-    # Load windows from DB (single source of truth for style boundaries)
+    # Resolve norms and provider
+    group_chain = _normalize_group_chain(resolve_norm_groups(db, combo.session_id))
+    provider = build_composite_norm_provider(db)
+    
+    # Lookup Percentiles
+    acce_res = _lookup_percentile_cached(provider, group_chain, "ACCE", acc)
+    aero_res = _lookup_percentile_cached(provider, group_chain, "AERO", aer)
+    
+    # Fallback to 50th percentile if norms are missing (safe default)
+    acce_pct = acce_res[0] if acce_res[0] is not None else 50.0
+    aero_pct = aero_res[0] if aero_res[0] is not None else 50.0
+    
+    # Determine Primary Style using Kite Topology
+    primary_name = determine_style_from_percentiles(acce_pct, aero_pct)
+
     style_repo = StyleRepository(db)
-    types: list[LearningStyleType] = style_repo.list_learning_style_types()
-    if not types:
-        raise InvalidAssessmentData(LogicMessages.LEARNING_STYLE_WINDOWS_MISSING)
-    windows: dict[str, StyleWindow] = {}
-    for t in types:
-        windows[t.style_name] = StyleWindow(
-            acce_min=t.ACCE_min,
-            acce_max=t.ACCE_max,
-            aero_min=t.AERO_min,
-            aero_max=t.AERO_max,
-        )
-
-    # Determine primary by containment
-    primary_name: Optional[str] = None
-    for name, w in windows.items():
-        if _within(acc, w.acce_min, w.acce_max) and _within(aer, w.aero_min, w.aero_max):
-            primary_name = name
-            break
-
-    # Compute L1 distance to each window for backup selection and tie-breaks
-    ordered_by_distance = sorted(
-        ((name, _style_distance(acc, aer, w)) for name, w in windows.items()),
-        key=lambda item: (item[1], item[0]),  # stable deterministic ordering
-    )
-    if primary_name is None and ordered_by_distance:
-        primary_name = ordered_by_distance[0][0]
-    backup_name = next((name for name, dist in ordered_by_distance if name != primary_name), None)
-
-    primary_type = style_repo.get_by_name(primary_name) if primary_name else None
+    primary_type = style_repo.get_by_name(primary_name)
+    
     intensity_metrics = calculate_style_intensity(acc, aer)
     kite = {}
     if combo.session and combo.session.scale_score:
@@ -443,14 +505,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
         style_intensity_score=int(intensity_metrics.manhattan),
     )
     db.add(user_style)
-    if backup_name:
-        backup_type = style_repo.get_by_name(backup_name)
-        if backup_type:
-            style_repo.upsert_backup_style(
-                combo.session_id,
-                backup_type.id,
-                frequency_count=1,
-            )
+    
     return user_style, intensity_metrics
 
 
@@ -507,15 +562,23 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
             }
         )
     validate_lfi_context_ranks(payload)
-    # Psychometrics Spec §3: LFI = 1 − W where W is Kendall's coefficient
-    # computed over the 8 forced-choice contexts (m) and four modes (n=4).
-    # ``compute_kendalls_w`` already clamps W to [0,1] so the derived LFI
-    # stays in [0,1] before scaling to percentiles.
-    W = compute_kendalls_w(payload)
-    lfi_value = 1 - W
+    # Psychometrics Spec §3: LFI = Sum((Ri - R_bar)^2) / N
+    # Refactored in Epic C-01 to use variance-based formula instead of Kendall's W.
+    # This measures consistency vs variability of ranks across contexts.
+    lfi_value = calculate_lfi_variance(payload)
+    W = 0.0  # Kendall's W is no longer the primary metric for LFI
+    
     provider = norm_provider or build_composite_norm_provider(db)
     group_chain = _normalize_group_chain(resolve_norm_groups(db, session_id))
-    raw_lfi = int(round(lfi_value * 100))
+    
+    # Note: Existing LFI norms (Appendix 7) might be based on a different scale (0-1).
+    # If lfi_value > 1.0, it might saturate the lookup. 
+    # Future work: Update LFI norms to match variance scale.
+    raw_lfi = lfi_value 
+    
+    # We use the raw float value for lookup if the provider supports it, 
+    # but _lookup_percentile_cached expects int/float.
+    # The cache key logic handles floats for LFI.
     percentile, provenance, _ = _lookup_percentile_cached(provider, group_chain, "LFI", raw_lfi)
     tertiles = cfg.lfi.tertiles
     level = None

@@ -155,6 +155,50 @@ docker exec -it kolb-db-1 psql -U klsi -d klsi
 ```
 (Ketik `\dt` untuk melihat tabel, `\q` untuk keluar)
 
+## 4. Workflow Pengembangan & Migrasi (Zenotika V4)
+
+Bagian ini mencakup perintah-perintah yang sering digunakan selama pengembangan aktif, terutama terkait perubahan skema database dan manajemen container.
+
+### Membuat Migrasi Baru (Autogenerate)
+Gunakan perintah ini setelah mengubah model SQLAlchemy (`backend/app/models/`) untuk membuat file migrasi otomatis.
+
+```powershell
+docker-compose exec api alembic revision --autogenerate -m "nama_migrasi"
+```
+
+### Menerapkan Migrasi (Upgrade)
+Menerapkan perubahan skema terbaru ke database.
+
+```powershell
+docker-compose exec api alembic upgrade head
+```
+
+### Rebuild Container API (Force)
+Jika ada file baru yang tidak terdeteksi (misal: template Mako baru) atau perubahan dependensi, rebuild container API secara spesifik.
+
+```powershell
+docker-compose build api; docker-compose up -d api
+```
+
+### Verifikasi Tabel Database (Quick Check)
+Memeriksa apakah tabel tertentu sudah ada di database tanpa masuk ke shell interaktif.
+
+```powershell
+docker-compose exec db psql -U klsi -d klsi -c "\dt nama_tabel"
+```
+*Contoh: `docker-compose exec db psql -U klsi -d klsi -c "\dt access_grants"`*
+
+### Troubleshooting: File Hilang di Container
+Jika file baru (seperti template migrasi) tidak muncul di container, Anda bisa menyalinnya secara manual (sebagai solusi sementara sebelum rebuild).
+
+```powershell
+# Copy dari Host ke Container
+docker cp path/lokal/file kolb-api-1:/path/container/file
+
+# Overwrite file di container (PowerShell)
+Get-Content path/lokal/file | docker-compose exec -T api tee /path/container/file > $null
+```
+
 ## 5. Catatan Arsitektur No-GIL (Python 3.13t)
 
 ### Filosofi Threading

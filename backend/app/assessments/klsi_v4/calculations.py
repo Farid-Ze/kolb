@@ -10,13 +10,26 @@ All functions are:
 Constants are imported from app.assessments.constants to avoid magic numbers.
 """
 
-from math import sqrt
+from math import sqrt, isnan, isinf
 from typing import Iterable, Tuple
 
 from app.assessments.constants import LEARNING_MODES
 from .types import BalanceMedians, CombinationMetrics, ScoreVector, StyleIntensityMetrics
 
 MODES = LEARNING_MODES  # Backward compatibility alias
+
+
+def _safe_div(numerator: float, denominator: float, default: float = 0.0) -> float:
+    """Perform division with protection against ZeroDivisionError, NaN, and Infinity."""
+    try:
+        if denominator == 0:
+            return default
+        result = numerator / denominator
+        if isnan(result) or isinf(result):
+            return default
+        return result
+    except (ZeroDivisionError, OverflowError):
+        return default
 
 
 def aggregate_mode_scores(rank_tuples: Iterable[Tuple[str, int]]) -> ScoreVector:
@@ -42,13 +55,18 @@ def aggregate_mode_scores(rank_tuples: Iterable[Tuple[str, int]]) -> ScoreVector
     Note:
         This function is pure and testable without database access.
         Invalid mode names are silently ignored (defensive programming).
+        Strictly enforces integer values for ranks.
     """
     # Optimization: Use direct dictionary update instead of Counter for speed
     # This avoids the overhead of Counter's internal checks and method calls
     totals = {"CE": 0, "RO": 0, "AC": 0, "AE": 0}
     for mode, value in rank_tuples:
+        if not isinstance(value, int):
+            # Strict validation: reject floats even if they are whole numbers
+            raise TypeError(f"Rank value must be integer, got {type(value).__name__}")
+            
         if mode in totals:
-            totals[mode] += int(value)
+            totals[mode] += value
     return ScoreVector(CE=totals["CE"], RO=totals["RO"], AC=totals["AC"], AE=totals["AE"])
 
 
@@ -129,3 +147,53 @@ def calculate_style_intensity(acc: int, aer: int) -> StyleIntensityMetrics:
     manhattan = abs(acc) + abs(aer)
     euclidean = sqrt(acc**2 + aer**2)
     return StyleIntensityMetrics(manhattan=manhattan, euclidean=euclidean)
+
+
+def calculate_lfi_variance(context_ranks: Iterable[dict[str, int]]) -> float:
+    """Calculate Learning Flexibility Index (LFI) using variance method.
+    
+    LFI measures the variability of a learner's ranking of learning modes
+    across different contexts. A higher LFI indicates greater flexibility
+    (adapting style to context), while a lower LFI indicates a consistent
+    (rigid) learning style regardless of context.
+    
+    Formula:
+        LFI = Sum((Ri - R_bar)^2) / N
+        Where:
+        - Ri is the rank of a mode in a specific context
+        - R_bar is the mean rank of that mode across all contexts
+        - N is the number of contexts
+        - Summation is performed over all contexts and all 4 modes.
+        
+    Args:
+        context_ranks: Iterable of dictionaries, where each dict represents
+                       a context and maps mode codes ('CE', 'RO', 'AC', 'AE')
+                       to their integer rank (1-4).
+                       
+    Returns:
+        Float representing the LFI score.
+    """
+    contexts = list(context_ranks)
+    n = len(contexts)
+    if n == 0:
+        return 0.0
+        
+    modes = ["CE", "RO", "AC", "AE"]
+    
+    # 1. Calculate sums for means
+    totals = {m: 0 for m in modes}
+    for ctx in contexts:
+        for m in modes:
+            totals[m] += ctx.get(m, 0)
+            
+    means = {m: totals[m] / n for m in modes}
+    
+    # 2. Calculate sum of squared deviations
+    ssd = 0.0
+    for ctx in contexts:
+        for m in modes:
+            diff = ctx.get(m, 0) - means[m]
+            ssd += diff * diff
+            
+    # 3. Divide by N
+    return ssd / n

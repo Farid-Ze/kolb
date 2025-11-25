@@ -32,6 +32,7 @@ class SessionErrorMessages:
     LEGACY_ENDPOINT_DEPRECATED: str = "Endpoint sudah tidak berlaku. Gunakan /sessions/{session_id}/submit_all_responses."
     MEDIATOR_OVERRIDE_FORBIDDEN: str = "Hanya mediator yang dapat melakukan override"
     INCOMPLETE_ITEMS: str = "12 item gaya belajar belum terpenuhi"
+    INSUFFICIENT_CREDITS: str = "Kuota akses tidak mencukupi untuk memulai asesmen ini."
 
 
 class ValidationMessages:

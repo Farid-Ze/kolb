@@ -1,8 +1,14 @@
-# Ruff configuration (minimal)
+# Ruff configuration (Zenotika V4 - Concurrency Safe)
 line-length = 100
+target-version = "py313"
 
 [lint]
-select = ["E", "F", "I", "B"]
+# B: Bugbear (Safety - catches mutable defaults B006)
+# E, F: Pyflakes/Pycodestyle (Standard)
+# I: Isort (Imports)
+# RUF: Ruff specific (Async/Await safety)
+# SIM: Simplification
+select = ["E", "F", "I", "B", "RUF", "SIM"]
 ignore = ["B008"]
 
 [lint.per-file-ignores]

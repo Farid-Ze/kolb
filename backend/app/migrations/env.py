@@ -29,6 +29,10 @@ os.environ.setdefault("JWT_SECRET_KEY", "alembic-migrate-secret")
 
 from app.db.database import Base  # noqa: E402
 import app.models.klsi  # noqa: F401, E402
+import app.models.klsi.grant  # noqa: F401, E402
+import app.models.engine  # noqa: F401, E402
+import app.models.research  # noqa: F401, E402
+import app.models.team  # noqa: F401, E402
 
 target_metadata = Base.metadata
 

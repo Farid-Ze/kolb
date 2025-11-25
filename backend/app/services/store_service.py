@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ from app.models.klsi.gamification import UserAchievement
 from app.models.klsi.store import StoreOrder, StoreOrderItem, StoreProduct
 from app.models.klsi.user import User
 from app.schemas.store import CheckoutRequest
+from app.services.grant_service import GrantService
 
 
 class StoreServiceError(Exception):
@@ -45,6 +47,8 @@ class StoreService:
         db.flush()
 
         total_amount = 0
+        items_to_grant = []
+
         for cart_item in payload.items:
             product = self._require_product(db, cart_item.product_id)
             if not self._is_product_eligible(db, user_id, product):
@@ -53,6 +57,8 @@ class StoreService:
             quantity = max(1, cart_item.quantity)
             line_total = product.base_price * quantity
             total_amount += line_total
+            
+            items_to_grant.append((product.id, quantity))
 
             db.add(
                 StoreOrderItem(
@@ -71,13 +77,47 @@ class StoreService:
             user.zen_points = current_points - order.contribution_points
 
         order.total_amount = total_amount
-        if order.total_amount > 0:
+        if order.total_amount == 0:
+            order.payment_status = "paid"
+            # [Zenotika V4] Semantic Pivot: Auto-allocate grants for free orders
+            for product_id, qty in items_to_grant:
+                GrantService.allocate_credits(db, user_id, product_id, grantee_id=user_id, credits=qty)
+        elif order.total_amount > 0:
             order.snap_token = f"SNAP-{uuid.uuid4().hex[:10].upper()}"
 
         db.commit()
         db.refresh(user)
         db.refresh(order)
         setattr(order, "remaining_points", user.zen_points)
+        return order
+
+    def process_payment_success(self, db: Session, order_id: str) -> Optional[StoreOrder]:
+        """
+        [Zenotika V4] Semantic Pivot:
+        Called when payment is confirmed (e.g. via webhook or manual trigger).
+        Allocates AccessGrants for all items in the order.
+        """
+        order = db.get(StoreOrder, order_id)
+        if not order:
+            return None
+            
+        if order.payment_status == "paid":
+            return order
+        
+        order.payment_status = "paid"
+        
+        # Allocate grants for all items
+        for item in order.items:
+             GrantService.allocate_credits(
+                 db, 
+                 grantor_id=order.user_id, 
+                 instrument_id=item.product_id, 
+                 grantee_id=order.user_id, 
+                 credits=item.quantity
+             )
+        
+        db.commit()
+        db.refresh(order)
         return order
 
     def _serialize_product(self, db: Session, user_id: int, product: StoreProduct) -> dict:

@@ -1,52 +1,53 @@
-from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence, Tuple
 
+from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt
 
-@dataclass(frozen=True, slots=True)
-class StyleIntensityMetrics:
+
+class StyleIntensityMetrics(BaseModel):
     """Vector magnitude proxies used to describe learning style intensity."""
+    model_config = ConfigDict(frozen=True)
 
-    manhattan: float
-    euclidean: float
+    manhattan: StrictFloat
+    euclidean: StrictFloat
 
     def as_dict(self) -> dict[str, float]:
         return {"manhattan": self.manhattan, "euclidean": self.euclidean}
 
 
-@dataclass(frozen=True, slots=True)
-class ScoreVector:
+class ScoreVector(BaseModel):
     """Immutable container for raw learning mode totals."""
+    model_config = ConfigDict(frozen=True)
 
-    CE: int
-    RO: int
-    AC: int
-    AE: int
+    CE: StrictInt
+    RO: StrictInt
+    AC: StrictInt
+    AE: StrictInt
 
     def as_dict(self) -> dict[str, int]:
         return {"CE": self.CE, "RO": self.RO, "AC": self.AC, "AE": self.AE}
 
 
-@dataclass(frozen=True, slots=True)
-class CombinationMetrics:
+class CombinationMetrics(BaseModel):
     """Derived dialectics and balance metrics from raw mode totals."""
+    model_config = ConfigDict(frozen=True)
 
-    ACCE: int
-    AERO: int
-    assimilation_accommodation: int
-    converging_diverging: int
-    balance_acce: int
-    balance_aero: int
+    ACCE: StrictInt
+    AERO: StrictInt
+    assimilation_accommodation: StrictInt
+    converging_diverging: StrictInt
+    balance_acce: StrictInt
+    balance_aero: StrictInt
 
 
-@dataclass(frozen=True, slots=True)
-class StyleWindow:
+class StyleWindow(BaseModel):
     """Inclusive ACCE/AERO bounds describing a learning style region."""
+    model_config = ConfigDict(frozen=True)
 
-    acce_min: int | None
-    acce_max: int | None
-    aero_min: int | None
-    aero_max: int | None
+    acce_min: StrictInt | None
+    acce_max: StrictInt | None
+    aero_min: StrictInt | None
+    aero_max: StrictInt | None
 
     @classmethod
     def from_bounds(
@@ -56,7 +57,12 @@ class StyleWindow:
     ) -> "StyleWindow":
         lower_acce, upper_acce = cls._normalize_bounds(acce_bounds)
         lower_aero, upper_aero = cls._normalize_bounds(aero_bounds)
-        return cls(lower_acce, upper_acce, lower_aero, upper_aero)
+        return cls(
+            acce_min=lower_acce, 
+            acce_max=upper_acce, 
+            aero_min=lower_aero, 
+            aero_max=upper_aero
+        )
 
     @staticmethod
     def _normalize_bounds(bounds: Sequence[int | None]) -> Tuple[int | None, int | None]:
@@ -78,35 +84,35 @@ class StyleWindow:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class BalanceMedians:
+class BalanceMedians(BaseModel):
     """Normative median offsets used for balance metrics."""
+    model_config = ConfigDict(frozen=True)
 
-    acce: int
-    aero: int
+    acce: StrictInt
+    aero: StrictInt
 
 
-@dataclass(frozen=True, slots=True)
-class LfiTertiles:
+class LfiTertiles(BaseModel):
     """Tertile cut points separating low/moderate/high LFI levels."""
+    model_config = ConfigDict(frozen=True)
 
-    low: float
-    moderate: float
+    low: StrictFloat
+    moderate: StrictFloat
 
 
-@dataclass(frozen=True, slots=True)
-class LfiConfig:
+class LfiConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
     tertiles: LfiTertiles
 
 
-@dataclass(frozen=True, slots=True)
-class KLSIParameters:
+class KLSIParameters(BaseModel):
     """Immutable container for the Kolb 4.0 assessment configuration."""
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     instrument_id: str
     version: str
-    item_count: int
-    context_count: int
+    item_count: StrictInt
+    context_count: StrictInt
     style_windows: Mapping[str, StyleWindow]
     balance_medians: BalanceMedians
     intensity_metrics: Tuple[str, ...]

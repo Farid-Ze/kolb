@@ -1,4 +1,5 @@
-from typing import Any, Mapping, Sequence
+import time
+from typing import Any, Callable, Mapping, Sequence, Optional
 
 from app.models.engine import RuleType
 
@@ -7,19 +8,41 @@ class DSLExecutionError(ValueError):
     """Raised when DSL expressions violate safety or semantic guarantees."""
 
 
+class DSLTimeoutError(DSLExecutionError):
+    """Raised when DSL execution exceeds the allowed time budget."""
+
+
 _SAFE_LITERAL_TYPES = (str, int, float, bool, type(None))
 
 
-def evaluate_rule(rule_type: RuleType, expression: Mapping[str, Any], context: Mapping[str, Any]) -> Any:
-    """Evaluate a scoring rule against an immutable context without side effects."""
+def evaluate_rule(
+    rule_type: RuleType, 
+    expression: Mapping[str, Any], 
+    context: Mapping[str, Any],
+    timeout_sec: float = 2.0
+) -> Any:
+    """Evaluate a scoring rule against an immutable context without side effects.
+    
+    Enforces a strict time budget to prevent infinite loops or DoS via complex rules.
+    """
+    start_time = time.time()
+
+    def _check_budget():
+        if time.time() - start_time > timeout_sec:
+            raise DSLTimeoutError(f"DSL execution exceeded {timeout_sec}s limit")
 
     if not isinstance(expression, Mapping):
         raise DSLExecutionError("Expression must be a mapping")
+    
+    _check_budget()
     _ensure_safe_structure(expression)
 
+    # Pass the budget checker to internal evaluators if they loop/recurse deeply
+    # For now, we check at the top level and potentially inside complex loops
+    
     match rule_type:
         case RuleType.sum:
-            return _evaluate_sum(expression, context)
+            return _evaluate_sum(expression, context, _check_budget)
         case RuleType.diff:
             return _evaluate_diff(expression, context)
         case RuleType.percentile:
@@ -48,12 +71,14 @@ def _ensure_safe_structure(value: Any) -> None:
     raise DSLExecutionError(f"Unsupported literal in expression: {type(value).__name__}")
 
 
-def _evaluate_sum(expression: Mapping[str, Any], context: Mapping[str, Any]) -> float:
+def _evaluate_sum(expression: Mapping[str, Any], context: Mapping[str, Any], budget_check: Optional[Callable[[], None]] = None) -> float:
     inputs = expression.get("inputs")
     if not isinstance(inputs, Sequence) or not inputs:
         raise DSLExecutionError("SUM rule requires non-empty inputs sequence")
     total = 0.0
     for ref in inputs:
+        if budget_check:
+            budget_check()
         total += _resolve_numeric_reference(ref, context)
     return total
 

@@ -25,6 +25,7 @@ from typing import Dict, List
 
 __all__ = [
     "AppendixTable",
+    "APPENDIX_VERSION",
     "CE_PERCENTILES",
     "RO_PERCENTILES",
     "AC_PERCENTILES",
@@ -36,6 +37,8 @@ __all__ = [
     "lookup_percentile",
     "lookup_lfi",
 ]
+
+APPENDIX_VERSION = "v1.0"
 
 
 @dataclass(frozen=True, slots=True)

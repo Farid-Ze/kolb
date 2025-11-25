@@ -1,6 +1,8 @@
 import pytest
+import time
+from unittest.mock import patch
 
-from app.engine.dsl import DSLExecutionError, evaluate_rule
+from app.engine.dsl import DSLExecutionError, DSLTimeoutError, evaluate_rule
 from app.models.engine import RuleType
 
 
@@ -51,3 +53,41 @@ def test_expression_rejects_callables():
 def test_boolean_context_not_allowed():
     with pytest.raises(DSLExecutionError):
         evaluate_rule(RuleType.sum, {"inputs": ["flag"]}, {"flag": True})
+
+
+def test_evaluate_rule_timeout():
+    # Create a huge expression that would take time if we could simulate it,
+    # or mock time.time to jump forward.
+    
+    expr = {"inputs": ["val"]}
+    ctx = {"val": 1}
+    
+    # Mock time.time to return start_time then start_time + 3
+    with patch('time.time') as mock_time:
+        mock_time.side_effect = [1000.0, 1003.0, 1004.0] # Start, Check 1, Check 2
+        
+        # If default timeout is 2.0, this should fail
+        with pytest.raises(DSLTimeoutError):
+            evaluate_rule(RuleType.sum, expr, ctx)
+
+
+def test_evaluate_rule_custom_timeout():
+    expr = {"inputs": ["val"]}
+    ctx = {"val": 1}
+    
+    # Mock time.time to return start_time then start_time + 0.5
+    with patch('time.time') as mock_time:
+        mock_time.side_effect = [1000.0, 1000.5, 1000.6]
+        
+        # If we set timeout to 0.1, this should fail
+        with pytest.raises(DSLTimeoutError):
+            evaluate_rule(RuleType.sum, expr, ctx, timeout_sec=0.1)
+
+
+def test_evaluate_rule_pure_no_globals():
+    # This test is more about the signature change.
+    # We want to ensure we can pass timeout_sec.
+    expr = {"inputs": ["val"]}
+    ctx = {"val": 1}
+    result = evaluate_rule(RuleType.sum, expr, ctx, timeout_sec=5.0)
+    assert result == 1.0

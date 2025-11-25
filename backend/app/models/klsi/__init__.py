@@ -29,6 +29,7 @@ from .gamification import GamificationBadge, UserAchievement
 from .challenge import GrowthChallenge, UserChallenge
 from .sphere import SphereNode, MemoryReflection
 from .store import StoreProduct, StoreOrder, StoreOrderItem
+from .grant import AccessGrant
 
 __all__ = [
     "AgeGroup",
@@ -58,6 +59,7 @@ __all__ = [
     "NormativeConversionTable",
     "PercentileScore",
     "ScaleProvenance",
+    "AccessGrant",
     "NormativeStatistics",
     "AuditLog",
     "Team",

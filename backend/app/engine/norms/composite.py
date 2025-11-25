@@ -6,7 +6,7 @@ import threading
 import httpx
 
 from app.core.sentinels import UNKNOWN
-from app.data.norms import APPENDIX_TABLES, lookup_lfi
+from app.data.norms import APPENDIX_TABLES, APPENDIX_VERSION, lookup_lfi
 from app.engine.norms.provider import NormProvider
 from app.engine.norms.value_objects import PercentileResult
 from app.core.config import settings
@@ -73,11 +73,11 @@ class AppendixNormProvider:
                 raw_value = int(raw)
                 value = table.lookup(raw_value)
                 truncated = raw_value < table.min_key or raw_value > table.max_key
-                return PercentileResult(value, f"Appendix:{table.name}", truncated)
+                return PercentileResult(value, f"Appendix:{table.name}|{APPENDIX_VERSION}", truncated)
             if scale == "LFI":
                 lfi_value = raw / 100 if isinstance(raw, (int, float)) else raw
                 value = lookup_lfi(lfi_value)
-                return PercentileResult(value, "Appendix:LFI", False)
+                return PercentileResult(value, f"Appendix:LFI|{APPENDIX_VERSION}", False)
             return PercentileResult(None, UNKNOWN.capitalize(), False)
 
 

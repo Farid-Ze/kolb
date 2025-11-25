@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.assessments.constants import (
     CONTEXT_COUNT_LFI,
@@ -62,6 +63,8 @@ from app.services.scoring import (
 from app.services.challenge_service import challenge_service
 from app.services.gamification_service import gamification_service
 from app.services.sphere_service import sphere_service
+from app.services.grant_service import GrantService, InsufficientCreditsError
+from app.models.klsi.store import StoreProduct
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
@@ -86,6 +89,27 @@ class EngineSessionService:
         instrument_code: str,
         instrument_version: Optional[str] = None,
     ):
+        # [Zenotika V4] Semantic Pivot: Check for Access Grant
+        # Enforce grant redemption for KLSI instruments
+        if instrument_code == "KLSI":
+            version = instrument_version or "4.0"
+            
+            # Fetch all products and filter in Python to avoid JSON dialect issues
+            # This is acceptable as the product catalog is small (Registry pattern)
+            products = self.db.execute(select(StoreProduct)).scalars().all()
+            product = next(
+                (p for p in products if p.meta and p.meta.get("instrument_code") == instrument_code and p.meta.get("instrument_version") == version),
+                None
+            )
+            
+            if product:
+                try:
+                    GrantService.redeem_credit(self.db, user.id, product.id)
+                except InsufficientCreditsError:
+                    raise PermissionDeniedError(
+                        SessionErrorMessages.INSUFFICIENT_CREDITS or "Insufficient credits to start this assessment."
+                    )
+
         return runtime.start_session(
             self.db,
             user,
