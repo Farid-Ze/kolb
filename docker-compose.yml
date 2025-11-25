@@ -1,53 +1,101 @@
 version: '3.9'
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+    internal: true # Restrict external access to backend network
+
 services:
+  # Database Service
+  # Isolated in backend-net, not accessible from public internet
   db:
-    image: postgres:15
+    image: postgres:17.7
     restart: unless-stopped
+    networks:
+      - backend-net
     environment:
-      POSTGRES_USER: klsi
-      POSTGRES_PASSWORD: klsi
-      POSTGRES_DB: klsi
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U klsi"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    ports:
-      - "5432:5432"
+    # Ports commented out for production security (access only via API container)
+    # ports:
+    #   - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # API Service (Python 3.13t No-GIL)
+  # Connects to both networks to bridge Frontend and Database
   api:
-    image: klsi-nogil:latest
-    # build:
-    #   context: ./backend
-    #   dockerfile: Dockerfile.experimental
+    image: klsi-nogil:v1.1
+    build:
+      context: ./backend
     restart: unless-stopped
+    networks:
+      - backend-net
+      - frontend-net
     environment:
       # Use psycopg 3 driver
-      DATABASE_URL: postgresql+psycopg://klsi:klsi@db:5432/klsi
-      JWT_SECRET_KEY: change-me
-      ENV: prod
-      PYTHON_GIL: 0
-      PYTHONPATH: /app
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      ENV: ${ENV}
+      PYTHON_GIL: ${PYTHON_GIL}
+      PYTHONPATH: ${PYTHONPATH}
     depends_on:
       db:
         condition: service_healthy
-    # volumes:
-    #   - ./backend/app:/app/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     ports:
       - "8000:8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # Frontend Service (NGINX + React)
+  # Public facing, connects to API via frontend-net
   frontend:
+    image: kolb-frontend:v1.1
     build:
       context: ./frontend
       dockerfile: Dockerfile.production
     restart: unless-stopped
+    networks:
+      - frontend-net
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     ports:
       - "3000:80"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   pgdata: {}
