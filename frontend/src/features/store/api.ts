@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared/api/client'
-import type { CheckoutRequest, CommunityFundSummary, Product, StoreOrder } from '../../entities/store/model'
+import type { CheckoutRequest, CommunityFundSummary, Product, StoreOrder } from './model'
 
 export async function fetchProducts(): Promise<Product[]> {
   const { data } = await apiClient.get<Product[]>('/store/products')

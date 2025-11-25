@@ -99,7 +99,7 @@ export function Storefront() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-[var(--zen-text)]">
-                    Rp {(product.basePrice * item.quantity).toLocaleString('id-ID')}
+                    Rp {(product.basePrice * (item.quantity || 0)).toLocaleString('id-ID')}
                   </span>
                   <button className="text-xs text-rose-500" onClick={() => removeFromCart(item.productId)} type="button">
                     Remove

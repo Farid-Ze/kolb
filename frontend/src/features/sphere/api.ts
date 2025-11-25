@@ -1,5 +1,5 @@
-import type { Reflection, ReflectionCreatePayload, ReflectionType, SphereNode } from '../../entities/sphere/model'
 import { apiClient } from '../../shared/api/client'
+import type { Reflection, ReflectionCreatePayload, ReflectionType, SphereNode } from './model'
 
 export async function fetchSphereNodes(): Promise<SphereNode[]> {
   const { data } = await apiClient.get<SphereNode[]>('/sphere/nodes')

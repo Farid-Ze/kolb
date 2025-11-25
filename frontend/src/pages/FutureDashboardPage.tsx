@@ -1,9 +1,12 @@
+import { useAuth } from '../features/auth/hooks/useAuth'
 import { ChallengesPanel } from '../features/future-dashboard/components/ChallengesPanel'
 import { KiteSummary } from '../features/future-dashboard/components/KiteSummary'
 import { PercentileSummary } from '../features/future-dashboard/components/PercentileSummary'
 import { useFutureDashboardData } from '../features/future-dashboard/hooks/useFutureDashboardData'
+import { UserBadgeRow } from '../features/store/components/UserBadgeRow'
 
 export function FutureDashboardPage() {
+  const { user } = useAuth()
   const {
     results,
     isLoadingResults,
@@ -25,6 +28,13 @@ export function FutureDashboardPage() {
           {isLoadingResults && <span className="text-sm text-[var(--zen-text-muted)]">Refreshing results…</span>}
         </div>
       </header>
+
+      {user?.achievements && user.achievements.length > 0 && (
+        <div className="rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-4">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--zen-text-muted)]">Recent Achievements</h3>
+          <UserBadgeRow achievements={user.achievements} />
+        </div>
+      )}
 
       {resultsError && <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{resultsError.message}</p>}
       <KiteSummary results={results} />

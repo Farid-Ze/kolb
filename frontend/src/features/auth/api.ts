@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared/api/client'
-import type { User } from '../../entities/user/model'
+import type { UserOut } from '../../shared/api/generated'
 import type { LoginRequest, RegisterRequest, TokenResponse } from './model'
 
 export async function login(payload: LoginRequest): Promise<TokenResponse> {
@@ -7,12 +7,12 @@ export async function login(payload: LoginRequest): Promise<TokenResponse> {
   return data
 }
 
-export async function register(payload: RegisterRequest): Promise<User> {
-  const { data } = await apiClient.post<User>('/auth/register', payload)
+export async function register(payload: RegisterRequest): Promise<UserOut> {
+  const { data } = await apiClient.post<UserOut>('/auth/register', payload)
   return data
 }
 
-export async function fetchCurrentUser(): Promise<User> {
-  const { data } = await apiClient.get<User>('/users/me')
+export async function fetchCurrentUser(): Promise<UserOut> {
+  const { data } = await apiClient.get<UserOut>('/users/me')
   return data
 }

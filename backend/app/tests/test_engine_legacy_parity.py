@@ -9,8 +9,10 @@ from app.main import app
 from app.models.klsi.enums import ItemType
 from app.models.klsi.items import AssessmentItem
 from app.models.klsi.user import User
+from app.models.klsi.instrument import Instrument
 from app.routers.sessions import router as legacy_sessions_router
 from app.services.security import create_access_token
+from app.services.grant_service import GrantService
 
 
 def _ensure_legacy_sessions_router() -> None:
@@ -30,6 +32,13 @@ def _create_user(role: str = "MAHASISWA") -> tuple[User, str]:
         db.add(user)
         db.commit()
         db.refresh(user)
+        
+        # Allocate grant for KLSI 4.0
+        instrument = db.query(Instrument).filter(Instrument.code == "KLSI", Instrument.version == "4.0").first()
+        if instrument:
+             GrantService.allocate_credits(db, user.id, instrument.id, grantee_id=user.id, credits=1)
+             db.commit()
+             
     return user, create_access_token(subject=str(user.id))
 
 

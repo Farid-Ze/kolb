@@ -3,7 +3,7 @@ from enum import Enum
 from pydantic import ConfigDict, EmailStr
 
 from app.schemas.base import CamelModel
-
+from app.schemas.user import UserAchievementOut
 
 class Role(str, Enum):
     MAHASISWA = "MAHASISWA"
@@ -37,4 +37,5 @@ class UserOut(CamelModel):
     zen_points: int | None = None
     current_lvl: int | None = None
     life_motto: str | None = None
+    achievements: list[UserAchievementOut] | None = None
     model_config = ConfigDict(from_attributes=True)

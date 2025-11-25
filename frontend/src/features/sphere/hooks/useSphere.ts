@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import type { ReflectionType } from '../../../entities/sphere/model'
+import type { ReflectionType } from '../model'
 import { createReflection, fetchReflections, fetchSphereNodes, fetchSpherePrompt } from '../api'
 
 export function useSphere(filterType?: ReflectionType) {

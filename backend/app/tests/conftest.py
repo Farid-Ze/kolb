@@ -2,6 +2,8 @@ import os
 
 # Ensure critical settings exist for test imports before loading app modules
 os.environ.setdefault("JWT_SECRET_KEY", "local-test-secret")
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+print("DEBUG: LOADING CONFTEST.PY")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +12,7 @@ from app.db.database import Base, SessionLocal, engine
 from app.main import app
 from app.models import klsi as _  # ensure legacy models load before schema sync
 from app.models import engine as _engine  # register new engine authoring models
+from app.models.klsi.grant import AccessGrant
 from app.services.seeds import (
     seed_learning_styles,
     seed_assessment_items,
@@ -29,16 +32,22 @@ def db_setup():
         path = db_url.split("///")[-1]
         if os.path.exists(path):
             engine.dispose()
-            os.remove(path)
+            try:
+                os.remove(path)
+            except OSError:
+                pass
             
-    # Drop dependent views first
-    with engine.connect() as conn:
-        conn.execute(text("DROP MATERIALIZED VIEW IF EXISTS mv_class_style_stats CASCADE"))
-        conn.execute(text("DROP VIEW IF EXISTS v_style_grid CASCADE"))
-        conn.commit()
+    # Drop dependent views first (Postgres only)
+    if not db_url.startswith("sqlite"):
+        with engine.connect() as conn:
+            conn.execute(text("DROP MATERIALIZED VIEW IF EXISTS mv_class_style_stats CASCADE"))
+            conn.execute(text("DROP VIEW IF EXISTS v_style_grid CASCADE"))
+            conn.commit()
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    
+    # Seed data
     with SessionLocal() as db:
         seed_instruments(db)
         seed_learning_styles(db)
@@ -47,6 +56,7 @@ def db_setup():
         seed_gamification_badges(db)
         seed_growth_challenges(db)
         db.commit()
+    
     yield
 
 @pytest.fixture

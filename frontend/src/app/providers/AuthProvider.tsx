@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import type { User } from '../../entities/user/model'
 import { fetchCurrentUser, login as loginApi } from '../../features/auth/api'
 import type { LoginRequest } from '../../features/auth/model'
+import type { UserOut } from '../../shared/api/generated'
 import { useAuthTokenMetadata } from '../../shared/hooks/useAuthToken'
 import { AuthContext, type AuthContextValue } from './AuthContext'
 
@@ -16,7 +16,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setTokenState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY))
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<UserOut | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [now, setNow] = useState(Date.now())
 

@@ -6,6 +6,8 @@ from app.models.klsi.enums import SessionStatus
 from app.models.klsi.user import User
 from app.services.scoring import CONTEXT_NAMES
 from app.services.security import create_access_token
+from app.models.klsi.instrument import Instrument
+from app.services.grant_service import GrantService
 
 
 def _create_user() -> tuple[User, str]:
@@ -15,6 +17,13 @@ def _create_user() -> tuple[User, str]:
         db.add(user)
         db.commit()
         db.refresh(user)
+        
+        # Allocate grant for KLSI 4.0
+        instrument = db.query(Instrument).filter(Instrument.code == "KLSI", Instrument.version == "4.0").first()
+        if instrument:
+             GrantService.allocate_credits(db, user.id, instrument.id, grantee_id=user.id, credits=1)
+             db.commit()
+             
     token = create_access_token(subject=str(user.id))
     return user, token
 

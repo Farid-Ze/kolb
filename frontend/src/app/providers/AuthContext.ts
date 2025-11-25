@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react'
 
-import type { User } from '../../entities/user/model'
 import type { LoginRequest } from '../../features/auth/model'
+import type { UserOut } from '../../shared/api/generated'
 
 export type AuthContextValue = {
   token: string | null
-  user: User | null
+  user: UserOut | null
   expiresAt: number | null
   remainingMs: number | null
   tokenRole: string | null
@@ -14,7 +14,7 @@ export type AuthContextValue = {
   isAuthenticated: boolean
   isLoading: boolean
   login: (payload: LoginRequest) => Promise<void>
-  refreshUser: () => Promise<User | null>
+  refreshUser: () => Promise<UserOut | null>
   logout: () => void
 }
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
-import type { CartItem } from '../../../entities/store/model'
+import type { CartItem } from '../model'
 import { checkout, fetchCommunityFund, fetchProducts } from '../api'
 
 export function useStorefront() {
@@ -19,7 +19,7 @@ export function useStorefront() {
       const existing = prev.find((item) => item.productId === productId)
       if (existing) {
         return prev.map((item) =>
-          item.productId === productId ? { ...item, quantity: item.quantity + 1 } : item,
+          item.productId === productId ? { ...item, quantity: (item.quantity || 0) + 1 } : item,
         )
       }
       return [...prev, { productId, quantity: 1 }]
@@ -30,7 +30,7 @@ export function useStorefront() {
     setCart((prev) => prev.filter((item) => item.productId !== productId))
   }
 
-  const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart])
+  const totalItems = useMemo(() => cart.reduce((acc, item) => acc + (item.quantity || 0), 0), [cart])
 
   const totalPrice = useMemo(() => {
     if (!productsQuery.data) {
@@ -38,7 +38,7 @@ export function useStorefront() {
     }
     return cart.reduce((sum, item) => {
       const product = productsQuery.data.find((p) => p.id === item.productId)
-      return sum + (product?.basePrice ?? 0) * item.quantity
+      return sum + (product?.basePrice ?? 0) * (item.quantity || 0)
     }, 0)
   }, [cart, productsQuery.data])
 

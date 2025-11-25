@@ -1,15 +1,30 @@
 import { useState } from 'react'
 
+import { ReflectionForm } from '../features/sphere/components/ReflectionForm'
+import { ReflectionList } from '../features/sphere/components/ReflectionList'
+import { SphereVisualization } from '../features/sphere/components/SphereVisualization'
 import { useSphere } from '../features/sphere/hooks/useSphere'
-import { Button } from '../shared/ui/Button'
+import type { ReflectionType, SphereNode } from '../features/sphere/model'
 
 export function SpherePage() {
   const { nodes, reflections, prompt, isLoading, createReflection, isCreating } = useSphere()
-  const [reflectionContent, setReflectionContent] = useState('')
+  const [selectedNode, setSelectedNode] = useState<SphereNode | null>(null)
+
+  const handleCreateReflection = async (content: string, type: ReflectionType) => {
+    await createReflection({
+      content,
+      reflectionType: type,
+      sphereNodeId: selectedNode?.id,
+    })
+  }
 
   if (isLoading) {
     return <div className="py-10 text-center text-[var(--zen-text-muted)]">Loading Zenosphere...</div>
   }
+
+  const filteredReflections = selectedNode
+    ? reflections.filter((r) => r.sphereNodeId === selectedNode.id)
+    : reflections
 
   return (
     <section className="space-y-8">
@@ -20,59 +35,38 @@ export function SpherePage() {
       </header>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <div className="space-y-4">
-          <h2 className="text-xl font-medium">Nodes ({nodes.length})</h2>
-          <div className="grid grid-cols-3 gap-4">
-            {nodes.map((node) => (
-              <div
-                key={node.id}
-                className="flex aspect-square items-center justify-center rounded-full border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)]"
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex w-full items-center justify-between">
+            <h2 className="text-xl font-medium">Nodes ({nodes.length})</h2>
+            {selectedNode && (
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="text-xs text-[var(--zen-accent)] hover:underline"
               >
-                <span className="text-xs">Node {node.id}</span>
-              </div>
-            ))}
-            {nodes.length === 0 && <p className="col-span-3 text-sm text-[var(--zen-text-muted)]">No nodes unlocked yet.</p>}
+                Clear Selection
+              </button>
+            )}
           </div>
+          
+          <SphereVisualization nodes={nodes} onNodeSelect={setSelectedNode} />
+          
+          {selectedNode && (
+            <div className="w-full rounded-lg border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-4">
+              <h3 className="font-medium">Node #{selectedNode.id}</h3>
+              <p className="text-sm text-[var(--zen-text-muted)]">Unlocked: {new Date(selectedNode.unlockDate).toLocaleDateString()}</p>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-xl font-medium">Reflections</h2>
-          <div className="space-y-4">
-            <div className="rounded-lg border border-[var(--zen-border)] p-4">
-              <textarea
-                className="w-full bg-transparent p-2 text-sm outline-none placeholder:text-[var(--zen-text-muted)]"
-                placeholder="Write a reflection..."
-                rows={3}
-                value={reflectionContent}
-                onChange={(e) => setReflectionContent(e.target.value)}
-              />
-              <div className="mt-2 flex justify-end">
-                <Button
-                  disabled={!reflectionContent || isCreating}
-                  onClick={() => {
-                    createReflection({ content: reflectionContent, reflectionType: 'Thinking' }).then(() =>
-                      setReflectionContent(''),
-                    )
-                  }}
-                >
-                  {isCreating ? 'Saving...' : 'Save Reflection'}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {reflections.map((ref) => (
-                <div key={ref.id} className="rounded-md bg-[var(--zen-bg-elevated)] p-3 text-sm">
-                  <div className="mb-1 flex items-center justify-between text-xs text-[var(--zen-text-muted)]">
-                    <span className="uppercase">{ref.reflectionType}</span>
-                    <span>{new Date(ref.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <p>{ref.content}</p>
-                </div>
-              ))}
-              {reflections.length === 0 && <p className="text-sm text-[var(--zen-text-muted)]">No reflections yet.</p>}
-            </div>
+        <div className="space-y-6">
+          <div>
+            <h2 className="mb-4 text-xl font-medium">
+              {selectedNode ? `Reflections for Node #${selectedNode.id}` : 'All Reflections'}
+            </h2>
+            <ReflectionForm onSubmit={handleCreateReflection} isSubmitting={isCreating} />
           </div>
+          
+          <ReflectionList reflections={filteredReflections} />
         </div>
       </div>
     </section>

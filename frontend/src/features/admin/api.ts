@@ -1,60 +1,63 @@
 import { apiClient } from '../../shared/api/client'
-import type { ResearchStudy, ResearchStudyCreatePayload, ResearchStudyData, ResearchStudyUpdatePayload } from '../../entities/research/model'
-import type { Team, TeamCreatePayload, TeamMember, TeamMemberAddPayload, TeamRollup, TeamUpdatePayload } from '../../entities/team/model'
+import type {
+  ResearchStudyOut,
+  ResearchStudyCreate,
+  ResearchStudyUpdate,
+  TeamOut,
+  TeamCreate,
+  TeamUpdate,
+  TeamMemberOut,
+  TeamMemberAdd,
+  TeamRollupOut,
+} from '../../shared/api/generated'
 
 // --- Teams ---
 
-export async function fetchTeams(): Promise<Team[]> {
-  // Note: The backend might not have a "list all teams" endpoint directly exposed without filters,
-  // but assuming a standard REST pattern or we might need to check routers/teams.py more closely.
-  // Looking at routers/teams.py (not fully read), let's assume GET /teams/ is available or similar.
-  // If not, we might need to implement it or use what's available.
-  // Wait, I didn't see a list endpoint in the snippet. Let me check the snippet again.
-  // The snippet showed create_team. I should check if there is a list endpoint.
-  // If not, I'll assume standard REST for now and fix if needed.
-  const { data } = await apiClient.get<Team[]>('/teams/')
+export async function fetchTeams(): Promise<TeamOut[]> {
+  const { data } = await apiClient.get<TeamOut[]>('/teams/')
   return data
 }
 
-export async function createTeam(payload: TeamCreatePayload): Promise<Team> {
-  const { data } = await apiClient.post<Team>('/teams/', payload)
+export async function createTeam(payload: TeamCreate): Promise<TeamOut> {
+  const { data } = await apiClient.post<TeamOut>('/teams/', payload)
   return data
 }
 
-export async function updateTeam(teamId: number, payload: TeamUpdatePayload): Promise<Team> {
-  const { data } = await apiClient.patch<Team>(`/teams/${teamId}`, payload)
+export async function updateTeam(teamId: number, payload: TeamUpdate): Promise<TeamOut> {
+  const { data } = await apiClient.patch<TeamOut>(`/teams/${teamId}`, payload)
   return data
 }
 
-export async function addTeamMember(teamId: number, payload: TeamMemberAddPayload): Promise<TeamMember> {
-  const { data } = await apiClient.post<TeamMember>(`/teams/${teamId}/members`, payload)
+export async function addTeamMember(teamId: number, payload: TeamMemberAdd): Promise<TeamMemberOut> {
+  const { data } = await apiClient.post<TeamMemberOut>(`/teams/${teamId}/members`, payload)
   return data
 }
 
-export async function fetchTeamRollup(teamId: number): Promise<TeamRollup> {
-  const { data } = await apiClient.get<TeamRollup>(`/teams/${teamId}/rollup`)
+export async function fetchTeamRollup(teamId: number): Promise<TeamRollupOut> {
+  const { data } = await apiClient.get<TeamRollupOut>(`/teams/${teamId}/rollup`)
   return data
 }
 
 // --- Research ---
 
-export async function fetchStudies(): Promise<ResearchStudy[]> {
-  const { data } = await apiClient.get<ResearchStudy[]>('/research/')
+export async function fetchStudies(): Promise<ResearchStudyOut[]> {
+  const { data } = await apiClient.get<ResearchStudyOut[]>('/research/studies')
   return data
 }
 
-export async function createStudy(payload: ResearchStudyCreatePayload): Promise<ResearchStudy> {
-  const { data } = await apiClient.post<ResearchStudy>('/research/', payload)
+export async function createStudy(payload: ResearchStudyCreate): Promise<ResearchStudyOut> {
+  const { data } = await apiClient.post<ResearchStudyOut>('/research/studies', payload)
   return data
 }
 
-export async function updateStudy(studyId: number, payload: ResearchStudyUpdatePayload): Promise<ResearchStudy> {
-  const { data } = await apiClient.patch<ResearchStudy>(`/research/${studyId}`, payload)
+export async function updateStudy(studyId: number, payload: ResearchStudyUpdate): Promise<ResearchStudyOut> {
+  const { data } = await apiClient.patch<ResearchStudyOut>(`/research/studies/${studyId}`, payload)
   return data
 }
 
-export async function fetchStudyData(studyId: number): Promise<ResearchStudyData> {
-  const { data } = await apiClient.get<ResearchStudyData>(`/research/${studyId}/data`)
+export async function fetchStudyData(studyId: number): Promise<any> {
+  // TODO: Define ResearchStudyDataOut if available
+  const { data } = await apiClient.get<any>(`/research/studies/${studyId}/data`)
   return data
 }
 

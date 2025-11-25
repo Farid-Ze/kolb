@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { Role } from './Role';
+import type { UserAchievementOut } from './UserAchievementOut';
 export type UserOut = {
     id: number;
     fullName: string;
@@ -15,5 +16,6 @@ export type UserOut = {
     zenPoints?: (number | null);
     currentLvl?: (number | null);
     lifeMotto?: (string | null);
+    achievements?: (Array<UserAchievementOut> | null);
 };
 
