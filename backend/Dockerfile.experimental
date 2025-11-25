@@ -53,8 +53,8 @@ RUN python3.13t -m pip install --upgrade pip && \
     python3.13t -m pip install --no-cache-dir -r requirements-nogil.txt
 
 # 5. Copy application code
-    COPY app ./app
-    COPY alembic.ini ./alembic.ini
+COPY app ./app
+COPY alembic.ini ./alembic.ini
 
     EXPOSE 8000
 

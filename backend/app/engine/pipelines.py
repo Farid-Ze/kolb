@@ -164,7 +164,7 @@ def compose_pipeline(
     code: str = "CUSTOM",
     version: str = "1.0",
     description: str = "",
-) -> PipelineDefinition:
+) -> "PipelineDefinition":
     """Compose a :class:`PipelineDefinition` from stage callables or definitions."""
 
     if not stages:
@@ -226,7 +226,7 @@ class RuntimePipelineConfig:
     description: str = ""
     stage_mapping: Mapping[str, PipelineStage] | None = None
 
-    def build(self, factory: PipelineFactory | None = None) -> PipelineDefinition:
+    def build(self, factory: "PipelineFactory | None" = None) -> "PipelineDefinition":
         stage_map = self.stage_mapping or _get_klsi_stage_mapping()
         pipeline_factory = factory or PipelineFactory(stage_map)
         return pipeline_factory.build(

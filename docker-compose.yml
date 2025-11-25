@@ -19,9 +19,10 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.experimental
+    image: klsi-nogil:latest
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile.experimental
     restart: unless-stopped
     environment:
       # Use psycopg 3 driver
@@ -29,9 +30,12 @@ services:
       JWT_SECRET_KEY: change-me
       ENV: prod
       PYTHON_GIL: 0
+      PYTHONPATH: /app
     depends_on:
       db:
         condition: service_healthy
+    # volumes:
+    #   - ./backend/app:/app/app
     ports:
       - "8000:8000"
 

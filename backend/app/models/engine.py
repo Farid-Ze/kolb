@@ -50,9 +50,9 @@ class EngineInstrument(Base):
     description: Mapped[Optional[str]] = mapped_column(String(1000))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    forms: Mapped[list[EngineForm]] = relationship(back_populates="instrument", cascade="all, delete-orphan")
-    scales: Mapped[list[EngineScale]] = relationship(back_populates="instrument", cascade="all, delete-orphan")
-    rules: Mapped[list[EngineScoringRule]] = relationship(back_populates="instrument", cascade="all, delete-orphan")
+    forms: Mapped[list["EngineForm"]] = relationship(back_populates="instrument", cascade="all, delete-orphan")
+    scales: Mapped[list["EngineScale"]] = relationship(back_populates="instrument", cascade="all, delete-orphan")
+    rules: Mapped[list["EngineScoringRule"]] = relationship(back_populates="instrument", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("code", "version", name="uq_engine_instrument_code_version"),
@@ -70,7 +70,7 @@ class EngineForm(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     instrument: Mapped[EngineInstrument] = relationship(back_populates="forms")
-    pages: Mapped[list[EnginePage]] = relationship(back_populates="form", cascade="all, delete-orphan")
+    pages: Mapped[list["EnginePage"]] = relationship(back_populates="form", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("instrument_id", "form_code", name="uq_engine_form_code_per_instrument"),
@@ -87,7 +87,7 @@ class EnginePage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     form: Mapped[EngineForm] = relationship(back_populates="pages")
-    items: Mapped[list[EngineItem]] = relationship(back_populates="page", cascade="all, delete-orphan")
+    items: Mapped[list["EngineItem"]] = relationship(back_populates="page", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("form_id", "page_code", name="uq_engine_page_code_per_form"),
@@ -113,7 +113,7 @@ class EngineItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     page: Mapped[EnginePage] = relationship(back_populates="items")
-    options: Mapped[list[EngineItemOption]] = relationship(
+    options: Mapped[list["EngineItemOption"]] = relationship(
         back_populates="item", cascade="all, delete-orphan"
     )
 
