@@ -1,4 +1,5 @@
 from uuid import uuid4
+from datetime import datetime, timedelta, timezone
 
 from app.assessments.klsi_v4.definition import CONTEXT_NAMES
 from app.db.database import SessionLocal
@@ -7,7 +8,9 @@ from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.enums import ItemType, SessionStatus
 from app.models.klsi.items import AssessmentItem, ItemChoice
 from app.models.klsi.user import User
+from app.models.klsi.instrument import Instrument
 from app.services.security import create_access_token
+from app.services.grant_service import GrantService
 
 
 def _create_user(role: str = "MAHASISWA") -> tuple[User, str]:
@@ -16,7 +19,16 @@ def _create_user(role: str = "MAHASISWA") -> tuple[User, str]:
         db.add(user)
         db.commit()
         db.refresh(user)
-    return user, create_access_token(subject=str(user.id))
+        
+        # Allocate grant for KLSI 4.0
+        instrument = db.query(Instrument).filter(Instrument.code == "KLSI", Instrument.version == "4.0").first()
+        if instrument:
+             GrantService.allocate_credits(db, user.id, instrument.id, grantee_id=user.id, credits=1)
+             db.commit()
+             
+        token = create_access_token(subject=str(user.id))
+        
+    return user, token
 
 
 def _build_submission_payload() -> dict:
@@ -70,6 +82,13 @@ def test_finalize_endpoint_is_idempotent(client):
     )
     assert r_start.status_code == 200, r_start.text
     session_id = r_start.json()["sessionId"]
+
+    # [Fix] Age the session to bypass "too fast" validation
+    with SessionLocal() as db:
+        sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+        if sess:
+            sess.start_time = datetime.now(timezone.utc) - timedelta(minutes=2)
+            db.commit()
 
     payload = _build_submission_payload()
     r_submit = client.post(

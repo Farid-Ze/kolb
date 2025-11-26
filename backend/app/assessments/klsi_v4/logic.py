@@ -582,7 +582,8 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
     # Refactored in Epic C-01 to use variance-based formula instead of Kendall's W.
     # This measures consistency vs variability of ranks across contexts.
     lfi_value = calculate_lfi_variance(payload)
-    W = 0.0  # Kendall's W is no longer the primary metric for LFI
+    # We still compute W for anomaly detection (HIGH_W_UNIFORMITY) even if LFI score uses variance.
+    W = compute_kendalls_w(payload)
     
     provider = norm_provider or build_composite_norm_provider(db)
     group_chain = _normalize_group_chain(resolve_norm_groups(db, session_id))
@@ -766,7 +767,7 @@ def compute_longitudinal_delta(
 ) -> Optional[AssessmentSessionDelta]:
     session_repo = SessionRepository(db)
     session = session_repo.get_by_id(session_id)
-    if not session:
+    if not session or not session.user_id:
         return None
     previous = session_repo.get_previous_completed_session(
         user_id=session.user_id,

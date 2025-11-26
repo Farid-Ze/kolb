@@ -21,7 +21,7 @@ def test_score_vector_strictness():
     """Test that ScoreVector enforces strict types."""
     # This test is expected to FAIL until we migrate ScoreVector to Pydantic StrictInt.
     with pytest.raises(ValidationError):
-        ScoreVector(CE=3.5, RO=1, AC=4, AE=2)
+        ScoreVector(CE=3.5, RO=1, AC=4, AE=2)  # type: ignore
 
 def test_calculate_combination_metrics_nan():
     """Test calculation with NaN values."""
@@ -30,7 +30,7 @@ def test_calculate_combination_metrics_nan():
     
     # If we can't instantiate ScoreVector with NaN, this test passes (by raising ValidationError).
     with pytest.raises(ValidationError):
-        ScoreVector(CE=float('nan'), RO=1, AC=4, AE=2)
+        ScoreVector(CE=float('nan'), RO=1, AC=4, AE=2)  # type: ignore
 
 def test_safe_div_behavior():
     """Test the _safe_div function for edge cases."""

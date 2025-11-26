@@ -1,5 +1,5 @@
 import { useAuth } from '../features/auth/hooks/useAuth'
-import { UserBadgeRow } from '../features/store/components/UserBadgeRow'
+// import { UserBadgeRow } from '../features/store/components/UserBadgeRow'
 
 export function ProfilePage() {
   const { user } = useAuth()
@@ -45,7 +45,8 @@ export function ProfilePage() {
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-[var(--zen-text)]">Badges & Achievements</h3>
-          <UserBadgeRow achievements={user.achievements} />
+          {/* <UserBadgeRow achievements={user.achievements} /> */}
+          <p className="text-sm text-[var(--zen-text-muted)]">Achievements module temporarily disabled.</p>
         </div>
       </div>
     </section>

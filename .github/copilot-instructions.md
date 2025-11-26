@@ -177,11 +177,13 @@
 
 ---
 
-## Stream 4 – ZenStore & Gamification (STO)
+## Stream 4 – ZenStore & Gamification (STO) [REMOVED]
 
-### Epic STO-1 – Storefront
+> **Note**: This stream has been removed from the scope as of Nov 2025. The backend services and tables have been deleted.
 
-#### Story STO-1-A – Product Listing
+### Epic STO-1 – Storefront [REMOVED]
+
+#### Story STO-1-A – Product Listing [REMOVED]
 
 | ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
 | --- | --- | --- | --- | --- | --- |
@@ -189,16 +191,16 @@
 | Z3-STO-1-A-02 | Map store product schema to TS model (`required_badge`, meta) | Z3-STO-1-A-01 | 1 |  | frontend,types |
 | Z3-STO-1-A-03 | Implement `StorePage` with product cards and eligibility markers | Z3-STO-1-A-02 | 2 |  | frontend,ux |
 
-#### Story STO-1-B – Product Detail
+#### Story STO-1-B – Product Detail [REMOVED]
 
 | ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
 | --- | --- | --- | --- | --- | --- |
 | Z3-STO-1-B-01 | Implement `getProductDetail(productId)` | Z3-STO-1-A-01 | 1 |  | frontend,api |
 | Z3-STO-1-B-02 | Build `ProductDetailPage` | Z3-STO-1-B-01 | 2 |  | frontend,ux |
 
-### Epic STO-2 – Gamification & Identity Extensions
+### Epic STO-2 – Gamification & Identity Extensions [REMOVED]
 
-#### Story STO-2-A – User Badges & Achievements (Zenotika Optional Fields)
+#### Story STO-2-A – User Badges & Achievements (Zenotika Optional Fields) [REMOVED]
 
 | ID | Title | DependsOn | EstimatedDays | Assignee | Labels |
 | --- | --- | --- | --- | --- | --- |

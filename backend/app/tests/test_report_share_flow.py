@@ -16,6 +16,7 @@ def _bootstrap_completed_session() -> tuple[int, int, int, str, str]:
         finalize_session(db, session.id)
         session.status = SessionStatus.completed
         owner_id = session.user_id
+        assert owner_id is not None
         mediator_email = f"mediator+{uuid4().hex}@example.com"
         mediator = User(full_name="Mediator Share", email=mediator_email, role="MEDIATOR")
         db.add(mediator)

@@ -24,7 +24,8 @@ def _create_user() -> tuple[User, str]:
              GrantService.allocate_credits(db, user.id, instrument.id, grantee_id=user.id, credits=1)
              db.commit()
              
-    token = create_access_token(subject=str(user.id))
+        token = create_access_token(subject=str(user.id))
+        
     return user, token
 
 

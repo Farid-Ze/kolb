@@ -17,6 +17,7 @@ def _create_completed_session() -> tuple[int, int]:
         finalize_session(db, session.id)
         session.status = SessionStatus.completed
         db.commit()
+        assert session.user_id is not None
         return session.id, session.user_id
 
 

@@ -22,6 +22,7 @@ def test_sphere_node_creation(session: Session):
     
     assert node.id is not None
     assert node.user_id == user.id
+    assert node.meta is not None
     assert node.meta["event_type"] == "assessment_finalized"
     # Check if coordinates are not all zero (unless it's the first one and random logic allows it, but highly unlikely to be exactly 0,0,0 with the new logic)
     assert node.pos_x != 0 or node.pos_y != 0 or node.pos_z != 0

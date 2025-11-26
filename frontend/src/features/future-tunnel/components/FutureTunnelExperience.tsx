@@ -286,9 +286,6 @@ export function FutureTunnelExperience() {
                 <Link className="text-emerald-900 underline" to="/future/dashboard">
                   Review dashboard insights
                 </Link>
-                <Link className="text-emerald-900 underline" to="/store">
-                  Visit ZenStore
-                </Link>
               </div>
             </section>
           )}

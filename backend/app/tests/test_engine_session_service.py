@@ -43,7 +43,7 @@ def _build_payload() -> SessionSubmissionPayload:
                 AE=((idx + 3) % 4) + 1,
             )
         )
-    return SessionSubmissionPayload(items=items, contexts=contexts[:8])
+    return SessionSubmissionPayload(items=items, contexts=contexts[:8], client_duration_ms=1000)
 
 
 def _seed_native_forced_choice(db, session_id: int) -> None:
