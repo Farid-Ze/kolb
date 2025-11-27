@@ -105,17 +105,22 @@ class EngineSessionService:
             
             if instrument and user:
                 try:
-                    GrantService.redeem_credit(self.db, user.id, instrument.id)
+                    grant = GrantService.redeem_credit(self.db, user.id, instrument.id)
+                    # [Zenotika V4] Provenance: Capture study_id from grant
+                    study_id = grant.study_id
                 except InsufficientCreditsError:
                     raise PermissionDeniedError(
                         SessionErrorMessages.INSUFFICIENT_CREDITS or "Insufficient credits to start this assessment."
                     )
+            else:
+                study_id = None
 
         return runtime.start_session(
             self.db,
             user,
             instrument_code=instrument_code,
             instrument_version=instrument_version,
+            study_id=study_id,
         )
 
     def delivery_package(self, session_id: int, user: "User", *, locale: str | None = None) -> Dict[str, Any]:

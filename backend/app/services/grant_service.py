@@ -35,6 +35,7 @@ class GrantService:
         instrument_id: int,
         grantee_id: Optional[int] = None,
         credits: int = 1,
+        study_id: Optional[str] = None,
         expiry_date: Optional[datetime] = None,
     ) -> AccessGrant:
         """
@@ -71,6 +72,7 @@ class GrantService:
             grantor_id=grantor_id,
             grantee_id=grantee_id,
             instrument_id=instrument_id,
+            study_id=study_id,
             credits_allocated=credits,
             credits_consumed=0,
             expiry_date=expiry_date,

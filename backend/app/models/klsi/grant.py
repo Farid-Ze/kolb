@@ -21,6 +21,7 @@ class AccessGrant(Base):
     grantor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     grantee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     instrument_id: Mapped[int] = mapped_column(ForeignKey("instruments.id"), nullable=False)
+    study_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, comment="External Research Study ID for provenance")
     credits_allocated: Mapped[int] = mapped_column(Integer, default=1)
     credits_consumed: Mapped[int] = mapped_column(Integer, default=0)
     expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

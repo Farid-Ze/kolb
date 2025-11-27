@@ -4464,6 +4464,46 @@
         }
       }
     },
+    "/telemetry/replay-events": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Record Replay Events",
+        "description": "Record a batch of session replay events for debugging.",
+        "operationId": "record_replay_events_telemetry_replay_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayEventBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sphere/nodes": {
       "get": {
         "tags": [
@@ -5898,6 +5938,55 @@
           "value"
         ],
         "title": "ReliabilityCreate"
+      },
+      "ReplayEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Type"
+          },
+          "payload": {
+            "type": "object",
+            "title": "Payload"
+          },
+          "timestampMs": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Timestampms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "timestampMs"
+        ],
+        "title": "ReplayEvent",
+        "description": "Generic event for session replay."
+      },
+      "ReplayEventBatch": {
+        "properties": {
+          "sessionId": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Sessionid"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessionId",
+          "events"
+        ],
+        "title": "ReplayEventBatch",
+        "description": "Batch of replay events for a session."
       },
       "ReportDialecticSummary": {
         "properties": {

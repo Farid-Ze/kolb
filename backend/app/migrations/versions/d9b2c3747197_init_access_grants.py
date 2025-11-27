@@ -33,7 +33,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['grantee_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['grantor_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['instrument_id'], ['store_products.id'], ),
+    sa.ForeignKeyConstraint(['instrument_id'], ['instruments.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###

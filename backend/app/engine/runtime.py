@@ -476,6 +476,7 @@ class EngineRuntime:
         user: User | None,
         instrument_code: str,
         instrument_version: str | None = None,
+        study_id: str | None = None,
     ) -> AssessmentSession:
         correlation_id = str(uuid4())
         with correlation_context(correlation_id):
@@ -532,6 +533,7 @@ class EngineRuntime:
                 assessment_id=instrument.code,
                 assessment_version=instrument.version,
                 instrument_id=instrument.id,
+                study_id=study_id,
                 start_time=datetime.now(timezone.utc),
             )
             started = perf_counter()
