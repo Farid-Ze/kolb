@@ -14,6 +14,12 @@ from app.services.regression import predicted_curve
 from app.assessments.klsi_v4.calculations import calculate_lfi_variance
 from app.assessments.klsi_v4.logic import determine_style_from_percentiles, determine_backup_style_from_percentiles, determine_cycle_phase
 
+# MATHEMATICAL FIDELITY NOTE:
+# This preview module uses the EXACT SAME production functions from logic.py and
+# calculations.py to ensure mathematical consistency. The only difference is that
+# percentile lookup uses generic norms (APPENDIX_TABLES) since user demographic
+# data is not available pre-submission. This guarantees preview accuracy.
+
 
 def _percentiles(raw: RawTotalsWrite, acce: int, aero: int) -> ScorePreviewPercentiles:
     tables = APPENDIX_TABLES

@@ -25,8 +25,24 @@ class GamificationService:
         return achievement
 
     def add_points(self, db: Session, user_id: int, points: int):
-        user = db.query(User).filter_by(id=user_id).first()
+        """Add gamification points to a user with thread-safe atomic update.
+        
+        Uses row-level locking (SELECT FOR UPDATE) to prevent race conditions
+        in concurrent point additions. This is critical for Python 3.14 No-GIL
+        compatibility.
+        
+        Args:
+            db: Database session
+            user_id: User to award points to
+            points: Number of points to add (can be negative for deductions)
+            
+        Returns:
+            Updated User object
+        """
+        # Lock the user row to prevent concurrent modifications
+        user = db.query(User).filter_by(id=user_id).with_for_update().first()
         if user:
+            # Atomic update: read and write within the same locked transaction
             current_points = user.zen_points or 0
             user.zen_points = current_points + points
             # Simple level logic: 1 level per 1000 points
