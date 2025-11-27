@@ -32,7 +32,7 @@ logger = get_logger("kolb.routers.admin", component="router")
 def _log_db_failure(event: str, **structured: Any) -> None:
     logger.exception(event, extra={"structured_data": structured})
 
-@router.post("/norms/import")
+@router.post("/norms/import", include_in_schema=False)
 def import_norms(
     norm_group: str,
     file: UploadFile = File(...),

@@ -107,11 +107,17 @@ def decode_access_token(token: str) -> dict:
         raise ValueError(SecurityMessages.TOKEN_VALIDATION_FAILED.format(detail=str(e)))
 
 
-def get_current_user(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scheme_name="BearerAuth")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", scheme_name="BearerAuth", auto_error=False)
+
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """FastAPI dependency for extracting and validating current user from JWT.
     
     Args:
-        authorization: Authorization header (expected format: "Bearer <token>")
+        token: JWT token extracted by OAuth2PasswordBearer
         db: Database session for user lookup
     
     Returns:
@@ -119,26 +125,7 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     
     Raises:
         HTTPException 401: If token is missing, invalid, or user not found
-    
-    Usage:
-        @router.get("/protected")
-        def protected_route(current_user: User = Depends(get_current_user)):
-            return {"user_id": current_user.id}
-    
-    Security:
-        - Validates Bearer token format
-        - Verifies all JWT claims (exp, nbf, iss, aud)
-        - Ensures user exists in database
     """
-    if not authorization:
-        raise HTTPException(status_code=401, detail=SecurityMessages.MISSING_AUTH_HEADER)
-    
-    parts = authorization.split(" ")
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail=SecurityMessages.INVALID_AUTH_HEADER)
-    
-    token = parts[1]
-    
     try:
         payload = decode_access_token(token)
         user_id = int(payload["sub"])
@@ -158,20 +145,14 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     return user
 
 
-def get_current_user_optional(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
+def get_current_user_optional(token: str | None = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)):
     """FastAPI dependency for optional user authentication.
     
     Returns:
         User object if token is valid, None otherwise.
     """
-    if not authorization:
+    if not token:
         return None
-    
-    parts = authorization.split(" ")
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return None
-    
-    token = parts[1]
     
     try:
         payload = decode_access_token(token)

@@ -1,0 +1,2 @@
+{"timestamp": 1764273478700, "type": "INIT", "payload": {"userAgent": "TestBot"}}
+{"timestamp": 1764273478800, "type": "CLICK", "payload": {"target": "submit-btn"}}

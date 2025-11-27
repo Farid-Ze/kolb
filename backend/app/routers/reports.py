@@ -14,24 +14,12 @@ from app.services.report_share import (
     SharePermissionError,
     ShareValidationError,
 )
-from app.services.security import get_current_user
+from app.services.security import get_current_user, get_current_user_optional
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-def try_get_current_user(
-    authorization: str | None = Header(default=None),
-    db: Any = Depends(get_db)
-) -> Any | None:
-    """Attempt to resolve current user; return None on auth errors."""
-    if not authorization:
-        return None
-    try:
-        return get_current_user(authorization, db)
-    except HTTPException as exc:
-        if exc.status_code == 401:
-            return None
-        raise
+# try_get_current_user removed - use get_current_user_optional directly
 
 
 @router.get("/self", response_model=list[ReportSummaryPayload])
@@ -46,7 +34,7 @@ def list_self_reports(
 def get_report(
     session_id: int,
     db: Any = Depends(get_db),
-    viewer: Any | None = Depends(try_get_current_user)
+    viewer: Any | None = Depends(get_current_user_optional)
 ):
     repo = SessionRepository(db)
     session = repo.get_by_id(session_id)

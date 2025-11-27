@@ -23,20 +23,6 @@ class DomainErrorMessages:
 class SessionErrorMessages:
     """Session-related error messages for localization consolidation."""
 
-    ACCESS_DENIED: str = "Akses sesi ditolak"
-    FORBIDDEN: str = "Akses ditolak"
-    NOT_FOUND: str = "Sesi tidak ditemukan"
-    NOT_FOUND_WITH_ID: str = "Session {session_id} tidak ditemukan"
-    ALREADY_COMPLETED: str = "Sesi sudah selesai"
-    BATCH_FAILURE: str = "Gagal memproses submisi batch"
-    LEGACY_ENDPOINT_DEPRECATED: str = "Endpoint sudah tidak berlaku. Gunakan /sessions/{session_id}/submit_all_responses."
-    MEDIATOR_OVERRIDE_FORBIDDEN: str = "Hanya mediator yang dapat melakukan override"
-    INCOMPLETE_ITEMS: str = "12 item gaya belajar belum terpenuhi"
-    INSUFFICIENT_CREDITS: str = "Kuota akses tidak mencukupi untuk memulai asesmen ini."
-
-
-class ValidationMessages:
-    """Validation feedback texts for session completion checks."""
 
     ITEMS_INCOMPLETE: str = "Masih ada item gaya belajar yang belum memiliki peringkat lengkap 1..4."
     ITEM_RANK_GAPS: str = "Beberapa item memiliki peringkat yang tidak lengkap atau duplikat."
@@ -505,3 +491,14 @@ class StrategyMessages:
     """Strategy registry error messages."""
 
     STRATEGY_NOT_REGISTERED: str = "Strategi scoring tidak terdaftar: {code}"
+
+
+class ValidationMessages:
+    """General validation error messages."""
+
+    REQUIRED_FIELD: str = "Field ini wajib diisi"
+    INVALID_FORMAT: str = "Format tidak valid"
+    INVALID_VALUE: str = "Nilai tidak valid"
+    MIN_LENGTH: str = "Minimal {limit} karakter"
+    MAX_LENGTH: str = "Maksimal {limit} karakter"
+    EMAIL_INVALID: str = "Format email tidak valid"

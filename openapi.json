@@ -2,7 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "KLSI 4.0 API",
-    "version": "0.1.0"
+    "description": "Assessment engine and analytics API for KLSI 4.0",
+    "version": "4.0.0"
   },
   "paths": {
     "/auth/register": {
@@ -94,24 +95,6 @@
         ],
         "summary": "Get Me",
         "operationId": "get_me_users_me_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -122,18 +105,13 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/users/me/achievements": {
@@ -143,50 +121,27 @@
         ],
         "summary": "List User Achievements",
         "operationId": "list_user_achievements_users_me_achievements_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/UserAchievementOut"
                   },
+                  "type": "array",
                   "title": "Response List User Achievements Users Me Achievements Get"
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/assessments/latest": {
@@ -197,24 +152,6 @@
         "summary": "Get Latest Assessment",
         "description": "Get the latest completed assessment session for the current user.\n\nThis endpoint is strictly scoped to the authenticated user. It retrieves the most\nrecent session with status 'completed' and maps the internal ORM model to a\nfrontend-friendly DTO.\n\nReturns:\n    AssessmentSessionResponse: The latest completed session with results.\n    None: If the user has no completed sessions (returns 200 OK with null body).\n\nRaises:\n    HTTPException(401): If the user is not authenticated.",
         "operationId": "get_latest_assessment_assessments_latest_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -233,18 +170,13 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/sessions/start": {
@@ -254,21 +186,30 @@
         ],
         "summary": "Start Session",
         "operationId": "start_session_sessions_start_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "name": "instrument_code",
+            "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
+              "type": "string",
+              "default": "KLSI",
+              "title": "Instrument Code"
+            }
+          },
+          {
+            "name": "instrument_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "4.0",
+              "title": "Instrument Version"
             }
           }
         ],
@@ -296,14 +237,19 @@
         }
       }
     },
-    "/sessions/{session_id}/items": {
+    "/sessions/{session_id}/delivery": {
       "get": {
         "tags": [
           "sessions"
         ],
-        "summary": "Get Items",
-        "description": "Fetch assessment items for a specific session.\n\nSecurity:\n- Requires authentication.\n- Enforces strict ownership: users can only access their own sessions.\n- Returns 403 Forbidden if accessing another user's session.",
-        "operationId": "get_items_sessions__session_id__items_get",
+        "summary": "Get Delivery",
+        "description": "Fetch full delivery package including items, manifest, and locale resources.\nThis is the primary endpoint for retrieving assessment content.",
+        "operationId": "get_delivery_sessions__session_id__delivery_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -315,8 +261,8 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
+            "name": "locale",
+            "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
@@ -327,7 +273,56 @@
                   "type": "null"
                 }
               ],
-              "title": "Authorization"
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Get Delivery Sessions  Session Id  Delivery Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}/items": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Get Items",
+        "description": "Fetch assessment items for a specific session.\n\nSecurity:\n- Requires authentication.\n- Enforces strict ownership: users can only access their own sessions.\n- Returns 403 Forbidden if accessing another user's session.",
+        "operationId": "get_items_sessions__session_id__items_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
             }
           }
         ],
@@ -357,200 +352,7 @@
         }
       }
     },
-    "/sessions/{session_id}/submit_item": {
-      "post": {
-        "tags": [
-          "sessions"
-        ],
-        "summary": "Submit Item",
-        "operationId": "submit_item_sessions__session_id__submit_item_post",
-        "deprecated": true,
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "item_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Item Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "title": "Ranks"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OperationStatus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sessions/{session_id}/submit_context": {
-      "post": {
-        "tags": [
-          "sessions"
-        ],
-        "summary": "Submit Context",
-        "operationId": "submit_context_sessions__session_id__submit_context_post",
-        "deprecated": true,
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "context_name",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Context Name"
-            }
-          },
-          {
-            "name": "CE",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Ce"
-            }
-          },
-          {
-            "name": "RO",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Ro"
-            }
-          },
-          {
-            "name": "AC",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Ac"
-            }
-          },
-          {
-            "name": "AE",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Ae"
-            }
-          },
-          {
-            "name": "overwrite",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Overwrite"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OperationStatus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sessions/{session_id}/submit_all_responses": {
+    "/sessions/{session_id}/submit-all-responses": {
       "post": {
         "tags": [
           "sessions"
@@ -558,6 +360,11 @@
         "summary": "Submit All Responses",
         "description": "Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,\nfollowed by finalize. This reduces chattiness (22 calls \u2192 1) and ensures atomicity.",
         "operationId": "submit_all_responses_sessions__session_id__submit_all_responses_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -566,22 +373,6 @@
             "schema": {
               "type": "integer",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -626,6 +417,11 @@
         ],
         "summary": "Finalize",
         "operationId": "finalize_sessions__session_id__finalize_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -634,22 +430,6 @@
             "schema": {
               "type": "integer",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -685,6 +465,11 @@
         "summary": "Session Validation",
         "description": "Mengembalikan status kelengkapan sesi (item ipsatif & konteks LFI).",
         "operationId": "session_validation_sessions__session_id__validation_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -693,22 +478,6 @@
             "schema": {
               "type": "integer",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -737,13 +506,19 @@
         }
       }
     },
-    "/sessions/{session_id}/force_finalize": {
+    "/sessions/{session_id}/force-finalize": {
       "post": {
         "tags": [
           "sessions"
         ],
         "summary": "Force Finalize",
+        "description": "Force finalize a session without validation.\n\n\u26a0\ufe0f WARNING: This bypasses data integrity checks and may produce\ninvalid results. Use only for:\n- Testing/debugging\n- Data recovery scenarios\n- Explicit user request with informed consent\n\nRequires: MEDIATOR or ADMIN role\nLogged: All force finalizations are audited",
         "operationId": "force_finalize_sessions__session_id__force_finalize_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -752,22 +527,6 @@
             "schema": {
               "type": "integer",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -805,75 +564,6 @@
         }
       }
     },
-    "/sessions/{session_id}/response": {
-      "post": {
-        "tags": [
-          "sessions"
-        ],
-        "summary": "Submit Single Response",
-        "description": "Real-time submission of a single item response (Walking Skeleton).\nMaps dimension codes (CE, RO, AC, AE) to choice IDs and submits to runtime.",
-        "operationId": "submit_single_response_sessions__session_id__response_post",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SingleItemResponsePayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SingleItemResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/sessions/{session_id}/responses": {
       "patch": {
         "tags": [
@@ -881,6 +571,11 @@
         ],
         "summary": "Upsert Session Responses",
         "operationId": "upsert_session_responses_sessions__session_id__responses_patch",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -889,22 +584,6 @@
             "schema": {
               "type": "integer",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -939,935 +618,6 @@
         }
       }
     },
-    "/engine/sessions/": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "List Sessions",
-        "description": "List all assessment sessions for the current user.",
-        "operationId": "list_sessions_engine_sessions__get",
-        "parameters": [
-          {
-            "name": "skip",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "Skip"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 100,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SessionListResponse"
-                  },
-                  "title": "Response List Sessions Engine Sessions  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/instruments": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "List Instruments",
-        "operationId": "list_instruments_engine_instruments_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "title": "Response List Instruments Engine Instruments Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/instruments/{instrument_code}/{instrument_version}": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Get Instrument Manifest",
-        "operationId": "get_instrument_manifest_engine_instruments__instrument_code___instrument_version__get",
-        "parameters": [
-          {
-            "name": "instrument_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Instrument Code"
-            }
-          },
-          {
-            "name": "instrument_version",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Instrument Version"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "title": "Response Get Instrument Manifest Engine Instruments  Instrument Code   Instrument Version  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/instruments/{instrument_code}/{instrument_version}/resources/{locale}": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Get Instrument Locale Resource Endpoint",
-        "operationId": "get_instrument_locale_resource_endpoint_engine_instruments__instrument_code___instrument_version__resources__locale__get",
-        "parameters": [
-          {
-            "name": "instrument_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Instrument Code"
-            }
-          },
-          {
-            "name": "instrument_version",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Instrument Version"
-            }
-          },
-          {
-            "name": "locale",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Locale"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "title": "Response Get Instrument Locale Resource Endpoint Engine Instruments  Instrument Code   Instrument Version  Resources  Locale  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/start": {
-      "post": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Start Engine Session",
-        "operationId": "start_engine_session_engine_sessions_start_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartSessionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionStartResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/delivery": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Get Delivery",
-        "operationId": "get_delivery_engine_sessions__session_id__delivery_get",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "locale",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Locale"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "title": "Response Get Delivery Engine Sessions  Session Id  Delivery Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/items": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Get Session Items",
-        "operationId": "get_session_items_engine_sessions__session_id__items_get",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "locale",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Locale"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EngineSessionResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/submit_all": {
-      "post": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Submit All Responses",
-        "description": "Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically (Sync).",
-        "operationId": "submit_all_responses_engine_sessions__session_id__submit_all_post",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SessionSubmissionPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionOperationResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/interactions": {
-      "post": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Submit Interaction",
-        "description": "Backward-compatible single interaction submission (deprecated).\nRetained to support existing clients and tests; prefer submit_all.",
-        "operationId": "submit_interaction_engine_sessions__session_id__interactions_post",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SubmissionPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OperationStatus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/metrics": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Engine Metrics",
-        "operationId": "engine_metrics_engine_metrics_get",
-        "parameters": [
-          {
-            "name": "reset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Reset"
-            }
-          },
-          {
-            "name": "include_last_runs",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Include Last Runs"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "title": "Response Engine Metrics Engine Metrics Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/finalize": {
-      "post": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Finalize Session",
-        "operationId": "finalize_session_engine_sessions__session_id__finalize_post",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionOperationResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/validation": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Validation Snapshot",
-        "description": "Expose run_session_validations snapshot via engine router.",
-        "operationId": "validation_snapshot_engine_sessions__session_id__validation_get",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "title": "Response Validation Snapshot Engine Sessions  Session Id  Validation Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/report": {
-      "get": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Engine Report",
-        "operationId": "engine_report_engine_sessions__session_id__report_get",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportPayload"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/engine/sessions/{session_id}/force-finalize": {
-      "post": {
-        "tags": [
-          "engine"
-        ],
-        "summary": "Force Finalize Session",
-        "operationId": "force_finalize_session_engine_sessions__session_id__force_finalize_post",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ForceFinalizeRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionOperationResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/admin/norms/import": {
       "post": {
         "tags": [
@@ -1875,6 +625,11 @@
         ],
         "summary": "Import Norms",
         "operationId": "import_norms_admin_norms_import_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "norm_group",
@@ -1893,22 +648,6 @@
               "type": "string",
               "default": "default",
               "title": "Norm Version"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -1952,24 +691,6 @@
         "summary": "Get Norm Cache Stats",
         "description": "Return in-process normative DB lookup cache statistics (Mediator only).",
         "operationId": "get_norm_cache_stats_admin_norms_cache_stats_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1978,18 +699,13 @@
                 "schema": {}
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/admin/norms/external-cache-stats": {
@@ -2000,24 +716,6 @@
         "summary": "Get External Norm Cache Stats",
         "description": "Statistik cache penyedia norma eksternal (Mediator only).\n\nMengembalikan hit/miss, ukuran cache, TTL, dan metrik jaringan dasar.",
         "operationId": "get_external_norm_cache_stats_admin_norms_external_cache_stats_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2026,18 +724,13 @@
                 "schema": {}
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/admin/perf-metrics": {
@@ -2048,6 +741,11 @@
         "summary": "Get Perf Metrics",
         "description": "Return lightweight performance metrics (Mediator only).\n\nIncludes timing counters and norm provider cache stats.\nUse `reset=true` to clear counters after reading.",
         "operationId": "get_perf_metrics_admin_perf_metrics_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "reset",
@@ -2057,22 +755,6 @@
               "type": "boolean",
               "default": false,
               "title": "Reset"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -2105,6 +787,11 @@
         ],
         "summary": "List Instrument Pipelines",
         "operationId": "list_instrument_pipelines_admin_instruments__instrument_code__pipelines_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "instrument_code",
@@ -2129,22 +816,6 @@
                 }
               ],
               "title": "Instrument Version"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -2177,6 +848,11 @@
         ],
         "summary": "Activate Instrument Pipeline",
         "operationId": "activate_instrument_pipeline_admin_instruments__instrument_code__pipelines__pipeline_id__activate_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "instrument_code",
@@ -2210,22 +886,6 @@
                 }
               ],
               "title": "Instrument Version"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -2258,6 +918,11 @@
         ],
         "summary": "Clone Instrument Pipeline",
         "operationId": "clone_instrument_pipeline_admin_instruments__instrument_code__pipelines__pipeline_id__clone_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "instrument_code",
@@ -2291,22 +956,6 @@
                 }
               ],
               "title": "Instrument Version"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -2349,6 +998,11 @@
         ],
         "summary": "Delete Instrument Pipeline",
         "operationId": "delete_instrument_pipeline_admin_instruments__instrument_code__pipelines__pipeline_id__delete",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "instrument_code",
@@ -2383,22 +1037,6 @@
               ],
               "title": "Instrument Version"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -2430,50 +1068,27 @@
         ],
         "summary": "List Self Reports",
         "operationId": "list_self_reports_reports_self_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ReportSummaryPayload"
                   },
+                  "type": "array",
                   "title": "Response List Self Reports Reports Self Get"
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/reports/{session_id}": {
@@ -2483,6 +1098,11 @@
         ],
         "summary": "Get Report",
         "operationId": "get_report_reports__session_id__get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -2491,22 +1111,6 @@
             "schema": {
               "type": "integer",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -2541,6 +1145,11 @@
         ],
         "summary": "Create Report Share",
         "operationId": "create_report_share_reports__session_id__share_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "session_id",
@@ -2549,22 +1158,6 @@
             "schema": {
               "type": "integer",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -2609,6 +1202,11 @@
         ],
         "summary": "Get Shared Report",
         "operationId": "get_shared_report_reports_shared__share_token__get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "share_token",
@@ -2617,22 +1215,6 @@
             "schema": {
               "type": "string",
               "title": "Share Token"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -2667,24 +1249,6 @@
         ],
         "summary": "Get Latest Results",
         "operationId": "get_latest_results_results_latest_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2695,18 +1259,13 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/results/sessions/latest": {
@@ -2717,24 +1276,6 @@
         "summary": "Get Latest Results Alias",
         "description": "Alias endpoint to match Zenotika SSOT sitemap.\n\nProvides the same payload as /results/latest but under a sessions-oriented path.",
         "operationId": "get_latest_results_alias_results_sessions_latest_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2745,18 +1286,13 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/score/raw": {
@@ -2807,22 +1343,9 @@
         ],
         "summary": "Create Team",
         "operationId": "create_team_teams__post",
-        "parameters": [
+        "security": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
+            "BearerAuth": []
           }
         ],
         "requestBody": {
@@ -2980,6 +1503,11 @@
         ],
         "summary": "Update Team",
         "operationId": "update_team_teams__team_id__patch",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "team_id",
@@ -2988,22 +1516,6 @@
             "schema": {
               "type": "integer",
               "title": "Team Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3046,6 +1558,11 @@
         ],
         "summary": "Delete Team",
         "operationId": "delete_team_teams__team_id__delete",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "team_id",
@@ -3054,22 +1571,6 @@
             "schema": {
               "type": "integer",
               "title": "Team Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3149,6 +1650,11 @@
         ],
         "summary": "Add Member",
         "operationId": "add_member_teams__team_id__members_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "team_id",
@@ -3157,22 +1663,6 @@
             "schema": {
               "type": "integer",
               "title": "Team Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3217,6 +1707,11 @@
         ],
         "summary": "Remove Member",
         "operationId": "remove_member_teams__team_id__members__member_id__delete",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "team_id",
@@ -3234,22 +1729,6 @@
             "schema": {
               "type": "integer",
               "title": "Member Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3373,6 +1852,11 @@
         ],
         "summary": "Run Rollup",
         "operationId": "run_rollup_teams__team_id__rollup_run_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "team_id",
@@ -3400,22 +1884,6 @@
               "title": "For Date"
             },
             "description": "YYYY-MM-DD optional date filter"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -3449,22 +1917,9 @@
         ],
         "summary": "Create Study",
         "operationId": "create_study_research_studies_post",
-        "parameters": [
+        "security": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
+            "BearerAuth": []
           }
         ],
         "requestBody": {
@@ -3506,6 +1961,11 @@
         ],
         "summary": "List Studies",
         "operationId": "list_studies_research_studies_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "skip",
@@ -3545,22 +2005,6 @@
               ],
               "title": "Q"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -3598,6 +2042,11 @@
         ],
         "summary": "Get Study",
         "operationId": "get_study_research_studies__study_id__get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -3606,22 +2055,6 @@
             "schema": {
               "type": "integer",
               "title": "Study Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3654,6 +2087,11 @@
         ],
         "summary": "Update Study",
         "operationId": "update_study_research_studies__study_id__patch",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -3662,22 +2100,6 @@
             "schema": {
               "type": "integer",
               "title": "Study Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3720,6 +2142,11 @@
         ],
         "summary": "Delete Study",
         "operationId": "delete_study_research_studies__study_id__delete",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -3728,22 +2155,6 @@
             "schema": {
               "type": "integer",
               "title": "Study Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3779,6 +2190,11 @@
         ],
         "summary": "Add Reliability",
         "operationId": "add_reliability_research_studies__study_id__reliability_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -3787,22 +2203,6 @@
             "schema": {
               "type": "integer",
               "title": "Study Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3846,6 +2246,11 @@
         ],
         "summary": "List Reliability",
         "operationId": "list_reliability_research_studies__study_id__reliability_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -3854,22 +2259,6 @@
             "schema": {
               "type": "integer",
               "title": "Study Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3908,6 +2297,11 @@
         ],
         "summary": "Add Validity",
         "operationId": "add_validity_research_studies__study_id__validity_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -3916,22 +2310,6 @@
             "schema": {
               "type": "integer",
               "title": "Study Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -3975,6 +2353,11 @@
         ],
         "summary": "List Validity",
         "operationId": "list_validity_research_studies__study_id__validity_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -3983,22 +2366,6 @@
             "schema": {
               "type": "integer",
               "title": "Study Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -4037,6 +2404,11 @@
         ],
         "summary": "Get Study Data",
         "operationId": "get_study_data_research_studies__study_id__data_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "study_id",
@@ -4128,22 +2500,6 @@
               ],
               "title": "User Email"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -4170,313 +2526,19 @@
         }
       }
     },
-    "/telemetry/time-on-page": {
+    "/telemetry/batch": {
       "post": {
         "tags": [
           "telemetry"
         ],
-        "summary": "Record Time On Page",
-        "description": "Record duration spent on a page.",
-        "operationId": "record_time_on_page_telemetry_time_on_page_post",
+        "summary": "Batch Telemetry",
+        "description": "Accept batched telemetry events for async processing.\n\n**Scalability Benefits:**\n- Reduces request volume by 90%+ through client-side batching\n- Uses Beacon API for fire-and-forget delivery\n- Processes events asynchronously (non-blocking)\n- Handles up to 1000 events per batch\n\n**Usage:**\n```javascript\nconst batch = {\n  session_id: \"abc123\",\n  events: [\n    {type: \"mouse\", timestamp_ms: 1234567890, payload: {x: 100, y: 200}},\n    {type: \"scroll\", timestamp_ms: 1234567891, payload: {scrollY: 500}}\n  ]\n};\n\n// Using Beacon API (recommended)\nnavigator.sendBeacon('/telemetry/batch', JSON.stringify(batch));\n\n// Or fetch with keepalive\nfetch('/telemetry/batch', {\n  method: 'POST',\n  headers: {'Content-Type': 'application/json'},\n  body: JSON.stringify(batch),\n  keepalive: true\n});\n```\n\n**Returns:** 202 Accepted (processing in background)",
+        "operationId": "batch_telemetry_telemetry_batch_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TimeOnPageEvent"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/telemetry/item-changed": {
-      "post": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Record Item Changed",
-        "description": "Record when a user changes their answer.",
-        "operationId": "record_item_changed_telemetry_item_changed_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ItemChangedEvent"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/telemetry/mouse-movement": {
-      "post": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Record Mouse Movement",
-        "description": "Record mouse movement (sampled).",
-        "operationId": "record_mouse_movement_telemetry_mouse_movement_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MouseMovementEvent"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/telemetry/guide-open": {
-      "post": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Record Guide Open",
-        "operationId": "record_guide_open_telemetry_guide_open_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GuideOpenEvent"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/telemetry/page-view": {
-      "post": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Record Page View",
-        "operationId": "record_page_view_telemetry_page_view_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PageViewEvent"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/telemetry/action": {
-      "post": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Record Action",
-        "operationId": "record_action_telemetry_action_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ActionEvent"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/telemetry/assessment": {
-      "post": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Record Assessment Telemetry",
-        "operationId": "record_assessment_telemetry_telemetry_assessment_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AssessmentTelemetryPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/telemetry/replay-events": {
-      "post": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Record Replay Events",
-        "description": "Record a batch of session replay events for debugging.",
-        "operationId": "record_replay_events_telemetry_replay_events_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReplayEventBatch"
+                "$ref": "#/components/schemas/TelemetryBatch"
               }
             }
           },
@@ -4511,50 +2573,27 @@
         ],
         "summary": "List Nodes",
         "operationId": "list_nodes_sphere_nodes_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/SphereNodeOut"
                   },
+                  "type": "array",
                   "title": "Response List Nodes Sphere Nodes Get"
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/sphere/reflections": {
@@ -4564,6 +2603,11 @@
         ],
         "summary": "List Reflections",
         "operationId": "list_reflections_sphere_reflections_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "reflection_type",
@@ -4579,22 +2623,6 @@
                 }
               ],
               "title": "Reflection Type"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -4631,22 +2659,9 @@
         ],
         "summary": "Create Reflection",
         "operationId": "create_reflection_sphere_reflections_post",
-        "parameters": [
+        "security": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
+            "BearerAuth": []
           }
         ],
         "requestBody": {
@@ -4690,50 +2705,27 @@
         ],
         "summary": "Get Prompt",
         "operationId": "get_prompt_sphere_prompt_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
                   "additionalProperties": {
                     "type": "string"
                   },
+                  "type": "object",
                   "title": "Response Get Prompt Sphere Prompt Get"
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/challenges/user": {
@@ -4743,50 +2735,27 @@
         ],
         "summary": "List User Challenges",
         "operationId": "list_user_challenges_challenges_user_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/UserChallengeOut"
                   },
+                  "type": "array",
                   "title": "Response List User Challenges Challenges User Get"
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/challenges/user/{challenge_id}/complete": {
@@ -4796,6 +2765,11 @@
         ],
         "summary": "Complete User Challenge",
         "operationId": "complete_user_challenge_challenges_user__challenge_id__complete_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "challenge_id",
@@ -4804,22 +2778,6 @@
             "schema": {
               "type": "integer",
               "title": "Challenge Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -4877,70 +2835,6 @@
   },
   "components": {
     "schemas": {
-      "ActionEvent": {
-        "properties": {
-          "actionType": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 2,
-            "title": "Actiontype"
-          },
-          "actionTarget": {
-            "type": "string",
-            "maxLength": 120,
-            "minLength": 2,
-            "title": "Actiontarget"
-          },
-          "actionValue": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 120
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Actionvalue"
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata"
-          },
-          "consent": {
-            "type": "boolean",
-            "title": "Consent",
-            "default": true
-          },
-          "actorRole": {
-            "type": "string",
-            "enum": [
-              "STUDENT",
-              "MEDIATOR",
-              "ADMIN",
-              "ANON"
-            ],
-            "title": "Actorrole",
-            "default": "ANON"
-          }
-        },
-        "type": "object",
-        "required": [
-          "actionType",
-          "actionTarget"
-        ],
-        "title": "ActionEvent"
-      },
       "AssessmentItemResponsePayload": {
         "properties": {
           "itemId": {
@@ -5156,70 +3050,6 @@
         ],
         "title": "AssessmentSessionResponse"
       },
-      "AssessmentTelemetryPayload": {
-        "properties": {
-          "sessionId": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Sessionid",
-            "description": "Assessment session identifier"
-          },
-          "itemId": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Itemid",
-            "description": "Assessment item identifier"
-          },
-          "responseRank": {
-            "type": "integer",
-            "maximum": 4.0,
-            "minimum": 1.0,
-            "title": "Responserank",
-            "description": "Rank assigned to the selected option"
-          },
-          "responseLatencyMs": {
-            "type": "integer",
-            "maximum": 120000.0,
-            "minimum": 0.0,
-            "title": "Responselatencyms",
-            "description": "Time spent on the item in milliseconds"
-          },
-          "blurEvents": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Blurevents",
-            "description": "Number of blur events recorded for the item"
-          },
-          "meta": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Meta",
-            "description": "Optional telemetry metadata blob (e.g., device info)"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId",
-          "itemId",
-          "responseRank",
-          "responseLatencyMs"
-        ],
-        "title": "AssessmentTelemetryPayload",
-        "description": "Payload capturing latency + blur telemetry for a forced-choice item."
-      },
       "BadgeOut": {
         "properties": {
           "slug": {
@@ -5411,87 +3241,6 @@
         ],
         "title": "ContextRanksWrite"
       },
-      "EngineSessionResponse": {
-        "properties": {
-          "sessionId": {
-            "type": "integer",
-            "title": "Sessionid"
-          },
-          "instrumentCode": {
-            "type": "string",
-            "title": "Instrumentcode"
-          },
-          "instrumentVersion": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instrumentversion"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "delivery": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Delivery"
-          },
-          "responses": {
-            "items": {
-              "$ref": "#/components/schemas/ItemRank"
-            },
-            "type": "array",
-            "title": "Responses"
-          },
-          "contexts": {
-            "items": {
-              "$ref": "#/components/schemas/ContextRank"
-            },
-            "type": "array",
-            "title": "Contexts"
-          },
-          "totalItems": {
-            "type": "integer",
-            "title": "Totalitems"
-          },
-          "completedItems": {
-            "type": "integer",
-            "title": "Completeditems"
-          },
-          "progress": {
-            "type": "number",
-            "title": "Progress"
-          },
-          "currentItemIndex": {
-            "type": "integer",
-            "title": "Currentitemindex"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId",
-          "instrumentCode",
-          "status",
-          "responses",
-          "contexts",
-          "totalItems",
-          "completedItems",
-          "progress",
-          "currentItemIndex"
-        ],
-        "title": "EngineSessionResponse"
-      },
       "ForceFinalizeRequest": {
         "properties": {
           "reason": {
@@ -5509,75 +3258,6 @@
         "type": "object",
         "title": "ForceFinalizeRequest"
       },
-      "GuideOpenEvent": {
-        "properties": {
-          "guideId": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 2,
-            "title": "Guideid"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 8
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
-          },
-          "surface": {
-            "type": "string",
-            "enum": [
-              "modal",
-              "tooltip",
-              "drawer",
-              "link"
-            ],
-            "title": "Surface",
-            "default": "modal"
-          },
-          "context": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 80
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context"
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata"
-          },
-          "consent": {
-            "type": "boolean",
-            "title": "Consent",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "guideId"
-        ],
-        "title": "GuideOpenEvent"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5590,53 +3270,6 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
-      },
-      "ItemChangedEvent": {
-        "properties": {
-          "sessionId": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Sessionid"
-          },
-          "itemId": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Itemid"
-          },
-          "fromRank": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 4.0,
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fromrank"
-          },
-          "toRank": {
-            "type": "integer",
-            "maximum": 4.0,
-            "minimum": 1.0,
-            "title": "Torank"
-          },
-          "timestampMs": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Timestampms"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId",
-          "itemId",
-          "toRank",
-          "timestampMs"
-        ],
-        "title": "ItemChangedEvent",
-        "description": "Captures when a user changes their answer (rank) for an item."
       },
       "ItemRank": {
         "properties": {
@@ -5677,126 +3310,6 @@
           "password"
         ],
         "title": "LoginRequest"
-      },
-      "MouseMovementEvent": {
-        "properties": {
-          "sessionId": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "exclusiveMinimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sessionid"
-          },
-          "pagePath": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Pagepath"
-          },
-          "x": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "X"
-          },
-          "y": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Y"
-          },
-          "viewportWidth": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Viewportwidth"
-          },
-          "viewportHeight": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Viewportheight"
-          },
-          "timestampMs": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Timestampms"
-          }
-        },
-        "type": "object",
-        "required": [
-          "pagePath",
-          "x",
-          "y",
-          "viewportWidth",
-          "viewportHeight",
-          "timestampMs"
-        ],
-        "title": "MouseMovementEvent",
-        "description": "Captures mouse coordinates. Should be throttled/sampled on client."
-      },
-      "OperationStatus": {
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "title": "Ok",
-            "default": true
-          }
-        },
-        "type": "object",
-        "title": "OperationStatus"
-      },
-      "PageViewEvent": {
-        "properties": {
-          "pagePath": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Pagepath"
-          },
-          "pageTitle": {
-            "type": "string",
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Pagetitle"
-          },
-          "referrer": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Referrer"
-          },
-          "locale": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 8
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Locale"
-          },
-          "consent": {
-            "type": "boolean",
-            "title": "Consent",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "pagePath",
-          "pageTitle"
-        ],
-        "title": "PageViewEvent"
       },
       "RawTotalsWrite": {
         "properties": {
@@ -5938,55 +3451,6 @@
           "value"
         ],
         "title": "ReliabilityCreate"
-      },
-      "ReplayEvent": {
-        "properties": {
-          "type": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Type"
-          },
-          "payload": {
-            "type": "object",
-            "title": "Payload"
-          },
-          "timestampMs": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Timestampms"
-          }
-        },
-        "type": "object",
-        "required": [
-          "type",
-          "timestampMs"
-        ],
-        "title": "ReplayEvent",
-        "description": "Generic event for session replay."
-      },
-      "ReplayEventBatch": {
-        "properties": {
-          "sessionId": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Sessionid"
-          },
-          "events": {
-            "items": {
-              "$ref": "#/components/schemas/ReplayEvent"
-            },
-            "type": "array",
-            "title": "Events"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId",
-          "events"
-        ],
-        "title": "ReplayEventBatch",
-        "description": "Batch of replay events for a session."
       },
       "ReportDialecticSummary": {
         "properties": {
@@ -6982,54 +4446,54 @@
       },
       "ScorePreviewRaw": {
         "properties": {
-          "CE": {
+          "ce": {
             "type": "integer",
             "title": "Ce"
           },
-          "RO": {
+          "ro": {
             "type": "integer",
             "title": "Ro"
           },
-          "AC": {
+          "ac": {
             "type": "integer",
             "title": "Ac"
           },
-          "AE": {
+          "ae": {
             "type": "integer",
             "title": "Ae"
           },
-          "ACCE": {
+          "acce": {
             "type": "integer",
             "title": "Acce"
           },
-          "AERO": {
+          "aero": {
             "type": "integer",
             "title": "Aero"
           },
-          "ACC_ASSM": {
+          "accAssm": {
             "type": "integer",
-            "title": "Acc Assm"
+            "title": "Accassm"
           },
-          "ACCOM_MINUS_ASSIM": {
+          "accomMinusAssim": {
             "type": "integer",
-            "title": "Accom Minus Assim"
+            "title": "Accomminusassim"
           },
-          "CONV_DIV": {
+          "convDiv": {
             "type": "integer",
-            "title": "Conv Div"
+            "title": "Convdiv"
           }
         },
         "type": "object",
         "required": [
-          "CE",
-          "RO",
-          "AC",
-          "AE",
-          "ACCE",
-          "AERO",
-          "ACC_ASSM",
-          "ACCOM_MINUS_ASSIM",
-          "CONV_DIV"
+          "ce",
+          "ro",
+          "ac",
+          "ae",
+          "acce",
+          "aero",
+          "accAssm",
+          "accomMinusAssim",
+          "convDiv"
         ],
         "title": "ScorePreviewRaw"
       },
@@ -7123,52 +4587,6 @@
         ],
         "title": "ScorePreviewStyle"
       },
-      "SessionListResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "startTime": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Starttime"
-          },
-          "endTime": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Endtime"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "assessmentId": {
-            "type": "string",
-            "title": "Assessmentid"
-          },
-          "assessmentVersion": {
-            "type": "string",
-            "title": "Assessmentversion"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "startTime",
-          "status",
-          "assessmentId",
-          "assessmentVersion"
-        ],
-        "title": "SessionListResponse"
-      },
       "SessionOperationResult": {
         "properties": {
           "ok": {
@@ -7256,58 +4674,6 @@
         ],
         "title": "SessionSubmissionPayload"
       },
-      "SingleItemResponse": {
-        "properties": {
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "progress": {
-            "type": "number",
-            "title": "Progress"
-          }
-        },
-        "type": "object",
-        "required": [
-          "status",
-          "progress"
-        ],
-        "title": "SingleItemResponse"
-      },
-      "SingleItemResponsePayload": {
-        "properties": {
-          "itemId": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Itemid"
-          },
-          "responseMap": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Responsemap"
-          },
-          "timestamp": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Timestamp"
-          }
-        },
-        "type": "object",
-        "required": [
-          "itemId",
-          "responseMap"
-        ],
-        "title": "SingleItemResponsePayload",
-        "description": "Payload for real-time single item response (Walking Skeleton)."
-      },
       "SphereNodeOut": {
         "properties": {
           "id": {
@@ -7352,30 +4718,6 @@
           "unlockDate"
         ],
         "title": "SphereNodeOut"
-      },
-      "StartSessionRequest": {
-        "properties": {
-          "instrumentCode": {
-            "type": "string",
-            "title": "Instrumentcode"
-          },
-          "instrumentVersion": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instrumentversion"
-          }
-        },
-        "type": "object",
-        "required": [
-          "instrumentCode"
-        ],
-        "title": "StartSessionRequest"
       },
       "StudyDataDateRange": {
         "properties": {
@@ -7540,103 +4882,6 @@
           "styleDistribution"
         ],
         "title": "StudyDataSummary"
-      },
-      "SubmissionPayload": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "item",
-              "context"
-            ],
-            "title": "Kind"
-          },
-          "itemId": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Itemid"
-          },
-          "ranks": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "integer"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ranks"
-          },
-          "contextName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contextname"
-          },
-          "CE": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ce"
-          },
-          "RO": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ro"
-          },
-          "AC": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ac"
-          },
-          "AE": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ae"
-          }
-        },
-        "type": "object",
-        "required": [
-          "kind"
-        ],
-        "title": "SubmissionPayload"
       },
       "TeamCreate": {
         "properties": {
@@ -8321,41 +5566,62 @@
         "type": "object",
         "title": "TeamUpdate"
       },
-      "TimeOnPageEvent": {
+      "TelemetryBatch": {
         "properties": {
-          "pagePath": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Pagepath"
-          },
-          "durationMs": {
-            "type": "integer",
-            "maximum": 3600000.0,
-            "minimum": 0.0,
-            "title": "Durationms",
-            "description": "Duration in ms (max 1 hour)"
-          },
-          "sessionId": {
+          "session_id": {
             "anyOf": [
               {
-                "type": "integer",
-                "exclusiveMinimum": 0.0
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Sessionid"
+            "title": "Session Id",
+            "description": "Optional session ID for correlation"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryEvent"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Events",
+            "description": "Events to process"
           }
         },
         "type": "object",
         "required": [
-          "pagePath",
-          "durationMs"
+          "events"
         ],
-        "title": "TimeOnPageEvent",
-        "description": "Captures duration spent on a specific route."
+        "title": "TelemetryBatch",
+        "description": "Batch of telemetry events for efficient processing."
+      },
+      "TelemetryEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Event type: mouse, scroll, time_on_page, etc."
+          },
+          "timestamp_ms": {
+            "type": "integer",
+            "title": "Timestamp Ms",
+            "description": "Client-side timestamp in milliseconds"
+          },
+          "payload": {
+            "type": "object",
+            "title": "Payload",
+            "description": "Event-specific data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "timestamp_ms"
+        ],
+        "title": "TelemetryEvent",
+        "description": "Single telemetry event."
       },
       "Token": {
         "properties": {
@@ -8552,36 +5818,15 @@
             "$ref": "#/components/schemas/Role"
           },
           "nim": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Nim"
           },
           "kelas": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Kelas"
           },
           "tahunMasuk": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
             "title": "Tahunmasuk"
           },
           "avatarUrl": {
@@ -8596,26 +5841,14 @@
             "title": "Avatarurl"
           },
           "zenPoints": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Zenpoints"
+            "type": "integer",
+            "title": "Zenpoints",
+            "default": 0
           },
           "currentLvl": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Currentlvl"
+            "type": "integer",
+            "title": "Currentlvl",
+            "default": 1
           },
           "lifeMotto": {
             "anyOf": [
@@ -8629,18 +5862,12 @@
             "title": "Lifemotto"
           },
           "achievements": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/UserAchievementOut"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Achievements"
+            "items": {
+              "$ref": "#/components/schemas/UserAchievementOut"
+            },
+            "type": "array",
+            "title": "Achievements",
+            "default": []
           }
         },
         "type": "object",
@@ -8648,7 +5875,10 @@
           "id",
           "fullName",
           "email",
-          "role"
+          "role",
+          "nim",
+          "kelas",
+          "tahunMasuk"
         ],
         "title": "UserOut"
       },
@@ -8735,6 +5965,19 @@
         ],
         "title": "ValidityCreate"
       }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token obtained from /auth/login or /auth/register"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
 }

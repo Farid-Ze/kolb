@@ -87,14 +87,33 @@ def _sunset_header_value() -> str | None:
 
 @router.post("/start", response_model=SessionStartResponse)
 def start_session(
+    instrument_code: str = "KLSI",
+    instrument_version: str = "4.0",
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user_optional),
 ):
     service = EngineSessionService(db)
     session = service.start_session(
-        current_user, instrument_code="KLSI", instrument_version="4.0"
+        current_user, 
+        instrument_code=instrument_code, 
+        instrument_version=instrument_version
     )
     return SessionStartResponse(session_id=session.id, guest_token=session.guest_token)
+
+
+@router.get("/{session_id}/delivery", response_model=dict)
+def get_delivery(
+    session_id: int,
+    locale: str | None = None,
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Fetch full delivery package including items, manifest, and locale resources.
+    This is the primary endpoint for retrieving assessment content.
+    """
+    service = EngineSessionService(db)
+    return service.delivery_package(session_id, current_user, locale=locale)
 
 @router.get("/{session_id}/items", response_model=list)
 def get_items(
@@ -125,7 +144,8 @@ def get_items(
         for item in items
     ]
 
-@router.post("/{session_id}/submit_item", response_model=OperationStatus, deprecated=True)
+@router.post("/{session_id}/submit-item", response_model=OperationStatus, deprecated=True, include_in_schema=False)
+@router.post("/{session_id}/submit_item", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 def submit_item(
     session_id: int, 
     item_id: int, 
@@ -154,7 +174,8 @@ def submit_item(
     service.submit_interaction(session_id, current_user, submission.runtime_payload())
     return OperationStatus()
 
-@router.post("/{session_id}/submit_context", response_model=OperationStatus, deprecated=True)
+@router.post("/{session_id}/submit-context", response_model=OperationStatus, deprecated=True, include_in_schema=False)
+@router.post("/{session_id}/submit_context", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 def submit_context(
     session_id: int,
     context_name: str,
@@ -194,7 +215,8 @@ def submit_context(
     return OperationStatus()
 
 
-@router.post("/{session_id}/submit_all_responses", response_model=SessionOperationResult)
+@router.post("/{session_id}/submit-all-responses", response_model=SessionOperationResult)
+@router.post("/{session_id}/submit_all_responses", response_model=SessionOperationResult, include_in_schema=False)
 def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
@@ -242,23 +264,10 @@ def finalize(
 def session_validation(
     session_id: int, 
     db: Any = Depends(get_db), 
-    authorization: str | None = Header(default=None)
+    viewer: Any | None = Depends(get_current_user_optional)
 ):
     """Mengembalikan status kelengkapan sesi (item ipsatif & konteks LFI)."""
     # Autentikasi opsional: jika token ada pastikan pemilik sesi atau mediator
-    viewer: Any | None = None
-    if authorization:
-        try:
-            parts = authorization.split(" ")
-            if len(parts) == 2 and parts[0].lower() == "bearer":
-                token = parts[1]
-                payload = decode_access_token(token)
-                user_id = int(payload["sub"])
-                from app.db.repositories.user import UserRepository
-                user_repo = UserRepository(db)
-                viewer = user_repo.get(user_id)
-        except Exception:
-            viewer = None
             
     repo = SessionRepository(db)
     sess = repo.get_by_id(session_id)
@@ -268,20 +277,53 @@ def session_validation(
         raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
     return run_session_validations(db, session_id)
 
-@router.post("/{session_id}/force_finalize", response_model=SessionOperationResult)
+@router.post("/{session_id}/force-finalize", response_model=SessionOperationResult)
+@router.post("/{session_id}/force_finalize", response_model=SessionOperationResult, include_in_schema=False)
 def force_finalize(
     session_id: int,
     request: ForceFinalizeRequest,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
+    """
+    Force finalize a session without validation.
+    
+    ⚠️ WARNING: This bypasses data integrity checks and may produce
+    invalid results. Use only for:
+    - Testing/debugging
+    - Data recovery scenarios
+    - Explicit user request with informed consent
+    
+    Requires: MEDIATOR or ADMIN role
+    Logged: All force finalizations are audited
+    """
+    # Access control: Require mediator or admin role
+    if current_user.role not in ("MEDIATOR", "ADMIN"):
+        from app.core.errors import PermissionDeniedError
+        from app.i18n.id_messages import AuthorizationMessages
+        raise PermissionDeniedError(AuthorizationMessages.MEDIATOR_ADMIN_ONLY)
+    
+    # Audit logging
+    logger = get_logger("kolb.sessions.force_finalize")
+    logger.warning(
+        "force_finalize_invoked",
+        extra={
+            "structured_data": {
+                "session_id": session_id,
+                "user_id": current_user.id,
+                "user_role": current_user.role,
+                "reason": request.reason or "not_provided"
+            }
+        }
+    )
+    
     service = EngineSessionService(db)
     # Service handles permission check, logic, and payload transformation
     result = service.force_finalize(session_id, current_user, reason=request.reason)
     return SessionOperationResult(result=result)
 
 
-@router.post("/{session_id}/response", response_model=SingleItemResponse)
+@router.post("/{session_id}/response", response_model=SingleItemResponse, include_in_schema=False)
 def submit_single_response(
     session_id: int,
     payload: SingleItemResponsePayload,

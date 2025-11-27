@@ -12,7 +12,7 @@ class Role(str, Enum):
 class UserCreate(CamelModel):
     full_name: str
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=8)
     nim: str | None = None
     kelas: str | None = None  # format IF-<number>
     tahun_masuk: int | None = None
@@ -30,12 +30,12 @@ class UserOut(CamelModel):
     full_name: str
     email: EmailStr
     role: Role
-    nim: str | None = None
-    kelas: str | None = None
-    tahun_masuk: int | None = None
+    nim: str
+    kelas: str
+    tahun_masuk: int
     avatar_url: str | None = None
-    zen_points: int | None = None
-    current_lvl: int | None = None
+    zen_points: int = 0
+    current_lvl: int = 1
     life_motto: str | None = None
-    achievements: list[UserAchievementOut] | None = None
+    achievements: list[UserAchievementOut] = []
     model_config = ConfigDict(from_attributes=True)

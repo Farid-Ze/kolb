@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -180,11 +181,17 @@ class SessionOperationResult(OperationStatus):
     result: dict[str, Any] | None = None
 
 
+class SessionStatus(str, Enum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
+
+
 class SessionListResponse(CamelModel):
     id: int
     start_time: datetime
     end_time: Optional[datetime] = None
-    status: str
+    status: SessionStatus
     assessment_id: str
     assessment_version: str
 
@@ -208,7 +215,7 @@ class EngineSessionResponse(CamelModel):
     session_id: int
     instrument_code: str
     instrument_version: str | None = None
-    status: str
+    status: SessionStatus
     delivery: dict[str, Any] | None = None
     responses: list[ItemRank]
     contexts: list[ContextRank]

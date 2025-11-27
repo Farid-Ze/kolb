@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.utils import get_openapi
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -50,6 +51,43 @@ GUIDES_STATIC_DIR = BASE_DIR / "docs" / "guides"
 
 # Store application startup time for health endpoint
 _app_start_time = datetime.now(timezone.utc)
+
+
+def custom_openapi():
+    """
+    Custom OpenAPI schema with proper security schemes.
+    
+    Implements OpenAPI 3.1.0 standard for Bearer authentication
+    instead of manual authorization headers.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=settings.app_name,
+        version="4.0.0",
+        description="Assessment engine and analytics API for KLSI 4.0",
+        routes=app.routes,
+    )
+    
+    # Add security schemes (OpenAPI 3.1.0 standard)
+    if "components" not in openapi_schema:
+        openapi_schema["components"] = {}
+    
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT token obtained from /auth/login or /auth/register"
+        }
+    }
+    
+    # Apply global security (can be overridden per-endpoint with security=[])
+    openapi_schema["security"] = [{"BearerAuth": []}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
 
 
 def _register_explicit_plugins() -> None:
@@ -122,6 +160,7 @@ async def lifespan(app: FastAPI):
     # Shutdown: nothing
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.openapi = custom_openapi
 register_exception_handlers(app)
 
 # Register routers at import time so tests see routes without requiring startup
@@ -129,7 +168,7 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(assessments_router)
 app.include_router(sessions_router)
-app.include_router(engine_router)
+app.include_router(engine_router, include_in_schema=False)  # Internal/Legacy
 app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(results_router)

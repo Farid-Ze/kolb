@@ -53,15 +53,15 @@ class ScorePreviewRequest(CamelModel):
 
 
 class ScorePreviewRaw(CamelModel):
-    CE: int
-    RO: int
-    AC: int
-    AE: int
-    ACCE: int
-    AERO: int
-    ACC_ASSM: int
-    ACCOM_MINUS_ASSIM: int
-    CONV_DIV: int
+    ce: int
+    ro: int
+    ac: int
+    ae: int
+    acce: int
+    aero: int
+    acc_assm: int
+    accom_minus_assim: int
+    conv_div: int
 
 
 class ScorePreviewStyle(CamelModel):

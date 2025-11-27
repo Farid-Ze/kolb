@@ -113,12 +113,19 @@ def get_instrument_locale_resource_endpoint(
     return {"locale": locale, "resources": payload}
 
 
-@router.post("/sessions/start", response_model=SessionStartResponse)
+@router.post("/sessions/start", response_model=SessionStartResponse, deprecated=True)
 def start_engine_session(
     payload: StartSessionRequest,
+    response: Response,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
+    # [Facade Pattern] Deprecation: Use /sessions/start instead
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = "</sessions/start>; rel=successor-version"
+    response.headers["Sunset"] = "Fri, 31 Jan 2026 00:00:00 GMT"
+    inc_counter("deprecated.engine.sessions.start")
+    
     service = EngineSessionService(db)
     session = service.start_session(
         current_user,
@@ -150,14 +157,24 @@ def get_session_items(
     return service.session_state(session_id, current_user, locale=locale)
 
 
-@router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult)
+@router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult, deprecated=True)
 def submit_all_responses(
     session_id: int,
     payload: SessionSubmissionPayload,
+    response: Response,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically (Sync)."""
+    """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically (Sync).
+    
+    DEPRECATED: Use /sessions/{session_id}/submit_all_responses instead.
+    """
+    # [Facade Pattern] Deprecation: Use /sessions/{session_id}/submit_all_responses instead
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = f"</sessions/{session_id}/submit_all_responses>; rel=successor-version"
+    response.headers["Sunset"] = "Fri, 31 Jan 2026 00:00:00 GMT"
+    inc_counter("deprecated.engine.sessions.submit_all")
+    
     service = EngineSessionService(db)
     result = service.submit_full_batch(session_id, current_user, payload)
     return SessionOperationResult(result=result)
@@ -213,12 +230,19 @@ def engine_metrics(
     return payload
 
 
-@router.post("/sessions/{session_id}/finalize", response_model=SessionOperationResult)
+@router.post("/sessions/{session_id}/finalize", response_model=SessionOperationResult, deprecated=True)
 def finalize_session(
     session_id: int,
+    response: Response,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
+    # [Facade Pattern] Deprecation: Use /sessions/{session_id}/finalize instead
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = f"</sessions/{session_id}/finalize>; rel=successor-version"
+    response.headers["Sunset"] = "Fri, 31 Jan 2026 00:00:00 GMT"
+    inc_counter("deprecated.engine.sessions.finalize")
+    
     service = EngineSessionService(db)
     result = service.finalize_session(session_id, current_user)
     return SessionOperationResult(result=result)
@@ -246,13 +270,55 @@ def engine_report(
     return as_report_payload(report)
 
 
-@router.post("/sessions/{session_id}/force-finalize", response_model=SessionOperationResult)
+@router.post("/sessions/{session_id}/force_finalize", response_model=SessionOperationResult, deprecated=True)
 def force_finalize_session(
     session_id: int,
     request: ForceFinalizeRequest,
+    response: Response,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
+    """
+    Force finalize a session without validation (DEPRECATED).
+    
+    ⚠️ DEPRECATED: Use /sessions/{session_id}/force_finalize instead.
+    
+    ⚠️ WARNING: This bypasses data integrity checks and may produce
+    invalid results. Use only for:
+    - Testing/debugging
+    - Data recovery scenarios
+    - Explicit user request with informed consent
+    
+    Requires: MEDIATOR or ADMIN role
+    Logged: All force finalizations are audited
+    """
+    # Access control: Require mediator or admin role
+    if current_user.role not in ("MEDIATOR", "ADMIN"):
+        from app.core.errors import PermissionDeniedError
+        from app.i18n.id_messages import AuthorizationMessages
+        raise PermissionDeniedError(AuthorizationMessages.MEDIATOR_ADMIN_ONLY)
+    
+    # [Facade Pattern] Deprecation: Use /sessions/{session_id}/force_finalize instead
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = f"</sessions/{session_id}/force_finalize>; rel=successor-version"
+    response.headers["Sunset"] = "Fri, 31 Jan 2026 00:00:00 GMT"
+    inc_counter("deprecated.engine.sessions.force_finalize")
+    
+    # Audit logging
+    from app.core.logging import get_logger
+    logger = get_logger("kolb.engine.force_finalize")
+    logger.warning(
+        "force_finalize_invoked",
+        extra={
+            "structured_data": {
+                "session_id": session_id,
+                "user_id": current_user.id,
+                "user_role": current_user.role,
+                "reason": request.reason or "not_provided"
+            }
+        }
+    )
+    
     service = EngineSessionService(db)
     result = service.force_finalize(session_id, current_user, reason=request.reason)
     return SessionOperationResult(result=result)
