@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,6 +15,7 @@ from app.schemas.telemetry import (
     TimeOnPageEvent,
     ItemChangedEvent,
     MouseMovementEvent,
+    ReplayEventBatch,
 )
 from app.services.security import get_current_user
 from app.services.telemetry_service import telemetry_service
@@ -133,3 +135,29 @@ def record_assessment_telemetry(
     
     telemetry_service.record_assessment_item_event(db, payload)
     return {"ok": True}
+
+
+@router.post("/replay-events", status_code=202)
+def record_replay_events(batch: ReplayEventBatch):
+    """Record a batch of session replay events for debugging."""
+    import json
+    from pathlib import Path
+    
+    # Ensure logs directory exists
+    log_dir = Path("logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    log_file = log_dir / f"replay_{batch.session_id}.jsonl"
+    
+    with open(log_file, "a", encoding="utf-8") as f:
+        for event in batch.events:
+            entry = {
+                "session_id": batch.session_id,
+                "type": event.type,
+                "payload": event.payload,
+                "timestamp_ms": event.timestamp_ms,
+                "received_at": datetime.now(timezone.utc).isoformat()
+            }
+            f.write(json.dumps(entry) + "\n")
+            
+    return {"status": "recorded", "count": len(batch.events)}

@@ -20,6 +20,7 @@ from app.schemas.session import (
     SessionOperationResult,
     OperationStatus,
     SessionListResponse,
+    EngineSessionResponse,
 )
 from app.db.repositories import SessionRepository
 from app.core.errors import InstrumentNotFoundError, PermissionDeniedError
@@ -138,7 +139,7 @@ def get_delivery(
     return service.delivery_package(session_id, current_user, locale=locale)
 
 
-@router.get("/sessions/{session_id}/items", response_model=dict)
+@router.get("/sessions/{session_id}/items", response_model=EngineSessionResponse)
 def get_session_items(
     session_id: int,
     locale: str | None = None,
@@ -147,19 +148,6 @@ def get_session_items(
 ):
     service = EngineSessionService(db)
     return service.session_state(session_id, current_user, locale=locale)
-
-
-@router.post("/sessions/{session_id}/items", response_model=SessionOperationResult)
-def autosave_session_items(
-    session_id: int,
-    payload: SessionAutosavePayload,
-    locale: str | None = None,
-    db: Any = Depends(get_db),
-    current_user: Any = Depends(get_current_user),
-):
-    service = EngineSessionService(db)
-    result = service.autosave_responses(session_id, current_user, payload, locale=locale)
-    return SessionOperationResult(result=result)
 
 
 @router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult)

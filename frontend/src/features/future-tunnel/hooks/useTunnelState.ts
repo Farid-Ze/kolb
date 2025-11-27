@@ -1,4 +1,4 @@
-import { useReducer } from 'react'
+import { useReducer, useRef, useCallback, useEffect } from 'react'
 import { LFI_CONTEXTS } from '../../../entities/session/constants'
 import type { SessionOperationResult } from '../../../entities/session/model'
 import type { TunnelContextDraft, TunnelItemDraft, TunnelPhase } from '../model'
@@ -100,7 +100,63 @@ function tunnelReducer(state: TunnelState, action: TunnelAction): TunnelState {
   }
 }
 
+import { apiClient } from '../../../shared/api/client'
+
+const ACTION_LOG_BATCH_SIZE = 10
+const ACTION_LOG_INTERVAL = 10000
+
 export function useTunnelState() {
-  const [state, dispatch] = useReducer(tunnelReducer, initialState)
+  const [state, baseDispatch] = useReducer(tunnelReducer, initialState)
+  const actionBufferRef = useRef<any[]>([])
+
+  // Helper to flush logs
+  const flushActions = useCallback((overrideSessionId?: number) => {
+    const sid = overrideSessionId ?? state.sessionId
+    if (actionBufferRef.current.length === 0 || !sid) return
+
+    const events = [...actionBufferRef.current]
+    actionBufferRef.current = []
+
+    apiClient.post('/telemetry/replay-events', {
+      sessionId: sid,
+      events
+    }).catch((err: unknown) => console.warn('Failed to upload replay events', err))
+  }, [state.sessionId])
+
+  // Flush on interval
+  useEffect(() => {
+    const interval = setInterval(() => flushActions(), ACTION_LOG_INTERVAL)
+    return () => clearInterval(interval)
+  }, [flushActions])
+
+  // Flush on visibility hide
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushActions()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [flushActions])
+
+  const dispatch = useCallback((action: TunnelAction) => {
+    baseDispatch(action)
+
+    // Determine session ID (handle START_SESSION case where state.sessionId is null)
+    const currentSessionId = state.sessionId ?? (action.type === 'START_SESSION' ? action.sessionId : null)
+
+    if (currentSessionId) {
+      actionBufferRef.current.push({
+        type: action.type,
+        payload: action,
+        timestampMs: Date.now()
+      })
+
+      if (actionBufferRef.current.length >= ACTION_LOG_BATCH_SIZE) {
+        flushActions(currentSessionId)
+      }
+    }
+  }, [state.sessionId, flushActions])
+
   return { state, dispatch }
 }

@@ -135,4 +135,41 @@ __all__ = [
     "get_correlation_id",
     "clear_correlation_id",
     "correlation_context",
+    "configure_provenance_logging",
 ]
+
+
+def configure_provenance_logging(log_dir: str = "logs") -> None:
+    """Configure dedicated provenance logger with rotation.
+    
+    Sets up a separate logger for research integrity audit trails that:
+    - Writes to logs/provenance.jsonl
+    - Rotates daily at midnight
+    - Retains logs for 30 days
+    - Does not propagate to the main application log
+    """
+    from logging.handlers import TimedRotatingFileHandler
+    from pathlib import Path
+    
+    logger = logging.getLogger("kolb.provenance")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False  # Isolate from main application logs
+    
+    # Ensure log directory exists
+    Path(log_dir).mkdir(parents=True, exist_ok=True)
+    log_file = Path(log_dir) / "provenance.jsonl"
+    
+    handler = TimedRotatingFileHandler(
+        log_file,
+        when="midnight",
+        interval=1,
+        backupCount=30,
+        encoding="utf-8"
+    )
+    handler.setFormatter(JsonFormatter())
+    
+    # Idempotency check: remove existing handlers to avoid duplicates on reload
+    if logger.hasHandlers():
+        logger.handlers.clear()
+        
+    logger.addHandler(handler)

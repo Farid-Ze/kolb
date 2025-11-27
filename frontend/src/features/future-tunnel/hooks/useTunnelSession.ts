@@ -118,7 +118,7 @@ export function useTunnelSession() {
   const hydrationRef = useRef(false)
   const storageHydratedRef = useRef(false)
 
-  const sendTelemetry = useAssessmentTelemetry(sessionId)
+  const { sendTelemetry, sendItemChanged } = useAssessmentTelemetry(sessionId)
 
   const acknowledgeRestoredDraft = useCallback(() => {
     dispatch({ type: 'ACKNOWLEDGE_RESTORED' })
@@ -191,7 +191,7 @@ export function useTunnelSession() {
     const storedSession = localStorage.getItem(SESSION_STORAGE_KEY)
     const storedDrafts = safeParseJSON<Record<number, TunnelItemDraft>>(localStorage.getItem(ITEM_DRAFTS_STORAGE_KEY))
     const storedContexts = safeParseJSON<ContextDraftMap>(localStorage.getItem(CONTEXT_DRAFTS_STORAGE_KEY))
-    
+
     if (storedSession) {
       const parsed = Number(storedSession)
       if (Number.isFinite(parsed)) {
@@ -307,12 +307,12 @@ export function useTunnelSession() {
       hydrationRef.current = true
       return
     }
-    
+
     const newDrafts: Record<number, TunnelItemDraft> = {}
     let hasRestored = false
-    
+
     data.responses?.forEach((response) => {
-      const item = learningItems.find((entry) => entry.id === response.item_id)
+      const item = learningItems.find((entry) => entry.id === response.itemId)
       if (!item) {
         return
       }
@@ -330,8 +330,8 @@ export function useTunnelSession() {
 
     const newContextDrafts: ContextDraftMap = {}
     data.contexts?.forEach((ctx) => {
-      newContextDrafts[ctx.context_name] = {
-        contextName: ctx.context_name,
+      newContextDrafts[ctx.contextName] = {
+        contextName: ctx.contextName,
         CE: ctx.CE,
         RO: ctx.RO,
         AC: ctx.AC,
@@ -387,7 +387,7 @@ export function useTunnelSession() {
       markItemInteraction(itemId)
 
       let newRanks: Record<number, number> = {}
-      
+
       // Calculate new ranks based on current state
       const existing = drafts[itemId] ?? {
         itemId,
@@ -396,6 +396,10 @@ export function useTunnelSession() {
         blurEvents: 0,
       }
       const ranks = { ...existing.ranks }
+
+      // Capture previous rank for telemetry
+      const fromRank = ranks[choiceId] ?? null
+
       if (rank === null) {
         delete ranks[choiceId]
       } else {
@@ -407,8 +411,13 @@ export function useTunnelSession() {
         ranks[choiceId] = rank
       }
       newRanks = ranks
-      
+
       dispatch({ type: 'SET_ITEM_RANK', itemId, ranks: newRanks })
+
+      // Send telemetry if rank changed and is not null (clearing not supported by backend event)
+      if (rank !== null && fromRank !== rank) {
+        sendItemChanged(itemId, fromRank, rank)
+      }
 
       // Check if item is complete and submit incrementally
       const item = learningItems.find((i) => i.id === itemId)
@@ -426,7 +435,7 @@ export function useTunnelSession() {
         }
       }
     },
-    [markItemInteraction, learningItems, sessionId, singleResponseMutation, drafts, dispatch],
+    [markItemInteraction, learningItems, sessionId, singleResponseMutation, drafts, dispatch, sendItemChanged],
   )
 
   const setContextRank = useCallback((contextName: string, mode: ModeCode, rank: number | null) => {
@@ -448,7 +457,7 @@ export function useTunnelSession() {
       })
       updated[mode] = rank
     }
-    
+
     dispatch({ type: 'SET_CONTEXT_RANK', contextName, draft: updated })
   }, [contextDrafts, dispatch])
 

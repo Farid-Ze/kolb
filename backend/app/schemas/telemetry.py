@@ -32,6 +32,7 @@ class ItemChangedEvent(CamelModel):
     timestamp_ms: int = Field(..., ge=0)
 
 
+
 class MouseMovementEvent(CamelModel):
     """Captures mouse coordinates. Should be throttled/sampled on client."""
     session_id: int | None = Field(None, gt=0)
@@ -41,4 +42,17 @@ class MouseMovementEvent(CamelModel):
     viewport_width: int = Field(..., gt=0)
     viewport_height: int = Field(..., gt=0)
     timestamp_ms: int = Field(..., ge=0)
+
+
+class ReplayEvent(CamelModel):
+    """Generic event for session replay."""
+    type: str = Field(..., min_length=1, max_length=50)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    timestamp_ms: int = Field(..., ge=0)
+
+
+class ReplayEventBatch(CamelModel):
+    """Batch of replay events for a session."""
+    session_id: int = Field(..., gt=0)
+    events: list[ReplayEvent]
 

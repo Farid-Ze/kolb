@@ -44,20 +44,17 @@ export interface AssessmentResponseBatch {
 }
 
 export interface EngineSessionResponse {
-  session_id: number
+  sessionId: number
+  instrumentCode: string
+  instrumentVersion?: string | null
   status: string
-  responses: Array<{
-    item_id: number
-    ranks: Record<string, number>
-  }>
-  contexts: Array<{
-    context_name: string
-    CE: number
-    RO: number
-    AC: number
-    AE: number
-  }>
   delivery?: {
     items?: AssessmentItem[]
   }
+  responses: ItemRankPayload[]
+  contexts: ContextRankPayload[]
+  totalItems: number
+  completedItems: number
+  progress: number
+  currentItemIndex: number
 }

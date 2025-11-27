@@ -19,8 +19,10 @@ from app.services.seeds import (
     seed_instruments,
     seed_engine_authoring,
     seed_gamification_badges,
+    seed_gamification_badges,
     seed_growth_challenges,
 )
+import app.instruments.klsi4  # register KLSI 4.0 plugin
 from sqlalchemy import text
 
 

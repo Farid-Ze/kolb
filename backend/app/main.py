@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.formatting import format_decimal
-from app.core.logging import configure_logging, get_logger
+from app.core.logging import configure_logging, get_logger, configure_provenance_logging
 from app.core.metrics import get_counters, get_metrics
 from app.db.database import Base, engine, get_db, transactional_session
 from app.i18n import preload_i18n_resources
@@ -43,6 +43,7 @@ from app.routers.engine import router as engine_router
 
 
 configure_logging(environment=settings.environment)
+configure_provenance_logging()
 logger = get_logger("kolb.app.main", component="app")
 BASE_DIR = Path(__file__).resolve().parent.parent
 GUIDES_STATIC_DIR = BASE_DIR / "docs" / "guides"

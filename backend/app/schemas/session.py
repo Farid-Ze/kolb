@@ -199,5 +199,20 @@ class AssessmentItemResponsePayload(CamelModel):
     blur_events: int | None = 0
 
 
+
 class AssessmentResponseBatch(CamelModel):
     responses: list[AssessmentItemResponsePayload]
+
+
+class EngineSessionResponse(CamelModel):
+    session_id: int
+    instrument_code: str
+    instrument_version: str | None = None
+    status: str
+    delivery: dict[str, Any] | None = None
+    responses: list[ItemRank]
+    contexts: list[ContextRank]
+    total_items: int
+    completed_items: int
+    progress: float
+    current_item_index: int

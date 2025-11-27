@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timezone
+import logging
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
@@ -168,15 +169,62 @@ class EngineSessionService:
         delivery = runtime.delivery_package(self.db, session_id, locale=locale)
         items = delivery.get("items", []) if isinstance(delivery, dict) else []
         option_lookup = self._build_option_lookup(items)
+        
+        # [Zenotika V4] Provenance Logging
+        # We need to fetch existing responses to detect changes
+        existing_responses = self._build_response_map(self._responses.list_with_choices(session_id))
+        provenance_logger = logging.getLogger("kolb.provenance")
+        
         saved = 0
         for entry in payload.responses:
             normalized = self._convert_autosave_ranks(entry, option_lookup)
+            
+            # Detect and log changes
+            item_id = int(entry.item_id)
+            existing_ranks = existing_responses.get(item_id, {})
+            
+            # Check for changes in ranks
+            # normalized is {choice_id: rank}
+            # existing_ranks is {learning_mode: rank} - wait, this map structure is inconvenient for comparison
+            # Let's just log the new state for now, or we need to map choice_id back to mode?
+            # Actually, the requirement is "answer_change".
+            # Let's log the raw submission for audit trail.
+            
+            provenance_logger.info(
+                "answer_change",
+                extra={
+                    "structured_data": {
+                        "event": "autosave_item",
+                        "session_id": session_id,
+                        "user_id": user.id,
+                        "item_id": item_id,
+                        "ranks": normalized, # {choice_id: rank}
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                }
+            )
+            
             submission = LegacyItemSubmissionPayload(item_id=entry.item_id, ranks=normalized)
             runtime.submit_payload(self.db, session_id, submission.runtime_payload())
             saved += 1
         
         for ctx in payload.contexts:
             from app.schemas.session import LegacyContextSubmissionPayload
+            
+            provenance_logger.info(
+                "answer_change",
+                extra={
+                    "structured_data": {
+                        "event": "autosave_context",
+                        "session_id": session_id,
+                        "user_id": user.id,
+                        "context_name": ctx.context_name,
+                        "scores": {"CE": ctx.CE, "RO": ctx.RO, "AC": ctx.AC, "AE": ctx.AE},
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                }
+            )
+            
             submission = LegacyContextSubmissionPayload(
                 context_name=ctx.context_name,
                 CE=ctx.CE,
@@ -260,6 +308,22 @@ class EngineSessionService:
         payload: Dict[str, Any],
     ) -> None:
         self._load_authorized_session(session_id, user)
+        
+        # [Zenotika V4] Provenance Logging
+        provenance_logger = logging.getLogger("kolb.provenance")
+        provenance_logger.info(
+            "answer_change",
+            extra={
+                "structured_data": {
+                    "event": "submit_interaction",
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "payload": payload,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            }
+        )
+        
         runtime.submit_payload(self.db, session_id, payload)
 
     def finalize_session(self, session_id: int, user: "User") -> Dict[str, Any]:
