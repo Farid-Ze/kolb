@@ -55,8 +55,16 @@ class ReportSummaryPayload(CamelModel):
     longitudinal: ReportLongitudinalSummary | None = None
 
 
-class ReportPayload(CamelModel):
+from typing import Literal, Union
+
+class ReportPayloadBase(CamelModel):
     session_id: int
+    generated_at: datetime | None = None
+    kind: str
+
+
+class IndividualReportPayload(ReportPayloadBase):
+    kind: Literal["individual"] = "individual"
     raw: Mapping[str, Any] | None = None
     percentiles: Mapping[str, Any] | None = None
     style: Mapping[str, Any] | None = None
@@ -72,6 +80,15 @@ class ReportPayload(CamelModel):
     responsible_use_notice: str | None = None
 
 
+class TeamReportPayload(ReportPayloadBase):
+    kind: Literal["team"] = "team"
+    team_id: int
+    analytics: Mapping[str, Any] | None = None
+
+
+ReportPayload = Union[IndividualReportPayload, TeamReportPayload]
+
+
 def as_report_payload(data: Mapping[str, Any]) -> ReportPayload:
     """Convert raw report dicts into CamelModel payloads."""
 
@@ -81,7 +98,17 @@ def as_report_payload(data: Mapping[str, Any]) -> ReportPayload:
         payload["share_context"] = ReportShareContext(**share_context)
     else:
         payload["share_context"] = None
-    return ReportPayload(**payload)
+        
+    # Default to individual report for now as that's the primary usage
+    if "kind" not in payload:
+        payload["kind"] = "individual"
+        
+    if payload["kind"] == "individual":
+        return IndividualReportPayload(**payload)
+    elif payload["kind"] == "team":
+        return TeamReportPayload(**payload)
+    
+    raise ValueError(f"Unknown report kind: {payload.get('kind')}")
 
 
 __all__ = [

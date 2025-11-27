@@ -6,6 +6,13 @@ from pydantic import ConfigDict, Field
 from app.schemas.base import CamelModel
 
 
+from enum import Enum
+
+class TeamRole(str, Enum):
+    MEMBER = "MEMBER"
+    LEADER = "LEADER"
+
+
 class TeamCreate(CamelModel):
     name: str = Field(min_length=1, max_length=100)
     kelas: Optional[str] = Field(default=None, max_length=20)
@@ -20,7 +27,7 @@ class TeamUpdate(CamelModel):
 
 class TeamMemberAdd(CamelModel):
     user_id: int
-    role_in_team: Optional[str] = Field(default=None, max_length=50)
+    role_in_team: TeamRole = Field(default=TeamRole.MEMBER)
 
 
 class TeamOut(CamelModel):
@@ -35,14 +42,14 @@ class TeamMemberOut(CamelModel):
     id: int
     team_id: int
     user_id: int
-    role_in_team: Optional[str]
+    role_in_team: TeamRole
     model_config = ConfigDict(from_attributes=True)
 
 
 class TeamRollupOut(CamelModel):
     id: int
     team_id: int
-    date: date
+    date: datetime
     total_sessions: int
     avg_lfi: Optional[float]
     style_counts: Optional[Dict[str, int]]
@@ -99,7 +106,7 @@ class TeamRollupDetail(CamelModel):
     team_name: str
     member_count: int
     data_points: list[TeamRollupMemberOut]
-    members: list[TeamRollupMemberOut]
+    # members list removed to fix N+1 (Audit Point 8)
     legacy_members: list[TeamRollupLegacyMemberOut]
     summary: TeamRollupSummaryOut
     diversity_score: Optional[float]

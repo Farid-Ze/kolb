@@ -1,3 +1,4 @@
+import hashlib
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
@@ -89,6 +90,13 @@ def build_study_dataset(
 
     rows = query.order_by(AssessmentSession.end_time.desc()).all()
 
+def _hash_participant(user_id: int, email: str) -> str:
+    """Generate a consistent anonymous hash for a participant."""
+    # In production, use a secret salt from settings
+    salt = "klsi-research-salt-v1" 
+    payload = f"{user_id}:{email}:{salt}"
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
     data_points: List[StudyDataPoint] = []
     for row in rows:
         duration: Optional[int] = None
@@ -96,12 +104,14 @@ def build_study_dataset(
             total_seconds = (row.generated_at - row.start_time).total_seconds()
             if total_seconds >= 0:
                 duration = int(total_seconds)
+        
+        # Anonymize participant (Audit Point 4)
+        p_hash = _hash_participant(row.user_id, row.user_email)
+        
         data_points.append(
             StudyDataPoint(
                 session_id=row.session_id,
-                user_id=row.user_id,
-                user_email=row.user_email,
-                user_name=row.user_name,
+                participant_hash=p_hash,
                 generated_at=row.generated_at,
                 ce_score=row.ce_score,
                 ro_score=row.ro_score,
@@ -141,8 +151,9 @@ def build_study_dataset(
         "user_email": filters.user_email,
     }
 
+    from app.utils.ids import encode_public_id
     return ResearchStudyDataOut(
-        study_id=study.id,
+        study_public_id=encode_public_id(study.id),
         study_title=study.title,
         filters_applied=filters_payload,
         data_points=data_points,

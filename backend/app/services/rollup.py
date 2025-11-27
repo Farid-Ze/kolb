@@ -201,7 +201,8 @@ def build_team_rollup_snapshot(db: Session, team_id: int) -> Dict[str, Any]:
         "team_name": team.name,
         "member_count": len(team.members),
         "data_points": data_points,
-        "members": data_points,
+        "data_points": data_points,
+        # members removed (Audit Point 8)
         "legacy_members": legacy_members,
         "summary": summary,
         "diversity_score": diversity_score,

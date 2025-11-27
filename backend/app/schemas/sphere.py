@@ -7,13 +7,23 @@ from app.models.klsi.enums import ReflectionType as _ReflectionType
 ReflectionType = _ReflectionType
 
 
+class SphereNodeMeta(CamelModel):
+    """Strict schema for SphereNode metadata to prevent logic leakage."""
+    label: str | None = None
+    description: str | None = None
+    icon: str | None = None
+    visual_style: str | None = None
+    unlock_condition: dict[str, Any] | None = None
+    
+    model_config = {"extra": "forbid"}
+
 class SphereNodeOut(CamelModel):
     id: int
     pos_x: float
     pos_y: float
     pos_z: float
     unlock_date: datetime
-    meta: dict[str, Any] | None = None
+    meta: SphereNodeMeta | None = None
 
 
 class ReflectionCreate(CamelModel):

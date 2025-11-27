@@ -572,11 +572,16 @@ class EngineRuntime:
             )
             return session
 
-    def delivery_package(self, db: Session, session_id: int, *, locale: str | None = None) -> dict:
+    def delivery_package(self, db: Session, session_id: int, *, locale: str | None = None, lite: bool = False) -> dict:
         session = self._resolve_session(db, session_id)
         inst_id = self._instrument_id(session)
         plugin = self._registry.plugin(inst_id)
+        
+        # Optimization: If lite=True, we might skip fetching items if the plugin supports it,
+        # but for now we rely on compose_delivery_payload to filter.
+        # Ideally, plugin.fetch_items should also support lite, but that requires plugin API change.
         items = plugin.fetch_items(db, session_id)
+        
         delivery = plugin.delivery()
         manifest = _cached_manifest(inst_id.key, inst_id.version)
         locale_payload: dict | None = None
@@ -589,6 +594,7 @@ class EngineRuntime:
             manifest,
             locale_payload,
             locale=locale,
+            lite=lite,
         )
 
     def submit_payload(self, db: Session, session_id: int, payload: dict) -> None:

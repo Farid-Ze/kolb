@@ -19,6 +19,13 @@ class GamificationService:
         achievement = UserAchievement(
             user_id=user_id,
             badge_id=badge.id,
+            badge_snapshot={
+                "name": badge.name,
+                "slug": badge.slug,
+                "rarity": badge.rarity.value if hasattr(badge.rarity, "value") else badge.rarity,
+                "icon_url": badge.icon_url,
+                "description": badge.description,
+            },
             awarded_at=datetime.now(timezone.utc),
         )
         db.add(achievement)

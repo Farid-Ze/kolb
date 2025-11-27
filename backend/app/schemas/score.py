@@ -26,24 +26,29 @@ class RawTotalsWrite(CamelModel):
     AE: int = Field(ge=0)
 
 
-class ContextRanksWrite(CamelModel):
-    CE: int = Field(ge=1, le=4)
-    RO: int = Field(ge=1, le=4)
-    AC: int = Field(ge=1, le=4)
-    AE: int = Field(ge=1, le=4)
+class ContextItemRank(CamelModel):
+    """Raw ranking for a specific context scenario (Audit Point 1)."""
+    context_id: int = Field(..., description="ID of the context scenario (1-8)")
+    ranks: dict[int, int] = Field(
+        ...,
+        description="Map of choice_id to rank (1-4). Must be unique per context.",
+        example={101: 4, 102: 3, 103: 2, 104: 1}
+    )
 
     @model_validator(mode="after")
-    def _unique_ranks(self) -> Self:  # noqa: D401
-        """Ensure forced-choice permutation of ranks 1..4."""
-        ranks = {self.CE, self.RO, self.AC, self.AE}
-        if ranks != {1, 2, 3, 4}:
-            raise ValueError(ValidationMessages.CONTEXT_RANK_UNIQUE)
+    def _validate_ranks(self) -> Self:
+        if len(self.ranks) != 4:
+            raise ValueError(ValidationMessages.CONTEXT_RANK_COUNT or "Must rank exactly 4 options")
+        if sorted(self.ranks.values()) != [1, 2, 3, 4]:
+            raise ValueError(ValidationMessages.CONTEXT_RANK_PERMUTATION or "Ranks must be 1, 2, 3, 4")
         return self
 
 
+from app.schemas.session import ItemRank
+
 class ScorePreviewRequest(CamelModel):
-    raw: RawTotalsWrite
-    contexts: List[ContextRanksWrite]
+    items: List[ItemRank]
+    contexts: List[ContextItemRank]
 
     @model_validator(mode="after")
     def _validate_context_count(self) -> Self:

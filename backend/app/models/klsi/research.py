@@ -23,6 +23,11 @@ class ResearchStudy(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     notes: Mapped[Optional[str]] = mapped_column(String(1000))
 
+    @property
+    def public_id(self) -> str:
+        from app.utils.ids import encode_public_id
+        return encode_public_id(self.id)
+
 
 class ReliabilityResult(Base):
     __tablename__ = "reliability_results"

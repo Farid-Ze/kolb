@@ -431,7 +431,10 @@ export function useTunnelSession() {
         }
         const modeRanks = deriveModeRanks(item, tempDraft)
         if (modeRanks) {
-          singleResponseMutation.mutate({ sessionId, itemId, responseMap: newRanks })
+          // [FORENSIC AUDIT] Walking Skeleton Removed:
+          // We no longer submit single items immediately.
+          // Reliance is now on autosave (batch) and finalize (batch).
+          // singleResponseMutation.mutate({ sessionId, itemId, responseMap: newRanks })
         }
       }
     },

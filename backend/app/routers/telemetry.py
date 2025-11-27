@@ -4,17 +4,15 @@ This module provides endpoints for collecting telemetry data from frontend clien
 Supports both legacy individual events and modern batched telemetry for scalability.
 """
 
+from typing import Any
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 from pydantic import BaseModel, Field
-from typing import Any
 
 from app.core.logging import get_logger
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 logger = get_logger("kolb.telemetry")
-
-
-# Schemas
 class TelemetryEvent(BaseModel):
     """Single telemetry event."""
     type: str = Field(..., description="Event type: mouse, scroll, time_on_page, etc.")

@@ -163,6 +163,40 @@ def get_current_user_optional(token: str | None = Depends(oauth2_scheme_optional
         return None
 
 
+
+class GuestUser:
+    """Ephemeral user context for guest sessions."""
+    def __init__(self, guest_token: str):
+        self.id = None
+        self.email = None
+        self.role = "GUEST"
+        self.guest_token = guest_token
+        self.is_guest = True
+
+def get_current_user_or_guest(
+    token: str | None = Depends(oauth2_scheme_optional),
+    x_guest_token: str | None = Header(None, alias="X-Guest-Token"),
+    db: Session = Depends(get_db)
+):
+    """Authenticate user via Bearer token OR Guest token."""
+    # 1. Try Bearer Token (Registered User)
+    if token:
+        user = get_current_user_optional(token, db)
+        if user:
+            user.is_guest = False
+            return user
+            
+    # 2. Try Guest Token (Anonymous)
+    if x_guest_token:
+        # Basic validation of UUID format could go here
+        return GuestUser(guest_token=x_guest_token)
+        
+    # 3. Fail
+    raise HTTPException(
+        status_code=401, 
+        detail=SecurityMessages.AUTHENTICATION_REQUIRED or "Authentication required (Bearer or X-Guest-Token)"
+    )
+
 def require_mediator(user, detail: str | None = None) -> None:
     """Ensure the authenticated user has MEDIATOR role.
 

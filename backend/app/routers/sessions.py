@@ -15,6 +15,7 @@ from app.schemas.base import CamelModel
 from app.services.provenance import log_provenance_background_task
 from app.schemas.session import (
     SessionSubmissionPayload,
+    SessionAutosavePayload,
     LegacyItemSubmissionPayload,
     LegacyContextSubmissionPayload,
     SessionStartResponse,
@@ -84,20 +85,6 @@ def _sunset_header_value() -> str | None:
         return None
     aware = sunset if sunset.tzinfo else sunset.replace(tzinfo=timezone.utc)
     return format_datetime(aware.astimezone(timezone.utc))
-
-@router.post("/start", response_model=SessionStartResponse)
-def start_session(
-    instrument_code: str = "KLSI",
-    instrument_version: str = "4.0",
-    db: Any = Depends(get_db),
-    current_user: Any = Depends(get_current_user_optional),
-):
-    service = EngineSessionService(db)
-    session = service.start_session(
-        current_user, 
-        instrument_code=instrument_code, 
-        instrument_version=instrument_version
-    )
     return SessionStartResponse(session_id=session.id, guest_token=session.guest_token)
 
 
@@ -105,15 +92,20 @@ def start_session(
 def get_delivery(
     session_id: int,
     locale: str | None = None,
+    lite: bool = False,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
     Fetch full delivery package including items, manifest, and locale resources.
     This is the primary endpoint for retrieving assessment content.
+    
+    Args:
+        lite: If True, returns only manifest and structure (no item content).
+              Use for checking updates or lightweight sync.
     """
     service = EngineSessionService(db)
-    return service.delivery_package(session_id, current_user, locale=locale)
+    return service.delivery_package(session_id, current_user, locale=locale, lite=lite)
 
 @router.get("/{session_id}/items", response_model=list)
 def get_items(
@@ -277,7 +269,6 @@ def session_validation(
         raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
     return run_session_validations(db, session_id)
 
-@router.post("/{session_id}/force-finalize", response_model=SessionOperationResult)
 @router.post("/{session_id}/force_finalize", response_model=SessionOperationResult, include_in_schema=False)
 def force_finalize(
     session_id: int,
@@ -339,6 +330,24 @@ def submit_single_response(
         session_id, current_user, payload.item_id, payload.response_map
     )
     return SingleItemResponse(**result)
+
+
+@router.post("/{session_id}/autosave", response_model=SessionOperationResult)
+def autosave_session(
+    session_id: int,
+    payload: SessionAutosavePayload,
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Autosave partial progress (items and contexts).
+    
+    This endpoint supports the "Batch" strategy by allowing periodic saves
+    without triggering full submission logic.
+    """
+    service = EngineSessionService(db)
+    result = service.autosave_responses(session_id, current_user, payload)
+    return SessionOperationResult(result=result)
 
 
 @router.patch("/{session_id}/responses", status_code=204)

@@ -9,19 +9,36 @@ from app.i18n.id_messages import ValidationMessages
 from app.schemas.base import CamelModel
 
 
+class ItemChoiceRank(CamelModel):
+    choice_id: int = Field(..., description="ID of the selected choice")
+    rank: int = Field(..., ge=1, le=4, description="Rank assigned (1=Least like me, 4=Most like me)")
+
+
 class ItemRank(CamelModel):
     item_id: int = Field(gt=0)
-    ranks: dict[int, int]
+    ranks: list[ItemChoiceRank] = Field(
+        ...,
+        min_length=4,
+        max_length=4,
+        description="List of 4 ranked choices. Must be unique ranks 1-4."
+    )
 
     @field_validator("ranks")
     @classmethod
-    def validate_ranks(cls, v: dict[int, int]):  # noqa: D401
-        # Must be exactly 4 entries and a permutation of {1,2,3,4}
+    def validate_ranks(cls, v: list[ItemChoiceRank]):
         if len(v) != 4:
             raise ValueError(ValidationMessages.ITEM_RANK_COUNT)
-        values = list(v.values())
-        if sorted(values) != [1, 2, 3, 4]:
+        
+        # Check unique choice IDs
+        choice_ids = {r.choice_id for r in v}
+        if len(choice_ids) != 4:
+            raise ValueError("Duplicate choice IDs in item rank")
+            
+        # Check permutation of ranks
+        rank_values = sorted([r.rank for r in v])
+        if rank_values != [1, 2, 3, 4]:
             raise ValueError(ValidationMessages.ITEM_RANK_PERMUTATION)
+            
         return v
 
 
@@ -49,9 +66,11 @@ class ContextRank(CamelModel):
         return self
 
 
+from app.schemas.score import ContextItemRank
+
 class SessionSubmissionPayload(CamelModel):
     items: list[ItemRank] = Field(..., min_length=12, max_length=12)
-    contexts: list[ContextRank] = Field(..., min_length=8, max_length=8)
+    contexts: list[ContextItemRank] = Field(..., min_length=8, max_length=8)
     client_duration_ms: int | None = Field(None, ge=0, description="Total duration spent by user in ms")
 
     @field_validator("items")
@@ -64,9 +83,9 @@ class SessionSubmissionPayload(CamelModel):
 
     @field_validator("contexts")
     @classmethod
-    def ensure_unique_contexts(cls, v: list[ContextRank]):  # noqa: D401
-        names = [x.context_name for x in v]
-        if len(names) != len(set(names)):
+    def ensure_unique_contexts(cls, v: list[ContextItemRank]):  # noqa: D401
+        ids = [x.context_id for x in v]
+        if len(ids) != len(set(ids)):
             raise ValueError(ValidationMessages.DUPLICATE_CONTEXT_NAMES)
         return v
 
@@ -81,7 +100,7 @@ class LegacyItemSubmissionPayload(ItemRank):
         return {
             "kind": self.kind,
             "item_id": self.item_id,
-            "ranks": {int(choice_id): rank for choice_id, rank in self.ranks.items()},
+            "ranks": {int(r.choice_id): r.rank for r in self.ranks},
         }
 
 

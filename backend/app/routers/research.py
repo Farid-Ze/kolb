@@ -87,16 +87,19 @@ def list_studies(
     return study_repo.list(skip, limit, q)
 
 
+from app.utils.ids import decode_public_id
+
 @router.get("/studies/{study_id}", response_model=ResearchStudyOut)
 def get_study(
-    study_id: int,
+    study_id: str,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
+    
+    internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
-    study = study_repo.get(study_id)
+    study = study_repo.get(internal_id)
     if not study:
         raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
     return study
@@ -104,16 +107,17 @@ def get_study(
 
 @router.patch("/studies/{study_id}", response_model=ResearchStudyOut)
 def update_study(
-    study_id: int,
+    study_id: str,
     payload: ResearchStudyUpdate,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
+    
+    internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
     try:
-        study = study_repo.get(study_id)
+        study = study_repo.get(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
         data = payload.model_dump(exclude_unset=True)
@@ -129,7 +133,7 @@ def update_study(
             "research_update_study_failed",
             user=current_user,
             operation="research_update_study",
-            study_id=study_id,
+            study_id=internal_id,
             payload_fields=list(payload.model_dump(exclude_unset=True).keys()),
         )
         raise
@@ -137,21 +141,22 @@ def update_study(
 
 @router.delete("/studies/{study_id}", response_model=dict)
 def delete_study(
-    study_id: int,
+    study_id: str,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
+    
+    internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
     reliability_repo = ReliabilityRepository(db)
     validity_repo = ValidityRepository(db)
     try:
-        study = study_repo.get(study_id)
+        study = study_repo.get(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        rel_count = reliability_repo.count_by_study(study_id)
-        val_count = validity_repo.count_by_study(study_id)
+        rel_count = reliability_repo.count_by_study(internal_id)
+        val_count = validity_repo.count_by_study(internal_id)
         if rel_count > 0 or val_count > 0:
             raise HTTPException(
                 status_code=409,
@@ -168,7 +173,7 @@ def delete_study(
             "research_delete_study_failed",
             user=current_user,
             operation="research_delete_study",
-            study_id=study_id,
+            study_id=internal_id,
         )
         raise
     return {"ok": True}
@@ -176,20 +181,21 @@ def delete_study(
 
 @router.post("/studies/{study_id}/reliability", response_model=dict)
 def add_reliability(
-    study_id: int,
+    study_id: str,
     payload: ReliabilityCreate,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
+    
+    internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
     reliability_repo = ReliabilityRepository(db)
     try:
-        study = study_repo.get(study_id)
+        study = study_repo.get(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        row = reliability_repo.add(study_id, **payload.model_dump())
+        row = reliability_repo.add(internal_id, **payload.model_dump())
         db.commit()
         db.refresh(row)
         return {"id": row.id, "metric_name": row.metric_name, "value": row.value}
@@ -202,7 +208,7 @@ def add_reliability(
             "research_add_reliability_failed",
             user=current_user,
             operation="research_add_reliability",
-            study_id=study_id,
+            study_id=internal_id,
             metric_name=payload.metric_name,
         )
         raise
@@ -210,20 +216,21 @@ def add_reliability(
 
 @router.post("/studies/{study_id}/validity", response_model=dict)
 def add_validity(
-    study_id: int,
+    study_id: str,
     payload: ValidityCreate,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
+    
+    internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
     validity_repo = ValidityRepository(db)
     try:
-        study = study_repo.get(study_id)
+        study = study_repo.get(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        row = validity_repo.add(study_id, **payload.model_dump())
+        row = validity_repo.add(internal_id, **payload.model_dump())
         db.commit()
         db.refresh(row)
         return {"id": row.id, "evidence_type": row.evidence_type}
@@ -236,7 +243,7 @@ def add_validity(
             "research_add_validity_failed",
             user=current_user,
             operation="research_add_validity",
-            study_id=study_id,
+            study_id=internal_id,
             evidence_type=payload.evidence_type,
         )
         raise
@@ -244,14 +251,15 @@ def add_validity(
 
 @router.get("/studies/{study_id}/reliability", response_model=list[dict])
 def list_reliability(
-    study_id: int,
+    study_id: str,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
+    
+    internal_id = decode_public_id(study_id)
     repo = ReliabilityRepository(db)
-    rows = repo.list_by_study(study_id)
+    rows = repo.list_by_study(internal_id)
     return [
         {"id": r.id, "metric_name": r.metric_name, "value": r.value, "notes": r.notes}
         for r in rows
@@ -260,14 +268,15 @@ def list_reliability(
 
 @router.get("/studies/{study_id}/validity", response_model=list[dict])
 def list_validity(
-    study_id: int,
+    study_id: str,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
+    
+    internal_id = decode_public_id(study_id)
     repo = ValidityRepository(db)
-    rows = repo.list_by_study(study_id)
+    rows = repo.list_by_study(internal_id)
     return [
         {
             "id": r.id,
@@ -282,7 +291,7 @@ def list_validity(
 
 @router.get("/studies/{study_id}/data", response_model=ResearchStudyDataOut)
 def get_study_data(
-    study_id: int,
+    study_id: str,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
     start_date: Optional[date] = Query(default=None),
@@ -293,8 +302,9 @@ def get_study_data(
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
+    internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
-    study = study_repo.get(study_id)
+    study = study_repo.get(internal_id)
     if not study:
         raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
     start_at = _start_of_day(start_date)

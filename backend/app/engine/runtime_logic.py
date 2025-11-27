@@ -179,8 +179,27 @@ def compose_delivery_payload(
     locale_payload: LocalePayload,
     *,
     locale: str | None = None,
+    lite: bool = False,
 ) -> dict[str, Any]:
     """Pure helper that constructs the delivery payload for a session."""
+    if lite:
+        # [Zenotika V4] Lite Delivery (Audit Point 6)
+        # Return only structural manifest, skipping heavy content/items
+        return {
+            "instrument": {
+                "code": inst_id.key,
+                "version": inst_id.version,
+            },
+            "manifest": manifest,
+            "delivery": {
+                "forced_choice": getattr(delivery, "forced_choice", None),
+                "sections": getattr(delivery, "sections", None),
+                "randomize": getattr(delivery, "randomize", None),
+                "expected_contexts": getattr(delivery, "expected_contexts", None),
+            },
+            "lite": True,
+        }
+
     localized_items, localized_contexts, locale_metadata = _extract_localized_maps(locale_payload)
     items_payload: list[dict[str, Any]] = []
     for item in items:

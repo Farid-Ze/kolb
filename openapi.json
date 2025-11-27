@@ -179,71 +179,13 @@
         ]
       }
     },
-    "/sessions/start": {
-      "post": {
-        "tags": [
-          "sessions"
-        ],
-        "summary": "Start Session",
-        "operationId": "start_session_sessions_start_post",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "instrument_code",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "KLSI",
-              "title": "Instrument Code"
-            }
-          },
-          {
-            "name": "instrument_version",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "4.0",
-              "title": "Instrument Version"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionStartResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/sessions/{session_id}/delivery": {
       "get": {
         "tags": [
           "sessions"
         ],
         "summary": "Get Delivery",
-        "description": "Fetch full delivery package including items, manifest, and locale resources.\nThis is the primary endpoint for retrieving assessment content.",
+        "description": "Fetch full delivery package including items, manifest, and locale resources.\nThis is the primary endpoint for retrieving assessment content.\n\nArgs:\n    lite: If True, returns only manifest and structure (no item content).\n          Use for checking updates or lightweight sync.",
         "operationId": "get_delivery_sessions__session_id__delivery_get",
         "security": [
           {
@@ -274,6 +216,16 @@
                 }
               ],
               "title": "Locale"
+            }
+          },
+          {
+            "name": "lite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Lite"
             }
           }
         ],
@@ -506,14 +458,14 @@
         }
       }
     },
-    "/sessions/{session_id}/force-finalize": {
+    "/sessions/{session_id}/autosave": {
       "post": {
         "tags": [
           "sessions"
         ],
-        "summary": "Force Finalize",
-        "description": "Force finalize a session without validation.\n\n\u26a0\ufe0f WARNING: This bypasses data integrity checks and may produce\ninvalid results. Use only for:\n- Testing/debugging\n- Data recovery scenarios\n- Explicit user request with informed consent\n\nRequires: MEDIATOR or ADMIN role\nLogged: All force finalizations are audited",
-        "operationId": "force_finalize_sessions__session_id__force_finalize_post",
+        "summary": "Autosave Session",
+        "description": "Autosave partial progress (items and contexts).\n\nThis endpoint supports the \"Batch\" strategy by allowing periodic saves\nwithout triggering full submission logic.",
+        "operationId": "autosave_session_sessions__session_id__autosave_post",
         "security": [
           {
             "BearerAuth": []
@@ -535,7 +487,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ForceFinalizeRequest"
+                "$ref": "#/components/schemas/SessionAutosavePayload"
               }
             }
           }
@@ -604,71 +556,6 @@
         "responses": {
           "204": {
             "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/norms/import": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Import Norms",
-        "operationId": "import_norms_admin_norms_import_post",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "norm_group",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Norm Group"
-            }
-          },
-          {
-            "name": "norm_version",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default",
-              "title": "Norm Version"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_import_norms_admin_norms_import_post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
           },
           "422": {
             "description": "Validation Error",
@@ -1120,7 +1007,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReportPayload"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/IndividualReportPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TeamReportPayload"
+                    }
+                  ],
+                  "title": "Response Get Report Reports  Session Id  Get"
                 }
               }
             }
@@ -1224,7 +1119,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReportPayload"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/IndividualReportPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TeamReportPayload"
+                    }
+                  ],
+                  "title": "Response Get Shared Report Reports Shared  Share Token  Get"
                 }
               }
             }
@@ -2053,7 +1956,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           }
@@ -2098,7 +2001,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           }
@@ -2153,7 +2056,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           }
@@ -2201,7 +2104,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           }
@@ -2257,7 +2160,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           }
@@ -2308,7 +2211,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           }
@@ -2364,7 +2267,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           }
@@ -2415,7 +2318,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
               "title": "Study Id"
             }
           },
@@ -2539,6 +2442,46 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TelemetryBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/telemetry/replay-events": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Record Replay Events",
+        "description": "Record session replay events for debugging.\n\nStores events in a JSONL file for later playback/analysis.",
+        "operationId": "record_replay_events_telemetry_replay_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayEventBatch"
               }
             }
           },
@@ -3050,6 +2993,28 @@
         ],
         "title": "AssessmentSessionResponse"
       },
+      "AutosaveItemRank": {
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Itemid"
+          },
+          "ranks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Ranks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "itemId",
+          "ranks"
+        ],
+        "title": "AutosaveItemRank"
+      },
       "BadgeOut": {
         "properties": {
           "slug": {
@@ -3072,20 +3037,6 @@
           "rarity"
         ],
         "title": "BadgeOut"
-      },
-      "Body_import_norms_admin_norms_import_post": {
-        "properties": {
-          "file": {
-            "type": "string",
-            "format": "binary",
-            "title": "File"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_norms_admin_norms_import_post"
       },
       "ChallengeCompletionPayload": {
         "properties": {
@@ -3162,6 +3113,36 @@
         ],
         "title": "ClonePipelineRequest"
       },
+      "ContextItemRank": {
+        "properties": {
+          "contextId": {
+            "type": "integer",
+            "title": "Contextid",
+            "description": "ID of the context scenario (1-8)"
+          },
+          "ranks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Ranks",
+            "description": "Map of choice_id to rank (1-4). Must be unique per context.",
+            "example": {
+              "101": 4,
+              "102": 3,
+              "103": 2,
+              "104": 1
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "contextId",
+          "ranks"
+        ],
+        "title": "ContextItemRank",
+        "description": "Raw ranking for a specific context scenario (Audit Point 1)."
+      },
       "ContextRank": {
         "properties": {
           "contextName": {
@@ -3205,59 +3186,6 @@
         ],
         "title": "ContextRank"
       },
-      "ContextRanksWrite": {
-        "properties": {
-          "CE": {
-            "type": "integer",
-            "maximum": 4.0,
-            "minimum": 1.0,
-            "title": "Ce"
-          },
-          "RO": {
-            "type": "integer",
-            "maximum": 4.0,
-            "minimum": 1.0,
-            "title": "Ro"
-          },
-          "AC": {
-            "type": "integer",
-            "maximum": 4.0,
-            "minimum": 1.0,
-            "title": "Ac"
-          },
-          "AE": {
-            "type": "integer",
-            "maximum": 4.0,
-            "minimum": 1.0,
-            "title": "Ae"
-          }
-        },
-        "type": "object",
-        "required": [
-          "CE",
-          "RO",
-          "AC",
-          "AE"
-        ],
-        "title": "ContextRanksWrite"
-      },
-      "ForceFinalizeRequest": {
-        "properties": {
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          }
-        },
-        "type": "object",
-        "title": "ForceFinalizeRequest"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3271,6 +3199,207 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "IndividualReportPayload": {
+        "properties": {
+          "sessionId": {
+            "type": "integer",
+            "title": "Sessionid"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "individual"
+            ],
+            "const": "individual",
+            "title": "Kind",
+            "default": "individual"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "percentiles": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percentiles"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          },
+          "lfi": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lfi"
+          },
+          "visualization": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visualization"
+          },
+          "sessionDesigns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessiondesigns"
+          },
+          "analytics": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analytics"
+          },
+          "learningSpace": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learningspace"
+          },
+          "enhancedAnalytics": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enhancedanalytics"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "shareContext": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportShareContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "responsibleUseNotice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsibleusenotice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessionId"
+        ],
+        "title": "IndividualReportPayload"
+      },
+      "ItemChoiceRank": {
+        "properties": {
+          "choiceId": {
+            "type": "integer",
+            "title": "Choiceid",
+            "description": "ID of the selected choice"
+          },
+          "rank": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Rank",
+            "description": "Rank assigned (1=Least like me, 4=Most like me)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "choiceId",
+          "rank"
+        ],
+        "title": "ItemChoiceRank"
+      },
       "ItemRank": {
         "properties": {
           "itemId": {
@@ -3279,11 +3408,14 @@
             "title": "Itemid"
           },
           "ranks": {
-            "additionalProperties": {
-              "type": "integer"
+            "items": {
+              "$ref": "#/components/schemas/ItemChoiceRank"
             },
-            "type": "object",
-            "title": "Ranks"
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Ranks",
+            "description": "List of 4 ranked choices. Must be unique ranks 1-4."
           }
         },
         "type": "object",
@@ -3310,38 +3442,6 @@
           "password"
         ],
         "title": "LoginRequest"
-      },
-      "RawTotalsWrite": {
-        "properties": {
-          "CE": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Ce"
-          },
-          "RO": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Ro"
-          },
-          "AC": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Ac"
-          },
-          "AE": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Ae"
-          }
-        },
-        "type": "object",
-        "required": [
-          "CE",
-          "RO",
-          "AC",
-          "AE"
-        ],
-        "title": "RawTotalsWrite"
       },
       "ReflectionCreate": {
         "properties": {
@@ -3451,6 +3551,52 @@
           "value"
         ],
         "title": "ReliabilityCreate"
+      },
+      "ReplayEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "payload": {
+            "type": "object",
+            "title": "Payload"
+          },
+          "timestampMs": {
+            "type": "integer",
+            "title": "Timestampms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "payload",
+          "timestampMs"
+        ],
+        "title": "ReplayEvent",
+        "description": "Event captured for session replay."
+      },
+      "ReplayEventBatch": {
+        "properties": {
+          "sessionId": {
+            "type": "integer",
+            "title": "Sessionid"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessionId",
+          "events"
+        ],
+        "title": "ReplayEventBatch",
+        "description": "Batch of replay events."
       },
       "ReportDialecticSummary": {
         "properties": {
@@ -3624,164 +3770,6 @@
         },
         "type": "object",
         "title": "ReportLongitudinalSummary"
-      },
-      "ReportPayload": {
-        "properties": {
-          "sessionId": {
-            "type": "integer",
-            "title": "Sessionid"
-          },
-          "raw": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Raw"
-          },
-          "percentiles": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Percentiles"
-          },
-          "style": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Style"
-          },
-          "lfi": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lfi"
-          },
-          "visualization": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Visualization"
-          },
-          "sessionDesigns": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sessiondesigns"
-          },
-          "analytics": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Analytics"
-          },
-          "learningSpace": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Learningspace"
-          },
-          "enhancedAnalytics": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Enhancedanalytics"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
-          "owner": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner"
-          },
-          "shareContext": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportShareContext"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "responsibleUseNotice": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Responsibleusenotice"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId"
-        ],
-        "title": "ReportPayload"
       },
       "ReportShareContext": {
         "properties": {
@@ -4152,9 +4140,9 @@
       },
       "ResearchStudyDataOut": {
         "properties": {
-          "studyId": {
-            "type": "integer",
-            "title": "Studyid"
+          "studyPublicId": {
+            "type": "string",
+            "title": "Studypublicid"
           },
           "studyTitle": {
             "type": "string",
@@ -4177,7 +4165,7 @@
         },
         "type": "object",
         "required": [
-          "studyId",
+          "studyPublicId",
           "studyTitle",
           "filtersApplied",
           "dataPoints",
@@ -4187,9 +4175,9 @@
       },
       "ResearchStudyOut": {
         "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
+          "publicId": {
+            "type": "string",
+            "title": "Publicid"
           },
           "title": {
             "type": "string",
@@ -4244,7 +4232,7 @@
         },
         "type": "object",
         "required": [
-          "id",
+          "publicId",
           "title",
           "description",
           "startedAt",
@@ -4499,12 +4487,16 @@
       },
       "ScorePreviewRequest": {
         "properties": {
-          "raw": {
-            "$ref": "#/components/schemas/RawTotalsWrite"
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemRank"
+            },
+            "type": "array",
+            "title": "Items"
           },
           "contexts": {
             "items": {
-              "$ref": "#/components/schemas/ContextRanksWrite"
+              "$ref": "#/components/schemas/ContextItemRank"
             },
             "type": "array",
             "title": "Contexts"
@@ -4512,7 +4504,7 @@
         },
         "type": "object",
         "required": [
-          "raw",
+          "items",
           "contexts"
         ],
         "title": "ScorePreviewRequest"
@@ -4587,6 +4579,26 @@
         ],
         "title": "ScorePreviewStyle"
       },
+      "SessionAutosavePayload": {
+        "properties": {
+          "responses": {
+            "items": {
+              "$ref": "#/components/schemas/AutosaveItemRank"
+            },
+            "type": "array",
+            "title": "Responses"
+          },
+          "contexts": {
+            "items": {
+              "$ref": "#/components/schemas/ContextRank"
+            },
+            "type": "array",
+            "title": "Contexts"
+          }
+        },
+        "type": "object",
+        "title": "SessionAutosavePayload"
+      },
       "SessionOperationResult": {
         "properties": {
           "ok": {
@@ -4608,30 +4620,6 @@
         },
         "type": "object",
         "title": "SessionOperationResult"
-      },
-      "SessionStartResponse": {
-        "properties": {
-          "sessionId": {
-            "type": "integer",
-            "title": "Sessionid"
-          },
-          "guestToken": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Guesttoken"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId"
-        ],
-        "title": "SessionStartResponse"
       },
       "SessionSubmissionPayload": {
         "properties": {
@@ -4674,6 +4662,69 @@
         ],
         "title": "SessionSubmissionPayload"
       },
+      "SphereNodeMeta": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "visualStyle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visualstyle"
+          },
+          "unlockCondition": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unlockcondition"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SphereNodeMeta",
+        "description": "Strict schema for SphereNode metadata to prevent logic leakage."
+      },
       "SphereNodeOut": {
         "properties": {
           "id": {
@@ -4700,13 +4751,12 @@
           "meta": {
             "anyOf": [
               {
-                "type": "object"
+                "$ref": "#/components/schemas/SphereNodeMeta"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Meta"
+            ]
           }
         },
         "type": "object",
@@ -4749,13 +4799,9 @@
             "type": "integer",
             "title": "Userid"
           },
-          "userEmail": {
+          "participantHash": {
             "type": "string",
-            "title": "Useremail"
-          },
-          "userName": {
-            "type": "string",
-            "title": "Username"
+            "title": "Participanthash"
           },
           "generatedAt": {
             "type": "string",
@@ -4835,8 +4881,7 @@
         "required": [
           "sessionId",
           "userId",
-          "userEmail",
-          "userName",
+          "participantHash",
           "generatedAt",
           "ceScore",
           "roScore",
@@ -4929,16 +4974,8 @@
             "title": "Userid"
           },
           "roleInTeam": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 50
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Roleinteam"
+            "$ref": "#/components/schemas/TeamRole",
+            "default": "MEMBER"
           }
         },
         "type": "object",
@@ -4962,15 +4999,7 @@
             "title": "Userid"
           },
           "roleInTeam": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Roleinteam"
+            "$ref": "#/components/schemas/TeamRole"
           }
         },
         "type": "object",
@@ -5024,6 +5053,64 @@
         ],
         "title": "TeamOut"
       },
+      "TeamReportPayload": {
+        "properties": {
+          "sessionId": {
+            "type": "integer",
+            "title": "Sessionid"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "team"
+            ],
+            "const": "team",
+            "title": "Kind",
+            "default": "team"
+          },
+          "teamId": {
+            "type": "integer",
+            "title": "Teamid"
+          },
+          "analytics": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analytics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessionId",
+          "teamId"
+        ],
+        "title": "TeamReportPayload"
+      },
+      "TeamRole": {
+        "type": "string",
+        "enum": [
+          "MEMBER",
+          "LEADER"
+        ],
+        "title": "TeamRole"
+      },
       "TeamRollupBalanceMetricsOut": {
         "properties": {
           "CEPercentage": {
@@ -5073,13 +5160,6 @@
             "type": "array",
             "title": "Datapoints"
           },
-          "members": {
-            "items": {
-              "$ref": "#/components/schemas/TeamRollupMemberOut"
-            },
-            "type": "array",
-            "title": "Members"
-          },
           "legacyMembers": {
             "items": {
               "$ref": "#/components/schemas/TeamRollupLegacyMemberOut"
@@ -5111,7 +5191,6 @@
           "teamName",
           "memberCount",
           "dataPoints",
-          "members",
           "legacyMembers",
           "summary",
           "diversityScore",
@@ -5444,7 +5523,7 @@
           },
           "date": {
             "type": "string",
-            "format": "date",
+            "format": "date-time",
             "title": "Date"
           },
           "totalSessions": {
@@ -5733,6 +5812,7 @@
           },
           "password": {
             "type": "string",
+            "minLength": 8,
             "title": "Password"
           },
           "nim": {

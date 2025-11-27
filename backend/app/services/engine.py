@@ -7,22 +7,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.assessments.constants import (
-    CONTEXT_COUNT_LFI,
-    ITEM_COUNT_KLSI4,
-    LEARNING_MODES,
-    RANK_SUM_PER_ITEM,
-)
-from app.assessments.klsi_v4.logic import (
-    assign_learning_style as logic_assign_learning_style,
-    compute_longitudinal_delta,
-)
-
-from app.core.errors import (
-    ConfigurationError,
-    DomainError,
-    InvalidAssessmentData,
-    PermissionDeniedError,
-    SessionFinalizedError,
     SessionNotFoundError,
 )
 from app.core.logging import get_logger
@@ -123,9 +107,9 @@ class EngineSessionService:
             study_id=study_id,
         )
 
-    def delivery_package(self, session_id: int, user: "User", *, locale: str | None = None) -> Dict[str, Any]:
+    def delivery_package(self, session_id: int, user: "User", *, locale: str | None = None, lite: bool = False) -> Dict[str, Any]:
         self._load_authorized_session(session_id, user)
-        return runtime.delivery_package(self.db, session_id, locale=locale)
+        return runtime.delivery_package(self.db, session_id, locale=locale, lite=lite)
 
     def session_state(
         self,
@@ -260,34 +244,24 @@ class EngineSessionService:
             now = datetime.now(timezone.utc)
             
             # 1. Server-side check
-            if session.start_time:
-                # Ensure start_time is timezone-aware or convert
-                start_aware = session.start_time
-                if start_aware.tzinfo is None:
-                    start_aware = start_aware.replace(tzinfo=timezone.utc)
-                
-                duration = (now - start_aware).total_seconds()
-                if duration < MIN_DURATION_SECONDS:
-                     logger.warning("defensive_validation_rejected", extra={"structured_data": {"session_id": session_id, "duration": duration, "reason": "too_fast_server"}})
-                     raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
-
-            # 2. Client-side check (if provided)
-            if payload.client_duration_ms is not None:
-                if payload.client_duration_ms < (MIN_DURATION_SECONDS * 1000):
-                     logger.warning("defensive_validation_rejected", extra={"structured_data": {"session_id": session_id, "client_duration": payload.client_duration_ms, "reason": "too_fast_client"}})
-                     raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
+            if (now - session.start_time).total_seconds() < MIN_DURATION_SECONDS:
+                raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
 
             # Validate before recording any ranks to ensure we never persist partial batches.
             validate_full_submission_payload(self.db, payload)
 
             self._persist_batch_payload(session_id, payload)
             
+            # [Zenotika V4] Atomic Transaction (Audit Point 3)
+            # We pass transactional=True to prevent internal commits in runtime.
+            # The outer db.commit() will commit everything (responses + finalize + audit) atomically.
             result = runtime.finalize_with_audit(
                 self.db,
                 session_id,
-                actor_email=user.email,
+                actor_email=user.email if user.email else "guest",
                 action="FINALIZE_SESSION_ENGINE_BATCH",
-                build_payload=self._build_standard_audit_payload(user.email, session_id),
+                build_payload=self._build_standard_audit_payload(user.email if user.email else "guest", session_id),
+                transactional=True,
             )
             self.db.commit()
             final_result = self._transform_finalize_result(result, override=result.get("override", False))
@@ -586,18 +560,26 @@ class EngineSessionService:
         session = self._sessions.get_with_instrument(session_id)
         if not session:
             raise SessionNotFoundError()
+            
+        # [Zenotika V4] Guest Access Support
+        is_guest = getattr(user, "is_guest", False)
+        if is_guest:
+            if not session.guest_token or session.guest_token != user.guest_token:
+                 raise PermissionDeniedError(SessionErrorMessages.ACCESS_DENIED)
+            return session
+
         if user.role != "MEDIATOR" and session.user_id != user.id:
             raise PermissionDeniedError(SessionErrorMessages.ACCESS_DENIED)
         return session
 
     def _persist_batch_payload(self, session_id: int, payload: SessionSubmissionPayload) -> None:
         for item in payload.items:
-            for choice_id, rank_value in item.ranks.items():
+            for r in item.ranks:
                 self._responses.record_response(
                     session_id=session_id,
                     item_id=item.item_id,
-                    choice_id=int(choice_id),
-                    rank_value=int(rank_value),
+                    choice_id=int(r.choice_id),
+                    rank_value=int(r.rank),
                 )
         for ctx in payload.contexts:
             self._contexts.record_context(
