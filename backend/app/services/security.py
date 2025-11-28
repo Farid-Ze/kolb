@@ -55,6 +55,30 @@ def create_access_token(subject: str, expires_minutes: Optional[int] = None) -> 
     )
 
 
+def create_refresh_token(subject: str, expires_days: Optional[int] = None) -> str:
+    """Create JWT refresh token with longer lifetime.
+    
+    Args:
+        subject: User identifier
+        expires_days: Token lifetime in days (default 7)
+    """
+    now = datetime.now(timezone.utc)
+    expire_delta = timedelta(days=expires_days or 7)
+    expire = now + expire_delta
+    
+    to_encode = {
+        "sub": subject,
+        "exp": expire,
+        "nbf": now,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "type": "refresh",  # Explicit type claim
+    }
+    return jwt.encode(
+        to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )
+
+
 def decode_access_token(token: str) -> dict:
     """Decode and validate JWT access token with explicit security checks.
     
@@ -97,6 +121,23 @@ def decode_access_token(token: str) -> dict:
         # Explicit validation of required claims
         if "sub" not in payload:
             raise ValueError(SecurityMessages.TOKEN_MISSING_SUB)
+            
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise ValueError(SecurityMessages.TOKEN_EXPIRED)
+    except (jwt.JWTError, ValueError) as e:
+        raise ValueError(str(e))
+
+
+def verify_refresh_token(token: str) -> str:
+    """Verify refresh token and return subject."""
+    try:
+        payload = decode_access_token(token)
+        if payload.get("type") != "refresh":
+            raise ValueError("Invalid token type")
+        return payload["sub"]
+    except Exception:
+        raise ValueError("Invalid refresh token")
         
         return payload
         

@@ -33,6 +33,16 @@ class StudyDataFilters:
     learning_style: Optional[str] = None
     norm_group: Optional[str] = None
     user_email: Optional[str] = None
+    page: int = 1
+    size: int = 50
+
+
+def _hash_participant(user_id: int, email: str) -> str:
+    """Generate a consistent anonymous hash for a participant."""
+    # In production, use a secret salt from settings
+    salt = "klsi-research-salt-v1" 
+    payload = f"{user_id}:{email}:{salt}"
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 def build_study_dataset(
@@ -88,14 +98,10 @@ def build_study_dataset(
     if filters.user_email:
         query = query.filter(User.email.ilike(f"%{filters.user_email}%"))
 
-    rows = query.order_by(AssessmentSession.end_time.desc()).all()
-
-def _hash_participant(user_id: int, email: str) -> str:
-    """Generate a consistent anonymous hash for a participant."""
-    # In production, use a secret salt from settings
-    salt = "klsi-research-salt-v1" 
-    payload = f"{user_id}:{email}:{salt}"
-    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+    total = query.count()
+    
+    skip = (filters.page - 1) * filters.size
+    rows = query.order_by(AssessmentSession.end_time.desc()).offset(skip).limit(filters.size).all()
 
     data_points: List[StudyDataPoint] = []
     for row in rows:
@@ -137,8 +143,8 @@ def _hash_participant(user_id: int, email: str) -> str:
             date_range = StudyDataDateRange(earliest=earliest, latest=latest)
 
     summary = StudyDataSummary(
-        total_sessions=len(data_points),
-        unique_participants=len({point.user_id for point in data_points}),
+        total_sessions=total,
+        unique_participants=query.with_entities(AssessmentSession.user_id).distinct().count(),
         date_range=date_range,
         style_distribution=dict(style_counter),
     )
@@ -149,7 +155,12 @@ def _hash_participant(user_id: int, email: str) -> str:
         "learning_style": filters.learning_style,
         "norm_group": filters.norm_group,
         "user_email": filters.user_email,
+        "page": str(filters.page),
+        "size": str(filters.size),
     }
+
+    import math
+    pages = math.ceil(total / filters.size) if filters.size > 0 else 0
 
     from app.utils.ids import encode_public_id
     return ResearchStudyDataOut(
@@ -158,4 +169,8 @@ def _hash_participant(user_id: int, email: str) -> str:
         filters_applied=filters_payload,
         data_points=data_points,
         summary=summary,
+        total=total,
+        page=filters.page,
+        size=filters.size,
+        pages=pages,
     )

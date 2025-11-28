@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional, Any
 
 from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, JSON, UUID
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, foreign, remote
 
 from app.db.database import Base
 from app.models.klsi.enums import SessionStatus
@@ -27,11 +27,14 @@ class AssessmentSession(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=UUID_FACTORY)
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    user: Mapped[Optional["User"]] = relationship(back_populates="sessions")
     guest_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.started)
     assessment_id: Mapped[str] = mapped_column(String(40), default="KLSI")
+    
+    scale_score: Mapped[Optional["ScaleScore"]] = relationship(back_populates="session", uselist=False)
     combination_score: Mapped[Optional["CombinationScore"]] = relationship(back_populates="session", uselist=False)
     learning_style: Mapped[Optional["UserLearningStyle"]] = relationship(back_populates="session", uselist=False)
     lfi_index: Mapped[Optional["LearningFlexibilityIndex"]] = relationship(back_populates="session", uselist=False)
@@ -40,6 +43,15 @@ class AssessmentSession(Base):
     lfi_context_scores: Mapped[list["LFIContextScore"]] = relationship(back_populates="session")
     delta: Mapped[Optional["AssessmentSessionDelta"]] = relationship(back_populates="session", uselist=False)
     scale_provenances: Mapped[list["ScaleProvenance"]] = relationship(back_populates="session")
+    responses: Mapped[list["UserResponse"]] = relationship(back_populates="session")
+    item_responses: Mapped[list["AssessmentItemResponse"]] = relationship(back_populates="session")
+    
+    instrument: Mapped[Optional["Instrument"]] = relationship(
+        "app.models.klsi.instrument.Instrument",
+        primaryjoin=lambda: foreign(AssessmentSession.assessment_id) == remote(__import__("app.models.klsi.instrument", fromlist=["Instrument"]).Instrument.code),
+        back_populates="sessions",
+        viewonly=True,  # Avoid accidental writes via this relationship for now
+    )
 
 
 class AssessmentSessionDelta(Base):

@@ -64,8 +64,9 @@ class ValidityCreate(CamelModel):
     value: Optional[float] = None
 
 
+import uuid
 class StudyDataPoint(CamelModel):
-    session_id: int
+    session_id: uuid.UUID
     participant_hash: str
     generated_at: datetime
     ce_score: int
@@ -98,6 +99,10 @@ class ResearchStudyDataOut(CamelModel):
     filters_applied: Dict[str, Any]
     data_points: List[StudyDataPoint]
     summary: StudyDataSummary
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 class StudyDataFilter(CamelModel):
@@ -106,3 +111,5 @@ class StudyDataFilter(CamelModel):
     learning_style: Optional[str] = None
     norm_group: Optional[str] = None
     user_email: Optional[str] = None
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=50, ge=1, le=1000)

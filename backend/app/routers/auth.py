@@ -9,7 +9,13 @@ from app.db.database import get_db
 from app.db.repositories import UserRepository
 from app.schemas.auth import Role, Token, UserCreate, UserOut
 from app.schemas.base import CamelModel
-from app.services.security import create_access_token, hash_password, verify_password
+from app.services.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    verify_password,
+    verify_refresh_token,
+)
 from app.i18n.id_messages import AuthMessages
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -89,6 +95,34 @@ def login(payload: LoginRequest, db: Any = Depends(get_db)):
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail=AuthMessages.INVALID_CREDENTIALS)
     token = create_access_token(str(user.id))
+    refresh = create_refresh_token(str(user.id))
     expires_in = settings.access_token_expire_minutes * 60
-    return Token(access_token=token, expires_in=expires_in)
+    return Token(access_token=token, refresh_token=refresh, expires_in=expires_in)
+
+
+class RefreshRequest(CamelModel):
+    refresh_token: str
+
+
+@router.post("/refresh", response_model=Token)
+def refresh_token_endpoint(payload: RefreshRequest, db: Any = Depends(get_db)):
+    try:
+        user_id = verify_refresh_token(payload.refresh_token)
+    except ValueError:
+        raise HTTPException(status_code=401, detail=AuthMessages.INVALID_REFRESH_TOKEN)
+        
+    user_repo = UserRepository(db)
+    user = user_repo.get_by_id(int(user_id))
+    if not user:
+        raise HTTPException(status_code=401, detail=AuthMessages.USER_NOT_FOUND)
+        
+    new_access = create_access_token(str(user.id))
+    new_refresh = create_refresh_token(str(user.id))
+    expires_in = settings.access_token_expire_minutes * 60
+    
+    return Token(
+        access_token=new_access,
+        refresh_token=new_refresh,
+        expires_in=expires_in
+    )
 

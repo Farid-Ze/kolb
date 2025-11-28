@@ -22,6 +22,7 @@ class UserCreate(CamelModel):
 
 class Token(CamelModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
     expires_in: int
 

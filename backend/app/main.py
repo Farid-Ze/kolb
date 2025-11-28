@@ -30,14 +30,7 @@ from app.routers.teams import router as teams_router
 from app.routers.telemetry import router as telemetry_router
 from app.routers.sphere import router as sphere_router
 from app.routers.challenges import router as challenges_router
-from app.services.seeds import (
-    seed_assessment_items,
-    seed_engine_authoring,
-    seed_gamification_badges,
-    seed_growth_challenges,
-    seed_instruments,
-    seed_learning_styles,
-)
+
 from app.engine.registry import engine_registry
 
 from app.routers.engine import router as engine_router
@@ -86,6 +79,31 @@ def custom_openapi():
     # Apply global security (can be overridden per-endpoint with security=[])
     openapi_schema["security"] = [{"BearerAuth": []}]
     
+    # Fix nullable fields for OpenAPI 3.1.0 (DX improvement)
+    # Replace verbose anyOf: [{type: string}, {type: null}] with type: [string, null]
+    def _fix_nullables(schema: dict):
+        if not isinstance(schema, dict):
+            return
+        
+        for key, value in schema.items():
+            if isinstance(value, dict):
+                if "anyOf" in value:
+                    any_of = value["anyOf"]
+                    if len(any_of) == 2:
+                        types = [t.get("type") for t in any_of if "type" in t]
+                        if "null" in types and len(types) == 2:
+                            # Found nullable pattern
+                            other_type = next(t for t in types if t != "null")
+                            value.pop("anyOf")
+                            value["type"] = [other_type, "null"]
+                _fix_nullables(value)
+            elif isinstance(value, list):
+                for item in value:
+                    _fix_nullables(item)
+
+    if "components" in openapi_schema and "schemas" in openapi_schema["components"]:
+        _fix_nullables(openapi_schema["components"]["schemas"])
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -138,10 +156,19 @@ async def lifespan(app: FastAPI):
     if settings.run_startup_ddl:
         logger.info("startup_execute_ddl", extra={"structured_data": {"run_startup_ddl": True}})
         # Base.metadata.create_all(bind=engine)  # Removed per 2025 standards - use Alembic
+    print("DEBUG: Executing lifespan")
     if settings.run_startup_seed:
+        from app.services.seeds import (
+            seed_instruments_v2,
+            seed_learning_styles,
+            seed_assessment_items,
+            seed_engine_authoring,
+            seed_gamification_badges,
+            seed_growth_challenges,
+        )
         logger.info("startup_seed_data", extra={"structured_data": {"run_startup_seed": True}})
         with transactional_session() as db:
-            seed_instruments(db)
+            seed_instruments_v2(db)
             seed_learning_styles(db)
             seed_assessment_items(db)
             seed_engine_authoring(db)

@@ -90,6 +90,13 @@ class TeamRepository(Repository[Session]):
     def delete(self, team: Team) -> None:
         self.db.delete(team)
 
+    def count(self, q: Optional[str]) -> int:
+        query = self.db.query(func.count(Team.id))
+        if q:
+            like = f"%{q}%"
+            query = query.filter((Team.name.ilike(like)) | (Team.kelas.ilike(like)))
+        return query.scalar() or 0
+
 
 @dataclass(slots=True, repr=True)
 class TeamMemberRepository(Repository[Session]):

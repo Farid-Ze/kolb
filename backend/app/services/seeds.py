@@ -1,30 +1,13 @@
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.orm import Session, joinedload
 
 from app.assessments.klsi_v4 import load_config
-from app.models.engine import (
-    EngineInstrument,
-    EngineForm,
-    EnginePage,
-    EngineItem,
-    EngineItemOption,
-    EngineItemType,
-    EngineScale,
-    EngineScoringRule,
-    InstrumentStatus,
-    RuleType,
-)
 from app.models.klsi.enums import ItemType, LearningMode
-from app.models.klsi.challenge import GrowthChallenge
-from app.models.klsi.instrument import Instrument, InstrumentScale, ScoringPipeline, ScoringPipelineNode
-from app.models.klsi.items import AssessmentItem, ItemChoice
-from app.models.klsi.learning import LearningStyleType
-from app.i18n.id_styles import STYLE_BRIEF_ID
-from app.models.klsi.gamification import GamificationBadge, BadgeRarity
-
+# Note: Model imports are moved inside functions to avoid circular dependency/import issues during startup
 
 _RESOURCES_DIR = Path(__file__).resolve().parent.parent / "instruments" / "klsi4" / "resources"
 
@@ -50,8 +33,32 @@ def _style_windows_from_config() -> dict[str, dict[str, int | None]]:
 STYLE_WINDOWS = _style_windows_from_config()
 
 
-def _authoring_catalog_current(instrument: EngineInstrument, expected_items: int) -> bool:
+def _authoring_catalog_current(instrument, expected_items: int) -> bool:
     """Return True when existing engine catalog mirrors legacy definition."""
+    # Note: instrument type hint removed to avoid top-level import
+    
+    # Constants needed for validation
+    SCALE_DEFS = [
+        ("CE", "Concrete Experience", 1),
+        ("RO", "Reflective Observation", 2),
+        ("AC", "Abstract Conceptualization", 3),
+        ("AE", "Active Experimentation", 4),
+        ("ACCE", "AC - CE Dialectic", 5),
+        ("AERO", "AE - RO Dialectic", 6),
+        ("LFI", "Learning Flexibility Index", 7),
+    ]
+    
+    # We need to import RuleType here or define the constant
+    from app.models.engine import RuleType
+    
+    AUTHORING_RULE_DEFS = [
+        {"code": "RAW_SUM_CE", "type": RuleType.sum},
+        {"code": "RAW_SUM_RO", "type": RuleType.sum},
+        {"code": "RAW_SUM_AC", "type": RuleType.sum},
+        {"code": "RAW_SUM_AE", "type": RuleType.sum},
+        {"code": "DIFF_ACCE", "type": RuleType.diff},
+        {"code": "DIFF_AERO", "type": RuleType.diff},
+    ]
 
     forms = instrument.forms or []
     if not forms:
@@ -109,8 +116,6 @@ CHOICE_TEXT = {
 }
 
 
-
-
 SCALE_DEFS = [
     ("CE", "Concrete Experience", 1),
     ("RO", "Reflective Observation", 2),
@@ -122,60 +127,75 @@ SCALE_DEFS = [
 ]
 
 
-AUTHORING_RULE_DEFS = [
-    {
-        "code": "RAW_SUM_CE",
-        "type": RuleType.sum,
-        "target": "CE",
-        "position": 1,
-        "expression": {"inputs": ["CE_raw"]},
-        "config": {"source": "forced_choice"},
-    },
-    {
-        "code": "RAW_SUM_RO",
-        "type": RuleType.sum,
-        "target": "RO",
-        "position": 2,
-        "expression": {"inputs": ["RO_raw"]},
-        "config": {"source": "forced_choice"},
-    },
-    {
-        "code": "RAW_SUM_AC",
-        "type": RuleType.sum,
-        "target": "AC",
-        "position": 3,
-        "expression": {"inputs": ["AC_raw"]},
-        "config": {"source": "forced_choice"},
-    },
-    {
-        "code": "RAW_SUM_AE",
-        "type": RuleType.sum,
-        "target": "AE",
-        "position": 4,
-        "expression": {"inputs": ["AE_raw"]},
-        "config": {"source": "forced_choice"},
-    },
-    {
-        "code": "DIFF_ACCE",
-        "type": RuleType.diff,
-        "target": "ACCE",
-        "position": 5,
-        "expression": {"minuend": "AC", "subtrahend": "CE"},
-        "config": {"source": "dialectic"},
-    },
-    {
-        "code": "DIFF_AERO",
-        "type": RuleType.diff,
-        "target": "AERO",
-        "position": 6,
-        "expression": {"minuend": "AE", "subtrahend": "RO"},
-        "config": {"source": "dialectic"},
-    },
-]
+def seed_instruments_v2(db: Session) -> None:
+    # Lazy imports to avoid circular dependencies
+    import app.models.klsi.instrument as instr_mod
+    Instrument = instr_mod.Instrument
+    from app.models.klsi import InstrumentScale, ScoringPipeline, ScoringPipelineNode
+    from app.models.engine import RuleType
+    from sqlalchemy import select, text
+    import os
+    
+    os.write(2, f"DEBUG: instr_mod: {instr_mod}\n".encode())
+    os.write(2, f"DEBUG: Instrument: {Instrument}, type: {type(Instrument)}\n".encode())
+    
+    AUTHORING_RULE_DEFS = [
+        {
+            "code": "RAW_SUM_CE",
+            "type": RuleType.sum,
+            "target": "CE",
+            "position": 1,
+            "expression": {"inputs": ["CE_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "RAW_SUM_RO",
+            "type": RuleType.sum,
+            "target": "RO",
+            "position": 2,
+            "expression": {"inputs": ["RO_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "RAW_SUM_AC",
+            "type": RuleType.sum,
+            "target": "AC",
+            "position": 3,
+            "expression": {"inputs": ["AC_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "RAW_SUM_AE",
+            "type": RuleType.sum,
+            "target": "AE",
+            "position": 4,
+            "expression": {"inputs": ["AE_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "DIFF_ACCE",
+            "type": RuleType.diff,
+            "target": "ACCE",
+            "position": 5,
+            "expression": {"minuend": "AC", "subtrahend": "CE"},
+            "config": {"source": "dialectic"},
+        },
+        {
+            "code": "DIFF_AERO",
+            "type": RuleType.diff,
+            "target": "AERO",
+            "position": 6,
+            "expression": {"minuend": "AE", "subtrahend": "RO"},
+            "config": {"source": "dialectic"},
+        },
+    ]
 
-
-def seed_instruments(db: Session) -> None:
-    if db.query(Instrument).filter(Instrument.code == "KLSI", Instrument.version == "4.0").first():
+    # stmt = select(Instrument).where(Instrument.code == "KLSI", Instrument.version == "4.0")
+    # if db.execute(stmt).scalar_one_or_none():
+    #     return
+    
+    # Use raw SQL to avoid ORM mapper configuration issues during check
+    if db.execute(text("SELECT 1 FROM instruments WHERE code = 'KLSI' AND version = '4.0'")).scalar():
         return
 
     now = datetime.now(timezone.utc)
@@ -304,6 +324,8 @@ def seed_instruments(db: Session) -> None:
 
 def seed_learning_styles(db: Session):
     """Ensure learning_style_types exist with up-to-date windows and descriptions."""
+    from app.models.klsi.learning import LearningStyleType
+    from app.i18n.id_styles import STYLE_BRIEF_ID
 
     existing = {
         style.style_name: style
@@ -338,13 +360,9 @@ def seed_learning_styles(db: Session):
 
 
 def seed_assessment_items(db: Session):
-    """Seed 12 learning style assessment items from KLSI 4.0.
-    
-    Items are based on the open-source academic publication by Kolb & Kolb (2013).
-    These items represent the 12 forced-choice items that assess preferences across
-    the four learning modes: CE (Concrete Experience), RO (Reflective Observation),
-    AC (Abstract Conceptualization), and AE (Active Experimentation).
-    """
+    """Seed 12 learning style assessment items from KLSI 4.0."""
+    from app.models.klsi.items import AssessmentItem, ItemChoice
+
     if db.query(AssessmentItem).count() == 0:
         for idx, stem in enumerate(ITEM_STEMS, start=1):
             item = AssessmentItem(
@@ -390,6 +408,71 @@ def seed_assessment_items(db: Session):
 
 def seed_engine_authoring(db: Session) -> None:
     """Mirror legacy KLSI catalog into engine authoring tables."""
+    from app.models.klsi.items import AssessmentItem
+    from app.models.engine import (
+        EngineInstrument,
+        EngineForm,
+        EnginePage,
+        EngineItem,
+        EngineItemOption,
+        EngineItemType,
+        EngineScale,
+        EngineScoringRule,
+        InstrumentStatus,
+        RuleType,
+    )
+    
+    # Redefine constants locally or import if they were global
+    AUTHORING_RULE_DEFS = [
+        {
+            "code": "RAW_SUM_CE",
+            "type": RuleType.sum,
+            "target": "CE",
+            "position": 1,
+            "expression": {"inputs": ["CE_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "RAW_SUM_RO",
+            "type": RuleType.sum,
+            "target": "RO",
+            "position": 2,
+            "expression": {"inputs": ["RO_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "RAW_SUM_AC",
+            "type": RuleType.sum,
+            "target": "AC",
+            "position": 3,
+            "expression": {"inputs": ["AC_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "RAW_SUM_AE",
+            "type": RuleType.sum,
+            "target": "AE",
+            "position": 4,
+            "expression": {"inputs": ["AE_raw"]},
+            "config": {"source": "forced_choice"},
+        },
+        {
+            "code": "DIFF_ACCE",
+            "type": RuleType.diff,
+            "target": "ACCE",
+            "position": 5,
+            "expression": {"minuend": "AC", "subtrahend": "CE"},
+            "config": {"source": "dialectic"},
+        },
+        {
+            "code": "DIFF_AERO",
+            "type": RuleType.diff,
+            "target": "AERO",
+            "position": 6,
+            "expression": {"minuend": "AE", "subtrahend": "RO"},
+            "config": {"source": "dialectic"},
+        },
+    ]
 
     legacy_items = (
         db.query(AssessmentItem)
@@ -503,6 +586,8 @@ def seed_engine_authoring(db: Session) -> None:
 
 
 def seed_gamification_badges(db: Session):
+    from app.models.klsi.gamification import GamificationBadge, BadgeRarity
+    
     badges = [
         {"slug": "the-seeker", "name": "The Seeker", "rarity": BadgeRarity.common},
     ]
@@ -516,6 +601,8 @@ def seed_gamification_badges(db: Session):
 
 
 def seed_growth_challenges(db: Session):
+    from app.models.klsi.challenge import GrowthChallenge
+    
     templates = [
         {
             "target_style_deficiency": "CE_low",
@@ -578,5 +665,3 @@ def seed_growth_challenges(db: Session):
             challenge = GrowthChallenge(**template)
             db.add(challenge)
     db.commit()
-
-

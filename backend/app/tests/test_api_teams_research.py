@@ -24,28 +24,42 @@ def _issue_token(user_id: int):
 
 
 def test_team_crud_and_member_and_rollup(client):
-    with SessionLocal() as db:
-        mediator = db.query(User).filter(User.email == 'mediator@mahasiswa.unikom.ac.id').first()
-        if mediator is None:
-            mediator = User(
-                full_name='Mediator',
-                email='mediator@mahasiswa.unikom.ac.id',
-                role='MEDIATOR',
-            )
-            db.add(mediator)
-            db.commit()
-            db.refresh(mediator)
-        normal = db.query(User).filter(User.email == 'user@mahasiswa.unikom.ac.id').first()
-        if normal is None:
-            normal = User(
-                full_name='User',
-                email='user@mahasiswa.unikom.ac.id',
-                role='MAHASISWA',
-            )
-            db.add(normal)
-            db.commit()
-            db.refresh(normal)
-        token_mediator = _issue_token(mediator.id)
+    print("DEBUG: Entering test_team_crud_and_member_and_rollup")
+    try:
+        with SessionLocal() as db:
+            print("DEBUG: Inside SessionLocal context")
+            mediator = db.query(User).filter(User.email == 'mediator@mahasiswa.unikom.ac.id').first()
+            print(f"DEBUG: Mediator query result: {mediator}")
+            if mediator is None:
+                mediator = User(
+                    full_name='Mediator',
+                    email='mediator@mahasiswa.unikom.ac.id',
+                    role='MEDIATOR',
+                )
+                db.add(mediator)
+                db.commit()
+                db.refresh(mediator)
+            print("DEBUG: Mediator ready")
+            
+            normal = db.query(User).filter(User.email == 'user@mahasiswa.unikom.ac.id').first()
+            if normal is None:
+                normal = User(
+                    full_name='User',
+                    email='user@mahasiswa.unikom.ac.id',
+                    role='MAHASISWA',
+                )
+                db.add(normal)
+                db.commit()
+                db.refresh(normal)
+            print("DEBUG: Normal user ready")
+            
+            token_mediator = _issue_token(mediator.id)
+            print("DEBUG: Token issued")
+    except Exception as e:
+        print(f"DEBUG: Exception in test setup: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
     # Create team (mediator)
     team_name = f"Alpha Team {uuid4().hex[:6]}"
@@ -58,8 +72,11 @@ def test_team_crud_and_member_and_rollup(client):
     team_id = r.json()['id']
 
     # List teams (public)
-    r = client.get('/teams/?q=Alpha')
-    assert r.status_code == 200 and any(t['id'] == team_id for t in r.json())
+    r = client.get(f'/teams/?q={team_name}')
+    assert r.status_code == 200
+    data = r.json()
+    assert "items" in data
+    assert any(t['id'] == team_id for t in data['items'])
 
     # Update team (mediator)
     r = client.patch(
@@ -75,7 +92,7 @@ def test_team_crud_and_member_and_rollup(client):
         assert user is not None
     r = client.post(
         f'/teams/{team_id}/members',
-        json={'user_id': user.id, 'role_in_team': 'Member'},
+        json={'email': user.email, 'role_in_team': 'MEMBER'},
         headers={'Authorization': f'Bearer {token_mediator}'},
     )
     assert r.status_code == 200
@@ -84,7 +101,7 @@ def test_team_crud_and_member_and_rollup(client):
     # Duplicate member should 409
     r_dup = client.post(
         f'/teams/{team_id}/members',
-        json={'user_id': user.id},
+        json={'email': user.email},
         headers={'Authorization': f'Bearer {token_mediator}'},
     )
     assert r_dup.status_code == 409
@@ -177,13 +194,13 @@ def test_research_crud_and_children(client):
         headers={'Authorization': f'Bearer {token_mediator}'},
     )
     assert r.status_code == 200
-    sid = r.json()['id']
+    sid = r.json()['publicId']
 
     # List studies
     mediator_headers = {'Authorization': f'Bearer {token_mediator}'}
 
     r = client.get('/research/studies?q=Studi', headers=mediator_headers)
-    assert r.status_code == 200 and any(s['id'] == sid for s in r.json())
+    assert r.status_code == 200 and any(s['publicId'] == sid for s in r.json())
     r_unauth = client.get('/research/studies?q=Studi')
     assert r_unauth.status_code == 401
 
@@ -200,7 +217,7 @@ def test_research_crud_and_children(client):
         f'/research/studies/{sid}',
         headers=mediator_headers,
     )
-    assert r_detail.status_code == 200 and r_detail.json()['id'] == sid
+    assert r_detail.status_code == 200 and r_detail.json()['publicId'] == sid
     r_detail_unauth = client.get(f'/research/studies/{sid}')
     assert r_detail_unauth.status_code == 401
 
@@ -240,9 +257,12 @@ def test_research_crud_and_children(client):
     # (Optional) Remove children then delete
     # For brevity: direct DB delete
     with SessionLocal() as db:
-        db.query(ReliabilityResult).filter_by(study_id=sid).delete()
-        db.query(ValidityEvidence).filter_by(study_id=sid).delete()
-        db.commit()
+        study = db.query(ResearchStudy).filter_by(title='Studi A').first()
+        if study:
+            db.query(ReliabilityResult).filter_by(study_id=study.id).delete()
+            db.query(ValidityEvidence).filter_by(study_id=study.id).delete()
+            db.commit()
+            
     r = client.delete(
         f'/research/studies/{sid}',
         headers=mediator_headers,
@@ -347,11 +367,17 @@ def test_research_study_data_endpoint(client):
         )
         db.commit()
         mediator_id = mediator.id
-        study_id = study.id
+        study_id = study.public_id
 
     token_mediator = _issue_token(mediator_id)
     headers = {'Authorization': f'Bearer {token_mediator}'}
-    r = client.get(f'/research/studies/{study_id}/data', headers=headers)
+    
+    # Get data (POST)
+    r = client.post(
+        f'/research/studies/{study_id}/data',
+        json={},
+        headers=headers,
+    )
     assert r.status_code == 200, r.text
     payload = r.json()
     assert payload['summary']['totalSessions'] == 1
@@ -361,15 +387,20 @@ def test_research_study_data_endpoint(client):
 
     style_name = payload['dataPoints'][0]['learningStyle']
     assert style_name
-    r_filtered = client.get(
-        f"/research/studies/{study_id}/data?learning_style={style_name}",
+    
+    # Filter by style (POST)
+    r_filtered = client.post(
+        f"/research/studies/{study_id}/data",
+        json={"learning_style": style_name},
         headers=headers,
     )
     assert r_filtered.status_code == 200
     assert len(r_filtered.json()['dataPoints']) == 1
 
-    r_empty = client.get(
-        f"/research/studies/{study_id}/data?learning_style=Nonexistent",
+    # Filter by nonexistent style (POST)
+    r_empty = client.post(
+        f"/research/studies/{study_id}/data",
+        json={"learning_style": "Nonexistent"},
         headers=headers,
     )
     assert r_empty.status_code == 200

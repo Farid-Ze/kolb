@@ -325,6 +325,8 @@ def get_study_data(
         learning_style=filters.learning_style,
         norm_group=filters.norm_group,
         user_email=filters.user_email,
+        page=filters.page,
+        size=filters.size,
     )
     
     if start_at and end_at and start_at > end_at:

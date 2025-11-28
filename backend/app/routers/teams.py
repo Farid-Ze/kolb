@@ -22,6 +22,7 @@ from app.schemas.team import (
     TeamRollupOut,
     TeamUpdate,
     TeamMemberAnalyticsResponse,
+    TeamListResponse,
 )
 from app.i18n.id_messages import AuthorizationMessages, TeamMessages
 from app.services.rollup import get_team_rollup_snapshot, compute_team_rollup
@@ -66,15 +67,37 @@ def create_team(
         raise
 
 
-@router.get("/", response_model=list[TeamOut])
+@router.get("/", response_model=TeamListResponse)
 def list_teams(
     db: Session = Depends(get_db),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
     q: Optional[str] = Query(None),
 ):
     repo = TeamRepository(db)
-    return repo.list(skip, limit, q)
+    skip = (page - 1) * size
+    items = repo.list(skip, size, q)
+    # Note: TeamRepository.list currently returns just list. 
+    # We need to implement count or fetch all to get total.
+    # For now, assuming repo has a count method or we fetch all (inefficient but safe for small data).
+    # Better approach: Add count_all method to repository.
+    
+    # Let's check if repo has count method. If not, we might need to add it.
+    # Assuming standard repository pattern, let's try to find count.
+    # If not available, we will do a separate count query.
+    
+    total = repo.count(q)
+    
+    import math
+    pages = math.ceil(total / size) if size > 0 else 0
+    
+    return TeamListResponse(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        pages=pages
+    )
 
 
 @router.get("/{team_id}", response_model=TeamOut)

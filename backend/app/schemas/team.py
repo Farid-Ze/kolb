@@ -118,3 +118,11 @@ class TeamMemberAnalyticsResponse(CamelModel):
     page: int
     size: int
     pages: int
+
+
+class TeamListResponse(CamelModel):
+    items: list[TeamOut]
+    total: int
+    page: int
+    size: int
+    pages: int
