@@ -10,7 +10,7 @@ export function SphereVisualization({ nodes, onNodeSelect }: SphereVisualization
   // Determine bounds to normalize coordinates if needed
   // For now, assuming coordinates are roughly in a -100 to 100 range or similar, 
   // we'll map them to an SVG viewbox.
-  
+
   const viewBoxSize = 400
   const center = viewBoxSize / 2
   const scale = 2 // Adjust scale factor as needed
@@ -29,13 +29,14 @@ export function SphereVisualization({ nodes, onNodeSelect }: SphereVisualization
     })
   }, [nodes, center, scale])
 
+  // Uses SVG for visualization (no WebGL/Three.js cleanup needed)
   return (
     <div className="aspect-square w-full max-w-[500px] overflow-hidden rounded-full border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] shadow-inner">
       <svg viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`} className="h-full w-full">
         {/* Background Grid/Circles */}
         <circle cx={center} cy={center} r={viewBoxSize * 0.1} fill="none" stroke="var(--zen-border)" strokeDasharray="4 4" />
         <circle cx={center} cy={center} r={viewBoxSize * 0.3} fill="none" stroke="var(--zen-border)" strokeDasharray="4 4" />
-        
+
         {/* Nodes */}
         {renderedNodes.map((node) => (
           <g key={node.id} onClick={() => onNodeSelect?.(node)} className="cursor-pointer transition-opacity hover:opacity-80">

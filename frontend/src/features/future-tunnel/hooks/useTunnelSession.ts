@@ -1,29 +1,34 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { startTransition, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { LFI_CONTEXTS, MODE_CODES } from '../../../entities/session/constants'
-import type { ModeCode } from '../../../entities/session/constants'
+import { useAuth } from '../../auth'
+import { useTunnelState } from './useTunnelState'
+import { useAssessmentTelemetry } from '../../assessment/hooks/useAssessmentTelemetry'
+import {
+  autosaveSession,
+  fetchSessionItems,
+  fetchSessionState,
+  startSession,
+  submitAllResponses,
+  submitSingleResponse,
+} from '../api'
+import type {
+  TunnelItemDraft,
+  ContextDraftMap,
+  TunnelContextDraft,
+} from '../model'
 import type {
   AssessmentItem,
   SessionAutosavePayload,
   SessionSubmissionPayload,
 } from '../../../entities/session/model'
-import { useAuth } from '../../auth'
-import { useAssessmentTelemetry } from '../../telemetry'
-import { autosaveSession, fetchSessionItems, fetchSessionState, startSession, submitAllResponses, submitSingleResponse } from '../api'
-import type { TunnelContextDraft, TunnelItemDraft } from '../model'
-import { useTunnelState } from './useTunnelState'
+import { LFI_CONTEXTS } from '../../../entities/session/constants'
 
-type ContextDraftMap = Record<string, TunnelContextDraft>
+const MODE_CODES = ['AC', 'CE', 'AE', 'RO'] as const
 
-const isItemComplete = (draft: TunnelItemDraft | undefined): boolean => {
-  if (!draft) {
-    return false
-  }
-  return Object.keys(draft.ranks).length === MODE_CODES.length
-}
+type ModeCode = typeof MODE_CODES[number]
 
-const isContextComplete = (draft: TunnelContextDraft | undefined): draft is TunnelContextDraft => {
+const isContextComplete = (draft?: any) => {
   if (!draft) {
     return false
   }
@@ -32,6 +37,13 @@ const isContextComplete = (draft: TunnelContextDraft | undefined): draft is Tunn
     return false
   }
   return new Set(ranks).size === MODE_CODES.length
+}
+
+const isItemComplete = (draft?: TunnelItemDraft) => {
+  if (!draft) return false
+  // Assuming 4 options for forced choice
+  const ranks = Object.values(draft.ranks)
+  return ranks.length === 4 && new Set(ranks).size === 4
 }
 
 const deriveModeRanks = (item: AssessmentItem, draft?: TunnelItemDraft): Record<string, number> | null => {
@@ -101,6 +113,7 @@ const safeParseJSON = <T>(raw: string | null): T | null => {
 export function useTunnelSession() {
   const { isAuthenticated, isTimeLocked } = useAuth()
   const { state, dispatch } = useTunnelState()
+  const queryClient = useQueryClient()
   const {
     sessionId,
     phase,
@@ -118,7 +131,7 @@ export function useTunnelSession() {
   const hydrationRef = useRef(false)
   const storageHydratedRef = useRef(false)
 
-  const { sendTelemetry, sendItemChanged } = useAssessmentTelemetry(sessionId)
+  const { sendTelemetry, sendItemChanged } = useAssessmentTelemetry(sessionId ?? undefined) as any
 
   const acknowledgeRestoredDraft = useCallback(() => {
     dispatch({ type: 'ACKNOWLEDGE_RESTORED' })
@@ -368,6 +381,10 @@ export function useTunnelSession() {
   const submitMutation = useMutation({
     mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: number; payload: SessionSubmissionPayload }) =>
       submitAllResponses(targetSessionId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['results'] })
+      queryClient.invalidateQueries({ queryKey: ['sessions'] })
+    },
   })
 
   const singleResponseMutation = useMutation({

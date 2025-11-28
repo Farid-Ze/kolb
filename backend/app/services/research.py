@@ -32,7 +32,6 @@ class StudyDataFilters:
     end_at: Optional[datetime] = None
     learning_style: Optional[str] = None
     norm_group: Optional[str] = None
-    user_email: Optional[str] = None
     page: int = 1
     size: int = 50
 
@@ -95,8 +94,6 @@ def build_study_dataset(
         query = query.filter(func.lower(LearningStyleType.style_name) == lowered)
     if filters.norm_group:
         query = query.filter(PercentileScore.norm_group_used == filters.norm_group)
-    if filters.user_email:
-        query = query.filter(User.email.ilike(f"%{filters.user_email}%"))
 
     total = query.count()
     
@@ -154,7 +151,6 @@ def build_study_dataset(
         "end_date": window_end.isoformat() if window_end else None,
         "learning_style": filters.learning_style,
         "norm_group": filters.norm_group,
-        "user_email": filters.user_email,
         "page": str(filters.page),
         "size": str(filters.size),
     }

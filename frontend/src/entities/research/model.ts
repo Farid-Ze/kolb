@@ -26,7 +26,8 @@ export interface ResearchStudyUpdatePayload {
 export interface StudyDataPoint {
   sessionId: number
   userId: number
-  userEmail: string
+  // userEmail removed for privacy
+  participantHash: string
   userName: string
   generatedAt: string
   ceScore: number

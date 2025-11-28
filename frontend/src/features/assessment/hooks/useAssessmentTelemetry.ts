@@ -44,5 +44,9 @@ export function useAssessmentTelemetry(sessionId?: number, itemId?: number) {
         }
     }, [sessionId, itemId]);
 
-    return { recordTelemetry };
+    return {
+        recordTelemetry,
+        sendTelemetry: (_payload: any) => recordTelemetry(0), // Mock implementation
+        sendItemChanged: (_itemId: number, ..._args: any[]) => recordTelemetry(0) // Mock implementation
+    };
 }

@@ -1,4 +1,4 @@
-import type { AssessmentItem } from '../../entities/session/model'
+import type { AssessmentItem, SessionOperationResult } from '../../entities/session/model'
 import type { ItemRank } from '../../shared/api/generated'
 
 export type TunnelPhase = 'idle' | 'loading' | 'in-progress' | 'submitting' | 'completed'
@@ -21,9 +21,16 @@ export interface TunnelContextDraft {
   AE: number | null
 }
 
+export type ContextDraftMap = Record<string, TunnelContextDraft>
+
 export interface TunnelState {
   sessionId: number | null
   phase: TunnelPhase
   items: AssessmentItem[]
   drafts: Record<number, TunnelItemDraft>
+  contextDrafts: ContextDraftMap
+  submissionResult: SessionOperationResult | null
+  submissionError: Error | null
+  lastAutosaveAt: number | null
+  restoredFromDraft: boolean
 }

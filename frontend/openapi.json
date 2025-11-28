@@ -4575,13 +4575,6 @@
               "null"
             ]
           },
-          "userEmail": {
-            "title": "Useremail",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "page": {
             "type": "integer",
             "minimum": 1.0,

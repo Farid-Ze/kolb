@@ -13,8 +13,18 @@ import type {
 
 // --- Teams ---
 
-export async function fetchTeams(): Promise<TeamOut[]> {
-  const { data } = await apiClient.get<TeamOut[]>('/teams/')
+export interface TeamListResponse {
+  items: TeamOut[]
+  total: number
+  page: number
+  size: number
+  pages: number
+}
+
+export async function fetchTeams(page = 1, size = 50): Promise<TeamListResponse> {
+  const { data } = await apiClient.get<TeamListResponse>('/teams/', {
+    params: { page, size },
+  })
   return data
 }
 

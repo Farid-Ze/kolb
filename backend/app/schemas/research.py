@@ -98,6 +98,5 @@ class StudyDataFilter(CamelModel):
     end_date: Optional[datetime] = None
     learning_style: Optional[str] = None
     norm_group: Optional[str] = None
-    user_email: Optional[str] = None
     page: int = Field(default=1, ge=1)
     size: int = Field(default=50, ge=1, le=1000)
