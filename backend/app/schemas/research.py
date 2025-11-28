@@ -93,16 +93,23 @@ class StudyDataSummary(CamelModel):
     style_distribution: Dict[str, int]
 
 
-class ResearchStudyDataOut(CamelModel):
+
+from app.schemas.pagination import PaginatedResponse
+
+
+class ResearchStudyDataOut(PaginatedResponse[StudyDataPoint]):
+    """Paginated research study data export with metadata.
+    
+    Extends PaginatedResponse to include study-specific metadata:
+    - items: List[StudyDataPoint] (inherited, contains paginated data points)
+    - total, page, size, pages (inherited pagination metadata)
+    - study_public_id, study_title, filters_applied, summary (custom fields)
+    """
     study_public_id: str
     study_title: str
     filters_applied: Dict[str, Any]
-    data_points: List[StudyDataPoint]
     summary: StudyDataSummary
-    total: int
-    page: int
-    size: int
-    pages: int
+
 
 
 class StudyDataFilter(CamelModel):

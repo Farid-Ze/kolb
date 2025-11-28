@@ -112,17 +112,26 @@ class TeamRollupDetail(CamelModel):
     balance_metrics: TeamRollupBalanceMetricsOut
 
 
-class TeamMemberAnalyticsResponse(CamelModel):
-    items: list[TeamRollupMemberOut]
-    total: int
-    page: int
-    size: int
-    pages: int
+from app.schemas.pagination import PaginatedResponse
 
 
-class TeamListResponse(CamelModel):
-    items: list[TeamOut]
-    total: int
-    page: int
-    size: int
-    pages: int
+class TeamMemberAnalyticsResponse(PaginatedResponse[TeamRollupMemberOut]):
+    """Paginated team member analytics data.
+    
+    Inherits pagination metadata from PaginatedResponse:
+    - items: List[TeamRollupMemberOut]
+    - total, page, size, pages
+    """
+    pass
+
+
+
+class TeamListResponse(PaginatedResponse[TeamOut]):
+    """Paginated list of teams.
+    
+    Inherits pagination metadata from PaginatedResponse:
+    - items: List[TeamOut]
+    - total, page, size, pages
+    """
+    pass
+

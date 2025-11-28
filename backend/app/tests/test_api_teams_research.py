@@ -382,10 +382,10 @@ def test_research_study_data_endpoint(client):
     payload = r.json()
     assert payload['summary']['totalSessions'] == 1
     assert payload['summary']['uniqueParticipants'] == 1
-    assert len(payload['dataPoints']) == 1
-    assert payload['dataPoints'][0]['normGroup'] == 'Total'
+    assert len(payload['items']) == 1  # Changed from dataPoints to items
+    assert payload['items'][0]['normGroup'] == 'Total'
 
-    style_name = payload['dataPoints'][0]['learningStyle']
+    style_name = payload['items'][0]['learningStyle']
     assert style_name
     
     # Filter by style (POST)
@@ -395,7 +395,7 @@ def test_research_study_data_endpoint(client):
         headers=headers,
     )
     assert r_filtered.status_code == 200
-    assert len(r_filtered.json()['dataPoints']) == 1
+    assert len(r_filtered.json()['items']) == 1  # Changed from dataPoints to items
 
     # Filter by nonexistent style (POST)
     r_empty = client.post(
@@ -405,3 +405,4 @@ def test_research_study_data_endpoint(client):
     )
     assert r_empty.status_code == 200
     assert r_empty.json()['summary']['totalSessions'] == 0
+

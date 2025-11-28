@@ -167,7 +167,7 @@ def build_study_dataset(
         study_public_id=encode_public_id(study.id),
         study_title=study.title,
         filters_applied=filters_payload,
-        data_points=data_points,
+        items=data_points,  # Changed from data_points to items (PaginatedResponse field)
         summary=summary,
         total=total,
         page=filters.page,

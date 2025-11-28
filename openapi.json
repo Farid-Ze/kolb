@@ -3933,6 +3933,38 @@
       },
       "ResearchStudyDataOut": {
         "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StudyDataPoint"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "List of items for the current page"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total",
+            "description": "Total count of all items across all pages"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "Current page number (1-indexed)"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Size",
+            "description": "Number of items per page"
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Pages",
+            "description": "Total number of pages"
+          },
           "studyPublicId": {
             "type": "string",
             "title": "Studypublicid"
@@ -3945,46 +3977,24 @@
             "type": "object",
             "title": "Filtersapplied"
           },
-          "dataPoints": {
-            "items": {
-              "$ref": "#/components/schemas/StudyDataPoint"
-            },
-            "type": "array",
-            "title": "Datapoints"
-          },
           "summary": {
             "$ref": "#/components/schemas/StudyDataSummary"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "page": {
-            "type": "integer",
-            "title": "Page"
-          },
-          "size": {
-            "type": "integer",
-            "title": "Size"
-          },
-          "pages": {
-            "type": "integer",
-            "title": "Pages"
           }
         },
         "type": "object",
         "required": [
-          "studyPublicId",
-          "studyTitle",
-          "filtersApplied",
-          "dataPoints",
-          "summary",
+          "items",
           "total",
           "page",
           "size",
-          "pages"
+          "pages",
+          "studyPublicId",
+          "studyTitle",
+          "filtersApplied",
+          "summary"
         ],
-        "title": "ResearchStudyDataOut"
+        "title": "ResearchStudyDataOut",
+        "description": "Paginated research study data export with metadata.\n\nExtends PaginatedResponse to include study-specific metadata:\n- items: List[StudyDataPoint] (inherited, contains paginated data points)\n- total, page, size, pages (inherited pagination metadata)\n- study_public_id, study_title, filters_applied, summary (custom fields)"
       },
       "ResearchStudyOut": {
         "properties": {
@@ -4730,23 +4740,32 @@
               "$ref": "#/components/schemas/TeamOut"
             },
             "type": "array",
-            "title": "Items"
+            "title": "Items",
+            "description": "List of items for the current page"
           },
           "total": {
             "type": "integer",
-            "title": "Total"
+            "minimum": 0.0,
+            "title": "Total",
+            "description": "Total count of all items across all pages"
           },
           "page": {
             "type": "integer",
-            "title": "Page"
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "Current page number (1-indexed)"
           },
           "size": {
             "type": "integer",
-            "title": "Size"
+            "minimum": 1.0,
+            "title": "Size",
+            "description": "Number of items per page"
           },
           "pages": {
             "type": "integer",
-            "title": "Pages"
+            "minimum": 0.0,
+            "title": "Pages",
+            "description": "Total number of pages"
           }
         },
         "type": "object",
@@ -4757,7 +4776,8 @@
           "size",
           "pages"
         ],
-        "title": "TeamListResponse"
+        "title": "TeamListResponse",
+        "description": "Paginated list of teams.\n\nInherits pagination metadata from PaginatedResponse:\n- items: List[TeamOut]\n- total, page, size, pages"
       },
       "TeamMemberAdd": {
         "properties": {
@@ -4784,23 +4804,32 @@
               "$ref": "#/components/schemas/TeamRollupMemberOut"
             },
             "type": "array",
-            "title": "Items"
+            "title": "Items",
+            "description": "List of items for the current page"
           },
           "total": {
             "type": "integer",
-            "title": "Total"
+            "minimum": 0.0,
+            "title": "Total",
+            "description": "Total count of all items across all pages"
           },
           "page": {
             "type": "integer",
-            "title": "Page"
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "Current page number (1-indexed)"
           },
           "size": {
             "type": "integer",
-            "title": "Size"
+            "minimum": 1.0,
+            "title": "Size",
+            "description": "Number of items per page"
           },
           "pages": {
             "type": "integer",
-            "title": "Pages"
+            "minimum": 0.0,
+            "title": "Pages",
+            "description": "Total number of pages"
           }
         },
         "type": "object",
@@ -4811,7 +4840,8 @@
           "size",
           "pages"
         ],
-        "title": "TeamMemberAnalyticsResponse"
+        "title": "TeamMemberAnalyticsResponse",
+        "description": "Paginated team member analytics data.\n\nInherits pagination metadata from PaginatedResponse:\n- items: List[TeamRollupMemberOut]\n- total, page, size, pages"
       },
       "TeamMemberOut": {
         "properties": {
