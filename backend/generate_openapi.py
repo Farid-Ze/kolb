@@ -8,7 +8,6 @@ sys.path.append(os.getcwd())
 from app.main import app
 
 def generate_openapi():
-    print("Generating OpenAPI spec...")
     openapi_data = app.openapi()
     
     # Output to project root

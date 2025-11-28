@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import importlib
 from pathlib import Path
+from typing import Any, Callable
 
 from fastapi import Depends, FastAPI, Response
 from fastapi.staticfiles import StaticFiles
@@ -81,28 +82,39 @@ def custom_openapi():
     
     # Fix nullable fields for OpenAPI 3.1.0 (DX improvement)
     # Replace verbose anyOf: [{type: string}, {type: null}] with type: [string, null]
-    def _fix_nullables(schema: dict):
-        if not isinstance(schema, dict):
-            return
-        
-        for key, value in schema.items():
-            if isinstance(value, dict):
-                if "anyOf" in value:
-                    any_of = value["anyOf"]
-                    if len(any_of) == 2:
-                        types = [t.get("type") for t in any_of if "type" in t]
-                        if "null" in types and len(types) == 2:
-                            # Found nullable pattern
-                            other_type = next(t for t in types if t != "null")
-                            value.pop("anyOf")
-                            value["type"] = [other_type, "null"]
+    # Fix nullable fields for OpenAPI 3.1.0 (DX improvement)
+    # Replace verbose anyOf: [{type: string}, {type: null}] with type: [string, null]
+    def _fix_nullables(schema: Any):
+        if isinstance(schema, dict):
+            if "anyOf" in schema:
+                any_of = schema["anyOf"]
+                if len(any_of) == 2:
+                    types = [t.get("type") for t in any_of if isinstance(t, dict) and "type" in t]
+                    # Handle $ref + null case
+                    refs = [t.get("$ref") for t in any_of if isinstance(t, dict) and "$ref" in t]
+                    
+                    if "null" in types and len(types) == 2:
+                        # Case 1: type: [string, null]
+                        other_type = next(t for t in types if t != "null")
+                        schema.pop("anyOf")
+                        schema["type"] = [other_type, "null"]
+                    elif "null" in types and len(refs) == 1:
+                        # Case 2: anyOf: [{$ref: ...}, {type: null}] -> oneOf with nullable? 
+                        # OpenAPI 3.1 allows type: ["object", "null"] but $ref is tricky.
+                        # Actually, for 3.1 we can just leave it as anyOf if it involves $ref, 
+                        # OR we can try to use standard nullable if supported.
+                        # But the user specifically asked for `type: ["T", "null"]`.
+                        # If T is a ref, we can't do type: [$ref, "null"].
+                        # So we only fix primitive types.
+                        pass
+            
+            for key, value in schema.items():
                 _fix_nullables(value)
-            elif isinstance(value, list):
-                for item in value:
-                    _fix_nullables(item)
+        elif isinstance(schema, list):
+            for item in schema:
+                _fix_nullables(item)
 
-    if "components" in openapi_schema and "schemas" in openapi_schema["components"]:
-        _fix_nullables(openapi_schema["components"]["schemas"])
+    _fix_nullables(openapi_schema)
 
     app.openapi_schema = openapi_schema
     return app.openapi_schema

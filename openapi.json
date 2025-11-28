@@ -249,15 +249,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Locale"
+              "title": "Locale",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           {
@@ -742,15 +738,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Instrument Version"
+              "title": "Instrument Version",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -812,15 +804,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Instrument Version"
+              "title": "Instrument Version",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -882,15 +870,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Instrument Version"
+              "title": "Instrument Version",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -962,15 +946,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Instrument Version"
+              "title": "Instrument Version",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -1369,15 +1349,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
+              "title": "Q",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -1891,16 +1867,12 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "YYYY-MM-DD optional date filter",
-              "title": "For Date"
+              "title": "For Date",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "description": "YYYY-MM-DD optional date filter"
           }
@@ -2014,15 +1986,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
+              "title": "Q",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -2982,9 +2950,9 @@
       },
       "AssessmentSessionResponse": {
         "properties": {
-          "id": {
+          "sessionId": {
             "type": "string",
-            "title": "Id"
+            "title": "Sessionid"
           },
           "date": {
             "type": "string",
@@ -3001,7 +2969,7 @@
         },
         "type": "object",
         "required": [
-          "id",
+          "sessionId",
           "date",
           "results"
         ],
@@ -5226,8 +5194,8 @@
       },
       "TelemetryBatch": {
         "properties": {
-          "session_id": {
-            "title": "Session Id",
+          "sessionId": {
+            "title": "Sessionid",
             "description": "Optional session ID for correlation",
             "type": [
               "string",
@@ -5258,9 +5226,9 @@
             "title": "Type",
             "description": "Event type: mouse, scroll, time_on_page, etc."
           },
-          "timestamp_ms": {
+          "timestampMs": {
             "type": "integer",
-            "title": "Timestamp Ms",
+            "title": "Timestampms",
             "description": "Client-side timestamp in milliseconds"
           },
           "payload": {
@@ -5272,7 +5240,7 @@
         "type": "object",
         "required": [
           "type",
-          "timestamp_ms"
+          "timestampMs"
         ],
         "title": "TelemetryEvent",
         "description": "Single telemetry event."

@@ -13,16 +13,18 @@ from app.core.logging import get_logger
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 logger = get_logger("kolb.telemetry")
-class TelemetryEvent(BaseModel):
+from app.schemas.base import CamelModel
+
+class TelemetryEvent(CamelModel):
     """Single telemetry event."""
     type: str = Field(..., description="Event type: mouse, scroll, time_on_page, etc.")
-    timestamp_ms: int = Field(..., description="Client-side timestamp in milliseconds")
+    timestamp_ms: int = Field(..., alias="timestampMs", description="Client-side timestamp in milliseconds")
     payload: dict[str, Any] = Field(default_factory=dict, description="Event-specific data")
 
 
-class TelemetryBatch(BaseModel):
+class TelemetryBatch(CamelModel):
     """Batch of telemetry events for efficient processing."""
-    session_id: str | None = Field(None, description="Optional session ID for correlation")
+    session_id: str | None = Field(None, alias="sessionId", description="Optional session ID for correlation")
     events: list[TelemetryEvent] = Field(..., max_length=1000, description="Events to process")
 
 

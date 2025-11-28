@@ -6,6 +6,7 @@ from app.db.database import get_db
 from app.services.assessments import get_latest_completed_assessment_summary
 from app.services.security import get_current_user
 from app.schemas.base import CamelModel
+from pydantic import Field
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
 
@@ -20,7 +21,7 @@ class AssessmentResults(CamelModel):
     lfi_score: Optional[float] = None
 
 class AssessmentSessionResponse(CamelModel):
-    id: str
+    session_id: str = Field(..., alias="sessionId")
     date: str
     status: str = "completed"
     results: AssessmentResults
@@ -50,7 +51,7 @@ def get_latest_assessment(
 
     results = payload["results"]
     response = AssessmentSessionResponse(
-        id=payload["id"],
+        session_id=payload["id"],
         date=payload["date"],
         status=payload.get("status", "completed"),
         results=AssessmentResults(**results),
