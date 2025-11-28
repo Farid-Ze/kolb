@@ -17,33 +17,6 @@ branch_labels = None
 depends_on = None
 
 
-SCORING_PIPELINES = sa.Table(
-    "scoring_pipelines",
-    sa.MetaData(),
-    sa.Column("id", sa.Integer(), primary_key=True),
-    sa.Column("instrument_id", sa.Integer(), nullable=False),
-    sa.Column("pipeline_code", sa.String(length=60), nullable=False),
-    sa.Column("version", sa.String(length=20), nullable=False),
-    sa.Column("description", sa.String(length=500), nullable=True),
-    sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-    sa.Column("metadata_payload", sa.JSON(), nullable=True),
-    sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-)
-
-SCORING_PIPELINE_NODES = sa.Table(
-    "scoring_pipeline_nodes",
-    sa.MetaData(),
-    sa.Column("id", sa.Integer(), primary_key=True),
-    sa.Column("pipeline_id", sa.Integer(), nullable=False),
-    sa.Column("node_key", sa.String(length=50), nullable=False),
-    sa.Column("node_type", sa.String(length=40), nullable=False),
-    sa.Column("execution_order", sa.Integer(), nullable=False),
-    sa.Column("config", sa.JSON(), nullable=True),
-    sa.Column("next_node_key", sa.String(length=50), nullable=True),
-    sa.Column("is_terminal", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-    sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-)
-
 
 def upgrade() -> None:
     bind = op.get_bind()
@@ -108,30 +81,35 @@ def upgrade() -> None:
     ).scalar() if instrument_id else None
 
     if instrument_id and not pipeline_exists:
-        now = datetime.now(timezone.utc)
-        insert_pipeline = sa.insert(SCORING_PIPELINES).values(
-            instrument_id=instrument_id,
-            pipeline_code="KLSI4.0",
-            version="v1",
-            description="Default scoring pipeline for KLSI 4.0",
-            is_active=True,
-            metadata_payload={
-                "strategy_code": "KLSI4.0",
-                "stages": [
-                    "compute_raw_scale_scores",
-                    "compute_combination_scores",
-                    "assign_learning_style",
-                    "compute_lfi",
-                    "apply_percentiles",
-                ],
-            },
-            created_at=now,
+        import json
+        metadata_json = json.dumps({
+            "strategy_code": "KLSI4.0",
+            "stages": [
+                "compute_raw_scale_scores",
+                "compute_combination_scores",
+                "assign_learning_style",
+                "compute_lfi",
+                "apply_percentiles",
+            ],
+        })
+        
+        pipeline_result = connection.execute(
+            sa.text("""
+                INSERT INTO scoring_pipelines 
+                (instrument_id, pipeline_code, version, description, is_active, metadata_payload)
+                VALUES (:instrument_id, :pipeline_code, :version, :description, :is_active, :metadata_payload::json)
+                RETURNING id
+            """),
+            {
+                "instrument_id": instrument_id,
+                "pipeline_code": "KLSI4.0",
+                "version": "v1",
+                "description": "Default scoring pipeline for KLSI 4.0",
+                "is_active": True,
+                "metadata_payload": metadata_json,
+            }
         )
-        pipeline_result = connection.execute(insert_pipeline)
-        inserted_pk = pipeline_result.inserted_primary_key
-        if not inserted_pk:
-            raise RuntimeError("Failed to insert default scoring pipeline")
-        pipeline_id = inserted_pk[0]
+        pipeline_id = pipeline_result.scalar()
 
         nodes = [
             {
@@ -190,13 +168,24 @@ def upgrade() -> None:
                 "is_terminal": True,
             },
         ]
+        import json
         for node in nodes:
+            config_json = json.dumps(node["config"])
             connection.execute(
-                sa.insert(SCORING_PIPELINE_NODES).values(
-                    pipeline_id=pipeline_id,
-                    created_at=now,
-                    **node,
-                )
+                sa.text("""
+                    INSERT INTO scoring_pipeline_nodes 
+                    (pipeline_id, node_key, node_type, execution_order, config, next_node_key, is_terminal)
+                    VALUES (:pipeline_id, :node_key, :node_type, :execution_order, :config::json, :next_node_key, :is_terminal)
+                """),
+                {
+                    "pipeline_id": pipeline_id,
+                    "node_key": node["node_key"],
+                    "node_type": node["node_type"],
+                    "execution_order": node["execution_order"],
+                    "config": config_json,
+                    "next_node_key": node["next_node_key"],
+                    "is_terminal": node["is_terminal"],
+                }
             )
 
         connection.execute(

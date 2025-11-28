@@ -39,7 +39,7 @@ services:
   # API Service (Python 3.13t No-GIL)
   # Connects to both networks to bridge Frontend and Database
   api:
-    image: klsi-nogil:v1.1
+    image: klsi-nogil:v2.0  # Updated for API modernization + generic pagination
     build:
       context: ./backend
     restart: unless-stopped
@@ -50,9 +50,14 @@ services:
       # Use psycopg 3 driver
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      ENV: ${ENV}
-      PYTHON_GIL: ${PYTHON_GIL}
-      PYTHONPATH: ${PYTHONPATH}
+      ENV: ${ENV:-production}
+      PYTHON_GIL: ${PYTHON_GIL:-0}
+      PYTHONPATH: ${PYTHONPATH:-/app}
+      # New: OpenAPI & CORS configuration
+      RUN_STARTUP_DDL: ${RUN_STARTUP_DDL:-false}  # Use Alembic in production
+      RUN_STARTUP_SEED: ${RUN_STARTUP_SEED:-false}
+      I18N_PRELOAD_ENABLED: ${I18N_PRELOAD_ENABLED:-true}
+      REGISTRY_AUTO_DISCOVER_ENABLED: ${REGISTRY_AUTO_DISCOVER_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy

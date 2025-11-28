@@ -60,6 +60,7 @@ class ScoringPipeline(Base):
     description: Mapped[Optional[str]] = mapped_column(String(500))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     metadata_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
 
     instrument: Mapped["Instrument"] = relationship(back_populates="pipelines")
     nodes: Mapped[list["ScoringPipelineNode"]] = relationship(

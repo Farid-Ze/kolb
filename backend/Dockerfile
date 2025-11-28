@@ -80,6 +80,7 @@ WORKDIR /app
 # Copy application code
 COPY app ./app
 COPY alembic.ini ./alembic.ini
+COPY generate_openapi.py ./generate_openapi.py
 
 EXPOSE 8000
 
