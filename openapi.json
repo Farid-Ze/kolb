@@ -88,6 +88,47 @@
         }
       }
     },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Refresh Token Endpoint",
+        "operationId": "refresh_token_endpoint_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/me": {
       "get": {
         "tags": [
@@ -1301,18 +1342,18 @@
         "operationId": "list_teams_teams__get",
         "parameters": [
           {
-            "name": "skip",
+            "name": "page",
             "in": "query",
             "required": false,
             "schema": {
               "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Skip"
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
             }
           },
           {
-            "name": "limit",
+            "name": "size",
             "in": "query",
             "required": false,
             "schema": {
@@ -1320,7 +1361,7 @@
               "maximum": 200,
               "minimum": 1,
               "default": 50,
-              "title": "Limit"
+              "title": "Size"
             }
           },
           {
@@ -1346,11 +1387,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamOut"
-                  },
-                  "title": "Response List Teams Teams  Get"
+                  "$ref": "#/components/schemas/TeamListResponse"
                 }
               }
             }
@@ -2814,16 +2851,12 @@
             "title": "Responselatencyms"
           },
           "blurEvents": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "title": "Blurevents",
-            "default": 0
+            "default": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -2865,15 +2898,11 @@
             "title": "Learningstyle"
           },
           "lfiScore": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lfiscore"
+            "title": "Lfiscore",
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -2896,16 +2925,11 @@
             "title": "Sessionid"
           },
           "finalizedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finalizedat"
+            "title": "Finalizedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kiteCoordinates": {
             "$ref": "#/components/schemas/KiteCoordinates"
@@ -2933,26 +2957,18 @@
             "title": "Percentiles"
           },
           "cyclePhase": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cyclephase"
+            "title": "Cyclephase",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "backupStyle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Backupstyle"
+            "title": "Backupstyle",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3039,15 +3055,11 @@
       "ChallengeCompletionPayload": {
         "properties": {
           "proofUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Proofurl"
+            "title": "Proofurl",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3070,39 +3082,25 @@
             "title": "Version"
           },
           "pipelineCode": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 60
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pipelinecode"
+            "title": "Pipelinecode",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata"
+            "title": "Metadata",
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3205,16 +3203,11 @@
             "title": "Sessionid"
           },
           "generatedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generatedat"
+            "title": "Generatedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kind": {
             "type": "string",
@@ -3246,73 +3239,46 @@
             "title": "Analytics"
           },
           "visualization": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Visualization"
+            "title": "Visualization",
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "sessionDesigns": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sessiondesigns"
+            "title": "Sessiondesigns",
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "learningSpace": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Learningspace"
+            "title": "Learningspace",
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "enhancedAnalytics": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Enhancedanalytics"
+            "title": "Enhancedanalytics",
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "notes": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
+            "title": "Notes",
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "owner": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner"
+            "title": "Owner",
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "shareContext": {
             "anyOf": [
@@ -3325,15 +3291,11 @@
             ]
           },
           "responsibleUseNotice": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Responsibleusenotice"
+            "title": "Responsibleusenotice",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3443,15 +3405,11 @@
       "ReflectionCreate": {
         "properties": {
           "sphereNodeId": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spherenodeid"
+            "title": "Spherenodeid",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "content": {
             "type": "string",
@@ -3487,15 +3445,11 @@
             "title": "Createdat"
           },
           "sphereNodeId": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spherenodeid"
+            "title": "Spherenodeid",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3517,6 +3471,19 @@
         ],
         "title": "ReflectionType"
       },
+      "RefreshRequest": {
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "title": "Refreshtoken"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refreshToken"
+        ],
+        "title": "RefreshRequest"
+      },
       "ReliabilityCreate": {
         "properties": {
           "metricName": {
@@ -3530,16 +3497,11 @@
             "title": "Value"
           },
           "notes": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
+            "title": "Notes",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3598,37 +3560,25 @@
       "ReportDialecticSummary": {
         "properties": {
           "acce": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Acce"
+            "title": "Acce",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "aero": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Aero"
+            "title": "Aero",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "intensity": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Intensity"
+            "title": "Intensity",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3637,48 +3587,32 @@
       "ReportFlexibilitySummary": {
         "properties": {
           "lfiScore": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lfiscore"
+            "title": "Lfiscore",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "percentile": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Percentile"
+            "title": "Percentile",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "level": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Level"
+            "title": "Level",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "levelLabel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Levellabel"
+            "title": "Levellabel",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3687,83 +3621,53 @@
       "ReportLongitudinalSummary": {
         "properties": {
           "previousSessionId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previoussessionid"
+            "title": "Previoussessionid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "previousSessionDate": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previoussessiondate"
+            "title": "Previoussessiondate",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "timeElapsedDays": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Timeelapseddays"
+            "title": "Timeelapseddays",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "deltaAcce": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Deltaacce"
+            "title": "Deltaacce",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "deltaAero": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Deltaaero"
+            "title": "Deltaaero",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "deltaLfi": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Deltalfi"
+            "title": "Deltalfi",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "deltaIntensity": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Deltaintensity"
+            "title": "Deltaintensity",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3781,71 +3685,46 @@
             "title": "Sessionid"
           },
           "mediatorEmail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mediatoremail"
+            "title": "Mediatoremail",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "mediatorName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mediatorname"
+            "title": "Mediatorname",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "ownerName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ownername"
+            "title": "Ownername",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "ownerEmail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owneremail"
+            "title": "Owneremail",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "expiresAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expiresat"
+            "title": "Expiresat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
+            "title": "Note",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3872,16 +3751,11 @@
             "default": 72
           },
           "note": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
+            "title": "Note",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3906,15 +3780,11 @@
             "title": "Mediatoremail"
           },
           "mediatorName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mediatorname"
+            "title": "Mediatorname",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "expiresAt": {
             "type": "string",
@@ -3926,15 +3796,11 @@
             "title": "Sharetoken"
           },
           "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
+            "title": "Note",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -3952,48 +3818,32 @@
       "ReportStyleSummary": {
         "properties": {
           "styleCode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stylecode"
+            "title": "Stylecode",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "styleName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stylename"
+            "title": "Stylename",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "quadrant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quadrant"
+            "title": "Quadrant",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4007,16 +3857,11 @@
             "title": "Sessionid"
           },
           "generatedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generatedat"
+            "title": "Generatedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "learningStyle": {
             "anyOf": [
@@ -4084,52 +3929,32 @@
             "title": "Title"
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "startedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Startedat"
+            "title": "Startedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "completedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completedat"
+            "title": "Completedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "notes": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
+            "title": "Notes",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4161,6 +3986,22 @@
           },
           "summary": {
             "$ref": "#/components/schemas/StudyDataSummary"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
           }
         },
         "type": "object",
@@ -4169,7 +4010,11 @@
           "studyTitle",
           "filtersApplied",
           "dataPoints",
-          "summary"
+          "summary",
+          "total",
+          "page",
+          "size",
+          "pages"
         ],
         "title": "ResearchStudyDataOut"
       },
@@ -4184,50 +4029,32 @@
             "title": "Title"
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "startedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Startedat"
+            "title": "Startedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "completedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completedat"
+            "title": "Completedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
+            "title": "Notes",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4244,64 +4071,39 @@
       "ResearchStudyUpdate": {
         "properties": {
           "title": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
+            "title": "Title",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "startedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Startedat"
+            "title": "Startedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "completedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completedat"
+            "title": "Completedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "notes": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
+            "title": "Notes",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4350,70 +4152,46 @@
       "ScorePreviewPercentiles": {
         "properties": {
           "CE": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ce"
+            "title": "Ce",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "RO": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ro"
+            "title": "Ro",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "AC": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ac"
+            "title": "Ac",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "AE": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ae"
+            "title": "Ae",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "ACCE": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Acce"
+            "title": "Acce",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "AERO": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Aero"
+            "title": "Aero",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "sourceProvenance": {
             "type": "string",
@@ -4567,37 +4345,25 @@
       "ScorePreviewStyle": {
         "properties": {
           "primaryName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Primaryname"
+            "title": "Primaryname",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "backupName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Backupname"
+            "title": "Backupname",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "cyclePhase": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cyclephase"
+            "title": "Cyclephase",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4634,15 +4400,11 @@
             "default": true
           },
           "result": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Result"
+            "title": "Result",
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4669,17 +4431,12 @@
             "title": "Contexts"
           },
           "clientDurationMs": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
             "title": "Clientdurationms",
-            "description": "Total duration spent by user in ms"
+            "description": "Total duration spent by user in ms",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4692,59 +4449,39 @@
       "SphereNodeMeta": {
         "properties": {
           "label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label"
+            "title": "Label",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "icon": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Icon"
+            "title": "Icon",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "visualStyle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Visualstyle"
+            "title": "Visualstyle",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "unlockCondition": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unlockcondition"
+            "title": "Unlockcondition",
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "additionalProperties": false,
@@ -4819,61 +4556,52 @@
       "StudyDataFilter": {
         "properties": {
           "startDate": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Startdate"
+            "title": "Startdate",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "endDate": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Enddate"
+            "title": "Enddate",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "learningStyle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Learningstyle"
+            "title": "Learningstyle",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "normGroup": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Normgroup"
+            "title": "Normgroup",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "userEmail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Useremail"
+            "title": "Useremail",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "default": 1
+          },
+          "size": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Size",
+            "default": 50
           }
         },
         "type": "object",
@@ -4882,7 +4610,8 @@
       "StudyDataPoint": {
         "properties": {
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "participantHash": {
@@ -4919,48 +4648,32 @@
             "title": "Aero"
           },
           "learningStyle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Learningstyle"
+            "title": "Learningstyle",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "styleCode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stylecode"
+            "title": "Stylecode",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "normGroup": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Normgroup"
+            "title": "Normgroup",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "assessmentDurationSeconds": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assessmentdurationseconds"
+            "title": "Assessmentdurationseconds",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5022,28 +4735,18 @@
             "title": "Name"
           },
           "kelas": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kelas"
+            "title": "Kelas",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5051,6 +4754,42 @@
           "name"
         ],
         "title": "TeamCreate"
+      },
+      "TeamListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TeamOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "TeamListResponse"
       },
       "TeamMemberAdd": {
         "properties": {
@@ -5144,26 +4883,18 @@
             "title": "Name"
           },
           "kelas": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kelas"
+            "title": "Kelas",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5183,16 +4914,11 @@
             "title": "Sessionid"
           },
           "generatedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generatedat"
+            "title": "Generatedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kind": {
             "type": "string",
@@ -5208,15 +4934,11 @@
             "title": "Teamid"
           },
           "analytics": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Analytics"
+            "title": "Analytics",
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5280,15 +5002,11 @@
             "$ref": "#/components/schemas/TeamRollupSummaryOut"
           },
           "diversityScore": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Diversityscore"
+            "title": "Diversityscore",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "balanceMetrics": {
             "$ref": "#/components/schemas/TeamRollupBalanceMetricsOut"
@@ -5312,136 +5030,74 @@
             "title": "Userid"
           },
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+            "title": "Name",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
+            "title": "Email",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sessionId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sessionid"
+            "title": "Sessionid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "generatedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generatedat"
+            "title": "Generatedat",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "acCe": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Acce"
+            "title": "Acce",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "aeRo": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Aero"
+            "title": "Aero",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "learningStyle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Learningstyle"
+            "title": "Learningstyle",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "styleCode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stylecode"
+            "title": "Stylecode",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "rawScores": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "anyOf": [
-                    {
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rawscores"
+            "title": "Rawscores",
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "dialecticScores": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "anyOf": [
-                    {
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dialecticscores"
+            "title": "Dialecticscores",
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5480,29 +5136,18 @@
             "title": "Totalsessions"
           },
           "avgLfi": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avglfi"
+            "title": "Avglfi",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "styleCounts": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "integer"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stylecounts"
+            "title": "Stylecounts",
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5555,40 +5200,25 @@
       "TeamUpdate": {
         "properties": {
           "name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+            "title": "Name",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kelas": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kelas"
+            "title": "Kelas",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5597,16 +5227,12 @@
       "TelemetryBatch": {
         "properties": {
           "session_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "title": "Session Id",
-            "description": "Optional session ID for correlation"
+            "description": "Optional session ID for correlation",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "events": {
             "items": {
@@ -5656,6 +5282,13 @@
           "accessToken": {
             "type": "string",
             "title": "Accesstoken"
+          },
+          "refreshToken": {
+            "title": "Refreshtoken",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "tokenType": {
             "type": "string",
@@ -5711,15 +5344,11 @@
             "$ref": "#/components/schemas/ChallengeStatus"
           },
           "proofUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Proofurl"
+            "title": "Proofurl",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -5727,16 +5356,11 @@
             "title": "Createdat"
           },
           "completedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completedat"
+            "title": "Completedat",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5765,59 +5389,39 @@
             "title": "Password"
           },
           "nim": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nim"
+            "title": "Nim",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kelas": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kelas"
+            "title": "Kelas",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "tahunMasuk": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tahunmasuk"
+            "title": "Tahunmasuk",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "guestSessionId": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Guestsessionid"
+            "title": "Guestsessionid",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "guestToken": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Guesttoken"
+            "title": "Guesttoken",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -5859,15 +5463,11 @@
             "title": "Tahunmasuk"
           },
           "avatarUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avatarurl"
+            "title": "Avatarurl",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "zenPoints": {
             "type": "integer",
@@ -5880,15 +5480,11 @@
             "default": 1
           },
           "lifeMotto": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lifemotto"
+            "title": "Lifemotto",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "achievements": {
             "items": {
@@ -5953,39 +5549,25 @@
             "title": "Evidencetype"
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "metricName": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metricname"
+            "title": "Metricname",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "value": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
+            "title": "Value",
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "type": "object",
