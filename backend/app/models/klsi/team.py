@@ -20,6 +20,7 @@ class Team(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True)
     kelas: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(String(500))
+    summary_cache: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     members: Mapped[list["TeamMember"]] = relationship(back_populates="team")

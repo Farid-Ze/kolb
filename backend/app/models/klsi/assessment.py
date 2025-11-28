@@ -1,7 +1,8 @@
+import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, JSON
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, JSON, UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,10 +15,17 @@ __all__ = [
 ]
 
 
+def UUID_FACTORY():
+    try:
+        return uuid.uuid7()
+    except AttributeError:
+        return uuid.uuid4()
+
+
 class AssessmentSession(Base):
     __tablename__ = "assessment_sessions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=UUID_FACTORY)
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     guest_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -38,8 +46,8 @@ class AssessmentSessionDelta(Base):
     __tablename__ = "assessment_session_deltas"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
-    previous_session_id: Mapped[Optional[int]] = mapped_column(Integer)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
+    previous_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
     delta_acce: Mapped[Optional[int]] = mapped_column(Integer)
     delta_aero: Mapped[Optional[int]] = mapped_column(Integer)
     delta_lfi: Mapped[Optional[float]] = mapped_column(Float)

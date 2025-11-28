@@ -15,6 +15,7 @@ from app.schemas.research import (
     ResearchStudyDataOut,
     ResearchStudyOut,
     ResearchStudyUpdate,
+    StudyDataFilter,
     ValidityCreate,
 )
 from app.core.logging import get_logger
@@ -289,16 +290,12 @@ def list_validity(
     ]
 
 
-@router.get("/studies/{study_id}/data", response_model=ResearchStudyDataOut)
+@router.post("/studies/{study_id}/data", response_model=ResearchStudyDataOut)
 def get_study_data(
     study_id: str,
+    filters: StudyDataFilter,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
-    start_date: Optional[date] = Query(default=None),
-    end_date: Optional[date] = Query(default=None),
-    learning_style: Optional[str] = Query(default=None),
-    norm_group: Optional[str] = Query(default=None),
-    user_email: Optional[str] = Query(default=None),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -307,15 +304,30 @@ def get_study_data(
     study = study_repo.get(internal_id)
     if not study:
         raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-    start_at = _start_of_day(start_date)
-    end_at = _end_of_day(end_date)
-    if start_at and end_at and start_at > end_at:
-        raise HTTPException(status_code=400, detail="Invalid date range")
-    filters = StudyDataFilters(
+    
+    # Convert datetime to date if needed, or handle in service
+    # The service expects date objects for start/end_at logic if we keep _start_of_day logic here
+    # But StudyDataFilter has datetime. Let's assume the client sends datetime or date.
+    # Actually, the original code used _start_of_day(date).
+    # Let's adapt.
+    
+    start_at = filters.start_date
+    end_at = filters.end_date
+    
+    # If the input is just date (from previous schema it was date), we might need to be careful.
+    # But CamelModel usually handles parsing.
+    # Let's ensure we pass what build_study_dataset expects.
+    # build_study_dataset expects StudyDataFilters (service object).
+    
+    service_filters = StudyDataFilters(
         start_at=start_at,
         end_at=end_at,
-        learning_style=learning_style,
-        norm_group=norm_group,
-        user_email=user_email,
+        learning_style=filters.learning_style,
+        norm_group=filters.norm_group,
+        user_email=filters.user_email,
     )
-    return build_study_dataset(db, study, filters)
+    
+    if start_at and end_at and start_at > end_at:
+        raise HTTPException(status_code=400, detail="Invalid date range")
+
+    return build_study_dataset(db, study, service_filters)

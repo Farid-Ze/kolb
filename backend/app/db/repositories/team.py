@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
@@ -21,7 +22,7 @@ from app.models.klsi.user import User
 
 @dataclass(slots=True)
 class TeamSessionRow:
-    session_id: int
+    session_id: uuid.UUID
     session_date: Optional[date]
     lfi: Optional[float]
     style_name: Optional[str]
@@ -32,7 +33,7 @@ class TeamRollupMemberPoint:
     user_id: int
     name: Optional[str]
     email: Optional[str]
-    session_id: Optional[int]
+    session_id: Optional[uuid.UUID]
     completed_at: Optional[datetime]
     ac_ce: Optional[int]
     ae_ro: Optional[int]
@@ -98,6 +99,13 @@ class TeamMemberRepository(Repository[Session]):
         return (
             self.db.query(TeamMember)
             .filter(TeamMember.team_id == team_id)
+            .all()
+        )
+
+    def list_by_user(self, user_id: int) -> List[TeamMember]:
+        return (
+            self.db.query(TeamMember)
+            .filter(TeamMember.user_id == user_id)
             .all()
         )
 
@@ -332,3 +340,113 @@ class TeamAnalyticsRepository(Repository[Session]):
             )
 
         return list(latest_by_user.values())
+
+    def fetch_paginated_member_points(
+        self,
+        team_id: int,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[List[TeamRollupMemberPoint], int]:
+        """Fetch latest assessment data for team members with pagination."""
+        
+        # 1. Identify team members
+        member_subq = (
+            self.db.query(TeamMember.user_id)
+            .filter(TeamMember.team_id == team_id)
+            .subquery()
+        )
+        
+        # 2. Count total members (for pagination metadata)
+        total_count = (
+            self.db.query(func.count(TeamMember.id))
+            .filter(TeamMember.team_id == team_id)
+            .scalar()
+        ) or 0
+
+        if total_count == 0:
+            return [], 0
+
+        # 3. CTE to rank sessions by date for each user
+        # We want the latest completed session for each user
+        stmt = (
+            select(
+                AssessmentSession.user_id,
+                AssessmentSession.id.label("session_id"),
+                AssessmentSession.start_time,
+                AssessmentSession.end_time,
+                func.row_number().over(
+                    partition_by=AssessmentSession.user_id,
+                    order_by=AssessmentSession.end_time.desc().nullslast()
+                ).label("rn")
+            )
+            .where(
+                AssessmentSession.user_id.in_(select(member_subq)),
+                AssessmentSession.status == SessionStatus.completed
+            )
+            .cte("latest_sessions")
+        )
+
+        # 4. Main query joining User -> Latest Session -> Scores
+        # We query ALL members, left joining to their latest session
+        # This ensures we return members even if they have no data (consistent with "legacy_members" logic)
+        # But wait, the original logic separated "data_points" (with data) and "legacy_members" (without or stale).
+        # The user request implies a unified list or just "members analytics".
+        # Let's return a unified list of members, populated with data if available.
+        
+        query = (
+            self.db.query(
+                User.id.label("user_id"),
+                User.full_name.label("user_name"),
+                User.email.label("email"),
+                stmt.c.session_id,
+                stmt.c.start_time,
+                stmt.c.end_time,
+                CombinationScore.ACCE_raw.label("acce"),
+                CombinationScore.AERO_raw.label("aero"),
+                ScaleScore.CE_raw.label("ce"),
+                ScaleScore.RO_raw.label("ro"),
+                ScaleScore.AC_raw.label("ac"),
+                ScaleScore.AE_raw.label("ae"),
+                LearningStyleType.style_name.label("style_name"),
+                LearningStyleType.style_code.label("style_code"),
+            )
+            .select_from(TeamMember)
+            .join(User, User.id == TeamMember.user_id)
+            .outerjoin(stmt, and_(stmt.c.user_id == User.id, stmt.c.rn == 1))
+            .outerjoin(CombinationScore, CombinationScore.session_id == stmt.c.session_id)
+            .outerjoin(ScaleScore, ScaleScore.session_id == stmt.c.session_id)
+            .outerjoin(UserLearningStyle, UserLearningStyle.session_id == stmt.c.session_id)
+            .outerjoin(LearningStyleType, LearningStyleType.id == UserLearningStyle.primary_style_type_id)
+            .filter(TeamMember.team_id == team_id)
+            .order_by(User.full_name)
+            .offset(skip)
+            .limit(limit)
+        )
+
+        rows = query.all()
+        results = []
+        for row in rows:
+            completed_at: Optional[datetime] = row.end_time or row.start_time
+            raw_scores = {}
+            if row.ce is not None:
+                raw_scores = {
+                    "CE": row.ce,
+                    "RO": row.ro,
+                    "AC": row.ac,
+                    "AE": row.ae,
+                }
+            
+            results.append(TeamRollupMemberPoint(
+                user_id=row.user_id,
+                name=row.user_name,
+                email=row.email,
+                session_id=row.session_id,
+                completed_at=completed_at,
+                ac_ce=row.acce,
+                ae_ro=row.aero,
+                raw_scores=raw_scores if raw_scores else None,
+                learning_style=row.style_name,
+                style_code=row.style_code,
+            ))
+            
+        return results, total_count

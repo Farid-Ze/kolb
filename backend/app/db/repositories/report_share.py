@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -10,10 +11,11 @@ from app.models.klsi.report_share import ReportShareLink
 class ReportShareRepository(Repository[Session]):
     """Persistence helpers for report share links."""
 
+
     def create(
         self,
         *,
-        session_id: int,
+        session_id: uuid.UUID,
         owner_id: int,
         mediator_id: int,
         mediator_email: str,
@@ -43,7 +45,7 @@ class ReportShareRepository(Repository[Session]):
             .first()
         )
 
-    def revoke_existing(self, *, session_id: int, mediator_id: int, now: datetime | None = None) -> int:
+    def revoke_existing(self, *, session_id: uuid.UUID, mediator_id: int, now: datetime | None = None) -> int:
         current = now or datetime.now(timezone.utc)
         result = (
             self.db.query(ReportShareLink)

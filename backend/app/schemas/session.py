@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Any, Literal, Optional
@@ -188,7 +189,7 @@ class SessionAutosavePayload(CamelModel):
 
 
 class SessionStartResponse(CamelModel):
-    session_id: int
+    session_id: uuid.UUID
     guest_token: Optional[str] = None
 
 
@@ -207,7 +208,7 @@ class SessionStatus(str, Enum):
 
 
 class SessionListResponse(CamelModel):
-    id: int
+    id: uuid.UUID
     start_time: datetime
     end_time: Optional[datetime] = None
     status: SessionStatus
@@ -231,7 +232,7 @@ class AssessmentResponseBatch(CamelModel):
 
 
 class EngineSessionResponse(CamelModel):
-    session_id: int
+    session_id: uuid.UUID
     instrument_code: str
     instrument_version: str | None = None
     status: SessionStatus

@@ -6,7 +6,7 @@ Supports both legacy individual events and modern batched telemetry for scalabil
 
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
@@ -70,7 +70,8 @@ async def process_telemetry_batch(batch: TelemetryBatch):
 @router.post("/batch", status_code=202)
 async def batch_telemetry(
     batch: TelemetryBatch,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    content_length: int = Header(..., alias="Content-Length", lt=1_000_000)  # Max 1MB
 ):
     """
     Accept batched telemetry events for async processing.

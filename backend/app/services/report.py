@@ -285,7 +285,9 @@ def _generate_flexibility_narrative(lfi_score: float, pattern: str, style_freq: 
         )
 
 
-def build_report(db: Session, session_id: int, viewer_role: Optional[str] = None) -> dict:
+import uuid
+
+def build_report(db: Session, session_id: uuid.UUID, viewer_role: Optional[str] = None) -> dict:
     # Eager load all required relations to avoid N+1 and reduce roundtrips
     session_repo = SessionRepository(db)
     s = session_repo.get_with_details(session_id)

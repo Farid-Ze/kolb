@@ -1,4 +1,5 @@
 from typing import Any
+from sqlalchemy.orm import Session
 
 from fastapi import APIRouter, Depends
 
@@ -19,6 +20,6 @@ def get_me(current_user = Depends(get_current_user)):
 @router.get("/me/achievements", response_model=list[UserAchievementOut])
 def list_user_achievements(
     current_user = Depends(get_current_user),
-    db: Any = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     return gamification_service.list_user_achievements(db, current_user.id)

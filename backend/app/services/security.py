@@ -159,7 +159,7 @@ def get_current_user_optional(token: str | None = Depends(oauth2_scheme_optional
         user_id = int(payload["sub"])
         repo = UserRepository(db)
         return repo.get(user_id)
-    except Exception:
+    except (ValueError, JWTError):
         return None
 
 

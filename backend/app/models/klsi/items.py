@@ -1,6 +1,7 @@
+import uuid
 from typing import TYPE_CHECKING, Optional, Any
 
-from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String, UniqueConstraint, JSON
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String, UniqueConstraint, JSON, UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,7 +46,7 @@ class UserResponse(Base):
     __tablename__ = "user_responses"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"))
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"))
     item_id: Mapped[int] = mapped_column(ForeignKey("assessment_items.id"))
     choice_id: Mapped[int] = mapped_column(ForeignKey("item_choices.id"))
     rank_value: Mapped[int] = mapped_column(Integer)
@@ -65,7 +66,7 @@ class AssessmentItemResponse(Base):
     __tablename__ = "assessment_item_responses"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"))
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"))
     item_id: Mapped[int] = mapped_column(Integer)  # 1-12
     response_rank: Mapped[int] = mapped_column(Integer)  # 1-4
     response_latency_ms: Mapped[int] = mapped_column(Integer)

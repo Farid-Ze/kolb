@@ -198,7 +198,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           },
@@ -273,7 +274,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -323,7 +325,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -380,7 +383,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -428,7 +432,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -477,7 +482,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -534,7 +540,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -996,7 +1003,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -1051,7 +1059,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Session Id"
             }
           }
@@ -1748,6 +1757,76 @@
         }
       }
     },
+    "/teams/{team_id}/analytics/members": {
+      "get": {
+        "tags": [
+          "teams"
+        ],
+        "summary": "Get Rollup Members",
+        "operationId": "get_rollup_members_teams__team_id__analytics_members_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemberAnalyticsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/rollup/run": {
       "post": {
         "tags": [
@@ -2301,12 +2380,12 @@
       }
     },
     "/research/studies/{study_id}/data": {
-      "get": {
+      "post": {
         "tags": [
           "research"
         ],
         "summary": "Get Study Data",
-        "operationId": "get_study_data_research_studies__study_id__data_get",
+        "operationId": "get_study_data_research_studies__study_id__data_post",
         "security": [
           {
             "BearerAuth": []
@@ -2321,90 +2400,18 @@
               "type": "string",
               "title": "Study Id"
             }
-          },
-          {
-            "name": "start_date",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Start Date"
-            }
-          },
-          {
-            "name": "end_date",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "End Date"
-            }
-          },
-          {
-            "name": "learning_style",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Learning Style"
-            }
-          },
-          {
-            "name": "norm_group",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Norm Group"
-            }
-          },
-          {
-            "name": "user_email",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "User Email"
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudyDataFilter"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2437,15 +2444,27 @@
         "summary": "Batch Telemetry",
         "description": "Accept batched telemetry events for async processing.\n\n**Scalability Benefits:**\n- Reduces request volume by 90%+ through client-side batching\n- Uses Beacon API for fire-and-forget delivery\n- Processes events asynchronously (non-blocking)\n- Handles up to 1000 events per batch\n\n**Usage:**\n```javascript\nconst batch = {\n  session_id: \"abc123\",\n  events: [\n    {type: \"mouse\", timestamp_ms: 1234567890, payload: {x: 100, y: 200}},\n    {type: \"scroll\", timestamp_ms: 1234567891, payload: {scrollY: 500}}\n  ]\n};\n\n// Using Beacon API (recommended)\nnavigator.sendBeacon('/telemetry/batch', JSON.stringify(batch));\n\n// Or fetch with keepalive\nfetch('/telemetry/batch', {\n  method: 'POST',\n  headers: {'Content-Type': 'application/json'},\n  body: JSON.stringify(batch),\n  keepalive: true\n});\n```\n\n**Returns:** 202 Accepted (processing in background)",
         "operationId": "batch_telemetry_telemetry_batch_post",
+        "parameters": [
+          {
+            "name": "Content-Length",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMaximum": 1000000,
+              "title": "Content-Length"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TelemetryBatch"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "202": {
@@ -2872,7 +2891,8 @@
       "AssessmentResultsResponse": {
         "properties": {
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "finalizedAt": {
@@ -2888,18 +2908,7 @@
             "title": "Finalizedat"
           },
           "kiteCoordinates": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "number"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kitecoordinates"
+            "$ref": "#/components/schemas/KiteCoordinates"
           },
           "blindspots": {
             "items": {
@@ -2916,25 +2925,11 @@
             "title": "Strengths"
           },
           "lfiScore": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "number",
             "title": "Lfiscore"
           },
           "percentiles": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "object",
             "title": "Percentiles"
           },
           "cyclePhase": {
@@ -2962,7 +2957,10 @@
         },
         "type": "object",
         "required": [
-          "sessionId"
+          "sessionId",
+          "kiteCoordinates",
+          "lfiScore",
+          "percentiles"
         ],
         "title": "AssessmentResultsResponse"
       },
@@ -3202,7 +3200,8 @@
       "IndividualReportPayload": {
         "properties": {
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "generatedAt": {
@@ -3227,48 +3226,24 @@
             "default": "individual"
           },
           "raw": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "object",
             "title": "Raw"
           },
           "percentiles": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "object",
             "title": "Percentiles"
           },
           "style": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "object",
             "title": "Style"
           },
           "lfi": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "object",
             "title": "Lfi"
+          },
+          "analytics": {
+            "type": "object",
+            "title": "Analytics"
           },
           "visualization": {
             "anyOf": [
@@ -3294,17 +3269,6 @@
               }
             ],
             "title": "Sessiondesigns"
-          },
-          "analytics": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Analytics"
           },
           "learningSpace": {
             "anyOf": [
@@ -3374,7 +3338,12 @@
         },
         "type": "object",
         "required": [
-          "sessionId"
+          "sessionId",
+          "raw",
+          "percentiles",
+          "style",
+          "lfi",
+          "analytics"
         ],
         "title": "IndividualReportPayload"
       },
@@ -3424,6 +3393,34 @@
           "ranks"
         ],
         "title": "ItemRank"
+      },
+      "KiteCoordinates": {
+        "properties": {
+          "CE": {
+            "type": "number",
+            "title": "Ce"
+          },
+          "RO": {
+            "type": "number",
+            "title": "Ro"
+          },
+          "AC": {
+            "type": "number",
+            "title": "Ac"
+          },
+          "AE": {
+            "type": "number",
+            "title": "Ae"
+          }
+        },
+        "type": "object",
+        "required": [
+          "CE",
+          "RO",
+          "AC",
+          "AE"
+        ],
+        "title": "KiteCoordinates"
       },
       "LoginRequest": {
         "properties": {
@@ -3692,7 +3689,8 @@
           "previousSessionId": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -3778,7 +3776,8 @@
             "title": "Shareid"
           },
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "mediatorEmail": {
@@ -4003,7 +4002,8 @@
       "ReportSummaryPayload": {
         "properties": {
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "generatedAt": {
@@ -4436,39 +4436,66 @@
         "properties": {
           "ce": {
             "type": "integer",
-            "title": "Ce"
+            "maximum": 48.0,
+            "minimum": 12.0,
+            "title": "Ce",
+            "description": "Concrete Experience raw score (12-48)"
           },
           "ro": {
             "type": "integer",
-            "title": "Ro"
+            "maximum": 48.0,
+            "minimum": 12.0,
+            "title": "Ro",
+            "description": "Reflective Observation raw score (12-48)"
           },
           "ac": {
             "type": "integer",
-            "title": "Ac"
+            "maximum": 48.0,
+            "minimum": 12.0,
+            "title": "Ac",
+            "description": "Abstract Conceptualization raw score (12-48)"
           },
           "ae": {
             "type": "integer",
-            "title": "Ae"
+            "maximum": 48.0,
+            "minimum": 12.0,
+            "title": "Ae",
+            "description": "Active Experimentation raw score (12-48)"
           },
           "acce": {
             "type": "integer",
-            "title": "Acce"
+            "maximum": 36.0,
+            "minimum": -36.0,
+            "title": "Acce",
+            "description": "AC-CE dialectic score (-36 to +36)"
           },
           "aero": {
             "type": "integer",
-            "title": "Aero"
+            "maximum": 36.0,
+            "minimum": -36.0,
+            "title": "Aero",
+            "description": "AE-RO dialectic score (-36 to +36)"
           },
           "accAssm": {
             "type": "integer",
-            "title": "Accassm"
+            "maximum": 72.0,
+            "minimum": -72.0,
+            "title": "Accassm",
+            "description": "Accommodating-Assimilating dimension (AC+RO) - (AE+CE)"
           },
           "accomMinusAssim": {
             "type": "integer",
-            "title": "Accomminusassim"
+            "maximum": 72.0,
+            "minimum": -72.0,
+            "title": "Accomminusassim",
+            "description": "Inverse of acc_assm"
           },
           "convDiv": {
             "type": "integer",
-            "title": "Convdiv"
+            "maximum": 72.0,
+            "minimum": -72.0,
+            "title": "Convdiv",
+            "description": "Converging-Diverging dimension (AC+AE) - (CE+RO). Positive = Converging, Negative = Diverging."
           }
         },
         "type": "object",
@@ -4634,7 +4661,7 @@
           },
           "contexts": {
             "items": {
-              "$ref": "#/components/schemas/ContextRank"
+              "$ref": "#/components/schemas/ContextItemRank"
             },
             "type": "array",
             "maxItems": 8,
@@ -4789,15 +4816,74 @@
         ],
         "title": "StudyDataDateRange"
       },
+      "StudyDataFilter": {
+        "properties": {
+          "startDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "learningStyle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learningstyle"
+          },
+          "normGroup": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normgroup"
+          },
+          "userEmail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Useremail"
+          }
+        },
+        "type": "object",
+        "title": "StudyDataFilter"
+      },
       "StudyDataPoint": {
         "properties": {
           "sessionId": {
             "type": "integer",
             "title": "Sessionid"
-          },
-          "userId": {
-            "type": "integer",
-            "title": "Userid"
           },
           "participantHash": {
             "type": "string",
@@ -4880,7 +4966,6 @@
         "type": "object",
         "required": [
           "sessionId",
-          "userId",
           "participantHash",
           "generatedAt",
           "ceScore",
@@ -4969,9 +5054,10 @@
       },
       "TeamMemberAdd": {
         "properties": {
-          "userId": {
-            "type": "integer",
-            "title": "Userid"
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "Email address of the user to add"
           },
           "roleInTeam": {
             "$ref": "#/components/schemas/TeamRole",
@@ -4980,9 +5066,45 @@
         },
         "type": "object",
         "required": [
-          "userId"
+          "email"
         ],
         "title": "TeamMemberAdd"
+      },
+      "TeamMemberAnalyticsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TeamRollupMemberOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "TeamMemberAnalyticsResponse"
       },
       "TeamMemberOut": {
         "properties": {
@@ -5056,7 +5178,8 @@
       "TeamReportPayload": {
         "properties": {
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "generatedAt": {
@@ -5153,20 +5276,6 @@
             "type": "integer",
             "title": "Membercount"
           },
-          "dataPoints": {
-            "items": {
-              "$ref": "#/components/schemas/TeamRollupMemberOut"
-            },
-            "type": "array",
-            "title": "Datapoints"
-          },
-          "legacyMembers": {
-            "items": {
-              "$ref": "#/components/schemas/TeamRollupLegacyMemberOut"
-            },
-            "type": "array",
-            "title": "Legacymembers"
-          },
           "summary": {
             "$ref": "#/components/schemas/TeamRollupSummaryOut"
           },
@@ -5190,172 +5299,11 @@
           "teamId",
           "teamName",
           "memberCount",
-          "dataPoints",
-          "legacyMembers",
           "summary",
           "diversityScore",
           "balanceMetrics"
         ],
         "title": "TeamRollupDetail"
-      },
-      "TeamRollupLegacyMemberOut": {
-        "properties": {
-          "userId": {
-            "type": "integer",
-            "title": "Userid"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "roleInTeam": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Roleinteam"
-          },
-          "joinedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Joinedat"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "statusReason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Statusreason"
-          },
-          "sessionId": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sessionid"
-          },
-          "generatedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generatedat"
-          },
-          "acCe": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Acce"
-          },
-          "aeRo": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Aero"
-          },
-          "learningStyle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Learningstyle"
-          },
-          "styleCode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stylecode"
-          }
-        },
-        "type": "object",
-        "required": [
-          "userId",
-          "name",
-          "email",
-          "roleInTeam",
-          "joinedAt",
-          "status",
-          "statusReason",
-          "sessionId",
-          "generatedAt",
-          "acCe",
-          "aeRo",
-          "learningStyle",
-          "styleCode"
-        ],
-        "title": "TeamRollupLegacyMemberOut"
       },
       "TeamRollupMemberOut": {
         "properties": {
@@ -5388,7 +5336,8 @@
           "sessionId": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"

@@ -98,3 +98,11 @@ class ResearchStudyDataOut(CamelModel):
     filters_applied: Dict[str, Any]
     data_points: List[StudyDataPoint]
     summary: StudyDataSummary
+
+
+class StudyDataFilter(CamelModel):
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    learning_style: Optional[str] = None
+    norm_group: Optional[str] = None
+    user_email: Optional[str] = None

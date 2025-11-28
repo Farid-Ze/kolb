@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from typing import Dict, Optional
 
@@ -26,7 +27,7 @@ class TeamUpdate(CamelModel):
 
 
 class TeamMemberAdd(CamelModel):
-    user_id: int
+    email: str = Field(..., description="Email address of the user to add")
     role_in_team: TeamRole = Field(default=TeamRole.MEMBER)
 
 
@@ -60,7 +61,7 @@ class TeamRollupMemberOut(CamelModel):
     user_id: int
     name: Optional[str]
     email: Optional[str]
-    session_id: Optional[int]
+    session_id: Optional[uuid.UUID]
     generated_at: Optional[datetime]
     ac_ce: Optional[int]
     ae_ro: Optional[int]
@@ -93,7 +94,7 @@ class TeamRollupLegacyMemberOut(CamelModel):
     joined_at: Optional[datetime]
     status: Optional[str]
     status_reason: Optional[str]
-    session_id: Optional[int]
+    session_id: Optional[uuid.UUID]
     generated_at: Optional[datetime]
     ac_ce: Optional[int]
     ae_ro: Optional[int]
@@ -105,9 +106,15 @@ class TeamRollupDetail(CamelModel):
     team_id: int
     team_name: str
     member_count: int
-    data_points: list[TeamRollupMemberOut]
-    # members list removed to fix N+1 (Audit Point 8)
-    legacy_members: list[TeamRollupLegacyMemberOut]
+    # data_points and legacy_members removed for scalability (Audit Round 2)
     summary: TeamRollupSummaryOut
     diversity_score: Optional[float]
     balance_metrics: TeamRollupBalanceMetricsOut
+
+
+class TeamMemberAnalyticsResponse(CamelModel):
+    items: list[TeamRollupMemberOut]
+    total: int
+    page: int
+    size: int
+    pages: int

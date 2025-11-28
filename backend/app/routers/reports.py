@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -32,7 +33,7 @@ def list_self_reports(
 
 @router.get("/{session_id}", response_model=ReportPayload)
 def get_report(
-    session_id: int,
+    session_id: uuid.UUID,
     db: Any = Depends(get_db),
     viewer: Any | None = Depends(get_current_user_optional)
 ):
@@ -61,7 +62,7 @@ def get_report(
 
 @router.post("/{session_id}/share", response_model=ReportShareOut)
 def create_report_share(
-    session_id: int,
+    session_id: uuid.UUID,
     payload: ReportShareCreate,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),

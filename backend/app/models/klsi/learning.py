@@ -1,3 +1,4 @@
+import uuid
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
@@ -10,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    UUID,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,7 +35,7 @@ class ScaleScore(Base):
     __tablename__ = "scale_scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
     CE_raw: Mapped[int] = mapped_column(Integer)
     RO_raw: Mapped[int] = mapped_column(Integer)
     AC_raw: Mapped[int] = mapped_column(Integer)
@@ -48,7 +50,7 @@ class CombinationScore(Base):
     __tablename__ = "combination_scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(
+    session_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("assessment_sessions.id"), unique=True, index=True
     )
     ACCE_raw: Mapped[int] = mapped_column(Integer)
@@ -83,7 +85,7 @@ class UserLearningStyle(Base):
     __tablename__ = "user_learning_styles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(
+    session_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("assessment_sessions.id"), unique=True, index=True
     )
     primary_style_type_id: Mapped[int] = mapped_column(ForeignKey("learning_style_types.id"))
@@ -102,7 +104,7 @@ class LFIContextScore(Base):
     __tablename__ = "lfi_context_scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"))
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"))
     context_name: Mapped[str] = mapped_column(String(50))
     CE_rank: Mapped[int] = mapped_column(Integer)
     RO_rank: Mapped[int] = mapped_column(Integer)
@@ -136,7 +138,7 @@ class LearningFlexibilityIndex(Base):
     __tablename__ = "learning_flexibility_index"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True)
     W_coefficient: Mapped[float] = mapped_column(Float)
     LFI_score: Mapped[float] = mapped_column(Float)
     LFI_percentile: Mapped[float | None] = mapped_column(Float)
@@ -152,7 +154,7 @@ class BackupLearningStyle(Base):
     __tablename__ = "backup_learning_styles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"))
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"))
     style_type_id: Mapped[int] = mapped_column(ForeignKey("learning_style_types.id"))
     frequency_count: Mapped[int] = mapped_column(Integer)
     contexts_used: Mapped[dict[str, Any] | None] = mapped_column(JSON)
@@ -168,7 +170,7 @@ class ScaleProvenance(Base):
     __tablename__ = "scale_provenance"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"))
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"))
     scale_code: Mapped[str] = mapped_column(String(10))
     raw_score: Mapped[float] = mapped_column(Float)
     percentile_value: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -1,3 +1,4 @@
+import uuid
 from datetime import timezone
 from email.utils import format_datetime
 
@@ -90,7 +91,7 @@ def _sunset_header_value() -> str | None:
 
 @router.get("/{session_id}/delivery", response_model=dict)
 def get_delivery(
-    session_id: int,
+    session_id: uuid.UUID,
     locale: str | None = None,
     lite: bool = False,
     db: Any = Depends(get_db),
@@ -109,7 +110,7 @@ def get_delivery(
 
 @router.get("/{session_id}/items", response_model=list)
 def get_items(
-    session_id: int, 
+    session_id: uuid.UUID, 
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
@@ -139,7 +140,7 @@ def get_items(
 @router.post("/{session_id}/submit-item", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 @router.post("/{session_id}/submit_item", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 def submit_item(
-    session_id: int, 
+    session_id: uuid.UUID, 
     item_id: int, 
     ranks: dict, 
     response: Response, 
@@ -169,7 +170,7 @@ def submit_item(
 @router.post("/{session_id}/submit-context", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 @router.post("/{session_id}/submit_context", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 def submit_context(
-    session_id: int,
+    session_id: uuid.UUID,
     context_name: str,
     CE: int,
     RO: int,
@@ -210,7 +211,7 @@ def submit_context(
 @router.post("/{session_id}/submit-all-responses", response_model=SessionOperationResult)
 @router.post("/{session_id}/submit_all_responses", response_model=SessionOperationResult, include_in_schema=False)
 def submit_all_responses(
-    session_id: int,
+    session_id: uuid.UUID,
     payload: SessionSubmissionPayload,
     background_tasks: BackgroundTasks,
     db: Any = Depends(get_db),
@@ -231,7 +232,7 @@ def submit_all_responses(
 
 @router.post("/{session_id}/finalize", response_model=SessionOperationResult)
 def finalize(
-    session_id: int, 
+    session_id: uuid.UUID, 
     background_tasks: BackgroundTasks,
     db: Any = Depends(get_db), 
     current_user: Any = Depends(get_current_user)
@@ -254,7 +255,7 @@ def finalize(
 
 @router.get("/{session_id}/validation", response_model=dict)
 def session_validation(
-    session_id: int, 
+    session_id: uuid.UUID, 
     db: Any = Depends(get_db), 
     viewer: Any | None = Depends(get_current_user_optional)
 ):
@@ -271,7 +272,7 @@ def session_validation(
 
 @router.post("/{session_id}/force_finalize", response_model=SessionOperationResult, include_in_schema=False)
 def force_finalize(
-    session_id: int,
+    session_id: uuid.UUID,
     request: ForceFinalizeRequest,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -316,7 +317,7 @@ def force_finalize(
 
 @router.post("/{session_id}/response", response_model=SingleItemResponse, include_in_schema=False)
 def submit_single_response(
-    session_id: int,
+    session_id: uuid.UUID,
     payload: SingleItemResponsePayload,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -334,7 +335,7 @@ def submit_single_response(
 
 @router.post("/{session_id}/autosave", response_model=SessionOperationResult)
 def autosave_session(
-    session_id: int,
+    session_id: uuid.UUID,
     payload: SessionAutosavePayload,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -352,7 +353,7 @@ def autosave_session(
 
 @router.patch("/{session_id}/responses", status_code=204)
 def upsert_session_responses(
-    session_id: int,
+    session_id: uuid.UUID,
     payload: list[AssessmentItemResponsePayload],
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),

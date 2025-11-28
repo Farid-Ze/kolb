@@ -1,3 +1,4 @@
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 import logging
@@ -7,6 +8,21 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.assessments.constants import (
+    CONTEXT_COUNT_LFI,
+    ITEM_COUNT_KLSI4,
+    LEARNING_MODES,
+    MODE_COUNT,
+    RANK_MAX,
+    RANK_MIN,
+    RANK_SUM_PER_ITEM,
+    TOTAL_RANK_SUM,
+)
+from app.core.errors import (
+    ConfigurationError,
+    DomainError,
+    InvalidAssessmentData,
+    PermissionDeniedError,
+    SessionFinalizedError,
     SessionNotFoundError,
 )
 from app.core.logging import get_logger
@@ -50,6 +66,8 @@ from app.services.gamification_service import gamification_service
 from app.services.sphere_service import sphere_service
 from app.services.grant_service import GrantService, InsufficientCreditsError
 from app.models.klsi.instrument import Instrument
+from app.db.repositories import TeamMemberRepository
+from app.services.rollup import compute_and_cache_team_snapshot
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
@@ -113,7 +131,7 @@ class EngineSessionService:
 
     def session_state(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         user: "User",
         *,
         locale: str | None = None,
@@ -146,7 +164,7 @@ class EngineSessionService:
 
     def autosave_responses(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         user: "User",
         payload: SessionAutosavePayload,
         *,
@@ -229,7 +247,7 @@ class EngineSessionService:
 
     def submit_full_batch(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         user: "User",
         payload: SessionSubmissionPayload,
     ) -> Dict[str, Any]:
@@ -266,12 +284,12 @@ class EngineSessionService:
             self.db.commit()
             final_result = self._transform_finalize_result(result, override=result.get("override", False))
             
-            # [Zenotika V4] Async Provenance Logging
             if "percentiles" in result:
-                 provenance_payload = getattr(result["percentiles"], "_provenance_payload", None)
-                 if provenance_payload:
-                     final_result["_provenance_payload"] = provenance_payload
+                provenance_payload = getattr(result["percentiles"], "_provenance_payload", None)
+                if provenance_payload:
+                    final_result["_provenance_payload"] = provenance_payload
             
+            self._update_user_team_caches(user.id)
             return final_result
         except DomainError:
             self.db.rollback()
@@ -282,7 +300,7 @@ class EngineSessionService:
 
     def submit_interaction(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         user: "User",
         payload: Dict[str, Any],
     ) -> None:
@@ -337,16 +355,15 @@ class EngineSessionService:
         
         # [Zenotika V4] Async Provenance Logging
         # Propagate payload to router for BackgroundTasks
-        if "percentiles" in result:
-             provenance_payload = getattr(result["percentiles"], "_provenance_payload", None)
-             if provenance_payload:
-                 final_result["_provenance_payload"] = provenance_payload
-                 
+        if provenance_payload:
+            final_result["_provenance_payload"] = provenance_payload
+                  
+        self._update_user_team_caches(user.id)
         return final_result
 
     def force_finalize(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         mediator: "User",
         *,
         reason: Optional[str] = None,
@@ -418,7 +435,7 @@ class EngineSessionService:
 
     def _load_native_responses(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
     ) -> list[tuple[UserResponse, int, LearningMode | None]]:
         raw_rows = (
             self.db.query(
@@ -517,7 +534,7 @@ class EngineSessionService:
 
     def _apply_percentiles_native(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         scale: ScaleScore,
         combo: CombinationScore,
     ) -> PercentileScore:
@@ -528,7 +545,7 @@ class EngineSessionService:
 
     def _compute_delta_native(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         combo: CombinationScore,
         lfi: LearningFlexibilityIndex,
         intensity_metrics: Any,
@@ -554,7 +571,7 @@ class EngineSessionService:
 
     def _load_authorized_session(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         user: "User",
     ) -> "AssessmentSession":
         session = self._sessions.get_with_instrument(session_id)
@@ -710,7 +727,7 @@ class EngineSessionService:
         return normalized
 
     @staticmethod
-    def _build_standard_audit_payload(actor_email: str, session_id: int) -> Callable[[Dict[str, Any]], bytes]:
+    def _build_standard_audit_payload(actor_email: str, session_id: uuid.UUID) -> Callable[[Dict[str, Any]], bytes]:
         def _builder(result: Dict[str, Any]) -> bytes:
             combination = result.get("combination")
             lfi = result.get("lfi")
@@ -726,7 +743,7 @@ class EngineSessionService:
     @staticmethod
     def _build_force_override_payload(
         mediator_email: str,
-        session_id: int,
+        session_id: uuid.UUID,
         reason: Optional[str],
     ) -> Callable[[Dict[str, Any]], bytes]:
         def _builder(result: Dict[str, Any]) -> bytes:
@@ -799,8 +816,17 @@ class EngineSessionService:
             "blindspots": blindspots,
             "strengths": strengths,
         }
-        session.is_finalized = True
-        return {"blindspots": blindspots, "strengths": strengths}
+        return session.results_json
+
+    def _update_user_team_caches(self, user_id: int) -> None:
+        """Update summary cache for all teams the user belongs to."""
+        try:
+            team_repo = TeamMemberRepository(self.db)
+            memberships = team_repo.list_by_user(user_id)
+            for membership in memberships:
+                compute_and_cache_team_snapshot(self.db, membership.team_id)
+        except Exception as e:
+            logger.error(f"Failed to update team cache for user {user_id}: {e}")
 
     @staticmethod
     def _percentiles_payload(runtime_percentiles: Any, model_percentiles: Any) -> Optional[Dict[str, Any]]:

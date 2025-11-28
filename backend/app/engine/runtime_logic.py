@@ -247,6 +247,10 @@ def compose_delivery_payload(
                         _localize_options(option_payload, localized_entry)
         items_payload.append(entry)
 
+    # [Zenotika V4] RSC Compatibility (Audit Point 5)
+    # Ensure items are sorted by number to prevent client-side hydration mismatches
+    items_payload.sort(key=lambda x: (x.get("number") is None, x.get("number")))
+
     delivery_section = {
         "forced_choice": getattr(delivery, "forced_choice", None),
         "sections": getattr(delivery, "sections", None),

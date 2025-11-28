@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from typing import Any, Literal, Optional
@@ -137,7 +138,7 @@ def start_engine_session(
 
 @router.get("/sessions/{session_id}/delivery", response_model=dict)
 def get_delivery(
-    session_id: int,
+    session_id: uuid.UUID,
     locale: str | None = None,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -148,7 +149,7 @@ def get_delivery(
 
 @router.get("/sessions/{session_id}/items", response_model=EngineSessionResponse)
 def get_session_items(
-    session_id: int,
+    session_id: uuid.UUID,
     locale: str | None = None,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -159,7 +160,7 @@ def get_session_items(
 
 @router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult, deprecated=True)
 def submit_all_responses(
-    session_id: int,
+    session_id: uuid.UUID,
     payload: SessionSubmissionPayload,
     response: Response,
     db: Any = Depends(get_db),
@@ -182,7 +183,7 @@ def submit_all_responses(
 
 @router.post("/sessions/{session_id}/interactions", response_model=OperationStatus)
 def submit_interaction(
-    session_id: int,
+    session_id: uuid.UUID,
     payload: SubmissionPayload,
     response: Response,
     db: Any = Depends(get_db),
@@ -232,7 +233,7 @@ def engine_metrics(
 
 @router.post("/sessions/{session_id}/finalize", response_model=SessionOperationResult, deprecated=True)
 def finalize_session(
-    session_id: int,
+    session_id: uuid.UUID,
     response: Response,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -250,7 +251,7 @@ def finalize_session(
 
 @router.get("/sessions/{session_id}/validation", response_model=dict)
 def validation_snapshot(
-    session_id: int,
+    session_id: uuid.UUID,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
@@ -261,7 +262,7 @@ def validation_snapshot(
 
 @router.get("/sessions/{session_id}/report", response_model=ReportPayload)
 def engine_report(
-    session_id: int,
+    session_id: uuid.UUID,
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
@@ -272,7 +273,7 @@ def engine_report(
 
 @router.post("/sessions/{session_id}/force_finalize", response_model=SessionOperationResult, deprecated=True)
 def force_finalize_session(
-    session_id: int,
+    session_id: uuid.UUID,
     request: ForceFinalizeRequest,
     response: Response,
     db: Any = Depends(get_db),

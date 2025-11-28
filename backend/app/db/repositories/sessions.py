@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 
 from sqlalchemy import select, func
@@ -16,19 +17,19 @@ from dataclasses import dataclass
 class SessionRepository(Repository[Session]):
     """Repository for assessment session access patterns."""
 
-    def get_by_id(self, session_id: int) -> Optional[AssessmentSession]:
+    def get_by_id(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         return self.db.execute(
             select(AssessmentSession).filter(AssessmentSession.id == session_id)
         ).scalars().first()
 
-    def get_for_user(self, session_id: int, user_id: int) -> Optional[AssessmentSession]:
+    def get_for_user(self, session_id: uuid.UUID, user_id: int) -> Optional[AssessmentSession]:
         return self.db.execute(
             select(AssessmentSession)
             .filter(AssessmentSession.id == session_id)
             .filter(AssessmentSession.user_id == user_id)
         ).scalars().first()
 
-    def is_completed(self, session_id: int) -> bool:
+    def is_completed(self, session_id: uuid.UUID) -> bool:
         count = self.db.execute(
             select(func.count())
             .select_from(AssessmentSession)
@@ -37,7 +38,7 @@ class SessionRepository(Repository[Session]):
         ).scalar()
         return (count or 0) > 0
 
-    def get_with_details(self, session_id: int) -> Optional[AssessmentSession]:
+    def get_with_details(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         """Fetch session with all report-critical relationships eagerly loaded."""
         return self.db.execute(
             select(AssessmentSession)
@@ -54,7 +55,7 @@ class SessionRepository(Repository[Session]):
             .filter(AssessmentSession.id == session_id)
         ).scalars().first()
 
-    def get_with_user(self, session_id: int) -> Optional[AssessmentSession]:
+    def get_with_user(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         """Fetch session with associated user eager-loaded."""
         return self.db.execute(
             select(AssessmentSession)
@@ -62,7 +63,7 @@ class SessionRepository(Repository[Session]):
             .filter(AssessmentSession.id == session_id)
         ).scalars().first()
 
-    def get_with_instrument(self, session_id: int) -> Optional[AssessmentSession]:
+    def get_with_instrument(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         """Fetch a session with instrument relationship eagerly loaded."""
         return self.db.execute(
             select(AssessmentSession)
@@ -70,7 +71,7 @@ class SessionRepository(Repository[Session]):
             .filter(AssessmentSession.id == session_id)
         ).scalars().first()
 
-    def list_lfi_context_scores(self, session_id: int) -> list[LFIContextScore]:
+    def list_lfi_context_scores(self, session_id: uuid.UUID) -> list[LFIContextScore]:
         """Return all LFI context score rows for a session."""
         return list(self.db.execute(
             select(LFIContextScore)
@@ -83,7 +84,7 @@ class SessionRepository(Repository[Session]):
         user_id: int,
         assessment_id: str,
         assessment_version: str,
-        exclude_session_id: int,
+        exclude_session_id: uuid.UUID,
     ) -> Optional[AssessmentSession]:
         """Fetch the most recent completed session for the same assessment, excluding the given session."""
         return self.db.execute(

@@ -68,10 +68,7 @@ class TestLFIPercentileApproaches:
             sd=0.17
         )
         
-        print(f"\nLFI = {lfi_value}")
-        print(f"  Empirical (Appendix 7): {empirical_percentile}%")
-        print(f"  Normal Approximation:   {normal_percentile:.2f}%")
-        print(f"  Difference:             {abs(empirical_percentile - normal_percentile):.2f}%")
+
         
         # Empirical should be more accurate (from actual normative sample)
         assert empirical_percentile == 97.5, "Appendix 7 lookup exact"
@@ -94,9 +91,7 @@ class TestLFIPercentileApproaches:
         empirical_low = _require_lfi_percentile(low_lfi)
         normal_low = self.percentile_normal_approx(low_lfi, mean=0.73, sd=0.17)
         
-        print(f"\nLow LFI = {low_lfi}")
-        print(f"  Empirical: {empirical_low}%")
-        print(f"  Normal:    {normal_low:.2f}%")
+
         
         # Empirical correctly shows 0th percentile (minimum in sample)
         assert empirical_low == 0.0
@@ -109,9 +104,7 @@ class TestLFIPercentileApproaches:
         empirical_high = _require_lfi_percentile(high_lfi)
         normal_high = self.percentile_normal_approx(high_lfi, mean=0.73, sd=0.17)
         
-        print(f"\nHigh LFI = {high_lfi}")
-        print(f"  Empirical: {empirical_high}%")
-        print(f"  Normal:    {normal_high:.2f}%")
+
         
         # Empirical correctly shows 100th percentile
         assert empirical_high == 100.0
@@ -152,9 +145,7 @@ class TestLFIPercentileApproaches:
         empirical_median = _require_lfi_percentile(median_lfi)
         normal_at_075 = self.percentile_normal_approx(0.75, mean=0.73, sd=0.17)
         
-        print(f"\nMedian LFI = {median_lfi}")
-        print(f"  Empirical percentile: {empirical_median}%")
-        print(f"  Normal approx:        {normal_at_075:.2f}%")
+
         
         # Empirical shows 50th percentile (exact from data)
         assert empirical_median == 50.0, "Appendix 7 shows 0.75 = 50th percentile"
@@ -227,12 +218,7 @@ class TestLFIPercentilePractical:
         else:
             level = "High"
         
-        print(f"\nWorked Example Interpretation:")
-        print(f"  LFI Score:        {lfi}")
-        print(f"  Percentile:       {percentile}%")
-        print(f"  Flexibility:      {level}")
-        print(f"  Interpretation:   Top 3% of learners in adaptability")
-        print(f"  Context:          Varies learning approach significantly across situations")
+
         
         assert percentile == 97.5, "From Appendix 7"
         assert level == "High", "97.5% is well above 66.67% threshold"
@@ -264,10 +250,7 @@ class TestNormGroupStrategyComparison:
             lfi, mean=0.72, sd=0.17
         )
         
-        print(f"\nLFI = {lfi}")
-        print(f"  Total group:   {total_perc:.2f}%")
-        print(f"  Medical group: {medical_perc:.2f}%")
-        print(f"  Difference:    {abs(total_perc - medical_perc):.2f}%")
+
         
         # Different groups give different percentiles (as expected)
         assert abs(total_perc - medical_perc) > 1.0, (

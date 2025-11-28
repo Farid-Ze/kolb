@@ -58,15 +58,19 @@ class ScorePreviewRequest(CamelModel):
 
 
 class ScorePreviewRaw(CamelModel):
-    ce: int
-    ro: int
-    ac: int
-    ae: int
-    acce: int
-    aero: int
-    acc_assm: int
-    accom_minus_assim: int
-    conv_div: int
+    ce: int = Field(ge=12, le=48, description="Concrete Experience raw score (12-48)")
+    ro: int = Field(ge=12, le=48, description="Reflective Observation raw score (12-48)")
+    ac: int = Field(ge=12, le=48, description="Abstract Conceptualization raw score (12-48)")
+    ae: int = Field(ge=12, le=48, description="Active Experimentation raw score (12-48)")
+    acce: int = Field(ge=-36, le=36, description="AC-CE dialectic score (-36 to +36)")
+    aero: int = Field(ge=-36, le=36, description="AE-RO dialectic score (-36 to +36)")
+    acc_assm: int = Field(ge=-72, le=72, description="Accommodating-Assimilating dimension (AC+RO) - (AE+CE)")
+    accom_minus_assim: int = Field(ge=-72, le=72, description="Inverse of acc_assm")
+    conv_div: int = Field(
+        ge=-72, 
+        le=72, 
+        description="Converging-Diverging dimension (AC+AE) - (CE+RO). Positive = Converging, Negative = Diverging."
+    )
 
 
 class ScorePreviewStyle(CamelModel):

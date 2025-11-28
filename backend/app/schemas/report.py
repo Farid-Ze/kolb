@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Any, Mapping
 
@@ -6,7 +7,7 @@ from app.schemas.base import CamelModel
 
 class ReportShareContext(CamelModel):
     share_id: int
-    session_id: int
+    session_id: uuid.UUID
     mediator_email: str | None = None
     mediator_name: str | None = None
     owner_name: str | None = None
@@ -36,7 +37,7 @@ class ReportDialecticSummary(CamelModel):
 
 
 class ReportLongitudinalSummary(CamelModel):
-    previous_session_id: int | None = None
+    previous_session_id: uuid.UUID | None = None
     previous_session_date: datetime | None = None
     time_elapsed_days: int | None = None
     delta_acce: int | None = None
@@ -46,7 +47,7 @@ class ReportLongitudinalSummary(CamelModel):
 
 
 class ReportSummaryPayload(CamelModel):
-    session_id: int
+    session_id: uuid.UUID
     generated_at: datetime | None = None
     learning_style: ReportStyleSummary | None = None
     nine_style: ReportStyleSummary | None = None
@@ -58,20 +59,20 @@ class ReportSummaryPayload(CamelModel):
 from typing import Literal, Union
 
 class ReportPayloadBase(CamelModel):
-    session_id: int
+    session_id: uuid.UUID
     generated_at: datetime | None = None
     kind: str
 
 
 class IndividualReportPayload(ReportPayloadBase):
     kind: Literal["individual"] = "individual"
-    raw: Mapping[str, Any] | None = None
-    percentiles: Mapping[str, Any] | None = None
-    style: Mapping[str, Any] | None = None
-    lfi: Mapping[str, Any] | None = None
+    raw: Mapping[str, Any]
+    percentiles: Mapping[str, Any]
+    style: Mapping[str, Any]
+    lfi: Mapping[str, Any]
+    analytics: Mapping[str, Any]
     visualization: Mapping[str, Any] | None = None
     session_designs: list[Mapping[str, Any]] | None = None
-    analytics: Mapping[str, Any] | None = None
     learning_space: Mapping[str, Any] | None = None
     enhanced_analytics: Mapping[str, Any] | None = None
     notes: Mapping[str, Any] | None = None

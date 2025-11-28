@@ -1,3 +1,4 @@
+import uuid
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -29,10 +30,11 @@ class ReportShareService:
         self._sessions = SessionRepository(db)
         self._users = UserRepository(db)
 
+
     def create_share(
         self,
         *,
-        session_id: int,
+        session_id: uuid.UUID,
         owner: User,
         mediator_email: str,
         expires_in_hours: int,

@@ -1,11 +1,11 @@
+import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.klsi.assessment import AssessmentSession
@@ -20,7 +20,7 @@ class ReportShareLink(Base):
     __tablename__ = "report_share_links"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("assessment_sessions.id"), index=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assessment_sessions.id"), index=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     mediator_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     mediator_email: Mapped[str] = mapped_column(String(255))

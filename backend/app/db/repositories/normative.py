@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, and_, or_
 from sqlalchemy.orm import Session
 
 from app.db.repositories.base import Repository
@@ -22,13 +22,7 @@ class NormativeConversionRepository(Repository[Session]):
     """Repository for normative conversion lookups."""
 
     def __post_init__(self) -> None:
-        bind = None
-        try:
-            bind = self.db.get_bind()
-        except Exception:
-            bind = None
-        dialect_name = getattr(getattr(bind, "dialect", None), "name", "") if bind else ""
-        self._is_sqlite = dialect_name == "sqlite"
+        pass
 
     def fetch_batch(
         self,
@@ -41,53 +35,39 @@ class NormativeConversionRepository(Repository[Session]):
         if not normalized_versions:
             return []
 
-        normalized_pairs: Dict[str, List[int]] = {}
+        # Build OR-conditions for (scale, raw_score) pairs
+        pair_conditions = []
         for scale, raws in scale_to_raws.items():
-            unique_values = sorted({int(value) for value in raws})
-            if unique_values:
-                normalized_pairs[scale] = unique_values
-        if not normalized_pairs:
+            unique_raws = sorted({int(r) for r in raws})
+            if unique_raws:
+                pair_conditions.append(
+                    and_(
+                        NormativeConversionTable.scale_name == scale,
+                        NormativeConversionTable.raw_score.in_(unique_raws)
+                    )
+                )
+        
+        if not pair_conditions:
             return []
 
-        params: Dict[str, object] = {"g": norm_group}
-        version_clauses: List[str] = []
-        for idx, version in enumerate(normalized_versions):
-            params[f"v{idx}"] = version
-            version_clauses.append(f"norm_version=:v{idx}")
-
-        where_clauses: List[str] = []
-        for idx, (scale, raw_values) in enumerate(normalized_pairs.items()):
-            params[f"s{idx}"] = scale
-            if self._is_sqlite:
-                joined = ",".join(str(value) for value in raw_values)
-                where_clauses.append(
-                    f"(scale_name=:s{idx} AND raw_score IN ({joined}))"
-                )
-            else:
-                params[f"rs{idx}"] = tuple(raw_values)
-                where_clauses.append(
-                    f"(scale_name=:s{idx} AND raw_score = ANY(:rs{idx}))"
-                )
-
-        if not where_clauses:
-            return []
-
-        sql = f"""
-            SELECT norm_group, norm_version, scale_name, raw_score, percentile
-            FROM normative_conversion_table
-            WHERE norm_group=:g AND ({' OR '.join(version_clauses)})
-              AND ({' OR '.join(where_clauses)})
-        """
-        rows = self.db.execute(text(sql), params).fetchall()
+        stmt = (
+            select(NormativeConversionTable)
+            .where(NormativeConversionTable.norm_group == norm_group)
+            .where(NormativeConversionTable.norm_version.in_(normalized_versions))
+            .where(or_(*pair_conditions))
+        )
+        
+        results = self.db.execute(stmt).scalars().all()
+        
         return [
             NormativeConversionRow(
-                norm_group=str(row[0]),
-                norm_version=str(row[1]) if row[1] is not None else None,
-                scale_name=str(row[2]),
-                raw_score=int(row[3]),
-                percentile=float(row[4]),
+                norm_group=row.norm_group,
+                norm_version=row.norm_version,
+                scale_name=row.scale_name,
+                raw_score=row.raw_score,
+                percentile=row.percentile,
             )
-            for row in rows
+            for row in results
         ]
 
     def fetch_one(
