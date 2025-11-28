@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import uuid4, UUID
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -99,7 +99,10 @@ def _build_batch_payload(item_patterns: list[dict[str, int]], context_patterns: 
         payload_items: list[dict[str, object]] = []
         for idx, item in enumerate(items):
             pattern = item_patterns[idx]
-            ranks = {choice.id: pattern[choice.learning_mode.value] for choice in item.choices}
+            ranks = [
+                {"choice_id": choice.id, "rank": pattern[choice.learning_mode.value]}
+                for choice in item.choices
+            ]
             payload_items.append({"item_id": item.id, "ranks": ranks})
     payload_contexts = []
     for idx, context_name in enumerate(CONTEXT_NAMES):
@@ -119,9 +122,10 @@ def _build_batch_payload(item_patterns: list[dict[str, int]], context_patterns: 
 def _legacy_submit_all(client, payload):
     _, token = _create_user()
     headers = {"Authorization": f"Bearer {token}"}
-    r_start = client.post("/sessions/start", headers=headers)
+    r_start = client.post("/sessions/start", json={"instrument_code": "KLSI"}, headers=headers)
     assert r_start.status_code == 200, r_start.text
-    session_id = r_start.json()["sessionId"]
+    session_id_str = r_start.json()["sessionId"]
+    session_id = UUID(session_id_str)
 
     # [Fix] Age the session to bypass "too fast" validation
     with SessionLocal() as db:
@@ -148,7 +152,8 @@ def _engine_submit_all(client, payload):
         headers=headers,
     )
     assert r_start.status_code == 200, r_start.text
-    session_id = r_start.json()["sessionId"]
+    session_id_str = r_start.json()["sessionId"]
+    session_id = UUID(session_id_str)
 
     # [Fix] Age the session to bypass "too fast" validation
     with SessionLocal() as db:

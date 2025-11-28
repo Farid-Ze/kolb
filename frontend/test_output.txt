@@ -1,0 +1,29 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] › e2e\integration.spec.ts:4:5 › Integration Flow › should complete full assessment flow
+[1A[2K  1) [chromium] › e2e\integration.spec.ts:4:5 › Integration Flow › should complete full assessment flow 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByLabel('Full Name')[22m
+
+
+       9 |
+      10 |         await page.goto('/register');
+    > 11 |         await page.getByLabel('Full Name').fill('Integration Test User');
+         |                                            ^
+      12 |         await page.getByLabel('Email').fill(email);
+      13 |         await page.getByLabel('Password').fill(password);
+      14 |         await page.getByRole('button', { name: /register/i }).click();
+        at A:\dev\Kaderisasi\kolb\frontend\e2e\integration.spec.ts:11:44
+
+    Error Context: test-results\integration-Integration-Fl-9e940-mplete-full-assessment-flow-chromium\error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] › e2e\integration.spec.ts:4:5 › Integration Flow › should complete full assessment flow 
+
+[36m  Serving HTML report at http://localhost:61629. Press Ctrl+C to quit.[39m

@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Header, HTTPException, Depends
-from jose import jwt, JWTError
+from jose import jwt
+from jose.exceptions import JWTError, ExpiredSignatureError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -11,15 +12,19 @@ from app.core.config import settings
 from app.db.repositories import UserRepository
 from app.i18n.id_messages import AuthorizationMessages, SecurityMessages
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from app.i18n.id_messages import AuthorizationMessages, SecurityMessages
+
+import bcrypt
+
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return pwd_context.verify(password, hashed)
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 
 def create_access_token(subject: str, expires_minutes: Optional[int] = None) -> str:
@@ -123,9 +128,9 @@ def decode_access_token(token: str) -> dict:
             raise ValueError(SecurityMessages.TOKEN_MISSING_SUB)
             
         return payload
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise ValueError(SecurityMessages.TOKEN_EXPIRED)
-    except (jwt.JWTError, ValueError) as e:
+    except (JWTError, ValueError) as e:
         raise ValueError(str(e))
 
 
@@ -138,14 +143,6 @@ def verify_refresh_token(token: str) -> str:
         return payload["sub"]
     except Exception:
         raise ValueError("Invalid refresh token")
-        
-        return payload
-        
-    except JWTError as e:
-        # Map jose errors to ValueError for consistent exception handling
-        raise ValueError(SecurityMessages.INVALID_JWT_TOKEN.format(detail=str(e)))
-    except Exception as e:
-        raise ValueError(SecurityMessages.TOKEN_VALIDATION_FAILED.format(detail=str(e)))
 
 
 from fastapi.security import OAuth2PasswordBearer

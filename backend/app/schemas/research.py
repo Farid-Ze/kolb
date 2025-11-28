@@ -17,25 +17,6 @@ class ResearchStudyCreate(CamelModel):
 class ResearchStudyUpdate(CamelModel):
     title: Optional[str] = Field(default=None, max_length=200)
     description: Optional[str] = Field(default=None, max_length=1000)
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
-from pydantic import ConfigDict, Field
-
-from app.schemas.base import CamelModel
-
-
-class ResearchStudyCreate(CamelModel):
-    title: str = Field(min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=1000)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    notes: Optional[str] = Field(default=None, max_length=1000)
-
-
-class ResearchStudyUpdate(CamelModel):
-    title: Optional[str] = Field(default=None, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=1000)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     notes: Optional[str] = Field(default=None, max_length=1000)

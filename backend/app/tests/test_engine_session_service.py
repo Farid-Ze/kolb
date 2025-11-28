@@ -12,6 +12,7 @@ from app.schemas.session import (
     AutosaveItemRank,
     ContextRank,
     ItemRank,
+    ItemChoiceRank,
     SessionAutosavePayload,
     SessionSubmissionPayload,
 )
@@ -25,13 +26,13 @@ def _build_payload() -> SessionSubmissionPayload:
     items: list[ItemRank] = []
     base_choice = 1000
     for idx in range(12):
-        ranks = {
-            base_choice + idx * 10 + 1: 1,
-            base_choice + idx * 10 + 2: 2,
-            base_choice + idx * 10 + 3: 3,
-            base_choice + idx * 10 + 4: 4,
-        }
-        items.append(ItemRank(item_id=idx + 1, ranks=ranks))
+        ranks_list = [
+            ItemChoiceRank(choice_id=base_choice + idx * 10 + 1, rank=1),
+            ItemChoiceRank(choice_id=base_choice + idx * 10 + 2, rank=2),
+            ItemChoiceRank(choice_id=base_choice + idx * 10 + 3, rank=3),
+            ItemChoiceRank(choice_id=base_choice + idx * 10 + 4, rank=4),
+        ]
+        items.append(ItemRank(item_id=idx + 1, ranks=ranks_list))
     contexts: list[ContextRank] = []
     for idx, name in enumerate(CONTEXT_NAMES):
         contexts.append(

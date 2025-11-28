@@ -7,9 +7,11 @@ import app.engine.registry as assessment_registry
 import app.engine.strategy_registry as strategy_registry
 from app.assessments.klsi_v4 import logic
 from app.assessments.klsi_v4.definition import KLSIAssessmentDefinition  # noqa: F401 ensures registration
+# Ensure KLSI4 plugin is registered for runtime tests
+import app.instruments.klsi4.plugin  # noqa: F401
 
 from app.models.klsi.assessment import AssessmentSession
-from app.models.klsi.instrument import Instrument
+from app.models.klsi.instrument import Instrument, ScoringPipeline
 from app.models.klsi.learning import CombinationScore, ScaleProvenance, ScaleScore
 from app.models.klsi.norms import PercentileScore
 from app.models.klsi.user import User
@@ -175,6 +177,7 @@ def test_finalize_artifacts_match_between_strategy_and_manual_paths():
         session_strategy = seed_complete_session(db)
         result_strategy = finalize_session(db, session_strategy.id)
         assert result_strategy["ok"] is True
+        assert session_strategy.user is not None
         session_strategy.user.email = "strategy-user@example.com"
         db.flush()
 
@@ -206,6 +209,7 @@ def test_engine_runtime_finalize_with_audit_matches_manual_path_artifacts():
         session_strategy = seed_complete_session(db)
         strategy_result = finalize_session(db, session_strategy.id)
         assert strategy_result["ok"] is True
+        assert session_strategy.user is not None
         session_strategy.user.email = "runtime-strategy@example.com"
         db.flush()
 
@@ -352,19 +356,73 @@ def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
         db.close()
 
 
-def test_runtime_start_session_sets_pipeline_version():
+def test_runtime_start_session_sets_pipeline_version(monkeypatch):
     db = build_seeded_memory_db()
     runtime = EngineRuntime()
+    
+    # Patch get_instrument_spec to avoid loading full spec
+    monkeypatch.setattr("app.engine.runtime.get_instrument_spec", lambda c, v: None)
+    from app.engine.interfaces import InstrumentId, DeliveryConfig
+    class DummyPlugin:
+        def id(self): return InstrumentId("TEST_INST", "1.0")
+        def fetch_items(self, db, session_id): return []
+        def delivery(self): return DeliveryConfig(forced_choice=True)
+        def validate_submit(self, db, session_id, payload): pass
+    
+    # Register dummy plugin
+    assessment_registry.engine_registry.register_plugin(DummyPlugin())
+    
+    class DummyReportComposer:
+        def build(self, db, session_id, viewer_role=None, locale="id"): return {}
+
+    # Register dummy assessment definition
+    class DummyDefinition:
+        id = "TEST_INST"
+        version = "1.0"
+        item_count = 0
+        context_count = 0
+        steps = []
+        def validation_rules(self): return []
+        def norm_scales(self): return []
+        def report_composer(self): return DummyReportComposer()
+    assessment_registry.register(DummyDefinition())
+    assessment_registry.register(DummyDefinition())
+
     try:
+        # Create instrument in DB
+        instrument = Instrument(
+            code="TEST_INST",
+            name="Test Instrument",
+            version="1.0",
+            default_strategy_code=None,
+            description=None,
+            is_active=True,
+        )
+        db.add(instrument)
+        db.flush()
+
+        # Create pipeline
+        pipeline = ScoringPipeline(
+            instrument_id=instrument.id,
+            pipeline_code="TEST_INST",
+            version="v1",
+            is_active=True,
+            description="Test Pipeline"
+        )
+        db.add(pipeline)
+        
         user = User(full_name="Runtime User", email="runtime_user@example.com")
         db.add(user)
         db.flush()
 
-        session = runtime.start_session(db, user, "KLSI", "4.0")
-        assert session.pipeline_version == "KLSI4.0:v1"
+        session = runtime.start_session(db, user, "TEST_INST", "1.0")
+        assert session.pipeline_version == "TEST_INST:v1"
     finally:
         db.close()
-
+        # Cleanup registry
+        assessment_registry.assessment_registry.remove("TEST_INST", "1.0")
+        # EngineRegistry doesn't have remove, but we can ignore it or clear if needed.
+        # Ideally we should clean up engine_registry too but it lacks granular remove.
 
 def test_finalize_dependency_guard_raises_when_artifact_missing():
     db = build_seeded_memory_db()

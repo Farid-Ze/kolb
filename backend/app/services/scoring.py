@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,7 @@ from app.assessments.klsi_v4.logic import (
     compute_combination_scores as logic_compute_combination_scores,
     compute_kendalls_w,
     compute_lfi as logic_compute_lfi,
+    compute_longitudinal_delta as logic_compute_longitudinal_delta,
     compute_raw_scale_scores as logic_compute_raw_scale_scores,
     resolve_norm_groups as logic_resolve_norm_groups,
     validate_lfi_context_ranks,
@@ -38,17 +40,18 @@ __all__ = [
     "validate_lfi_context_ranks",
     "compute_kendalls_w",
     "compute_raw_scale_scores",
-    "compute_combination_scores",
     "assign_learning_style",
     "compute_lfi",
+    "compute_longitudinal_delta",
     "apply_percentiles",
+    "finalize_session",
     "finalize_session",
     "resolve_norm_groups",
     "_resolve_norm_groups",
 ]
 
 
-def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
+def compute_raw_scale_scores(db: Session, session_id: UUID) -> ScaleScore:
     """Aggregate forced-choice ranks into mode totals.
 
     KLSI instructions treat rank ``4`` as "most like me" and ``1`` as
@@ -61,7 +64,6 @@ def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
         - session_id must exist in database
         - session must have responses for all 12 items
     """
-    assert session_id > 0, "session_id must be positive"
     return logic_compute_raw_scale_scores(db, session_id)
 
 
@@ -74,9 +76,12 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> UserLearningS
     user_style, _intensity = logic_assign_learning_style(db, combo)
     return user_style
 
-
-def compute_lfi(db: Session, session_id: int):
+def compute_lfi(db: Session, session_id: UUID):
     return logic_compute_lfi(db, session_id)
+
+
+def compute_longitudinal_delta(db: Session, session_id: UUID, combo: CombinationScore, lfi: Any, intensity_metrics: Any):
+    return logic_compute_longitudinal_delta(db, session_id, combo, lfi, intensity_metrics)
 
 
 def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore):
@@ -133,15 +138,15 @@ def apply_percentiles(db: Session, scale: ScaleScore, combo: CombinationScore):
     return logic_apply_percentiles(db, session_id, scale, combo, group_chain=group_chain)
 
 
-def resolve_norm_groups(db: Session, session_id: int):
+def resolve_norm_groups(db: Session, session_id: UUID):
     return logic_resolve_norm_groups(db, session_id)
 
 
-def _resolve_norm_groups(db: Session, session_id: int):  # legacy alias for tests/backwards compat
+def _resolve_norm_groups(db: Session, session_id: UUID):  # legacy alias for tests/backwards compat
     return resolve_norm_groups(db, session_id)
 
 
-def finalize_session(db: Session, session_id: int, *, skip_checks: bool = False) -> Dict[str, Any]:
+def finalize_session(db: Session, session_id: UUID, *, skip_checks: bool = False) -> Dict[str, Any]:
     session_repo = SessionRepository(db)
     session = session_repo.get_by_id(session_id)
     if not session:

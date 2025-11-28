@@ -1,4 +1,5 @@
 import pytest
+from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.engine.strategy_registry import StrategyRegistry
@@ -8,7 +9,7 @@ class _DummyStrategy:
     def __init__(self, code: str):
         self.code = code
 
-    def finalize(self, db: Session, session_id: int):  # pragma: no cover - unused
+    def finalize(self, db: Session, session_id: UUID):  # pragma: no cover - unused
         return {}
 
 

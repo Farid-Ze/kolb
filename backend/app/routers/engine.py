@@ -22,6 +22,7 @@ from app.schemas.session import (
     OperationStatus,
     SessionListResponse,
     EngineSessionResponse,
+    StartSessionRequest,
 )
 from app.db.repositories import SessionRepository
 from app.core.errors import InstrumentNotFoundError, PermissionDeniedError
@@ -55,11 +56,6 @@ def list_sessions(
     repo = SessionRepository(db)
     sessions = repo.get_by_user(current_user.id, skip=skip, limit=limit)
     return sessions
-
-
-class StartSessionRequest(CamelModel):
-    instrument_code: str
-    instrument_version: Optional[str] = None
 
 
 class SubmissionPayload(CamelModel):

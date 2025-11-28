@@ -16,14 +16,12 @@ __all__ = [
 
 
 def UUID_FACTORY():
-    try:
-        return uuid.uuid7()
-    except AttributeError:
-        return uuid.uuid4()
+    return uuid.uuid4()
 
 
 class AssessmentSession(Base):
     __tablename__ = "assessment_sessions"
+    __allow_unmapped__ = True
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=UUID_FACTORY)
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
@@ -33,6 +31,10 @@ class AssessmentSession(Base):
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.started)
     assessment_id: Mapped[str] = mapped_column(String(40), default="KLSI")
+    assessment_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    instrument_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    pipeline_version: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    results_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     
     scale_score: Mapped[Optional["ScaleScore"]] = relationship(back_populates="session", uselist=False)
     combination_score: Mapped[Optional["CombinationScore"]] = relationship(back_populates="session", uselist=False)
@@ -52,6 +54,14 @@ class AssessmentSession(Base):
         back_populates="sessions",
         viewonly=True,  # Avoid accidental writes via this relationship for now
     )
+
+    # Transient / Non-mapped attributes
+    strategy_code: str | None = None
+    days_since_last_session: int | None = None
+
+    @property
+    def is_finalized(self) -> bool:
+        return self.status == SessionStatus.completed
 
 
 class AssessmentSessionDelta(Base):

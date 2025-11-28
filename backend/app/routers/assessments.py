@@ -51,7 +51,7 @@ def get_latest_assessment(
 
     results = payload["results"]
     response = AssessmentSessionResponse(
-        session_id=payload["id"],
+        sessionId=str(payload["id"]),
         date=payload["date"],
         status=payload.get("status", "completed"),
         results=AssessmentResults(**results),

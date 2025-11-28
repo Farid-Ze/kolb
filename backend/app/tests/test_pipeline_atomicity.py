@@ -1,6 +1,7 @@
 import pytest
 from collections.abc import Iterator
 from itertools import count
+from uuid import UUID
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -44,8 +45,8 @@ def _new_session(db: Session) -> AssessmentSession:
     return session
 
 
-def _stage_insert_then_maybe_fail(failing_session_id: int | None):
-    def _stage(db: Session, session_id: int) -> dict:
+def _stage_insert_then_maybe_fail(failing_session_id: UUID | None):
+    def _stage(db: Session, session_id: UUID) -> dict:
         db.add(
             ScaleScore(
                 session_id=session_id,

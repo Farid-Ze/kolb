@@ -112,7 +112,7 @@ def refresh_token_endpoint(payload: RefreshRequest, db: Any = Depends(get_db)):
         raise HTTPException(status_code=401, detail=AuthMessages.INVALID_REFRESH_TOKEN)
         
     user_repo = UserRepository(db)
-    user = user_repo.get_by_id(int(user_id))
+    user = user_repo.get(int(user_id))
     if not user:
         raise HTTPException(status_code=401, detail=AuthMessages.USER_NOT_FOUND)
         

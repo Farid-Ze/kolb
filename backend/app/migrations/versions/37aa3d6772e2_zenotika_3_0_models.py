@@ -155,8 +155,8 @@ def upgrade() -> None:
 
     session_columns = {col["name"] for col in inspector.get_columns("assessment_sessions")}
     if "is_finalized" not in session_columns:
-        op.add_column("assessment_sessions", sa.Column("is_finalized", sa.Boolean(), nullable=False, server_default='false'))
-        op.execute("UPDATE assessment_sessions SET is_finalized = 0 WHERE is_finalized IS NULL")
+        op.add_column("assessment_sessions", sa.Column("is_finalized", sa.Boolean(), nullable=False, server_default=sa.text("false")))
+        op.execute("UPDATE assessment_sessions SET is_finalized = FALSE WHERE is_finalized IS NULL")
         op.alter_column("assessment_sessions", "is_finalized", server_default=None)
     if "results_json" not in session_columns:
         op.add_column("assessment_sessions", sa.Column("results_json", sa.JSON(), nullable=True))

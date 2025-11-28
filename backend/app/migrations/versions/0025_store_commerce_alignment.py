@@ -81,6 +81,9 @@ def _recreate_store_orders(bind) -> None:
     if not needs_rebuild:
         return
 
+    # Force clean state for new table
+    op.execute("DROP TABLE IF EXISTS store_orders_new CASCADE")
+
     op.create_table(
         "store_orders_new",
         sa.Column("id", sa.String(length=50), primary_key=True),
@@ -90,7 +93,7 @@ def _recreate_store_orders(bind) -> None:
         sa.Column("snap_token", sa.String(length=255), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
     )
-    op.create_index("ix_store_orders_user_id", "store_orders_new", ["user_id"])
+    # Index creation moved to after drop_table to avoid name collision
 
     if columns:
         copy_stmt = text(
@@ -100,6 +103,9 @@ def _recreate_store_orders(bind) -> None:
         )
         bind.execute(copy_stmt)
         op.drop_table("store_orders")
+
+    # Create index after old table (and its index) are gone
+    op.create_index("ix_store_orders_user_id", "store_orders_new", ["user_id"])
 
     op.rename_table("store_orders_new", "store_orders")
 

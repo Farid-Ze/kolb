@@ -3,6 +3,7 @@ from datetime import date, datetime
 from functools import lru_cache
 from threading import RLock
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union, cast
+from uuid import UUID
 
 from cachetools import LRUCache
 from sqlalchemy.orm import Session
@@ -294,7 +295,7 @@ def _age_to_band(user: User, reference_date: Optional[date]) -> Optional[str]:
     return ">64"
 
 
-def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
+def resolve_norm_groups(db: Session, session_id: UUID) -> List[str]:
     session_repo = SessionRepository(db)
     sess = session_repo.get_with_user(session_id)
     user: Optional[User] = sess.user if sess else None
@@ -324,7 +325,7 @@ def resolve_norm_groups(db: Session, session_id: int) -> List[str]:
     return ordered
 
 
-def compute_raw_scale_scores(db: Session, session_id: int) -> ScaleScore:
+def compute_raw_scale_scores(db: Session, session_id: UUID) -> ScaleScore:
     """Sum forced-choice ranks for each learning mode.
 
     The KLSI 4.0 manual (Guide p.44 & Appendix 1) specifies that participants
@@ -543,7 +544,7 @@ def _db_norm_lookup(
     return None, None
 
 
-def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None = None) -> LearningFlexibilityIndex:
+def compute_lfi(db: Session, session_id: UUID, norm_provider: NormProvider | None = None) -> LearningFlexibilityIndex:
     context_repo = LFIContextRepository(db)
     cfg = _cfg()
     rows = context_repo.list_for_session(session_id)
@@ -620,7 +621,7 @@ def compute_lfi(db: Session, session_id: int, norm_provider: NormProvider | None
 
 def apply_percentiles(
     db: Session,
-    session_id: int,
+    session_id: UUID,
     scale: ScaleScore,
     combo: CombinationScore,
     norm_provider: NormProvider | None = None,
@@ -760,7 +761,7 @@ def apply_percentiles(
 
 def compute_longitudinal_delta(
     db: Session,
-    session_id: int,
+    session_id: UUID,
     combo: CombinationScore,
     lfi: LearningFlexibilityIndex,
     intensity_metrics: StyleIntensityMetrics,
@@ -769,10 +770,14 @@ def compute_longitudinal_delta(
     session = session_repo.get_by_id(session_id)
     if not session or not session.user_id:
         return None
+    
+    # Ensure assessment_version is a string (default to "4.0" if None)
+    version = session.assessment_version or "4.0"
+    
     previous = session_repo.get_previous_completed_session(
         user_id=session.user_id,
         assessment_id=session.assessment_id,
-        assessment_version=session.assessment_version,
+        assessment_version=version,
         exclude_session_id=session_id,
     )
     if not previous:

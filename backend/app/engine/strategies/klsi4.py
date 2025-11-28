@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -19,7 +20,7 @@ class KLSI4Strategy(ScoringStrategy):
 
     @count_calls("pipeline.klsi4.finalize.calls")
     @measure_time("pipeline.klsi4.finalize", histogram=True)
-    def finalize(self, db: Session, session_id: int) -> Dict[str, Any]:
+    def finalize(self, db: Session, session_id: UUID, *, skip_checks: bool = False) -> Dict[str, Any]:
         with timer("pipeline.klsi4.finalize"):
             # Compute pipeline artifacts; defer flush until dependent graphs are ready
             scale = compute_raw_scale_scores(db, session_id)

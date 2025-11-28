@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from typing import Any, Dict, List
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -19,7 +20,7 @@ from app.i18n.id_messages import (
 )
 
 
-def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
+def check_session_complete(db: Session, session_id: UUID) -> Dict[str, Any]:
     """Validate completeness & consistency of a session's ipsative rankings.
 
     Returns dict with:
@@ -101,7 +102,7 @@ def check_session_complete(db: Session, session_id: int) -> Dict[str, Any]:
     }
 
 
-def run_session_validations(db: Session, session_id: int) -> Dict[str, Any]:
+def run_session_validations(db: Session, session_id: UUID) -> Dict[str, Any]:
     """Aggregate validation checks for session readiness prior to finalization."""
 
     issues: List[Dict[str, Any]] = []

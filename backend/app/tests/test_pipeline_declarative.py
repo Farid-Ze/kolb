@@ -1,6 +1,7 @@
 """Tests for declarative pipeline functionality."""
 
 from typing import cast
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy.orm import Session
@@ -18,7 +19,7 @@ class MockStage:
         self._return_value = return_value or {"stage_result": name}
         self.called = False
     
-    def __call__(self, db: Session, session_id: int) -> dict:
+    def __call__(self, db: Session, session_id: UUID) -> dict:
         self.called = True
         return self._return_value
     
@@ -57,7 +58,8 @@ def test_pipeline_execution_sequential():
     )
     
     # Mock db and session_id
-    result = pipeline.execute(db=_DUMMY_SESSION, session_id=123)
+    sid = uuid4()
+    result = pipeline.execute(db=_DUMMY_SESSION, session_id=sid)
     
     # Both stages should have been called
     assert stage1.called
@@ -75,7 +77,7 @@ def test_pipeline_execution_error_handling():
     """Test that pipeline handles stage failures."""
     stage1 = MockStage("stage1")
     
-    def failing_stage(db: Session, session_id: int) -> dict:
+    def failing_stage(db: Session, session_id: UUID) -> dict:
         raise ValueError("Stage failed")
     failing_stage.__name__ = "failing_stage"
     
@@ -86,7 +88,7 @@ def test_pipeline_execution_error_handling():
     )
     
     with pytest.raises(ValueError):
-        pipeline.execute(db=_DUMMY_SESSION, session_id=123)
+        pipeline.execute(db=_DUMMY_SESSION, session_id=uuid4())
 
 
 def test_pipeline_immutability():

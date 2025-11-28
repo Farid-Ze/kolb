@@ -60,11 +60,13 @@ class ScoringPipeline(Base):
     description: Mapped[Optional[str]] = mapped_column(String(500))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     metadata_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     instrument: Mapped["Instrument"] = relationship(back_populates="pipelines")
     nodes: Mapped[list["ScoringPipelineNode"]] = relationship(
-        back_populates="pipeline", order_by="ScoringPipelineNode.execution_order"
+        back_populates="pipeline",
+        order_by="ScoringPipelineNode.execution_order",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (UniqueConstraint("instrument_id", "pipeline_code", "version", name="uq_scoring_pipeline"),)

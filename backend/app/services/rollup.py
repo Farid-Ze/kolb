@@ -77,7 +77,7 @@ def compute_and_cache_team_snapshot(db: Session, team_id: int) -> Dict[str, Any]
     if not team:
         raise ValueError("team_not_found")
 
-    member_points = analytics_repo.fetch_team_member_points(team_id)
+    member_points = analytics_repo.fetch_latest_member_points(team_id)
 
     acce_values = []
     aero_values = []
@@ -145,3 +145,6 @@ def compute_and_cache_team_snapshot(db: Session, team_id: int) -> Dict[str, Any]
     db.flush()
     
     return snapshot
+
+
+build_team_rollup_snapshot = compute_and_cache_team_snapshot

@@ -6,15 +6,21 @@ prevents point loss under concurrent access.
 """
 import threading
 import time
+import pytest
 from sqlalchemy.orm import Session
 
-from app.db.database import SessionLocal
+from app.db.database import SessionLocal, engine
 from app.models.klsi.user import User
 from app.services.gamification_service import GamificationService
 
 
 def test_concurrent_points_addition():
     """Verify that concurrent point additions don't lose updates (race condition test)."""
+    
+    # Skip if SQLite, as it doesn't support SELECT FOR UPDATE
+    if engine.dialect.name == "sqlite":
+        pytest.skip("SQLite does not support SELECT FOR UPDATE, skipping concurrency test")
+
     # Setup: Create a test user with 0 points
     with SessionLocal() as db:
         test_user = User(

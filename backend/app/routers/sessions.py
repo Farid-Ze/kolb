@@ -26,10 +26,12 @@ from app.schemas.session import (
     SingleItemResponse,
     AssessmentResponseBatch,
     AssessmentItemResponsePayload,
+    StartSessionRequest,
 )
 from app.services.assessments import upsert_responses
 from app.core.config import settings
 from app.core.metrics import inc_counter
+from app.core.logging import get_logger
 from app.i18n.id_messages import SessionErrorMessages
 from app.services.engine import EngineSessionService
 
@@ -86,7 +88,26 @@ def _sunset_header_value() -> str | None:
         return None
     aware = sunset if sunset.tzinfo else sunset.replace(tzinfo=timezone.utc)
     return format_datetime(aware.astimezone(timezone.utc))
-    return SessionStartResponse(session_id=session.id, guest_token=session.guest_token)
+
+
+@router.post("/start", response_model=SessionStartResponse)
+def start_session(
+    payload: StartSessionRequest,
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Start a new assessment session.
+    
+    This is the primary entry point for starting an assessment.
+    """
+    service = EngineSessionService(db)
+    session = service.start_session(
+        current_user,
+        instrument_code=payload.instrument_code,
+        instrument_version=payload.instrument_version,
+    )
+    return SessionStartResponse(session_id=session.id)
 
 
 @router.get("/{session_id}/delivery", response_model=dict)

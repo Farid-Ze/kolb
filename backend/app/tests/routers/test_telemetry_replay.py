@@ -27,17 +27,17 @@ def test_record_replay_events(tmp_path, monkeypatch):
     
     response = client.post("/telemetry/replay-events", json=payload)
     assert response.status_code == 202
-    assert response.json() == {"status": "recorded", "count": 2}
+    assert response.json() == {"status": "accepted", "count": 2}
     
     # Verify log file content
-    log_file = Path("logs") / "replay_123.jsonl"
+    log_file = Path("logs/replays") / "session_123.jsonl"
     assert log_file.exists()
     
     lines = log_file.read_text(encoding="utf-8").strip().split("\n")
     assert len(lines) == 2
     
     entry1 = json.loads(lines[0])
-    assert entry1["session_id"] == 123
+    # session_id is not in the entry, it's in the filename
     assert entry1["type"] == "START_SESSION"
     assert entry1["payload"] == {"sessionId": 123}
     

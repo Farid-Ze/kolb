@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from fastapi.testclient import TestClient
 
@@ -10,7 +10,7 @@ from app.services.security import create_access_token
 from app.tests.helpers import seed_complete_session
 
 
-def _create_completed_session() -> tuple[int, int]:
+def _create_completed_session() -> tuple[UUID, int]:
     with SessionLocal() as db:
         email = f"student+{uuid4().hex}@example.com"
         session = seed_complete_session(db, user_email=email, user_name="Student Self")
@@ -21,7 +21,7 @@ def _create_completed_session() -> tuple[int, int]:
         return session.id, session.user_id
 
 
-def _create_completed_session_with_history() -> tuple[int, int, int]:
+def _create_completed_session_with_history() -> tuple[UUID, int, UUID]:
     with SessionLocal() as db:
         email = f"history+{uuid4().hex}@example.com"
         first = seed_complete_session(db, user_email=email, user_name="Student History")
@@ -58,7 +58,7 @@ def test_reports_self_returns_camel_case_summaries(client: TestClient):
     assert isinstance(payload, list)
     assert payload, "Expected at least one summary entry"
     summary = payload[0]
-    assert summary["sessionId"] == session_id
+    assert summary["sessionId"] == str(session_id)
     assert "session_id" not in summary  # camelCase enforcement
     assert summary["generatedAt"]
     learning_style = summary.get("learningStyle")
@@ -80,9 +80,9 @@ def test_reports_self_includes_longitudinal_metrics_when_available(client: TestC
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    summary = next(item for item in payload if item["sessionId"] == session_id)
+    summary = next(item for item in payload if item["sessionId"] == str(session_id))
     longitudinal = summary.get("longitudinal")
     assert longitudinal, "Expected longitudinal metrics for latest session"
-    assert longitudinal["previousSessionId"] == previous_session_id
+    assert longitudinal["previousSessionId"] == str(previous_session_id)
     assert longitudinal.get("deltaAcce") is not None
     assert longitudinal.get("timeElapsedDays") is not None

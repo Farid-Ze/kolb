@@ -29,42 +29,44 @@ def upgrade() -> None:
             sa.Column("pipeline_version", sa.String(length=40), nullable=True),
         )
 
-    tables = set(inspector.get_table_names())
-    if "scoring_pipelines" not in tables:
-        op.create_table(
-            "scoring_pipelines",
-            sa.Column("id", sa.Integer(), primary_key=True),
-            sa.Column("instrument_id", sa.Integer(), nullable=False),
-            sa.Column("pipeline_code", sa.String(length=60), nullable=False),
-            sa.Column("version", sa.String(length=20), nullable=False),
-            sa.Column("description", sa.String(length=500), nullable=True),
-            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-            sa.Column("metadata_payload", sa.JSON(), nullable=True),
-            sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-            sa.ForeignKeyConstraint(["instrument_id"], ["instruments.id"], name="fk_scoring_pipelines_instrument"),
-            sa.UniqueConstraint(
-                "instrument_id",
-                "pipeline_code",
-                "version",
-                name="uq_pipeline_per_instrument_version",
-            ),
-        )
-    if "scoring_pipeline_nodes" not in tables:
-        op.create_table(
-            "scoring_pipeline_nodes",
-            sa.Column("id", sa.Integer(), primary_key=True),
-            sa.Column("pipeline_id", sa.Integer(), nullable=False),
-            sa.Column("node_key", sa.String(length=50), nullable=False),
-            sa.Column("node_type", sa.String(length=40), nullable=False),
-            sa.Column("execution_order", sa.Integer(), nullable=False),
-            sa.Column("config", sa.JSON(), nullable=True),
-            sa.Column("next_node_key", sa.String(length=50), nullable=True),
-            sa.Column("is_terminal", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-            sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-            sa.ForeignKeyConstraint(["pipeline_id"], ["scoring_pipelines.id"], name="fk_pipeline_nodes_pipeline"),
-            sa.UniqueConstraint("pipeline_id", "node_key", name="uq_pipeline_node_key"),
-            sa.UniqueConstraint("pipeline_id", "execution_order", name="uq_pipeline_order"),
-        )
+    # Force clean state
+    op.execute("DROP TABLE IF EXISTS scoring_pipeline_nodes CASCADE")
+    op.execute("DROP TABLE IF EXISTS scoring_pipelines CASCADE")
+
+    op.create_table(
+        "scoring_pipelines",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("instrument_id", sa.Integer(), nullable=False),
+        sa.Column("pipeline_code", sa.String(length=60), nullable=False),
+        sa.Column("version", sa.String(length=20), nullable=False),
+        sa.Column("description", sa.String(length=500), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("metadata_payload", sa.JSON(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["instrument_id"], ["instruments.id"], name="fk_scoring_pipelines_instrument"),
+        sa.UniqueConstraint(
+            "instrument_id",
+            "pipeline_code",
+            "version",
+            name="uq_pipeline_per_instrument_version",
+        ),
+    )
+
+    op.create_table(
+        "scoring_pipeline_nodes",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("pipeline_id", sa.Integer(), nullable=False),
+        sa.Column("node_key", sa.String(length=50), nullable=False),
+        sa.Column("node_type", sa.String(length=40), nullable=False),
+        sa.Column("execution_order", sa.Integer(), nullable=False),
+        sa.Column("config", sa.JSON(), nullable=True),
+        sa.Column("next_node_key", sa.String(length=50), nullable=True),
+        sa.Column("is_terminal", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["pipeline_id"], ["scoring_pipelines.id"], name="fk_pipeline_nodes_pipeline"),
+        sa.UniqueConstraint("pipeline_id", "node_key", name="uq_pipeline_node_key"),
+        sa.UniqueConstraint("pipeline_id", "execution_order", name="uq_pipeline_order"),
+    )
 
     connection = bind
 
@@ -96,8 +98,8 @@ def upgrade() -> None:
         pipeline_result = connection.execute(
             sa.text("""
                 INSERT INTO scoring_pipelines 
-                (instrument_id, pipeline_code, version, description, is_active, metadata_payload)
-                VALUES (:instrument_id, :pipeline_code, :version, :description, :is_active, :metadata_payload::json)
+                (instrument_id, pipeline_code, version, description, is_active, metadata_payload, created_at)
+                VALUES (:instrument_id, :pipeline_code, :version, :description, :is_active, CAST(:metadata_payload AS JSON), :created_at)
                 RETURNING id
             """),
             {
@@ -107,6 +109,7 @@ def upgrade() -> None:
                 "description": "Default scoring pipeline for KLSI 4.0",
                 "is_active": True,
                 "metadata_payload": metadata_json,
+                "created_at": datetime.now(timezone.utc),
             }
         )
         pipeline_id = pipeline_result.scalar()
@@ -174,8 +177,8 @@ def upgrade() -> None:
             connection.execute(
                 sa.text("""
                     INSERT INTO scoring_pipeline_nodes 
-                    (pipeline_id, node_key, node_type, execution_order, config, next_node_key, is_terminal)
-                    VALUES (:pipeline_id, :node_key, :node_type, :execution_order, :config::json, :next_node_key, :is_terminal)
+                    (pipeline_id, node_key, node_type, execution_order, config, next_node_key, is_terminal, created_at)
+                    VALUES (:pipeline_id, :node_key, :node_type, :execution_order, CAST(:config AS JSON), :next_node_key, :is_terminal, :created_at)
                 """),
                 {
                     "pipeline_id": pipeline_id,
@@ -185,6 +188,7 @@ def upgrade() -> None:
                     "config": config_json,
                     "next_node_key": node["next_node_key"],
                     "is_terminal": node["is_terminal"],
+                    "created_at": datetime.now(timezone.utc),
                 }
             )
 

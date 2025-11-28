@@ -1,4 +1,5 @@
 from typing import Dict, List, Sequence
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -67,13 +68,13 @@ class KLSI4Plugin(
             expected_contexts=8,
         )
 
-    def fetch_items(self, db: Session, session_id: int) -> Sequence[ItemDTO]:
+    def fetch_items(self, db: Session, session_id: UUID) -> Sequence[ItemDTO]:
         self._ensure_session(db, session_id)
         if settings.engine_authoring_items_enabled:
             return self._fetch_items_from_authoring(db)
         return self._fetch_items_from_legacy(db)
 
-    def validate_submit(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
+    def validate_submit(self, db: Session, session_id: UUID, payload: Dict[str, object]) -> None:
         self._ensure_session(db, session_id)
         kind = payload.get("kind")
         match kind:
@@ -84,7 +85,7 @@ class KLSI4Plugin(
             case _:
                 raise HTTPException(status_code=400, detail=KLSI4Messages.UNKNOWN_PAYLOAD_KIND)
 
-    def finalize(self, db: Session, session_id: int, *, skip_checks: bool = False) -> Dict[str, object]:
+    def finalize(self, db: Session, session_id: UUID, *, skip_checks: bool = False) -> Dict[str, object]:
         session = self._ensure_session(db, session_id)
         if session.status != SessionStatus.completed:
             try:
@@ -99,7 +100,7 @@ class KLSI4Plugin(
         return {"ok": True}
 
     def percentile(
-        self, db: Session, session_id: int, scale: str, raw: int | float
+        self, db: Session, session_id: UUID, scale: str, raw: int | float
     ) -> tuple[float | None, str]:
         self._ensure_session(db, session_id)
         record = (
@@ -121,7 +122,7 @@ class KLSI4Plugin(
             raise HTTPException(status_code=400, detail=KLSI4Messages.UNKNOWN_SCALE)
         return field_map[scale]
 
-    def build(self, db: Session, session_id: int, viewer_role: str | None = None) -> Dict[str, object]:
+    def build(self, db: Session, session_id: UUID, viewer_role: str | None = None) -> Dict[str, object]:
         self._ensure_session(db, session_id)
         return build_report(db, session_id, viewer_role)
 
@@ -249,7 +250,7 @@ class KLSI4Plugin(
             )
         return payload
 
-    def _ensure_session(self, db: Session, session_id: int) -> AssessmentSession:
+    def _ensure_session(self, db: Session, session_id: UUID) -> AssessmentSession:
         session = (
             db.query(AssessmentSession)
             .filter(AssessmentSession.id == session_id)
@@ -259,7 +260,7 @@ class KLSI4Plugin(
             raise HTTPException(status_code=404, detail=KLSI4Messages.SESSION_NOT_FOUND)
         return session
 
-    def _submit_item(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
+    def _submit_item(self, db: Session, session_id: UUID, payload: Dict[str, object]) -> None:
         item_id_raw = payload.get("item_id")
         ranks_raw = payload.get("ranks")
         if item_id_raw is None or ranks_raw is None:
@@ -302,7 +303,7 @@ class KLSI4Plugin(
             )
         db.commit()
 
-    def _submit_context(self, db: Session, session_id: int, payload: Dict[str, object]) -> None:
+    def _submit_context(self, db: Session, session_id: UUID, payload: Dict[str, object]) -> None:
         context_name = payload.get("context_name")
         if not isinstance(context_name, str):
             raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_NAME_REQUIRED)

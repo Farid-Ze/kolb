@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.enums import SessionStatus
@@ -34,7 +35,7 @@ def _create_session(db):
     return sess
 
 
-def _insert_scores(db, session_id: int) -> None:
+def _insert_scores(db, session_id: UUID) -> None:
     scale = ScaleScore(
         session_id=session_id,
         CE_raw=30,

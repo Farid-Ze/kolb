@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from app.db.database import SessionLocal
 from app.models.klsi.enums import SessionStatus
@@ -9,7 +9,7 @@ from app.services.security import create_access_token
 from app.tests.helpers import seed_complete_session
 
 
-def _bootstrap_completed_session() -> tuple[int, int, int, str, str]:
+def _bootstrap_completed_session() -> tuple[UUID, int, int, str, str]:
     with SessionLocal() as db:
         unique_email = f"tester+{uuid4().hex}@example.com"
         session = seed_complete_session(db, user_email=unique_email, user_name="Tester Share")
@@ -47,7 +47,7 @@ def test_student_can_generate_share_link(client: TestClient):
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["mediatorEmail"] == mediator_email
-    assert payload["sessionId"] == session_id
+    assert payload["sessionId"] == str(session_id)
     assert isinstance(payload["shareToken"], str) and len(payload["shareToken"]) > 20
     assert payload["mediatorName"]
 

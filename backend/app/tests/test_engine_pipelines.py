@@ -130,11 +130,13 @@ def test_pipeline_config_raises_for_unknown_stage_key():
         config.build()
 
 
+from uuid import UUID, uuid4
+
 def test_compose_pipeline_accepts_callables_and_definitions():
-    def stage_one(db: Session, session_id: int):
+    def stage_one(db: Session, session_id: UUID):
         return {"stage": 1}
 
-    def stage_two(db: Session, session_id: int):
+    def stage_two(db: Session, session_id: UUID):
         return {"stage": 2}
 
     composed = compose_pipeline(
@@ -156,10 +158,10 @@ def test_compose_pipeline_rejects_empty_input():
 
 
 def test_pipeline_execute_propagates_controlled_abort_with_partial_results():
-    def stage_ok(db: Session, session_id: int) -> dict[str, bool]:
+    def stage_ok(db: Session, session_id: UUID) -> dict[str, bool]:
         return {"raw": True}
 
-    def stage_abort(db: Session, session_id: int):
+    def stage_abort(db: Session, session_id: UUID):
         raise ControlledAbort("quota", payload={"session_id": session_id})
 
     stage_ok.__name__ = "stage_ok"
@@ -171,12 +173,13 @@ def test_pipeline_execute_propagates_controlled_abort_with_partial_results():
         stages=(stage_ok, stage_abort),
     )
 
+    sid = uuid4()
     with pytest.raises(ControlledAbort) as excinfo:
-        pipeline.execute(_DUMMY_SESSION, 55)
+        pipeline.execute(_DUMMY_SESSION, sid)
 
     exc = excinfo.value
     assert exc.reason == "quota"
-    assert exc.payload == {"session_id": 55}
+    assert exc.payload == {"session_id": sid}
     assert exc.partial_results is not None
     assert exc.partial_results.get("aborted") is True
     assert exc.partial_results.get("failed_stage") == "abort_stage"

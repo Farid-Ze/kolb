@@ -172,10 +172,9 @@ def test_team_rollup_snapshot_payload_contains_points():
 
     assert snapshot["team_id"] == team.id
     assert snapshot["summary"]["members_with_data"] == 1
-    assert snapshot["data_points"][0]["ac_ce"] == 10
-    assert snapshot["data_points"][0]["raw_scores"]["CE"] == 30
+    # data_points and legacy_members removed in Audit Round 2
+    assert snapshot["summary"]["avg_ac_ce"] == 10.0
     assert snapshot["balance_metrics"]["CE_percentage"] > 0
-    assert snapshot["legacy_members"] == []
     db.close()
 
 
@@ -196,9 +195,10 @@ def test_team_rollup_snapshot_marks_members_without_sessions():
     db.commit()
 
     snapshot = build_team_rollup_snapshot(db, team.id)
-    legacy_members = snapshot["legacy_members"]
-
-    assert any(entry["user_id"] == legacy_user.id for entry in legacy_members)
-    assert any(entry["status"] == "missing_data" for entry in legacy_members)
+    
+    # Verify that the snapshot correctly counts members with and without data
+    # legacy_members list was removed, so we check the summary counts
+    assert snapshot["summary"]["total_members"] == 2
+    assert snapshot["summary"]["members_with_data"] == 1
     db.close()
 

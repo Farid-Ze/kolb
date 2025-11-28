@@ -62,7 +62,6 @@ def list_pipelines(
                     "config": node.config,
                     "next": node.next_node_key,
                     "is_terminal": node.is_terminal,
-                    "created_at": node.created_at.isoformat() if node.created_at else None,
                 }
                 for node in sorted(pipeline.nodes, key=lambda n: n.execution_order)
             ],

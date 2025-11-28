@@ -67,11 +67,9 @@ class ContextRank(CamelModel):
         return self
 
 
-from app.schemas.score import ContextItemRank
-
 class SessionSubmissionPayload(CamelModel):
     items: list[ItemRank] = Field(..., min_length=12, max_length=12)
-    contexts: list[ContextItemRank] = Field(..., min_length=8, max_length=8)
+    contexts: list[ContextRank] = Field(..., min_length=8, max_length=8)
     client_duration_ms: int | None = Field(None, ge=0, description="Total duration spent by user in ms")
 
     @field_validator("items")
@@ -84,24 +82,39 @@ class SessionSubmissionPayload(CamelModel):
 
     @field_validator("contexts")
     @classmethod
-    def ensure_unique_contexts(cls, v: list[ContextItemRank]):  # noqa: D401
-        ids = [x.context_id for x in v]
-        if len(ids) != len(set(ids)):
+    def ensure_unique_contexts(cls, v: list[ContextRank]):  # noqa: D401
+        names = [x.context_name for x in v]
+        if len(names) != len(set(names)):
             raise ValueError(ValidationMessages.DUPLICATE_CONTEXT_NAMES)
         return v
 
 
-class LegacyItemSubmissionPayload(ItemRank):
+class LegacyItemSubmissionPayload(CamelModel):
     """Payload model for legacy /submit_item requests."""
 
+    item_id: int = Field(gt=0)
+    ranks: dict[int, int]
     kind: Literal["item"] = "item"
+
+    @field_validator("ranks")
+    @classmethod
+    def validate_ranks(cls, v: dict[int, int]):
+        if len(v) != 4:
+            raise ValueError(ValidationMessages.ITEM_RANK_COUNT)
+        
+        # Check permutation of ranks
+        rank_values = sorted(v.values())
+        if rank_values != [1, 2, 3, 4]:
+            raise ValueError(ValidationMessages.ITEM_RANK_PERMUTATION)
+            
+        return v
 
     def runtime_payload(self) -> dict[str, object]:
         """Return dict payload expected by runtime.submit_payload."""
         return {
             "kind": self.kind,
             "item_id": self.item_id,
-            "ranks": {int(r.choice_id): r.rank for r in self.ranks},
+            "ranks": self.ranks,
         }
 
 
@@ -191,6 +204,11 @@ class SessionAutosavePayload(CamelModel):
 class SessionStartResponse(CamelModel):
     session_id: uuid.UUID
     guest_token: Optional[str] = None
+
+
+class StartSessionRequest(CamelModel):
+    instrument_code: str
+    instrument_version: Optional[str] = None
 
 
 class OperationStatus(CamelModel):

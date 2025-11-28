@@ -1,3 +1,4 @@
+from uuid import UUID
 from enum import Enum
 
 from pydantic import ConfigDict, EmailStr, Field
@@ -16,7 +17,7 @@ class UserCreate(CamelModel):
     nim: str | None = None
     kelas: str | None = None  # format IF-<number>
     tahun_masuk: int | None = None
-    guest_session_id: int | None = None
+    guest_session_id: UUID | None = None
     guest_token: str | None = None
 
 
@@ -31,9 +32,9 @@ class UserOut(CamelModel):
     full_name: str
     email: EmailStr
     role: Role
-    nim: str
-    kelas: str
-    tahun_masuk: int
+    nim: str | None = None
+    kelas: str | None = None
+    tahun_masuk: int | None = None
     avatar_url: str | None = None
     zen_points: int = 0
     current_lvl: int = 1

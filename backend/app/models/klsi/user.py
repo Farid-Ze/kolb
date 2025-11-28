@@ -43,6 +43,11 @@ class User(Base):
     sphere_nodes: Mapped[list["SphereNode"]] = relationship(back_populates="user")
     reflections: Mapped[list["MemoryReflection"]] = relationship(back_populates="user")
 
+    # Non-mapped attributes
+    __allow_unmapped__ = True
+    is_guest: bool = False
+    guest_token: Optional[str] = None
+
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from app.models.klsi.assessment import AssessmentSession

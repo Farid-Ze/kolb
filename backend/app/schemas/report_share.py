@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from pydantic import EmailStr, Field
@@ -18,7 +19,7 @@ class ReportShareCreate(CamelModel):
 
 class ReportShareOut(CamelModel):
     share_id: int
-    session_id: int
+    session_id: uuid.UUID
     mediator_email: EmailStr
     mediator_name: str | None
     expires_at: datetime

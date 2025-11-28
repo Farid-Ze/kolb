@@ -17,7 +17,12 @@ def _build_camel_submission_payload() -> dict:
     items = [
         {
             "itemId": index + 1,
-            "ranks": {10: 1, 11: 2, 12: 3, 13: 4},
+            "ranks": [
+                {"choiceId": 10, "rank": 1},
+                {"choiceId": 11, "rank": 2},
+                {"choiceId": 12, "rank": 3},
+                {"choiceId": 13, "rank": 4},
+            ],
         }
         for index in range(12)
     ]

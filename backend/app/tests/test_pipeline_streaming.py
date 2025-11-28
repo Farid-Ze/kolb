@@ -1,6 +1,7 @@
 """Tests for streaming pipeline execution."""
 
 from typing import cast
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy.orm import Session
@@ -23,7 +24,7 @@ class MockStage:
         self._return_value = return_value or {"result": name}
         self.call_count = 0
     
-    def __call__(self, db: Session, session_id: int) -> dict:
+    def __call__(self, db: Session, session_id: UUID) -> dict:
         self.call_count += 1
         return self._return_value
     
@@ -43,7 +44,7 @@ def test_pipeline_execute_streaming():
         stages=(stage1, stage2)
     )
     
-    results = list(pipeline.execute_streaming(db=_DUMMY_SESSION, session_id=1))
+    results = list(pipeline.execute_streaming(db=_DUMMY_SESSION, session_id=uuid4()))
     
     # Should yield 2 results
     assert len(results) == 2
@@ -59,7 +60,7 @@ def test_pipeline_execute_streaming_error():
     """Test streaming execution with stage failure."""
     stage1 = MockStage("stage1")
     
-    def failing_stage(db: Session, session_id: int) -> dict:
+    def failing_stage(db: Session, session_id: UUID) -> dict:
         raise ValueError("Stage failed")
     failing_stage.__name__ = "failing_stage"
     
@@ -71,7 +72,7 @@ def test_pipeline_execute_streaming_error():
     
     results = []
     with pytest.raises(ValueError):
-        for result in pipeline.execute_streaming(db=_DUMMY_SESSION, session_id=1):
+        for result in pipeline.execute_streaming(db=_DUMMY_SESSION, session_id=uuid4()):
             results.append(result)
     
     # Should have stage1 success and failing_stage error
@@ -91,14 +92,14 @@ def test_execute_pipeline_streaming_multiple_sessions():
         stages=(stage1,)
     )
     
-    session_ids = [101, 102, 103]
+    session_ids = [uuid4(), uuid4(), uuid4()]
     results = list(execute_pipeline_streaming(pipeline, _DUMMY_SESSION, session_ids))
     
     # Should process all sessions
     assert len(results) == 3
-    assert results[0][0] == 101
-    assert results[1][0] == 102
-    assert results[2][0] == 103
+    assert results[0][0] == session_ids[0]
+    assert results[1][0] == session_ids[1]
+    assert results[2][0] == session_ids[2]
     
     # All should succeed
     assert all(r[1]["ok"] for r in results)
@@ -110,7 +111,7 @@ def test_execute_pipeline_streaming_multiple_sessions():
 def test_execute_pipeline_streaming_memory_efficiency():
     """Test that streaming doesn't accumulate all results in memory."""
     # Create a stage that returns "large" data
-    def large_stage(db: Session, session_id: int) -> dict:
+    def large_stage(db: Session, session_id: UUID) -> dict:
         # Simulate large result (in real use, this would be much larger)
         return {"data": "x" * 1000, "session_id": session_id}
     large_stage.__name__ = "large_stage"
@@ -121,7 +122,7 @@ def test_execute_pipeline_streaming_memory_efficiency():
         stages=(large_stage,)
     )
     
-    session_ids = list(range(1, 11))  # 10 sessions
+    session_ids = [uuid4() for _ in range(10)]
     
     # Process one at a time (generator doesn't store all)
     processed = 0
@@ -138,10 +139,13 @@ def test_execute_pipeline_streaming_with_errors():
     """Test streaming with some sessions failing."""
     call_count = {"count": 0}
     
-    def maybe_fail_stage(db: Session, session_id: int) -> dict:
+    session_ids = [uuid4(), uuid4(), uuid4()]
+    failing_id = session_ids[1]
+
+    def maybe_fail_stage(db: Session, session_id: UUID) -> dict:
         call_count["count"] += 1
-        if session_id == 102:
-            raise ValueError("Session 102 failed")
+        if session_id == failing_id:
+            raise ValueError("Session failed")
         return {"ok": True, "session_id": session_id}
     maybe_fail_stage.__name__ = "maybe_fail_stage"
     
@@ -151,7 +155,6 @@ def test_execute_pipeline_streaming_with_errors():
         stages=(maybe_fail_stage,)
     )
     
-    session_ids = [101, 102, 103]
     results = list(execute_pipeline_streaming(pipeline, _DUMMY_SESSION, session_ids))
     
     # All sessions attempted
@@ -171,7 +174,7 @@ def test_execute_pipeline_streaming_with_errors():
 def test_execute_pipeline_streaming_handles_controlled_abort():
     """ControlledAbort should mark session aborted without halting the batch."""
 
-    def abort_stage(db: Session, session_id: int):
+    def abort_stage(db: Session, session_id: UUID):
         raise ControlledAbort("maintenance", payload={"session_id": session_id})
 
     abort_stage.__name__ = "abort_stage"
@@ -183,13 +186,14 @@ def test_execute_pipeline_streaming_handles_controlled_abort():
         stages=(stage1, abort_stage),
     )
 
-    results = list(execute_pipeline_streaming(pipeline, _DUMMY_SESSION, [777]))
+    sid = uuid4()
+    results = list(execute_pipeline_streaming(pipeline, _DUMMY_SESSION, [sid]))
 
     assert len(results) == 1
     session_id, payload = results[0]
-    assert session_id == 777
+    assert session_id == sid
     assert payload["aborted"] is True
     assert payload["failed_stage"] == "abort_stage"
     assert payload["abort_reason"] == "maintenance"
-    assert payload["abort_payload"] == {"session_id": 777}
+    assert payload["abort_payload"] == {"session_id": sid}
     assert payload["stages_completed"] == ["stage1"]

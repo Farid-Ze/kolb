@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 from typing import Any, Dict, List, Tuple, cast
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
@@ -17,9 +18,9 @@ class StubScheduler(RuntimeScheduler):
     def __init__(self, session_obj: object):
         super().__init__(lambda db: None)  # type: ignore[arg-type]
         self._session = session_obj
-        self.calls: List[Tuple[Session | None, int]] = []
+        self.calls: List[Tuple[Session | None, UUID]] = []
 
-    def resolve_session(self, db: Session | None, session_id: int):  # type: ignore[override]
+    def resolve_session(self, db: Session | None, session_id: UUID):  # type: ignore[override]
         self.calls.append((db, session_id))
         return self._session
 
@@ -42,10 +43,11 @@ def test_resolve_session_uses_scheduler_when_components_enabled():
     scheduler = StubScheduler(fake_session)
     runtime = EngineRuntime(components_enabled=True, scheduler=scheduler)
 
-    result = runtime._resolve_session(cast(Session, None), 55)
+    sid = uuid4()
+    result = runtime._resolve_session(cast(Session, None), sid)
 
     assert result is fake_session
-    assert scheduler.calls == [(None, 55)]
+    assert scheduler.calls == [(None, sid)]
 
 
 def test_log_runtime_error_uses_reporter_when_enabled():
@@ -53,9 +55,10 @@ def test_log_runtime_error_uses_reporter_when_enabled():
     reporter = StubReporter()
     runtime = EngineRuntime(components_enabled=True, scheduler=scheduler, error_reporter=reporter)
 
+    sid = uuid4()
     runtime._log_runtime_error(
         event="test_event",
-        session_id=1,
+        session_id=sid,
         user_id=2,
         exc=RuntimeError("boom"),
         correlation_id="cid-123",
@@ -65,7 +68,7 @@ def test_log_runtime_error_uses_reporter_when_enabled():
     assert reporter.calls
     call = reporter.calls[0]
     assert call["event"] == "test_event"
-    assert call["session_id"] == 1
+    assert call["session_id"] == sid
     assert call["metadata"] == {"extra": True}
 
 
@@ -88,9 +91,10 @@ def test_log_runtime_error_logs_structured_data_when_disabled(monkeypatch):
     scheduler = StubScheduler(SimpleNamespace(id=1))
     runtime = EngineRuntime(components_enabled=False, scheduler=scheduler)
 
+    sid = uuid4()
     runtime._log_runtime_error(
         event="runtime_event",
-        session_id=77,
+        session_id=sid,
         user_id=88,
         exc=RuntimeError("boom"),
         correlation_id="cid-77",
@@ -102,7 +106,7 @@ def test_log_runtime_error_logs_structured_data_when_disabled(monkeypatch):
     assert event == "runtime_event"
     assert extra is not None
     structured = extra.get("structured_data", {})
-    assert structured["session_id"] == 77
+    assert structured["session_id"] == sid
     assert structured["user_id"] == 88
     assert structured["correlation_id"] == "cid-77"
     assert structured["pipeline_event"] == "runtime_event"

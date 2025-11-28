@@ -9,13 +9,13 @@
  * - After: 100 users × (100 events / 30 sec) = 5.5 req/sec (99.7% reduction)
  */
 
-interface TelemetryEvent {
+export interface TelemetryEvent {
     type: string
     timestamp_ms: number
     payload: Record<string, any>
 }
 
-interface TelemetryBatch {
+export interface TelemetryBatch {
     session_id?: string | null
     events: TelemetryEvent[]
 }

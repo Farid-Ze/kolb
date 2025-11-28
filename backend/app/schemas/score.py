@@ -26,13 +26,13 @@ class RawTotalsWrite(CamelModel):
     AE: int = Field(ge=0)
 
 
-class ContextItemRank(CamelModel):
+class ContextRanksWrite(CamelModel):
     """Raw ranking for a specific context scenario (Audit Point 1)."""
     context_id: int = Field(..., description="ID of the context scenario (1-8)")
     ranks: dict[int, int] = Field(
         ...,
         description="Map of choice_id to rank (1-4). Must be unique per context.",
-        example={101: 4, 102: 3, 103: 2, 104: 1}
+        json_schema_extra={"example": {"101": 4, "102": 3, "103": 2, "104": 1}}
     )
 
     @model_validator(mode="after")
@@ -48,7 +48,7 @@ from app.schemas.session import ItemRank
 
 class ScorePreviewRequest(CamelModel):
     items: List[ItemRank]
-    contexts: List[ContextItemRank]
+    contexts: List[ContextRanksWrite]
 
     @model_validator(mode="after")
     def _validate_context_count(self) -> Self:

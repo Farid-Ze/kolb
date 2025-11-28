@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Protocol, Sequence, runtime_checkable
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -15,7 +16,7 @@ class ScoringStep(Protocol):
     name: str
     depends_on: List[str]
 
-    def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
+    def run(self, db: Session, session_id: UUID, ctx: ScoringContext) -> None:
         """Execute the step and mutate *ctx* or persist database rows."""
 
 
@@ -66,14 +67,14 @@ class ValidationIssue:
 class ValidationRule(Protocol):
     code: str
 
-    def validate(self, db: Session, session_id: int) -> List[ValidationIssue]:
+    def validate(self, db: Session, session_id: UUID) -> List[ValidationIssue]:
         ...
 
 
 @runtime_checkable
 class ReportComposer(Protocol):
     def build(
-        self, db: Session, session_id: int, viewer_role: Optional[str], locale: str = "id"
+        self, db: Session, session_id: UUID, viewer_role: Optional[str], locale: str = "id"
     ) -> Dict[str, Any]:
         ...
 
@@ -115,10 +116,10 @@ class InstrumentPlugin(Protocol):
     def delivery(self) -> DeliveryConfig:
         ...
 
-    def fetch_items(self, db: Session, session_id: int) -> Sequence[ItemDTO]:
+    def fetch_items(self, db: Session, session_id: UUID) -> Sequence[ItemDTO]:
         ...
 
-    def validate_submit(self, db: Session, session_id: int, payload: Dict[str, Any]) -> None:
+    def validate_submit(self, db: Session, session_id: UUID, payload: Dict[str, Any]) -> None:
         ...
 
 
@@ -127,7 +128,7 @@ class EngineScorer(Protocol):
     def finalize(
         self,
         db: Session,
-        session_id: int,
+        session_id: UUID,
         *,
         skip_checks: bool = False,
     ) -> Dict[str, Any]:
@@ -137,12 +138,12 @@ class EngineScorer(Protocol):
 @runtime_checkable
 class EngineNormProvider(Protocol):
     def percentile(
-        self, db: Session, session_id: int, scale: str, raw: int | float
+        self, db: Session, session_id: UUID, scale: str, raw: int | float
     ) -> tuple[Optional[float], str]:
         ...
 
 
 @runtime_checkable
 class EngineReportBuilder(Protocol):
-    def build(self, db: Session, session_id: int, viewer_role: Optional[str] = None) -> Dict[str, Any]:
+    def build(self, db: Session, session_id: UUID, viewer_role: Optional[str] = None) -> Dict[str, Any]:
         ...

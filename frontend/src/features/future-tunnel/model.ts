@@ -1,5 +1,5 @@
 import type { AssessmentItem } from '../../entities/session/model'
-import type { ItemRank, ContextRank } from '../../shared/api/generated'
+import type { ItemRank } from '../../shared/api/generated'
 
 export type TunnelPhase = 'idle' | 'loading' | 'in-progress' | 'submitting' | 'completed'
 

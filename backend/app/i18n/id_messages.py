@@ -23,7 +23,10 @@ class DomainErrorMessages:
 class SessionErrorMessages:
     """Session-related error messages for localization consolidation."""
 
-
+    BATCH_FAILURE: str = "Gagal memproses batch submission"
+    ALREADY_COMPLETED: str = "Sesi sudah selesai"
+    MEDIATOR_OVERRIDE_FORBIDDEN: str = "Hanya mediator yang dapat melakukan override"
+    INSUFFICIENT_CREDITS: str = "Kredit tidak mencukupi"
     ITEMS_INCOMPLETE: str = "Masih ada item gaya belajar yang belum memiliki peringkat lengkap 1..4."
     ITEM_RANK_GAPS: str = "Beberapa item memiliki peringkat yang tidak lengkap atau duplikat."
     ITEM_RANK_CONFLICT: str = "Terdapat ranking duplikat pada item forced-choice."
@@ -39,6 +42,11 @@ class SessionErrorMessages:
     CONTEXT_COUNT_REQUIRED: str = "Jumlah konteks harus tepat 8"
     ITEM_OPTION_NOT_FOUND: str = "Pilihan item tidak ditemukan"
     SUBMISSION_TOO_FAST: str = "Waktu pengerjaan terlalu cepat. Mohon kerjakan dengan sungguh-sungguh."
+    NOT_FOUND: str = "Sesi tidak ditemukan"
+    NOT_FOUND_WITH_ID: str = "Sesi dengan ID {session_id} tidak ditemukan"
+    FORBIDDEN: str = "Akses ditolak"
+    ACCESS_DENIED: str = "Akses ditolak"
+    LEGACY_ENDPOINT_DEPRECATED: str = "Endpoint ini sudah tidak berlaku. Gunakan endpoint batch."
 
 
 class BatchPayloadMessages:
@@ -76,6 +84,8 @@ class AuthMessages:
     INVALID_ENROLLMENT_YEAR: str = "Tahun masuk tidak valid"
     EMAIL_ALREADY_REGISTERED: str = "Email sudah terdaftar"
     INVALID_CREDENTIALS: str = "Kredensial salah"
+    INVALID_REFRESH_TOKEN: str = "Refresh token tidak valid"
+    USER_NOT_FOUND: str = "Pengguna tidak ditemukan"
 
 
 class AdminMessages:
@@ -105,6 +115,7 @@ class AuthorizationMessages:
     MEDIATOR_METRICS_ONLY: str = "Hanya MEDIATOR yang boleh melihat metrics"
     MEDIATOR_PIPELINE_ACCESS_ONLY: str = "Hanya MEDIATOR yang boleh mengakses pipeline"
     MEDIATOR_PIPELINE_MUTATION_ONLY: str = "Hanya MEDIATOR yang boleh mengubah pipeline"
+    MEDIATOR_ADMIN_ONLY: str = "Hanya MEDIATOR atau ADMIN yang diperbolehkan"
 
 
 class PipelineMessages:
@@ -169,6 +180,8 @@ class SecurityMessages:
     TOKEN_MISSING_SUB: str = "Token tidak memiliki klaim 'sub' (identifier pengguna)"
     INVALID_JWT_TOKEN: str = "Token JWT tidak valid: {detail}"
     TOKEN_VALIDATION_FAILED: str = "Validasi token gagal: {detail}"
+    TOKEN_EXPIRED: str = "Token telah kadaluarsa"
+    AUTHENTICATION_REQUIRED: str = "Otentikasi diperlukan"
 
 
 class KLSI4Messages:
@@ -502,3 +515,18 @@ class ValidationMessages:
     MIN_LENGTH: str = "Minimal {limit} karakter"
     MAX_LENGTH: str = "Maksimal {limit} karakter"
     EMAIL_INVALID: str = "Format email tidak valid"
+    ITEMS_INCOMPLETE: str = "Item tidak lengkap"
+    ITEM_RANK_PERMUTATION: str = "Ranking item harus permutasi 1-4"
+    ITEM_RANK_GAPS: str = "Terdapat celah pada ranking item"
+    ITEM_OPTION_NOT_FOUND: str = "Opsi item tidak ditemukan"
+    SUBMISSION_TOO_FAST: str = "Submission terlalu cepat"
+    CONTEXT_RANK_COUNT: str = "Jumlah ranking konteks tidak sesuai"
+    CONTEXT_RANK_PERMUTATION: str = "Ranking konteks harus permutasi 1-4"
+    CONTEXT_COUNT_REQUIRED: str = "Jumlah konteks harus 8"
+    DUPLICATE_ITEM_IDS: str = "Item ID duplikat"
+    DUPLICATE_CONTEXT_NAMES: str = "Nama konteks duplikat"
+    ITEM_RANK_COUNT: str = "Item harus memiliki tepat 4 pilihan dengan ranking"
+    LFI_CONTEXT_UNKNOWN: str = "Ada nama konteks LFI yang tidak dikenal"
+    ITEM_RANK_CONFLICT: str = "Terdapat ranking duplikat pada item forced-choice."
+    LFI_CONTEXT_COUNT: str = "Konteks LFI harus lengkap {expected} entri."
+    LFI_CONTEXT_DUPLICATE: str = "Terdapat konteks LFI yang diisi lebih dari sekali."

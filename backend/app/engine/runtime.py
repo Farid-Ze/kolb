@@ -4,7 +4,7 @@ from functools import lru_cache
 from hashlib import sha256
 from time import perf_counter
 from typing import Any, Callable
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from sqlalchemy.orm import Session
 
@@ -55,7 +55,7 @@ class FinalizeContext:
     """
 
     db: Session
-    session_id: int
+    session_id: UUID
     skip_validation: bool
     tracker: RuntimeStateTracker | None
     correlation_id: str
@@ -121,7 +121,7 @@ class EngineRuntime:
         self._scheduler = scheduler or RuntimeScheduler(get_repository_provider)
         self._error_reporter = error_reporter or RuntimeErrorReporter(logger)
 
-    def _resolve_session(self, db: Session, session_id: int) -> AssessmentSession:
+    def _resolve_session(self, db: Session, session_id: UUID) -> AssessmentSession:
         if self._components_enabled:
             session = self._scheduler.resolve_session(db, session_id)
         else:
@@ -149,7 +149,7 @@ class EngineRuntime:
         self,
         *,
         event: str,
-        session_id: int,
+        session_id: UUID,
         user_id: int | None,
         exc: Exception,
         correlation_id: str,
@@ -180,7 +180,7 @@ class EngineRuntime:
     def _emit_scorer_issue_log(
         *,
         event: str,
-        session_id: int,
+        session_id: UUID,
         user_id: int | None,
         issues: Any,
         correlation_id: str,
@@ -291,7 +291,7 @@ class EngineRuntime:
 
         try:
             if transactional:
-                with context.db.begin():
+                with context.db.begin_nested():
                     result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
                     _ensure_ok(result)
                     session.status = SessionStatus.completed
@@ -410,7 +410,7 @@ class EngineRuntime:
         builder: Callable[[dict], bytes] | None,
         payload_dict: dict,
         *,
-        session_id: int,
+        session_id: UUID,
         correlation_id: str,
     ) -> bytes | None:
         if not callable(builder):
@@ -436,7 +436,7 @@ class EngineRuntime:
         payload_bytes: bytes | None,
         actor_email: str,
         action: str,
-        session_id: int,
+        session_id: UUID,
         correlation_id: str,
     ) -> None:
         if not payload_bytes:
@@ -468,7 +468,7 @@ class EngineRuntime:
     def _instrument_id(self, session: AssessmentSession) -> InstrumentId:
         if session.instrument:
             return InstrumentId(session.instrument.code, session.instrument.version)
-        return InstrumentId(session.assessment_id, session.assessment_version)
+        return InstrumentId(session.assessment_id, session.assessment_version or "")
 
     def start_session(
         self,
@@ -533,7 +533,6 @@ class EngineRuntime:
                 assessment_id=instrument.code,
                 assessment_version=instrument.version,
                 instrument_id=instrument.id,
-                study_id=study_id,
                 start_time=datetime.now(timezone.utc),
             )
             started = perf_counter()
@@ -572,7 +571,7 @@ class EngineRuntime:
             )
             return session
 
-    def delivery_package(self, db: Session, session_id: int, *, locale: str | None = None, lite: bool = False) -> dict:
+    def delivery_package(self, db: Session, session_id: UUID, *, locale: str | None = None, lite: bool = False) -> dict:
         session = self._resolve_session(db, session_id)
         inst_id = self._instrument_id(session)
         plugin = self._registry.plugin(inst_id)
@@ -597,7 +596,7 @@ class EngineRuntime:
             lite=lite,
         )
 
-    def submit_payload(self, db: Session, session_id: int, payload: dict) -> None:
+    def submit_payload(self, db: Session, session_id: UUID, payload: dict) -> None:
         session = self._resolve_session(db, session_id)
         plugin = self._registry.plugin(self._instrument_id(session))
         plugin.validate_submit(db, session_id, payload)
@@ -608,7 +607,7 @@ class EngineRuntime:
     def finalize(
         self,
         db: Session,
-        session_id: int,
+        session_id: UUID,
         *,
         skip_validation: bool = False,
     ) -> dict:
@@ -640,12 +639,13 @@ class EngineRuntime:
     def finalize_with_audit(
         self,
         db: Session,
-        session_id: int,
+        session_id: UUID,
         *,
         actor_email: str,
         action: str,
         build_payload: Callable[[dict], bytes],
         skip_validation: bool = False,
+        transactional: bool = False,
     ) -> dict:
         """Finalize session artifacts and write an AuditLog entry atomically.
 
@@ -664,7 +664,7 @@ class EngineRuntime:
             )
             artifacts = self._execute_finalize_pipeline(
                 context,
-                transactional=False,
+                transactional=transactional,
                 missing_event="finalize_audit_session_missing",
                 completed_event="finalize_audit_already_completed",
                 validation_event="finalize_audit_validation_failed",
@@ -697,13 +697,13 @@ class EngineRuntime:
             )
 
 
-    def build_report(self, db: Session, session_id: int, viewer_role: str | None) -> dict:
+    def build_report(self, db: Session, session_id: UUID, viewer_role: str | None) -> dict:
         session = self._resolve_session(db, session_id)
         builder = self._registry.report_builder(self._instrument_id(session))
         return builder.build(db, session_id, viewer_role)
 
     def percentile(
-        self, db: Session, session_id: int, scale: str, raw: int | float
+        self, db: Session, session_id: UUID, scale: str, raw: int | float
     ) -> tuple[float | None, str]:
         session = self._resolve_session(db, session_id)
         provider = self._registry.norm_provider(self._instrument_id(session))

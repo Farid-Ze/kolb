@@ -12,7 +12,7 @@ from app.models.klsi.user import User
 from app.services.seeds import (
     seed_assessment_items,
     seed_engine_authoring,
-    seed_instruments,
+    seed_instruments_v2 as seed_instruments,
     seed_learning_styles,
 )
 

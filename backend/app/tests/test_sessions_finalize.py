@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import uuid4, UUID
 from datetime import datetime, timedelta, timezone
 
 from app.assessments.klsi_v4.definition import CONTEXT_NAMES
@@ -50,7 +50,10 @@ def _build_submission_payload() -> dict:
             payload_items.append(
                 {
                     "item_id": item.id,
-                    "ranks": {int(choice.id): idx + 1 for idx, choice in enumerate(choices)},
+                    "ranks": [
+                        {"choice_id": int(choice.id), "rank": idx + 1}
+                        for idx, choice in enumerate(choices)
+                    ],
                 }
             )
 
@@ -85,7 +88,7 @@ def test_finalize_endpoint_is_idempotent(client):
 
     # [Fix] Age the session to bypass "too fast" validation
     with SessionLocal() as db:
-        sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+        sess = db.query(AssessmentSession).filter(AssessmentSession.id == UUID(session_id)).first()
         if sess:
             sess.start_time = datetime.now(timezone.utc) - timedelta(minutes=2)
             db.commit()
@@ -107,7 +110,7 @@ def test_finalize_endpoint_is_idempotent(client):
     with SessionLocal() as db:
         sess = (
             db.query(AssessmentSession)
-            .filter(AssessmentSession.id == session_id)
+            .filter(AssessmentSession.id == UUID(session_id))
             .first()
         )
         assert sess is not None

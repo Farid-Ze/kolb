@@ -9,6 +9,7 @@ from the core finalize pipeline, making the runtime easier to test and reuse.
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Any, Callable, Protocol
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -16,7 +17,7 @@ from sqlalchemy.orm import Session
 class SessionRepository(Protocol):
     """Protocol for repositories that expose session retrieval."""
 
-    def get_by_id(self, session_id: int) -> Any:
+    def get_by_id(self, session_id: UUID) -> Any:
         ...
 
 
@@ -34,7 +35,7 @@ class RuntimeScheduler:
 
     repo_provider_factory: Callable[[Session], RepositoryProvider]
 
-    def resolve_session(self, db: Session, session_id: int) -> Any:
+    def resolve_session(self, db: Session, session_id: UUID) -> Any:
         repo_provider = self.repo_provider_factory(db)
         repo = repo_provider.sessions
         return repo.get_by_id(session_id)
@@ -61,14 +62,14 @@ class RuntimeErrorReporter:
         self,
         *,
         event: str,
-        session_id: int,
+        session_id: UUID,
         user_id: int | None,
         exc: Exception,
         correlation_id: str,
         metadata: dict[str, Any] | None = None,
     ) -> None:
         structured = {
-            "session_id": session_id,
+            "session_id": str(session_id),
             "user_id": user_id,
             "error": str(exc),
             "correlation_id": correlation_id,

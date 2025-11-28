@@ -1,6 +1,7 @@
 import json
 from hashlib import sha256
 from typing import Any, Dict, Iterable, Sequence, TYPE_CHECKING
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -109,7 +110,7 @@ def _strategy_candidates(session: "AssessmentSession", fallback_key: str | None)
 
     default_code = session.instrument.default_strategy_code if session.instrument else None
 
-    match (session.strategy_code, default_code, fallback_key):
+    match (getattr(session, "strategy_code", None), default_code, fallback_key):
         case (str(primary), str(default), str(fallback)) if primary and default and fallback:
             ordered: Sequence[str] = (primary, default, fallback)
         case (str(primary), str(default), None | "") if primary and default:
@@ -143,7 +144,7 @@ def _parse_pipeline_version(pipeline_version: str | None) -> tuple[str, str] | N
 
 def finalize_assessment(
     db: Session,
-    session_id: int,
+    session_id: UUID,
     assessment_id: str,
     assessment_version: str,
     salt: str,
@@ -325,7 +326,7 @@ def finalize_assessment(
 
             if delta:
                 ctx["delta"] = {
-                    "previous_session_id": delta.previous_session_id,
+                    "previous_session_id": str(delta.previous_session_id) if delta.previous_session_id else None,
                     "delta_acce": delta.delta_acce,
                     "delta_aero": delta.delta_aero,
                     "delta_lfi": delta.delta_lfi,

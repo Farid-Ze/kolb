@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -37,7 +38,7 @@ def _make_session(db, user_id: int) -> AssessmentSession:
     return session
 
 
-def _combo(session_id: int, acce: int, aero: int) -> CombinationScore:
+def _combo(session_id: UUID, acce: int, aero: int) -> CombinationScore:
     combo = CombinationScore(
         session_id=session_id,
         ACCE_raw=acce,

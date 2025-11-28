@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
@@ -37,7 +38,7 @@ class UserResponseRepository(Repository[Session]):
     def record_response(
         self,
         *,
-        session_id: int,
+        session_id: UUID,
         item_id: int,
         choice_id: int,
         rank_value: int,
@@ -51,7 +52,7 @@ class UserResponseRepository(Repository[Session]):
         self.db.add(entity)
         return entity
 
-    def aggregate_ranks_by_item(self, session_id: int) -> List[ItemRankAggregate]:
+    def aggregate_ranks_by_item(self, session_id: UUID) -> List[ItemRankAggregate]:
         rows = (
             self.db.query(
                 UserResponse.item_id,
@@ -71,7 +72,7 @@ class UserResponseRepository(Repository[Session]):
             for row in rows
         ]
 
-    def find_duplicate_choices(self, session_id: int) -> List[int]:
+    def find_duplicate_choices(self, session_id: UUID) -> List[int]:
         rows = (
             self.db.query(UserResponse.choice_id, func.count().label("c"))
             .filter(UserResponse.session_id == session_id)
@@ -81,7 +82,7 @@ class UserResponseRepository(Repository[Session]):
         )
         return [row.choice_id for row in rows]
 
-    def list_with_choices(self, session_id: int) -> List[UserResponse]:
+    def list_with_choices(self, session_id: UUID) -> List[UserResponse]:
         """Return responses with choice and item relationships eager-loaded."""
         return (
             self.db.query(UserResponse)
@@ -94,16 +95,13 @@ class UserResponseRepository(Repository[Session]):
 
 
 @dataclass
-
-
-@dataclass
 class LFIContextRepository(Repository[Session]):
     """Repository for accessing LFI context scores."""
 
     def record_context(
         self,
         *,
-        session_id: int,
+        session_id: UUID,
         context_name: str,
         CE: int,
         RO: int,
@@ -121,7 +119,7 @@ class LFIContextRepository(Repository[Session]):
         self.db.add(entity)
         return entity
 
-    def list_for_session(self, session_id: int) -> List[LFIContextScore]:
+    def list_for_session(self, session_id: UUID) -> List[LFIContextScore]:
         return (
             self.db.query(LFIContextScore)
             .filter(LFIContextScore.session_id == session_id)

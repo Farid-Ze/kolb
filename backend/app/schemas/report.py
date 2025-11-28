@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Any, Mapping
 
+from pydantic import Field
+
 from app.schemas.base import CamelModel
 
 
@@ -61,11 +63,11 @@ from typing import Literal, Union
 class ReportPayloadBase(CamelModel):
     session_id: uuid.UUID
     generated_at: datetime | None = None
-    kind: str
+    kind: str = Field(..., description="Discriminator for report type")
 
 
 class IndividualReportPayload(ReportPayloadBase):
-    kind: Literal["individual"] = "individual"
+    kind: Literal["individual"] = "individual"  # type: ignore
     raw: Mapping[str, Any]
     percentiles: Mapping[str, Any]
     style: Mapping[str, Any]
@@ -82,7 +84,7 @@ class IndividualReportPayload(ReportPayloadBase):
 
 
 class TeamReportPayload(ReportPayloadBase):
-    kind: Literal["team"] = "team"
+    kind: Literal["team"] = "team"  # type: ignore
     team_id: int
     analytics: Mapping[str, Any] | None = None
 

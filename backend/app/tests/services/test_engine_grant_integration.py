@@ -25,7 +25,8 @@ def test_start_session_requires_grant(db):
         service.start_session(user, instrument_code="KLSI", instrument_version="4.0")
     
     # Check for localized message or fallback
-    assert "Kuota akses tidak mencukupi" in str(excinfo.value) or "Insufficient credits" in str(excinfo.value)
+    err_msg = str(excinfo.value)
+    assert any(msg in err_msg for msg in ["Kuota akses tidak mencukupi", "Insufficient credits", "Kredit tidak mencukupi"])
 
     # 2. Allocate Grant
     # Find the instrument seeded

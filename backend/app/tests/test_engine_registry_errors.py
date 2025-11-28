@@ -1,4 +1,5 @@
 import pytest
+from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.engine.interfaces import DeliveryConfig, InstrumentId, InstrumentPlugin
@@ -15,10 +16,10 @@ class _DummyPlugin(InstrumentPlugin):
     def delivery(self) -> DeliveryConfig:
         return DeliveryConfig(forced_choice=True)
 
-    def fetch_items(self, db: Session, session_id: int):  # pragma: no cover - not needed
+    def fetch_items(self, db: Session, session_id: UUID):  # pragma: no cover - not needed
         return []
 
-    def validate_submit(self, db: Session, session_id: int, payload: dict) -> None:  # pragma: no cover
+    def validate_submit(self, db: Session, session_id: UUID, payload: dict) -> None:  # pragma: no cover
         return None
 
 

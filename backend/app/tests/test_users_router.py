@@ -22,6 +22,7 @@ def _create_user(session: Session, email: str) -> User:
         email=email,
         nim=nim_value,
         kelas="IF-01",
+        tahun_masuk=2023,
     )
     session.add(user)
     session.commit()

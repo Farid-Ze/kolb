@@ -55,6 +55,10 @@ def db_setup():
     )
 
     def seed_instruments_v2(db):
+        Instrument: Any = None
+        InstrumentScale: Any = None
+        ScoringPipeline: Any = None
+        ScoringPipelineNode: Any = None
         with open("debug_log.txt", "a") as f:
             f.write("DEBUG: Entering seed_instruments_v2\n")
             import app.models.klsi.instrument as instr_file
@@ -138,10 +142,37 @@ def db_setup():
                     rendering_order=order,
                 )
             )
-        # Skipping pipeline for now as it's complex and maybe not needed for this test?
-        # The test checks 'team_crud_and_member_and_rollup'.
-        # It might need valid instrument for sessions.
         
+        # Create default pipeline
+        pipeline = ScoringPipeline(
+            instrument_id=instrument.id,
+            pipeline_code="KLSI4.0",
+            version="v1",
+            description="Standard KLSI 4.0 Scoring",
+            is_active=True,
+            created_at=now,
+        )
+        db.add(pipeline)
+        db.flush()
+
+        # Add nodes
+        nodes = [
+            ("compute_raw_scale_scores", 1, {}),
+            ("compute_dialectic_scores", 2, {}),
+            ("determine_learning_style", 3, {}),
+            ("calculate_lfi", 4, {}),
+            ("generate_feedback", 5, {}),
+        ]
+        
+        for key, order, config in nodes:
+            db.add(ScoringPipelineNode(
+                pipeline_id=pipeline.id,
+                node_key=key,
+                execution_order=order,
+                node_type="calculation",
+                config=config
+            ))
+            
     # Seed data
     with SessionLocal() as db:
         with open("debug_log.txt", "a") as f:

@@ -54,13 +54,15 @@ from app.schemas.session import (
     SessionSubmissionPayload,
 )
 from app.services.validation import run_session_validations, validate_full_submission_payload
-from app.i18n.id_messages import SessionErrorMessages, ValidationMessages
+from app.i18n.id_messages import SessionErrorMessages, ValidationMessages, DomainErrorMessages
 from app.services.assessments import build_kite_coordinates, detect_blindspots, detect_strengths
 from app.services.scoring import (
     apply_percentiles,
     compute_combination_scores,
     compute_lfi,
+    compute_longitudinal_delta,
 )
+from app.assessments.klsi_v4.logic import assign_learning_style as logic_assign_learning_style
 from app.services.challenge_service import challenge_service
 from app.services.gamification_service import gamification_service
 from app.services.sphere_service import sphere_service
@@ -116,6 +118,8 @@ class EngineSessionService:
                     )
             else:
                 study_id = None
+        else:
+            study_id = None
 
         return runtime.start_session(
             self.db,
@@ -125,7 +129,7 @@ class EngineSessionService:
             study_id=study_id,
         )
 
-    def delivery_package(self, session_id: int, user: "User", *, locale: str | None = None, lite: bool = False) -> Dict[str, Any]:
+    def delivery_package(self, session_id: uuid.UUID, user: "User", *, locale: str | None = None, lite: bool = False) -> Dict[str, Any]:
         self._load_authorized_session(session_id, user)
         return runtime.delivery_package(self.db, session_id, locale=locale, lite=lite)
 
@@ -262,7 +266,11 @@ class EngineSessionService:
             now = datetime.now(timezone.utc)
             
             # 1. Server-side check
-            if (now - session.start_time).total_seconds() < MIN_DURATION_SECONDS:
+            start_time = session.start_time
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            
+            if (now - start_time).total_seconds() < MIN_DURATION_SECONDS:
                 raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
 
             # Validate before recording any ranks to ensure we never persist partial batches.
@@ -296,6 +304,7 @@ class EngineSessionService:
             raise
         except Exception as exc:  # pragma: no cover - defensive guard for DB errors
             self.db.rollback()
+            logger.exception("batch_submission_failed", extra={"structured_data": {"error": str(exc)}})
             raise ConfigurationError(SessionErrorMessages.BATCH_FAILURE) from exc
 
     def submit_interaction(
@@ -323,7 +332,7 @@ class EngineSessionService:
         
         runtime.submit_payload(self.db, session_id, payload)
 
-    def finalize_session(self, session_id: int, user: "User") -> Dict[str, Any]:
+    def finalize_session(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
         session = self._load_authorized_session(session_id, user)
         if session.status == SessionStatus.completed:
             raise SessionFinalizedError(SessionErrorMessages.ALREADY_COMPLETED)
@@ -355,6 +364,10 @@ class EngineSessionService:
         
         # [Zenotika V4] Async Provenance Logging
         # Propagate payload to router for BackgroundTasks
+        provenance_payload = None
+        if "percentiles" in result:
+             provenance_payload = getattr(result["percentiles"], "_provenance_payload", None)
+
         if provenance_payload:
             final_result["_provenance_payload"] = provenance_payload
                   
@@ -386,12 +399,12 @@ class EngineSessionService:
         payload["override_reason"] = reason
         return payload
 
-    def build_report(self, session_id: int, viewer: "User") -> Dict[str, Any]:
+    def build_report(self, session_id: uuid.UUID, viewer: "User") -> Dict[str, Any]:
         self._load_authorized_session(session_id, viewer)
         viewer_role = "MEDIATOR" if viewer.role == "MEDIATOR" else None
         return runtime.build_report(self.db, session_id, viewer_role)
 
-    def _should_use_native_pipeline(self, session_id: int) -> bool:
+    def _should_use_native_pipeline(self, session_id: uuid.UUID) -> bool:
         """Return True when assessment_item_responses + LFI contexts are complete."""
 
         response_count = (
@@ -468,13 +481,13 @@ class EngineSessionService:
         expected_per_item = sorted(range(1, len(LEARNING_MODES) + 1))
         for response, assessment_item_id, learning_mode in rows:
             if learning_mode is None:
-                raise InvalidAssessmentData(ValidationMessages.ITEM_OPTION_NOT_FOUND)
+                raise InvalidAssessmentData(SessionErrorMessages.ITEM_OPTION_NOT_FOUND)
             rank = int(response.rank_value)
             if rank < 1 or rank > len(LEARNING_MODES):
                 raise InvalidAssessmentData(ValidationMessages.ITEM_RANK_PERMUTATION)
             mode_key = learning_mode.value
             if mode_key not in totals:
-                raise InvalidAssessmentData(ValidationMessages.ITEM_OPTION_NOT_FOUND)
+                raise InvalidAssessmentData(SessionErrorMessages.ITEM_OPTION_NOT_FOUND)
             per_item_ranks[int(assessment_item_id)].append(rank)
             totals[mode_key] += rank
         if len(per_item_ranks) != ITEM_COUNT_KLSI4:
@@ -488,7 +501,7 @@ class EngineSessionService:
             raise InvalidAssessmentData(ValidationMessages.ITEM_RANK_GAPS)
         return totals
 
-    def _upsert_scale_score(self, session_id: int, totals: dict[str, int]) -> ScaleScore:
+    def _upsert_scale_score(self, session_id: uuid.UUID, totals: dict[str, int]) -> ScaleScore:
         scale = (
             self.db.query(ScaleScore)
             .filter(ScaleScore.session_id == session_id)
@@ -511,7 +524,7 @@ class EngineSessionService:
         self.db.flush()
         return scale
 
-    def _reset_session_artifacts(self, session_id: int) -> None:
+    def _reset_session_artifacts(self, session_id: uuid.UUID) -> None:
         self.db.query(CombinationScore).filter(
             CombinationScore.session_id == session_id
         ).delete(synchronize_session=False)
@@ -540,7 +553,7 @@ class EngineSessionService:
     ) -> PercentileScore:
         return apply_percentiles(self.db, scale, combo)
 
-    def _compute_lfi_native(self, session_id: int) -> LearningFlexibilityIndex:
+    def _compute_lfi_native(self, session_id: uuid.UUID) -> LearningFlexibilityIndex:
         return compute_lfi(self.db, session_id)
 
     def _compute_delta_native(
@@ -558,12 +571,12 @@ class EngineSessionService:
             intensity_metrics,
         )
 
-    def ensure_access(self, session_id: int, user: "User") -> None:
+    def ensure_access(self, session_id: uuid.UUID, user: "User") -> None:
         """Expose access guard for routers needing pre-flight checks."""
 
         self._load_authorized_session(session_id, user)
 
-    def validation_snapshot(self, session_id: int, user: "User") -> Dict[str, Any]:
+    def validation_snapshot(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
         """Return validation diagnostics once access is confirmed."""
 
         self._load_authorized_session(session_id, user)
@@ -582,14 +595,14 @@ class EngineSessionService:
         is_guest = getattr(user, "is_guest", False)
         if is_guest:
             if not session.guest_token or session.guest_token != user.guest_token:
-                 raise PermissionDeniedError(SessionErrorMessages.ACCESS_DENIED)
+                 raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
             return session
 
         if user.role != "MEDIATOR" and session.user_id != user.id:
-            raise PermissionDeniedError(SessionErrorMessages.ACCESS_DENIED)
+            raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
         return session
 
-    def _persist_batch_payload(self, session_id: int, payload: SessionSubmissionPayload) -> None:
+    def _persist_batch_payload(self, session_id: uuid.UUID, payload: SessionSubmissionPayload) -> None:
         for item in payload.items:
             for r in item.ranks:
                 self._responses.record_response(
@@ -792,7 +805,7 @@ class EngineSessionService:
             payload["override_reason"] = override_reason
         return payload
 
-    def _persist_results_snapshot(self, session_id: int, result: Dict[str, Any]) -> Dict[str, Any]:
+    def _persist_results_snapshot(self, session_id: uuid.UUID, result: Dict[str, Any]) -> Dict[str, Any]:
         session = self._sessions.get_with_details(session_id)
         if not session:
             return {}
@@ -881,13 +894,13 @@ class EngineSessionService:
                 extra={"structured_data": {"user_id": user_id, "badge": "the-seeker"}},
             )
 
-    def _safe_create_sphere_event(self, user_id: int, session_id: int) -> None:
+    def _safe_create_sphere_event(self, user_id: int, session_id: uuid.UUID) -> None:
         try:
             sphere_service.create_node_for_event(
                 self.db, 
                 user_id, 
                 "assessment_completed", 
-                {"session_id": session_id}
+                {"session_id": str(session_id)}
             )
         except Exception:
             logger.exception(
@@ -895,7 +908,7 @@ class EngineSessionService:
                 extra={"structured_data": {"user_id": user_id, "session_id": session_id}},
             )
 
-    def submit_single_response(self, session_id: int, user: "User", item_id: int, response_map: Dict[str, int]) -> Dict[str, Any]:
+    def submit_single_response(self, session_id: uuid.UUID, user: "User", item_id: int, response_map: Dict[str, int]) -> Dict[str, Any]:
         self._load_authorized_session(session_id, user)
         
         # 1. Fetch choices for the item to map Dimension -> Choice ID
@@ -933,4 +946,36 @@ class EngineSessionService:
         )
         progress = min(100.0, (responded_count / 12.0) * 100.0)
         return {"status": "synced", "progress": progress}
+
+    def record_telemetry(
+        self,
+        session_id: uuid.UUID,
+        user: "User",
+        item_id: int,
+        response_rank: int | None = None,
+        response_latency_ms: int | None = None,
+        blur_events: int | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> None:
+        self._load_authorized_session(session_id, user)
+        
+        item_response = self.db.query(AssessmentItemResponse).filter(
+            AssessmentItemResponse.session_id == session_id,
+            AssessmentItemResponse.item_id == item_id
+        ).first()
+
+        if item_response:
+            if response_rank is not None:
+                item_response.response_rank = response_rank
+            if response_latency_ms is not None:
+                item_response.response_latency_ms = response_latency_ms
+            
+            telemetry_data = dict(item_response.telemetry or {})
+            if blur_events is not None:
+                telemetry_data["blur_events"] = blur_events
+            if meta:
+                telemetry_data["meta"] = meta
+            item_response.telemetry = telemetry_data
+            
+            self.db.commit()
 

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, Dict, Optional, TYPE_CHECKING
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -166,7 +167,7 @@ def get_latest_assessment_results(db: Session, user_id: int) -> Optional[Dict[st
     }
 
 
-def upsert_responses(db: Session, session_id: int, responses: list[AssessmentItemResponsePayload]):
+def upsert_responses(db: Session, session_id: uuid.UUID, responses: list[AssessmentItemResponsePayload]):
     for resp in responses:
         existing = db.query(AssessmentItemResponse).filter_by(
             session_id=session_id, item_id=resp.item_id

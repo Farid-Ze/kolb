@@ -665,3 +665,6 @@ def seed_growth_challenges(db: Session):
             challenge = GrowthChallenge(**template)
             db.add(challenge)
     db.commit()
+
+
+seed_instruments = seed_instruments_v2

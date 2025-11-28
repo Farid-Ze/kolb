@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Protocol, Sequence, cast
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, SessionTransaction
@@ -13,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.instrument import ScoringPipelineNode
 
 
-def _require_scale_score(db: Session, session_id: int) -> ScaleScore:
+def _require_scale_score(db: Session, session_id: UUID) -> ScaleScore:
     scale = (
         db.query(ScaleScore)
         .filter(ScaleScore.session_id == session_id)
@@ -24,7 +25,7 @@ def _require_scale_score(db: Session, session_id: int) -> ScaleScore:
     return scale
 
 
-def _require_combination_score(db: Session, session_id: int) -> CombinationScore:
+def _require_combination_score(db: Session, session_id: UUID) -> CombinationScore:
     combo = (
         db.query(CombinationScore)
         .filter(CombinationScore.session_id == session_id)
@@ -55,7 +56,7 @@ def _rollback_pipeline_savepoint(transaction: SessionTransaction | None) -> None
         transaction.rollback()
 
 
-def _stage_raw_scales(db: Session, session_id: int) -> dict[str, Any]:
+def _stage_raw_scales(db: Session, session_id: UUID) -> dict[str, Any]:
     from app.assessments.klsi_v4.logic import compute_raw_scale_scores
 
     scale = compute_raw_scale_scores(db, session_id)
@@ -70,7 +71,7 @@ def _stage_raw_scales(db: Session, session_id: int) -> dict[str, Any]:
     }
 
 
-def _stage_combinations(db: Session, session_id: int) -> dict[str, Any]:
+def _stage_combinations(db: Session, session_id: UUID) -> dict[str, Any]:
     from app.assessments.klsi_v4.logic import compute_combination_scores
 
     scale = _require_scale_score(db, session_id)
@@ -88,7 +89,7 @@ def _stage_combinations(db: Session, session_id: int) -> dict[str, Any]:
     }
 
 
-def _stage_style_assignment(db: Session, session_id: int) -> dict[str, Any]:
+def _stage_style_assignment(db: Session, session_id: UUID) -> dict[str, Any]:
     from app.assessments.klsi_v4.logic import assign_learning_style
 
     combo = _require_combination_score(db, session_id)
@@ -105,7 +106,7 @@ def _stage_style_assignment(db: Session, session_id: int) -> dict[str, Any]:
     }
 
 
-def _stage_lfi(db: Session, session_id: int) -> dict[str, Any]:
+def _stage_lfi(db: Session, session_id: UUID) -> dict[str, Any]:
     from app.assessments.klsi_v4.logic import compute_lfi
 
     lfi = compute_lfi(db, session_id)
@@ -145,7 +146,7 @@ __all__ = [
 class PipelineStage(Protocol):
     """Protocol for pipeline stage callables returning context fragments."""
 
-    def __call__(self, db: Session, session_id: int) -> dict[str, Any]:
+    def __call__(self, db: Session, session_id: UUID) -> dict[str, Any]:
         ...
 
 
@@ -303,7 +304,7 @@ class PipelineDefinition:
     stages: tuple[PipelineStage, ...]
     description: str = ""
     
-    def execute(self, db: Session, session_id: int) -> dict[str, Any]:
+    def execute(self, db: Session, session_id: UUID) -> dict[str, Any]:
         """Execute all pipeline stages sequentially.
         
         Args:
@@ -345,7 +346,7 @@ class PipelineDefinition:
             _commit_pipeline_savepoint(transaction)
             return results
     
-    def execute_streaming(self, db: Session, session_id: int):
+    def execute_streaming(self, db: Session, session_id: UUID):
         """Execute pipeline stages as a generator for memory efficiency.
         
         Yields stage results one at a time instead of accumulating them.
@@ -392,7 +393,7 @@ class PipelineDefinition:
 def _run_pipeline_for_session_streaming(
     pipeline: PipelineDefinition,
     db: Session,
-    session_id: int,
+    session_id: UUID,
 ) -> dict[str, Any]:
     """Execute *pipeline* for a single session via stage generator."""
 
@@ -431,7 +432,7 @@ def _run_pipeline_for_session_streaming(
 def execute_pipeline_streaming(
     pipeline: PipelineDefinition,
     db: Session,
-    session_ids: list[int],
+    session_ids: list[UUID],
 ):
     """Execute pipeline for multiple sessions using streaming generators.
 

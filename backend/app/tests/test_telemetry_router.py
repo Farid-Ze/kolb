@@ -103,7 +103,7 @@ def test_assessment_telemetry_updates_existing_response(client, session):
     app.dependency_overrides[get_current_user] = lambda: user
 
     payload = {
-        "sessionId": assessment_session.id,
+        "sessionId": str(assessment_session.id),
         "itemId": 1,
         "responseRank": 3,
         "responseLatencyMs": 8450,
@@ -142,7 +142,7 @@ def test_assessment_telemetry_rejects_foreign_session(client, session):
     app.dependency_overrides[get_current_user] = lambda: outsider
 
     payload = {
-        "sessionId": assessment_session.id,
+        "sessionId": str(assessment_session.id),
         "itemId": 1,
         "responseRank": 2,
         "responseLatencyMs": 900,

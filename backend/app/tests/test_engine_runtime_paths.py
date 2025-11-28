@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from typing import Any, cast
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy.orm import Session
@@ -16,7 +17,7 @@ class DummyDB:
 
 
 class DummySession:
-    def __init__(self, session_id: int):
+    def __init__(self, session_id: UUID):
         self.id = session_id
         self.status = None
         self.user_id = 1
@@ -26,7 +27,7 @@ class RecorderScheduler(RuntimeScheduler):
     def __init__(self, session):
         super().__init__(lambda db: cast(Any, None))  # type: ignore[arg-type]
         self.session = session
-        self.calls: list[tuple[object, int]] = []
+        self.calls: list[tuple[object, UUID]] = []
 
     def resolve_session(self, db, session_id):  # pragma: no cover - simple delegate
         self.calls.append((db, session_id))
@@ -36,16 +37,17 @@ class RecorderScheduler(RuntimeScheduler):
 class RecorderProvider:
     def __init__(self, session):
         self.session = session
-        self.calls: list[int] = []
+        self.calls: list[UUID] = []
         self.sessions = SimpleNamespace(get_by_id=self._get)
 
-    def _get(self, session_id: int):
+    def _get(self, session_id: UUID):
         self.calls.append(session_id)
         return self.session
 
 
 def test_resolve_session_uses_scheduler_when_components_enabled(monkeypatch):
-    dummy_session = DummySession(7)
+    sid = uuid4()
+    dummy_session = DummySession(sid)
     scheduler = RecorderScheduler(dummy_session)
 
     def _fail_provider(db):  # pragma: no cover - ensure not called
@@ -53,16 +55,17 @@ def test_resolve_session_uses_scheduler_when_components_enabled(monkeypatch):
 
     monkeypatch.setattr("app.engine.runtime.get_repository_provider", _fail_provider)
     runtime = EngineRuntime(components_enabled=True, scheduler=scheduler)
-    resolved = runtime._resolve_session(cast(Session, DummyDB()), 7)
+    resolved = runtime._resolve_session(cast(Session, DummyDB()), sid)
     assert resolved is dummy_session
     assert len(scheduler.calls) == 1
     called_db, called_id = scheduler.calls[0]
     assert isinstance(called_db, DummyDB)
-    assert called_id == 7
+    assert called_id == sid
 
 
 def test_resolve_session_uses_repository_when_components_disabled(monkeypatch):
-    dummy_session = DummySession(9)
+    sid = uuid4()
+    dummy_session = DummySession(sid)
     provider = RecorderProvider(dummy_session)
 
     class NeverScheduler(RecorderScheduler):
@@ -71,9 +74,9 @@ def test_resolve_session_uses_repository_when_components_disabled(monkeypatch):
 
     monkeypatch.setattr("app.engine.runtime.get_repository_provider", lambda db: provider)
     runtime = EngineRuntime(components_enabled=False, scheduler=NeverScheduler(dummy_session))
-    resolved = runtime._resolve_session(cast(Session, DummyDB()), 9)
+    resolved = runtime._resolve_session(cast(Session, DummyDB()), sid)
     assert resolved is dummy_session
-    assert provider.calls == [9]
+    assert provider.calls == [sid]
 
 
 def test_resolve_session_raises_when_not_found(monkeypatch):
@@ -81,11 +84,11 @@ def test_resolve_session_raises_when_not_found(monkeypatch):
     monkeypatch.setattr("app.engine.runtime.get_repository_provider", lambda db: provider)
     runtime = EngineRuntime(components_enabled=False, scheduler=RecorderScheduler(None))
     with pytest.raises(SessionNotFoundError):
-        runtime._resolve_session(cast(Session, DummyDB()), 5)
+        runtime._resolve_session(cast(Session, DummyDB()), uuid4())
 
 
 def test_phase_validate_always_runs_session_validations(monkeypatch):
-    captured: dict[str, tuple[object, int]] = {}
+    captured: dict[str, tuple[object, UUID]] = {}
 
     def _fake_validations(db, session_id):
         captured["args"] = (db, session_id)
@@ -93,14 +96,15 @@ def test_phase_validate_always_runs_session_validations(monkeypatch):
 
     monkeypatch.setattr("app.engine.runtime.run_session_validations", _fake_validations)
     runtime = EngineRuntime(components_enabled=False)
+    sid = uuid4()
     context = FinalizeContext(
         db=cast(Session, DummyDB()),
-        session_id=11,
+        session_id=sid,
         skip_validation=False,
         tracker=None,
         correlation_id="cid-11",
     )
-    session = DummySession(11)
+    session = DummySession(sid)
     report = runtime._phase_validate(
         context,
         cast(AssessmentSession, session),
@@ -150,15 +154,16 @@ def test_emit_scorer_issue_log_includes_metadata(monkeypatch):
 
     monkeypatch.setattr("app.engine.runtime.logger.warning", fake_warning)
 
+    sid = uuid4()
     payload = EngineRuntime._emit_scorer_issue_log(
         event="test_event",
-        session_id=11,
+        session_id=sid,
         user_id=22,
         issues=[{"code": "X"}],
         correlation_id="cid-test",
     )
 
-    assert payload["session_id"] == 11
+    assert payload["session_id"] == sid
     assert payload["user_id"] == 22
     assert payload["issues"] == [{"code": "X"}]
     assert payload["correlation_id"] == "cid-test"

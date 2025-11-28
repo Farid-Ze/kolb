@@ -1,3 +1,4 @@
+import uuid
 from uuid import uuid4
 
 from app.db.database import SessionLocal
@@ -130,7 +131,7 @@ def test_engine_klsi_end_to_end(client):
 
     # Confirm session marked completed in database
     with SessionLocal() as db:
-        sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+        sess = db.query(AssessmentSession).filter(AssessmentSession.id == uuid.UUID(session_id)).first()
         assert sess is not None
         assert sess.status == SessionStatus.completed
 
@@ -235,7 +236,7 @@ def test_engine_force_finalize_by_mediator(client):
     _, mediator_token = _ensure_mediator()
     mediator_headers = {"Authorization": f"Bearer {mediator_token}"}
     r_force = client.post(
-        f"/engine/sessions/{session_id}/force-finalize",
+        f"/engine/sessions/{session_id}/force_finalize",
         json={"reason": "Participant unavailable"},
         headers=mediator_headers,
     )
@@ -247,7 +248,7 @@ def test_engine_force_finalize_by_mediator(client):
     assert "ITEMS_INCOMPLETE" in codes
 
     with SessionLocal() as db:
-        sess = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+        sess = db.query(AssessmentSession).filter(AssessmentSession.id == uuid.UUID(session_id)).first()
         assert sess is not None
         assert sess.status == SessionStatus.completed
 

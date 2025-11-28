@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -25,7 +26,7 @@ class StyleRepository(Repository[Session]):
 
     def upsert_backup_style(
         self,
-        session_id: int,
+        session_id: UUID,
         style_type_id: int,
         *,
         frequency_count: int,

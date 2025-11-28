@@ -1,9 +1,11 @@
 from datetime import date
-from typing import Any, Optional
-from sqlalchemy.orm import Session
+from typing import Any, Optional, TYPE_CHECKING
 from sqlalchemy.exc import SQLAlchemyError
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+
+if TYPE_CHECKING:
+    import sqlalchemy.orm
 
 from app.core.logging import get_logger
 from app.db.database import get_db
@@ -43,7 +45,7 @@ def _log_db_failure(event: str, **structured: Any) -> None:
 @router.post("/", response_model=TeamOut)
 def create_team(
     payload: TeamCreate,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
@@ -69,7 +71,7 @@ def create_team(
 
 @router.get("/", response_model=TeamListResponse)
 def list_teams(
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     q: Optional[str] = Query(None),
@@ -101,7 +103,7 @@ def list_teams(
 
 
 @router.get("/{team_id}", response_model=TeamOut)
-def get_team(team_id: int, db: Session = Depends(get_db)):
+def get_team(team_id: int, db: Any = Depends(get_db)):
     repo = TeamRepository(db)
     team = repo.get(team_id)
     if not team:
@@ -113,7 +115,7 @@ def get_team(team_id: int, db: Session = Depends(get_db)):
 def update_team(
     team_id: int,
     payload: TeamUpdate,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
@@ -150,7 +152,7 @@ def update_team(
 @router.delete("/{team_id}", response_model=dict)
 def delete_team(
     team_id: int,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
@@ -184,7 +186,7 @@ def delete_team(
 
 
 @router.get("/{team_id}/members", response_model=list[TeamMemberOut])
-def list_members(team_id: int, db: Session = Depends(get_db)):
+def list_members(team_id: int, db: Any = Depends(get_db)):
     repo = TeamMemberRepository(db)
     return repo.list_by_team(team_id)
 
@@ -193,7 +195,7 @@ def list_members(team_id: int, db: Session = Depends(get_db)):
 def add_member(
     team_id: int,
     payload: TeamMemberAdd,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
@@ -228,7 +230,7 @@ def add_member(
 def remove_member(
     team_id: int,
     member_id: int,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
@@ -253,13 +255,13 @@ def remove_member(
 
 
 @router.get("/{team_id}/rollups", response_model=list[TeamRollupOut])
-def list_rollups(team_id: int, db: Session = Depends(get_db)):
+def list_rollups(team_id: int, db: Any = Depends(get_db)):
     repo = TeamRollupRepository(db)
     return repo.list_by_team(team_id)
 
 
 @router.get("/{team_id}/rollup", response_model=TeamRollupDetail)
-def get_rollup(team_id: int, db: Session = Depends(get_db)):
+def get_rollup(team_id: int, db: Any = Depends(get_db)):
     try:
         return get_team_rollup_snapshot(db, team_id)
     except ValueError:
@@ -269,7 +271,7 @@ def get_rollup(team_id: int, db: Session = Depends(get_db)):
 @router.get("/{team_id}/analytics/members", response_model=TeamMemberAnalyticsResponse)
 def get_rollup_members(
     team_id: int,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=100),
@@ -319,7 +321,7 @@ def get_rollup_members(
 @router.post("/{team_id}/rollup/run", response_model=TeamRollupOut)
 def run_rollup(
     team_id: int,
-    db: Session = Depends(get_db),
+    db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
     for_date: Optional[str] = Query(default=None, description="YYYY-MM-DD optional date filter"),
 ):

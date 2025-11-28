@@ -4,12 +4,21 @@ This module provides endpoints for collecting telemetry data from frontend clien
 Supports both legacy individual events and modern batched telemetry for scalability.
 """
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
+import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Response, Depends
 from pydantic import BaseModel, Field
 
+if TYPE_CHECKING:
+    import sqlalchemy.orm
+
 from app.core.logging import get_logger
+from app.core.metrics import inc_counter
+from app.db.database import get_db
+from app.services.security import get_current_user
+from app.services.engine import EngineSessionService
+from app.core.errors import SessionNotFoundError, PermissionDeniedError
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 logger = get_logger("kolb.telemetry")
@@ -252,3 +261,99 @@ def _write_replay_logs(batch: ReplayEventBatch):
                 f.write(json.dumps(entry) + "\n")
     except Exception as e:
         logger.error(f"Failed to write replay logs for session {batch.sessionId}: {e}")
+
+
+class GuideOpenEvent(BaseModel):
+    guide_id: str
+    language: str
+    surface: str
+    context: str
+    consent: bool
+
+
+class PageViewEvent(BaseModel):
+    page_path: str
+    page_title: str
+    referrer: str | None = None
+    locale: str
+    consent: bool
+
+
+class ActionEvent(BaseModel):
+    action_type: str
+    action_target: str
+    action_value: str | None = None
+    metadata: dict[str, Any] | None = None
+    consent: bool
+    actor_role: str | None = None
+
+
+class AssessmentTelemetryEvent(CamelModel):
+    session_id: uuid.UUID = Field(..., alias="sessionId")
+    item_id: int = Field(..., alias="itemId")
+    response_rank: int | None = Field(None, alias="responseRank")
+    response_latency_ms: int | None = Field(None, alias="responseLatencyMs")
+    blur_events: int | None = Field(None, alias="blurEvents")
+    meta: dict[str, Any] | None = None
+
+
+@router.post("/guide-open", status_code=202)
+def record_guide_open(event: GuideOpenEvent):
+    inc_counter("guides.open.total")
+    inc_counter(f"guides.open.guide.{event.guide_id}")
+    inc_counter(f"guides.open.surface.{event.surface}")
+    inc_counter(f"guides.open.lang.{event.language}")
+    inc_counter(f"guides.open.context.{event.context}")
+    if event.consent:
+        inc_counter("guides.open.consent.granted")
+    return {"ok": True}
+
+
+@router.post("/page-view", status_code=202)
+def record_page_view(event: PageViewEvent):
+    inc_counter("page.view.total")
+    inc_counter(f"page.view.path.{event.page_path}")
+    inc_counter(f"page.view.locale.{event.locale}")
+    if event.referrer:
+        inc_counter("page.view.with_referrer")
+    if event.consent:
+        inc_counter("page.view.consent.granted")
+    return {"ok": True}
+
+
+@router.post("/action", status_code=202)
+def record_action(event: ActionEvent):
+    inc_counter("action.total")
+    inc_counter(f"action.type.{event.action_type}")
+    inc_counter(f"action.target.{event.action_target}")
+    if not event.consent:
+        inc_counter("action.consent.denied")
+    if event.actor_role:
+        inc_counter(f"action.role.{event.actor_role}")
+    return {"ok": True}
+
+
+@router.post("/assessment", status_code=202)
+def record_assessment_telemetry(
+    event: AssessmentTelemetryEvent,
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user)
+):
+    service = EngineSessionService(db)
+    try:
+        service.record_telemetry(
+            session_id=event.session_id,
+            user=current_user,
+            item_id=event.item_id,
+            response_rank=event.response_rank,
+            response_latency_ms=event.response_latency_ms,
+            blur_events=event.blur_events,
+            meta=event.meta
+        )
+    except SessionNotFoundError:
+        raise HTTPException(status_code=404, detail="Session not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Not authorized for this session")
+    
+    return {"ok": True}
+
