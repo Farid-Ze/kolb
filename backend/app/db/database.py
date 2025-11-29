@@ -8,7 +8,7 @@ from sqlalchemy.engine import make_url, URL
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 import logging
-from sqlalchemy.pool import QueuePool, StaticPool
+from sqlalchemy.pool import QueuePool, StaticPool, NullPool
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 
@@ -244,11 +244,7 @@ def _build_async_engine() -> AsyncEngine:
         else:
              kwargs.update(
                 {
-                    "poolclass": QueuePool,
-                    "pool_size": settings.db_pool_size,
-                    "max_overflow": settings.db_max_overflow,
-                    "pool_timeout": settings.db_pool_timeout,
-                    "pool_recycle": settings.db_pool_recycle,
+                    "poolclass": NullPool,
                     "pool_pre_ping": settings.db_pool_pre_ping,
                 }
             )

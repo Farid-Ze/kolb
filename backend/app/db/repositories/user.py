@@ -55,5 +55,7 @@ class UserRepository:
         self.db.add(user)
         await self.db.flush()
         await self.db.refresh(user)
+        # Avoid lazy load error in Pydantic
+        user.achievements = []
         return user
 

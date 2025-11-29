@@ -7,7 +7,9 @@ import uuid
 from fastapi.testclient import TestClient
 
 from app.main import app
-
+from app.db.database import engine, Base
+print(f"DEBUG: test_authorization engine url: {engine.url}")
+print(f"DEBUG: test_authorization Base tables: {Base.metadata.tables.keys()}")
 
 class TestIDORVulnerabilities:
     """C.1 - Insecure Direct Object Reference Prevention"""

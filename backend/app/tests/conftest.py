@@ -7,7 +7,7 @@ os.environ["RUN_STARTUP_SEED"] = "False"
 print("DEBUG: LOADING CONFTEST.PY")
 
 from app.core.config import settings
-settings.database_url = "sqlite:///:memory:"
+settings.database_url = "sqlite:///test.db"
 print(f"DEBUG: Patched settings.database_url to {settings.database_url}")
 
 import pytest
@@ -50,6 +50,8 @@ def db_setup():
             conn.commit()
 
     Base.metadata.drop_all(bind=engine)
+    from app.models.klsi.user import User
+    print(f"DEBUG: Creating tables. Registered models: {Base.metadata.tables.keys()}")
     Base.metadata.create_all(bind=engine)
     
     from app.services.seeds import (
