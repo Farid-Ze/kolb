@@ -41,4 +41,15 @@ class PaginatedResponse(CamelModel, Generic[T]):
     pages: int = Field(..., ge=0, description="Total number of pages")
 
 
-__all__ = ["PaginatedResponse"]
+class CursorPaginatedResponse(CamelModel, Generic[T]):
+    """Generic cursor-based paginated response wrapper.
+    
+    Use this for high-volume data endpoints where offset pagination is inefficient.
+    """
+    items: List[T] = Field(..., description="List of items for the current page")
+    next_cursor: str | None = Field(None, description="Cursor for the next page. Null if no more items.")
+    prev_cursor: str | None = Field(None, description="Cursor for the previous page.")
+    size: int = Field(..., ge=1, description="Number of items per page")
+
+
+__all__ = ["PaginatedResponse", "CursorPaginatedResponse"]

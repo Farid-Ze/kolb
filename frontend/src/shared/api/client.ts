@@ -3,7 +3,7 @@ import { OpenAPI } from './generated/core/OpenAPI';
 
 // Configure OpenAPI base URL
 // Default to localhost:8000 if not specified in environment variables
-OpenAPI.BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+OpenAPI.BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/v1';
 
 // Configure global axios defaults
 // This ensures that the generated services (which use the default axios instance)

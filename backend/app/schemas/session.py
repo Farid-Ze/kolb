@@ -261,3 +261,8 @@ class EngineSessionResponse(CamelModel):
     completed_items: int
     progress: float
     current_item_index: int
+
+
+class SessionUpdate(CamelModel):
+    status: Optional[SessionStatus] = None
+    reason: Optional[str] = None  # For force finalize or abandonment reasons

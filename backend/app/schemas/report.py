@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Any, Mapping
+from typing import Any, Mapping, List, Optional, Literal, Union
 
-from pydantic import Field
+from pydantic import Field, BaseModel
 
 from app.schemas.base import CamelModel
 
@@ -26,10 +26,15 @@ class ReportStyleSummary(CamelModel):
 
 
 class ReportFlexibilitySummary(CamelModel):
-    lfi_score: float | None = None
+    lfi_score: float | None = Field(None, description="LFI Score (Precision: 4 decimal places)")
     percentile: float | None = None
     level: str | None = None
     level_label: str | None = None
+
+    @field_validator("lfi_score")
+    @classmethod
+    def round_lfi(cls, v: float | None) -> float | None:
+        return round(v, 4) if v is not None else None
 
 
 class ReportDialecticSummary(CamelModel):
@@ -58,7 +63,36 @@ class ReportSummaryPayload(CamelModel):
     longitudinal: ReportLongitudinalSummary | None = None
 
 
-from typing import Literal, Union
+# --- Strict Schemas for Individual Report ---
+
+class VisualizationConfig(CamelModel):
+    """Configuration for frontend visualizations."""
+    chart_type: str
+    data_points: List[Mapping[str, Any]]
+    axes: Mapping[str, Any] | None = None
+    annotations: List[Mapping[str, Any]] | None = None
+
+class LearningSpaceData(CamelModel):
+    """Coordinates and metadata for the Learning Space."""
+    x: float
+    y: float
+    quadrant: str
+    region: str | None = None
+
+class AnalyticsData(CamelModel):
+    """Detailed analytics metrics."""
+    raw_scores: Mapping[str, float]
+    percentiles: Mapping[str, float]
+    norms_version: str
+
+class SessionDesign(CamelModel):
+    """Recommended session design based on learning style."""
+    title: str
+    description: str
+    activities: List[str]
+    duration_minutes: int | None = None
+
+# --------------------------------------------
 
 class ReportPayloadBase(CamelModel):
     session_id: uuid.UUID
@@ -67,15 +101,15 @@ class ReportPayloadBase(CamelModel):
 
 
 class IndividualReportPayload(ReportPayloadBase):
-    kind: Literal["individual"] = "individual"  # type: ignore
+    kind: Literal["individual"] = "individual"
     raw: Mapping[str, Any]
     percentiles: Mapping[str, Any]
     style: Mapping[str, Any]
     lfi: Mapping[str, Any]
-    analytics: Mapping[str, Any]
-    visualization: Mapping[str, Any] | None = None
-    session_designs: list[Mapping[str, Any]] | None = None
-    learning_space: Mapping[str, Any] | None = None
+    analytics: AnalyticsData  # Strict
+    visualization: VisualizationConfig | None = None  # Strict
+    session_designs: List[SessionDesign] | None = None  # Strict
+    learning_space: LearningSpaceData | None = None  # Strict
     enhanced_analytics: Mapping[str, Any] | None = None
     notes: Mapping[str, Any] | None = None
     owner: Mapping[str, Any] | None = None
@@ -84,7 +118,7 @@ class IndividualReportPayload(ReportPayloadBase):
 
 
 class TeamReportPayload(ReportPayloadBase):
-    kind: Literal["team"] = "team"  # type: ignore
+    kind: Literal["team"] = "team"
     team_id: int
     analytics: Mapping[str, Any] | None = None
 
@@ -123,4 +157,8 @@ __all__ = [
     "ReportDialecticSummary",
     "ReportLongitudinalSummary",
     "as_report_payload",
+    "VisualizationConfig",
+    "LearningSpaceData",
+    "AnalyticsData",
+    "SessionDesign",
 ]

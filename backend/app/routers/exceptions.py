@@ -8,23 +8,33 @@ from app.core.logging import _CORRELATION_ID
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """Register shared HTTP translators for domain-layer exceptions."""
+    """Register shared HTTP translators for domain-layer exceptions.
+    
+    Implements RFC 7807 Problem Details for HTTP APIs.
+    """
 
     @app.exception_handler(DomainError)
     def _handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
-        if isinstance(exc.detail, dict):
-            detail_payload: dict[str, Any] = {**exc.detail}
-            detail_payload.setdefault("message", exc.message)
-        elif exc.detail is not None:
-            detail_payload = {"message": exc.message, "extra": exc.detail}
-        else:
-            detail_payload = {"message": exc.message}
+        status_code = getattr(exc, "status_code", 400)
+        
+        # Construct RFC 7807 payload
         payload: dict[str, Any] = {
-            "error": exc.error_code,
-            "detail": detail_payload,
+            "type": f"about:blank",  # Ideally a URI to documentation
+            "title": exc.error_code,
+            "status": status_code,
+            "detail": exc.message,
+            "instance": str(request.url.path),
         }
+        
+        # Add extensions
+        if isinstance(exc.detail, dict):
+             payload.update(exc.detail)
+        elif exc.detail is not None:
+             payload["extra"] = exc.detail
+
         # Include correlation ID for request tracing
         correlation_id = _CORRELATION_ID.get()
         if correlation_id:
             payload["correlation_id"] = correlation_id
-        return JSONResponse(status_code=getattr(exc, "status_code", 400), content=payload)
+            
+        return JSONResponse(status_code=status_code, content=payload)

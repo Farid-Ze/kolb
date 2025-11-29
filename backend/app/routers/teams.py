@@ -318,7 +318,18 @@ def get_rollup_members(
     )
 
 
-@router.post("/{team_id}/rollup/run", response_model=TeamRollupOut)
+@router.post("/{team_id}/rollups", response_model=TeamRollupOut)
+def create_rollup(
+    team_id: int,
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+    for_date: Optional[str] = Query(default=None, description="YYYY-MM-DD optional date filter"),
+):
+    """Create a new rollup snapshot for the team."""
+    return run_rollup(team_id, db, current_user, for_date)
+
+
+@router.post("/{team_id}/rollup/run", response_model=TeamRollupOut, deprecated=True)
 def run_rollup(
     team_id: int,
     db: Any = Depends(get_db),

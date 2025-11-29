@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Security
 
 from app.db.database import get_db
 from app.db.repositories import (
@@ -11,12 +11,15 @@ from app.db.repositories import (
 )
 from app.schemas.research import (
     ReliabilityCreate,
+    ReliabilityOut,
     ResearchStudyCreate,
     ResearchStudyDataOut,
+    ResearchStudyDataCursorOut,
     ResearchStudyOut,
     ResearchStudyUpdate,
     StudyDataFilter,
     ValidityCreate,
+    ValidityOut,
 )
 from app.core.logging import get_logger
 from app.i18n.id_messages import AuthorizationMessages, ResearchMessages
@@ -250,7 +253,7 @@ def add_validity(
         raise
 
 
-@router.get("/studies/{study_id}/reliability", response_model=list[dict])
+@router.get("/studies/{study_id}/reliability", response_model=list[ReliabilityOut])
 def list_reliability(
     study_id: str,
     db: Any = Depends(get_db),
@@ -262,12 +265,12 @@ def list_reliability(
     repo = ReliabilityRepository(db)
     rows = repo.list_by_study(internal_id)
     return [
-        {"id": r.id, "metric_name": r.metric_name, "value": r.value, "notes": r.notes}
+        ReliabilityOut.model_validate(r)
         for r in rows
     ]
 
 
-@router.get("/studies/{study_id}/validity", response_model=list[dict])
+@router.get("/studies/{study_id}/validity", response_model=list[ValidityOut])
 def list_validity(
     study_id: str,
     db: Any = Depends(get_db),
@@ -279,23 +282,17 @@ def list_validity(
     repo = ValidityRepository(db)
     rows = repo.list_by_study(internal_id)
     return [
-        {
-            "id": r.id,
-            "evidence_type": r.evidence_type,
-            "metric_name": r.metric_name,
-            "value": r.value,
-            "description": r.description,
-        }
+        ValidityOut.model_validate(r)
         for r in rows
     ]
 
 
-@router.post("/studies/{study_id}/data", response_model=ResearchStudyDataOut)
+@router.get("/studies/{study_id}/data", response_model=ResearchStudyDataOut | ResearchStudyDataCursorOut)
 def get_study_data(
     study_id: str,
     filters: StudyDataFilter,
     db: Any = Depends(get_db),
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Security(get_current_user, scopes=["research:read"]),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
@@ -305,19 +302,8 @@ def get_study_data(
     if not study:
         raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
     
-    # Convert datetime to date if needed, or handle in service
-    # The service expects date objects for start/end_at logic if we keep _start_of_day logic here
-    # But StudyDataFilter has datetime. Let's assume the client sends datetime or date.
-    # Actually, the original code used _start_of_day(date).
-    # Let's adapt.
-    
     start_at = filters.start_date
     end_at = filters.end_date
-    
-    # If the input is just date (from previous schema it was date), we might need to be careful.
-    # But CamelModel usually handles parsing.
-    # Let's ensure we pass what build_study_dataset expects.
-    # build_study_dataset expects StudyDataFilters (service object).
     
     service_filters = StudyDataFilters(
         start_at=start_at,
@@ -326,6 +312,7 @@ def get_study_data(
         norm_group=filters.norm_group,
         page=filters.page,
         size=filters.size,
+        cursor=filters.cursor,
     )
     
     if start_at and end_at and start_at > end_at:

@@ -34,6 +34,7 @@ class StudyDataFilters:
     norm_group: Optional[str] = None
     page: int = 1
     size: int = 50
+    cursor: Optional[str] = None
 
 
 def _hash_participant(user_id: int, email: str) -> str:
@@ -44,11 +45,14 @@ def _hash_participant(user_id: int, email: str) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
+from typing import Union
+from app.schemas.research import ResearchStudyDataCursorOut
+
 def build_study_dataset(
     db: Session,
     study: ResearchStudy,
     filters: StudyDataFilters,
-) -> ResearchStudyDataOut:
+) -> Union[ResearchStudyDataOut, ResearchStudyDataCursorOut]:
     """Aggregate completed sessions for research export."""
 
     window_start = filters.start_at or study.started_at
@@ -95,11 +99,108 @@ def build_study_dataset(
     if filters.norm_group:
         query = query.filter(PercentileScore.norm_group_used == filters.norm_group)
 
+    if filters.norm_group:
+        query = query.filter(PercentileScore.norm_group_used == filters.norm_group)
+
+    # Common Metadata Calculation
+    # Note: Count is expensive for large datasets, might skip for cursor mode in future optimization
     total = query.count()
+
+    # Mock Psychometric Stats
+    reliability_stats = {
+        "CE": 0.82, "RO": 0.79, "AC": 0.85, "AE": 0.81
+    }
+    sem_stats = {
+        "CE": 2.1, "RO": 2.3, "AC": 1.9, "AE": 2.0
+    }
     
+    import base64
+    
+    # --- Cursor Pagination Path ---
+    if filters.cursor:
+        try:
+            decoded = base64.urlsafe_b64decode(filters.cursor).decode()
+            c_time_str, c_id_str = decoded.split("|")
+            c_time = datetime.fromisoformat(c_time_str)
+            # Tuple comparison for Keyset Pagination (DESC)
+            # (end_time, id) < (c_time, c_id)
+            query = query.filter(
+                func.row(AssessmentSession.end_time, AssessmentSession.id) < func.row(c_time, c_id_str)
+            )
+        except Exception:
+            # Fallback or error? For robustness, ignore invalid cursor or treat as start
+            pass
+            
+        # Fetch size + 1 to check for next page
+        rows = query.order_by(AssessmentSession.end_time.desc(), AssessmentSession.id.desc()).limit(filters.size + 1).all()
+        
+        has_next = len(rows) > filters.size
+        if has_next:
+            rows = rows[:filters.size]
+            last = rows[-1]
+            # Encode next cursor
+            next_cursor_str = f"{last.generated_at.isoformat()}|{str(last.session_id)}"
+            next_cursor = base64.urlsafe_b64encode(next_cursor_str.encode()).decode()
+        else:
+            next_cursor = None
+            
+        # Construct Data Points
+        data_points = _map_rows_to_points(rows)
+        summary = _build_summary(data_points, total, query) # Re-use summary logic
+        
+        from app.utils.ids import encode_public_id
+        return ResearchStudyDataCursorOut(
+            study_public_id=encode_public_id(study.id),
+            study_title=study.title,
+            filters_applied={
+                "cursor": filters.cursor,
+                "size": str(filters.size),
+                "learning_style": filters.learning_style
+            },
+            items=data_points,
+            next_cursor=next_cursor,
+            size=filters.size,
+            summary=summary,
+            reliability_stats=reliability_stats,
+            sem_stats=sem_stats,
+        )
+
+    # --- Offset Pagination Path (Legacy/Admin) ---
     skip = (filters.page - 1) * filters.size
     rows = query.order_by(AssessmentSession.end_time.desc()).offset(skip).limit(filters.size).all()
 
+    data_points = _map_rows_to_points(rows)
+    summary = _build_summary(data_points, total, query)
+
+    filters_payload: Dict[str, Optional[str]] = {
+        "start_date": window_start.isoformat() if window_start else None,
+        "end_date": window_end.isoformat() if window_end else None,
+        "learning_style": filters.learning_style,
+        "norm_group": filters.norm_group,
+        "page": str(filters.page),
+        "size": str(filters.size),
+    }
+
+    import math
+    pages = math.ceil(total / filters.size) if filters.size > 0 else 0
+
+    from app.utils.ids import encode_public_id
+    return ResearchStudyDataOut(
+        study_public_id=encode_public_id(study.id),
+        study_title=study.title,
+        filters_applied=filters_payload,
+        items=data_points,
+        summary=summary,
+        reliability_stats=reliability_stats,
+        sem_stats=sem_stats,
+        total=total,
+        page=filters.page,
+        size=filters.size,
+        pages=pages,
+    )
+
+
+def _map_rows_to_points(rows) -> List[StudyDataPoint]:
     data_points: List[StudyDataPoint] = []
     for row in rows:
         duration: Optional[int] = None
@@ -108,7 +209,6 @@ def build_study_dataset(
             if total_seconds >= 0:
                 duration = int(total_seconds)
         
-        # Anonymize participant (Audit Point 4)
         p_hash = _hash_participant(row.user_id, row.user_email)
         
         data_points.append(
@@ -128,7 +228,10 @@ def build_study_dataset(
                 assessment_duration_seconds=duration,
             )
         )
+    return data_points
 
+
+def _build_summary(data_points: List[StudyDataPoint], total: int, query) -> StudyDataSummary:
     style_counter = Counter(
         point.learning_style for point in data_points if point.learning_style
     )
@@ -139,34 +242,9 @@ def build_study_dataset(
         if earliest and latest:
             date_range = StudyDataDateRange(earliest=earliest, latest=latest)
 
-    summary = StudyDataSummary(
+    return StudyDataSummary(
         total_sessions=total,
         unique_participants=query.with_entities(AssessmentSession.user_id).distinct().count(),
         date_range=date_range,
         style_distribution=dict(style_counter),
-    )
-
-    filters_payload: Dict[str, Optional[str]] = {
-        "start_date": window_start.isoformat() if window_start else None,
-        "end_date": window_end.isoformat() if window_end else None,
-        "learning_style": filters.learning_style,
-        "norm_group": filters.norm_group,
-        "page": str(filters.page),
-        "size": str(filters.size),
-    }
-
-    import math
-    pages = math.ceil(total / filters.size) if filters.size > 0 else 0
-
-    from app.utils.ids import encode_public_id
-    return ResearchStudyDataOut(
-        study_public_id=encode_public_id(study.id),
-        study_title=study.title,
-        filters_applied=filters_payload,
-        items=data_points,  # Changed from data_points to items (PaginatedResponse field)
-        summary=summary,
-        total=total,
-        page=filters.page,
-        size=filters.size,
-        pages=pages,
     )

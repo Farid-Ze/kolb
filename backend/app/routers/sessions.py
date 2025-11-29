@@ -27,6 +27,8 @@ from app.schemas.session import (
     AssessmentResponseBatch,
     AssessmentItemResponsePayload,
     StartSessionRequest,
+    SessionUpdate,
+    SessionStatus,
 )
 from app.services.assessments import upsert_responses
 from app.core.config import settings
@@ -251,7 +253,29 @@ def submit_all_responses(
 
     return SessionOperationResult(result=result)
 
-@router.post("/{session_id}/finalize", response_model=SessionOperationResult)
+@router.patch("/{session_id}", response_model=SessionOperationResult)
+def update_session(
+    session_id: uuid.UUID,
+    payload: SessionUpdate,
+    background_tasks: BackgroundTasks,
+    idempotency_key: Optional[str] = Header(None, description="Unique key to prevent duplicate operations"),
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Update session state.
+    
+    - Set status='completed' to finalize the session.
+    """
+    if payload.status == SessionStatus.COMPLETED:
+        # Re-use finalize logic
+        return finalize(session_id, background_tasks, db, current_user)
+    
+    # Future: Handle other updates (e.g. abandonment)
+    return SessionOperationResult(ok=True)
+
+
+@router.post("/{session_id}/finalize", response_model=SessionOperationResult, deprecated=True)
 def finalize(
     session_id: uuid.UUID, 
     background_tasks: BackgroundTasks,

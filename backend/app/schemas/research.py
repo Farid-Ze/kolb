@@ -37,12 +37,32 @@ class ReliabilityCreate(CamelModel):
     value: float
     notes: Optional[str] = Field(default=None, max_length=500)
 
+class ReliabilityOut(CamelModel):
+    id: int
+    metric_name: str
+    value: float = Field(..., description="Reliability coefficient (Precision: 4 decimal places)")
+    notes: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("value")
+    @classmethod
+    def round_value(cls, v: float) -> float:
+        return round(v, 4)
+
 
 class ValidityCreate(CamelModel):
     evidence_type: str = Field(min_length=1, max_length=50)
     description: Optional[str] = Field(default=None, max_length=1000)
     metric_name: Optional[str] = Field(default=None, max_length=100)
     value: Optional[float] = None
+
+class ValidityOut(CamelModel):
+    id: int
+    evidence_type: str
+    metric_name: Optional[str] = None
+    value: Optional[float] = None
+    description: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
 
 
 import uuid
@@ -75,7 +95,7 @@ class StudyDataSummary(CamelModel):
 
 
 
-from app.schemas.pagination import PaginatedResponse
+from app.schemas.pagination import PaginatedResponse, CursorPaginatedResponse
 
 
 class ResearchStudyDataOut(PaginatedResponse[StudyDataPoint]):
@@ -90,6 +110,18 @@ class ResearchStudyDataOut(PaginatedResponse[StudyDataPoint]):
     study_title: str
     filters_applied: Dict[str, Any]
     summary: StudyDataSummary
+    reliability_stats: Optional[Dict[str, float]] = Field(None, description="Cronbach's Alpha per dimension")
+    sem_stats: Optional[Dict[str, float]] = Field(None, description="Standard Error of Measurement per dimension")
+
+
+class ResearchStudyDataCursorOut(CursorPaginatedResponse[StudyDataPoint]):
+    """Cursor-paginated research study data export with metadata."""
+    study_public_id: str
+    study_title: str
+    filters_applied: Dict[str, Any]
+    summary: StudyDataSummary
+    reliability_stats: Optional[Dict[str, float]] = Field(None, description="Cronbach's Alpha per dimension")
+    sem_stats: Optional[Dict[str, float]] = Field(None, description="Standard Error of Measurement per dimension")
 
 
 
@@ -100,3 +132,4 @@ class StudyDataFilter(CamelModel):
     norm_group: Optional[str] = None
     page: int = Field(default=1, ge=1)
     size: int = Field(default=50, ge=1, le=1000)
+    cursor: Optional[str] = Field(None, description="Cursor for pagination (base64 encoded id/timestamp). Overrides page.")

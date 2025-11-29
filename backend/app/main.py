@@ -4,7 +4,7 @@ import importlib
 from pathlib import Path
 from typing import Any, Callable
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import APIRouter, Depends, FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from sqlalchemy import text
@@ -73,7 +73,18 @@ def custom_openapi():
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
-            "description": "JWT token obtained from /auth/login or /auth/register"
+            "description": "JWT token obtained from /auth/login or /auth/register",
+            "flows": {
+                "clientCredentials": {
+                    "tokenUrl": "/api/v1/auth/token",
+                    "scopes": {
+                        "assessment:write": "Take assessments",
+                        "report:read": "View reports",
+                        "admin:all": "Full administrative access",
+                        "research:read": "Access research data"
+                    }
+                }
+            }
         }
     }
     
@@ -203,20 +214,26 @@ app.openapi = custom_openapi
 register_exception_handlers(app)
 
 # Register routers at import time so tests see routes without requiring startup
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(assessments_router)
-app.include_router(sessions_router)
-app.include_router(engine_router, include_in_schema=False)  # Internal/Legacy
-app.include_router(admin_router)
-app.include_router(reports_router)
-app.include_router(results_router)
-app.include_router(score_router)
-app.include_router(teams_router)
-app.include_router(research_router)
-app.include_router(telemetry_router)
-app.include_router(sphere_router)
-app.include_router(challenges_router)
+# Create v1 router
+api_v1_router = APIRouter(prefix="/api/v1")
+
+# Register routers at import time so tests see routes without requiring startup
+api_v1_router.include_router(auth_router)
+api_v1_router.include_router(users_router)
+api_v1_router.include_router(assessments_router)
+api_v1_router.include_router(sessions_router)
+api_v1_router.include_router(engine_router, include_in_schema=False)  # Internal/Legacy
+api_v1_router.include_router(admin_router)
+api_v1_router.include_router(reports_router)
+api_v1_router.include_router(results_router)
+api_v1_router.include_router(score_router)
+api_v1_router.include_router(teams_router)
+api_v1_router.include_router(research_router)
+api_v1_router.include_router(telemetry_router)
+api_v1_router.include_router(sphere_router)
+api_v1_router.include_router(challenges_router)
+
+app.include_router(api_v1_router)
 
 if GUIDES_STATIC_DIR.exists():
     app.mount(
