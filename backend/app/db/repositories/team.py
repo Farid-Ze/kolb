@@ -3,8 +3,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
-from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.repositories.base import Repository
 from app.models.klsi.assessment import AssessmentSession
@@ -43,132 +44,125 @@ class TeamRollupMemberPoint:
 
 
 @dataclass(slots=True, repr=True)
-class TeamRepository(Repository[Session]):
+class TeamRepository(Repository[AsyncSession]):
     """Repository for team CRUD operations."""
 
-    def get(self, team_id: int) -> Optional[Team]:
-        return (
-            self.db.query(Team)
-            .filter(Team.id == team_id)
-            .first()
+    async def get(self, team_id: int) -> Optional[Team]:
+        result = await self.db.execute(
+            select(Team).filter(Team.id == team_id)
         )
+        return result.scalars().first()
 
-    def get_with_members(self, team_id: int) -> Optional[Team]:
-        return (
-            self.db.query(Team)
+    async def get_with_members(self, team_id: int) -> Optional[Team]:
+        stmt = (
+            select(Team)
             .options(selectinload(Team.members).selectinload(TeamMember.user))
             .filter(Team.id == team_id)
-            .first()
         )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
-    def find_by_name(self, name: str) -> Optional[Team]:
-        return (
-            self.db.query(Team)
-            .filter(Team.name == name)
-            .first()
+    async def find_by_name(self, name: str) -> Optional[Team]:
+        result = await self.db.execute(
+            select(Team).filter(Team.name == name)
         )
+        return result.scalars().first()
 
-    def create(self, name: str, kelas: Optional[str], description: Optional[str]) -> Team:
+    async def create(self, name: str, kelas: Optional[str], description: Optional[str]) -> Team:
         team = Team(name=name, kelas=kelas, description=description)
         self.db.add(team)
-        self.db.flush()
-        self.db.refresh(team)
+        await self.db.flush()
+        await self.db.refresh(team)
         return team
 
-    def list(self, skip: int, limit: int, q: Optional[str]) -> List[Team]:
-        query = self.db.query(Team)
+    async def list(self, skip: int, limit: int, q: Optional[str]) -> List[Team]:
+        stmt = select(Team)
         if q:
             like = f"%{q}%"
-            query = query.filter((Team.name.ilike(like)) | (Team.kelas.ilike(like)))
-        return (
-            query.order_by(Team.id.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+            stmt = stmt.filter((Team.name.ilike(like)) | (Team.kelas.ilike(like)))
+        stmt = stmt.order_by(Team.id.desc()).offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
-    def delete(self, team: Team) -> None:
-        self.db.delete(team)
+    async def delete(self, team: Team) -> None:
+        await self.db.delete(team)
 
-    def count(self, q: Optional[str]) -> int:
-        query = self.db.query(func.count(Team.id))
+    async def count(self, q: Optional[str]) -> int:
+        stmt = select(func.count()).select_from(Team)
         if q:
             like = f"%{q}%"
-            query = query.filter((Team.name.ilike(like)) | (Team.kelas.ilike(like)))
-        return query.scalar() or 0
+            stmt = stmt.filter((Team.name.ilike(like)) | (Team.kelas.ilike(like)))
+        result = await self.db.execute(stmt)
+        return result.scalar() or 0
 
 
 @dataclass(slots=True, repr=True)
-class TeamMemberRepository(Repository[Session]):
+class TeamMemberRepository(Repository[AsyncSession]):
     """Repository for team membership operations."""
 
-    def list_by_team(self, team_id: int) -> List[TeamMember]:
-        return (
-            self.db.query(TeamMember)
-            .filter(TeamMember.team_id == team_id)
-            .all()
+    async def list_by_team(self, team_id: int) -> List[TeamMember]:
+        result = await self.db.execute(
+            select(TeamMember).filter(TeamMember.team_id == team_id)
         )
+        return list(result.scalars().all())
 
-    def list_by_user(self, user_id: int) -> List[TeamMember]:
-        return (
-            self.db.query(TeamMember)
-            .filter(TeamMember.user_id == user_id)
-            .all()
+    async def list_by_user(self, user_id: int) -> List[TeamMember]:
+        result = await self.db.execute(
+            select(TeamMember).filter(TeamMember.user_id == user_id)
         )
+        return list(result.scalars().all())
 
-    def exists(self, team_id: int, user_id: int) -> bool:
-        return (
-            self.db.query(TeamMember)
-            .filter(TeamMember.team_id == team_id, TeamMember.user_id == user_id)
-            .count()
-            > 0
+    async def exists(self, team_id: int, user_id: int) -> bool:
+        stmt = select(func.count()).select_from(TeamMember).filter(
+            TeamMember.team_id == team_id, TeamMember.user_id == user_id
         )
+        result = await self.db.execute(stmt)
+        count = result.scalar()
+        return (count or 0) > 0
 
-    def add(self, team_id: int, user_id: int, role_in_team: Optional[str]) -> TeamMember:
+    async def add(self, team_id: int, user_id: int, role_in_team: Optional[str]) -> TeamMember:
         member = TeamMember(team_id=team_id, user_id=user_id, role_in_team=role_in_team)
         self.db.add(member)
-        self.db.flush()
-        self.db.refresh(member)
+        await self.db.flush()
+        await self.db.refresh(member)
         return member
 
-    def get(self, team_id: int, member_id: int) -> Optional[TeamMember]:
-        return (
-            self.db.query(TeamMember)
-            .filter(TeamMember.id == member_id, TeamMember.team_id == team_id)
-            .first()
+    async def get(self, team_id: int, member_id: int) -> Optional[TeamMember]:
+        result = await self.db.execute(
+            select(TeamMember).filter(TeamMember.id == member_id, TeamMember.team_id == team_id)
         )
+        return result.scalars().first()
 
-    def delete(self, member: TeamMember) -> None:
-        self.db.delete(member)
+    async def delete(self, member: TeamMember) -> None:
+        await self.db.delete(member)
 
-    def count_by_team(self, team_id: int) -> int:
-        return (
-            self.db.query(TeamMember)
-            .filter(TeamMember.team_id == team_id)
-            .count()
-        )
+    async def count_by_team(self, team_id: int) -> int:
+        stmt = select(func.count()).select_from(TeamMember).filter(TeamMember.team_id == team_id)
+        result = await self.db.execute(stmt)
+        return result.scalar() or 0
 
 
 @dataclass(slots=True, repr=True)
-class TeamRollupRepository(Repository[Session]):
+class TeamRollupRepository(Repository[AsyncSession]):
     """Repository for team rollup analytics."""
 
-    def count_by_team(self, team_id: int) -> int:
-        return (
-            self.db.query(TeamAssessmentRollup)
-            .filter(TeamAssessmentRollup.team_id == team_id)
-            .count()
+    async def count_by_team(self, team_id: int) -> int:
+        stmt = select(func.count()).select_from(TeamAssessmentRollup).filter(
+            TeamAssessmentRollup.team_id == team_id
         )
+        result = await self.db.execute(stmt)
+        return result.scalar() or 0
 
-    def list_by_team(self, team_id: int) -> List[TeamAssessmentRollup]:
-        return (
-            self.db.query(TeamAssessmentRollup)
+    async def list_by_team(self, team_id: int) -> List[TeamAssessmentRollup]:
+        stmt = (
+            select(TeamAssessmentRollup)
             .filter(TeamAssessmentRollup.team_id == team_id)
             .order_by(TeamAssessmentRollup.date.desc())
-            .all()
         )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
-    def upsert(
+    async def upsert(
         self,
         team_id: int,
         rdate: date,
@@ -176,19 +170,17 @@ class TeamRollupRepository(Repository[Session]):
         avg_lfi: Optional[float],
         style_counts: Dict[str, int],
     ) -> TeamAssessmentRollup:
-        existing = (
-            self.db.query(TeamAssessmentRollup)
-            .filter(
-                TeamAssessmentRollup.team_id == team_id,
-                TeamAssessmentRollup.date == rdate,
-            )
-            .first()
+        stmt = select(TeamAssessmentRollup).filter(
+            TeamAssessmentRollup.team_id == team_id,
+            TeamAssessmentRollup.date == rdate,
         )
+        result = await self.db.execute(stmt)
+        existing = result.scalars().first()
         if existing:
             existing.total_sessions = total_sessions
             existing.avg_lfi = avg_lfi
             existing.style_counts = style_counts
-            self.db.flush()
+            await self.db.flush()
             return existing
         roll = TeamAssessmentRollup(
             team_id=team_id,
@@ -198,16 +190,16 @@ class TeamRollupRepository(Repository[Session]):
             style_counts=style_counts,
         )
         self.db.add(roll)
-        self.db.flush()
-        self.db.refresh(roll)
+        await self.db.flush()
+        await self.db.refresh(roll)
         return roll
 
 
 @dataclass(slots=True, repr=True)
-class TeamAnalyticsRepository(Repository[Session]):
+class TeamAnalyticsRepository(Repository[AsyncSession]):
     """Repository exposing analytics-oriented queries for teams."""
 
-    def fetch_completed_sessions(
+    async def fetch_completed_sessions(
         self,
         team_id: int,
         for_date: Optional[date] = None,
@@ -229,7 +221,8 @@ class TeamAnalyticsRepository(Repository[Session]):
         if for_date is not None:
             db_today = None
             try:
-                db_today = self.db.execute(select(func.current_date())).scalar()
+                result = await self.db.execute(select(func.current_date()))
+                db_today = result.scalar()
             except Exception:
                 db_today = None
 
@@ -249,8 +242,8 @@ class TeamAnalyticsRepository(Repository[Session]):
                     or_(session_date_expr == for_date, session_date_expr == adjusted)
                 )
 
-        query = (
-            self.db.query(
+        stmt = (
+            select(
                 AssessmentSession.id.label("session_id"),
                 session_date_expr.label("sdate"),
                 LearningFlexibilityIndex.LFI_score.label("lfi"),
@@ -271,10 +264,11 @@ class TeamAnalyticsRepository(Repository[Session]):
                 LearningStyleType.id == UserLearningStyle.primary_style_type_id,
                 isouter=True,
             )
-            .filter(and_(*filters))
+            .where(and_(*filters))
         )
 
-        rows = query.all()
+        result = await self.db.execute(stmt)
+        rows = result.all()
         return [
             TeamSessionRow(
                 session_id=row.session_id,
@@ -285,15 +279,15 @@ class TeamAnalyticsRepository(Repository[Session]):
             for row in rows
         ]
 
-    def fetch_latest_member_points(self, team_id: int) -> List[TeamRollupMemberPoint]:
+    async def fetch_latest_member_points(self, team_id: int) -> List[TeamRollupMemberPoint]:
         member_user_ids_subq = (
-            self.db.query(TeamMember.user_id)
+            select(TeamMember.user_id)
             .filter(TeamMember.team_id == team_id)
             .subquery()
         )
 
-        query = (
-            self.db.query(
+        stmt = (
+            select(
                 AssessmentSession.user_id.label("user_id"),
                 User.full_name.label("user_name"),
                 User.email.label("email"),
@@ -314,14 +308,15 @@ class TeamAnalyticsRepository(Repository[Session]):
             .outerjoin(ScaleScore, ScaleScore.session_id == AssessmentSession.id)
             .outerjoin(UserLearningStyle, UserLearningStyle.session_id == AssessmentSession.id)
             .outerjoin(LearningStyleType, LearningStyleType.id == UserLearningStyle.primary_style_type_id)
-            .filter(
+            .where(
                 AssessmentSession.user_id.in_(select(member_user_ids_subq.c.user_id)),
                 AssessmentSession.status == SessionStatus.completed,
             )
             .order_by(AssessmentSession.end_time.desc().nullslast())
         )
 
-        rows = query.all()
+        result = await self.db.execute(stmt)
+        rows = result.all()
         latest_by_user: Dict[int, TeamRollupMemberPoint] = {}
         for row in rows:
             user_id = row.user_id
@@ -348,7 +343,7 @@ class TeamAnalyticsRepository(Repository[Session]):
 
         return list(latest_by_user.values())
 
-    def fetch_paginated_member_points(
+    async def fetch_paginated_member_points(
         self,
         team_id: int,
         skip: int = 0,
@@ -358,17 +353,15 @@ class TeamAnalyticsRepository(Repository[Session]):
         
         # 1. Identify team members
         member_subq = (
-            self.db.query(TeamMember.user_id)
+            select(TeamMember.user_id)
             .filter(TeamMember.team_id == team_id)
             .subquery()
         )
         
         # 2. Count total members (for pagination metadata)
-        total_count = (
-            self.db.query(func.count(TeamMember.id))
-            .filter(TeamMember.team_id == team_id)
-            .scalar()
-        ) or 0
+        count_stmt = select(func.count()).select_from(TeamMember).filter(TeamMember.team_id == team_id)
+        count_result = await self.db.execute(count_stmt)
+        total_count = count_result.scalar() or 0
 
         if total_count == 0:
             return [], 0
@@ -400,8 +393,8 @@ class TeamAnalyticsRepository(Repository[Session]):
         # The user request implies a unified list or just "members analytics".
         # Let's return a unified list of members, populated with data if available.
         
-        query = (
-            self.db.query(
+        data_stmt = (
+            select(
                 User.id.label("user_id"),
                 User.full_name.label("user_name"),
                 User.email.label("email"),
@@ -424,13 +417,14 @@ class TeamAnalyticsRepository(Repository[Session]):
             .outerjoin(ScaleScore, ScaleScore.session_id == stmt.c.session_id)
             .outerjoin(UserLearningStyle, UserLearningStyle.session_id == stmt.c.session_id)
             .outerjoin(LearningStyleType, LearningStyleType.id == UserLearningStyle.primary_style_type_id)
-            .filter(TeamMember.team_id == team_id)
+            .where(TeamMember.team_id == team_id)
             .order_by(User.full_name)
             .offset(skip)
             .limit(limit)
         )
 
-        rows = query.all()
+        result = await self.db.execute(data_stmt)
+        rows = result.all()
         results = []
         for row in rows:
             completed_at: Optional[datetime] = row.end_time or row.start_time

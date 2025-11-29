@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.db.database import get_db
+from app.db.database import get_async_db
 from app.db.repositories import UserRepository
 from app.schemas.auth import Role, Token, UserCreate, UserOut
 from app.schemas.base import CamelModel
@@ -29,7 +29,7 @@ def _log_db_failure(event: str, **structured: Any) -> None:
 
 
 @router.post("/register", response_model=UserOut)
-def register(payload: UserCreate, db: Any = Depends(get_db)):
+async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
     # domain restriction for mahasiswa accounts
     domain = payload.email.split("@")[-1].lower()
     if domain != settings.allowed_student_domain and payload.nim:
@@ -46,10 +46,10 @@ def register(payload: UserCreate, db: Any = Depends(get_db)):
         if not payload.tahun_masuk or payload.tahun_masuk < 1990 or payload.tahun_masuk > 2100:
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_ENROLLMENT_YEAR)
     user_repo = UserRepository(db)
-    existing = user_repo.get_by_email(payload.email)
+    existing = await user_repo.get_by_email(payload.email)
     if existing:
         raise HTTPException(status_code=400, detail=AuthMessages.EMAIL_ALREADY_REGISTERED)
-    user = user_repo.create(
+    user = await user_repo.create(
         full_name=payload.full_name,
         email=payload.email,
         password_hash=hash_password(payload.password),
@@ -63,7 +63,7 @@ def register(payload: UserCreate, db: Any = Depends(get_db)):
     if payload.guest_session_id and payload.guest_token:
         from app.db.repositories import SessionRepository
         session_repo = SessionRepository(db)
-        session = session_repo.get_by_id(payload.guest_session_id)
+        session = await session_repo.get_by_id(payload.guest_session_id)
         
         # Verify session exists, is anonymous, and token matches
         if session and session.user_id is None and session.guest_token == payload.guest_token:
@@ -72,10 +72,10 @@ def register(payload: UserCreate, db: Any = Depends(get_db)):
             # This preserves the history that it was taken anonymously.
 
     try:
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     except Exception:
-        db.rollback()
+        await db.rollback()
         _log_db_failure(
             "auth_register_commit_failed",
             email=payload.email,
@@ -89,9 +89,9 @@ class LoginRequest(CamelModel):
     password: str
 
 @router.post("/login", response_model=Token)
-def login(payload: LoginRequest, db: Any = Depends(get_db)):
+async def login(payload: LoginRequest, db: Any = Depends(get_async_db)):
     user_repo = UserRepository(db)
-    user = user_repo.get_by_email(payload.email)
+    user = await user_repo.get_by_email(payload.email)
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail=AuthMessages.INVALID_CREDENTIALS)
     token = create_access_token(str(user.id))
@@ -105,14 +105,14 @@ class RefreshRequest(CamelModel):
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_token_endpoint(payload: RefreshRequest, db: Any = Depends(get_db)):
+async def refresh_token_endpoint(payload: RefreshRequest, db: Any = Depends(get_async_db)):
     try:
         user_id = verify_refresh_token(payload.refresh_token)
     except ValueError:
         raise HTTPException(status_code=401, detail=AuthMessages.INVALID_REFRESH_TOKEN)
         
     user_repo = UserRepository(db)
-    user = user_repo.get(int(user_id))
+    user = await user_repo.get(int(user_id))
     if not user:
         raise HTTPException(status_code=401, detail=AuthMessages.USER_NOT_FOUND)
         

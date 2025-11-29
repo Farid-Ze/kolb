@@ -2,21 +2,21 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import select, or_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.klsi.grant import AccessGrant
 
 class GrantRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def create(self, grant: AccessGrant) -> AccessGrant:
+    async def create(self, grant: AccessGrant) -> AccessGrant:
         self.db.add(grant)
-        self.db.flush()
-        self.db.refresh(grant)
+        await self.db.flush()
+        await self.db.refresh(grant)
         return grant
 
-    def get_active_grant_for_user_locked(self, user_id: int, instrument_id: int) -> Optional[AccessGrant]:
+    async def get_active_grant_for_user_locked(self, user_id: int, instrument_id: int) -> Optional[AccessGrant]:
         """
         Get an active grant for a user with row locking (SELECT FOR UPDATE).
         
@@ -40,17 +40,20 @@ class GrantRepository:
             .limit(1)
         )
         
-        return self.db.execute(stmt).scalar_one_or_none()
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
 
-    def get_all_active_grants(self, user_id: int) -> List[AccessGrant]:
+    async def get_all_active_grants(self, user_id: int) -> List[AccessGrant]:
         """Get all active grants for a user (no lock)."""
         now = datetime.now(timezone.utc)
         stmt = (
             select(AccessGrant)
             .where(
                 AccessGrant.grantee_id == user_id,
-                AccessGrant.credits_used < AccessGrant.credits_total,
+                AccessGrant.credits_consumed < AccessGrant.credits_total,
                 or_(AccessGrant.expiry_date.is_(None), AccessGrant.expiry_date > now)
             )
         )
-        return list(self.db.execute(stmt).scalars().all())
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+

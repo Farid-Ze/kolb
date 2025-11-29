@@ -1,48 +1,53 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.db.repositories.base import Repository
 from app.models.klsi.instrument import Instrument, ScoringPipeline, ScoringPipelineNode
 
 
 @dataclass(slots=True, repr=True)
-class InstrumentRepository(Repository[Session]):
+class InstrumentRepository(Repository[AsyncSession]):
     """Repository for accessing instrument metadata."""
 
-    def get_by_code(self, code: str, version: Optional[str] = None) -> Optional[Instrument]:
-        query = self.db.query(Instrument).filter(Instrument.code == code)
+    async def get_by_code(self, code: str, version: Optional[str] = None) -> Optional[Instrument]:
+        stmt = select(Instrument).filter(Instrument.code == code)
         if version:
-            query = query.filter(Instrument.version == version)
+            stmt = stmt.filter(Instrument.version == version)
         else:
-            query = query.order_by(Instrument.version.desc())
-        return query.first()
+            stmt = stmt.order_by(Instrument.version.desc())
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
 
 @dataclass(slots=True, repr=True)
-class PipelineRepository(Repository[Session]):
+class PipelineRepository(Repository[AsyncSession]):
     """Repository for scoring pipeline operations."""
 
-    def list_with_nodes(self, instrument_id: int) -> List[ScoringPipeline]:
-        return (
-            self.db.query(ScoringPipeline)
+    async def list_with_nodes(self, instrument_id: int) -> List[ScoringPipeline]:
+        stmt = (
+            select(ScoringPipeline)
             .options(joinedload(ScoringPipeline.nodes))
             .filter(ScoringPipeline.instrument_id == instrument_id)
             .order_by(ScoringPipeline.pipeline_code.asc(), ScoringPipeline.version.asc())
-            .all()
         )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
-    def get(self, pipeline_id: int, instrument_id: int, *, with_nodes: bool = False) -> Optional[ScoringPipeline]:
-        query = self.db.query(ScoringPipeline).filter(
+    async def get(self, pipeline_id: int, instrument_id: int, *, with_nodes: bool = False) -> Optional[ScoringPipeline]:
+        stmt = select(ScoringPipeline).filter(
             ScoringPipeline.id == pipeline_id,
             ScoringPipeline.instrument_id == instrument_id,
         )
         if with_nodes:
-            query = query.options(joinedload(ScoringPipeline.nodes))
-        return query.first()
+            stmt = stmt.options(joinedload(ScoringPipeline.nodes))
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
-    def get_by_code_version(
+    async def get_by_code_version(
         self,
         instrument_id: int,
         pipeline_code: str,
@@ -50,41 +55,41 @@ class PipelineRepository(Repository[Session]):
         *,
         with_nodes: bool = False,
     ) -> Optional[ScoringPipeline]:
-        query = self.db.query(ScoringPipeline).filter(
+        stmt = select(ScoringPipeline).filter(
             ScoringPipeline.instrument_id == instrument_id,
             ScoringPipeline.pipeline_code == pipeline_code,
             ScoringPipeline.version == version,
         )
         if with_nodes:
-            query = query.options(joinedload(ScoringPipeline.nodes))
-        return query.first()
+            stmt = stmt.options(joinedload(ScoringPipeline.nodes))
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
-    def exists_version(self, instrument_id: int, pipeline_code: str, version: str) -> bool:
-        return (
-            self.db.query(ScoringPipeline)
-            .filter(
-                ScoringPipeline.instrument_id == instrument_id,
-                ScoringPipeline.pipeline_code == pipeline_code,
-                ScoringPipeline.version == version,
-            )
-            .count()
-            > 0
+    async def exists_version(self, instrument_id: int, pipeline_code: str, version: str) -> bool:
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(ScoringPipeline).filter(
+            ScoringPipeline.instrument_id == instrument_id,
+            ScoringPipeline.pipeline_code == pipeline_code,
+            ScoringPipeline.version == version,
         )
+        result = await self.db.execute(stmt)
+        count = result.scalar()
+        return (count or 0) > 0
 
-    def deactivate_all_except(self, instrument_id: int, pipeline_id: int) -> None:
-        (
-            self.db.query(ScoringPipeline)
-            .filter(
-                ScoringPipeline.instrument_id == instrument_id,
-                ScoringPipeline.id != pipeline_id,
-            )
-            .update({"is_active": False}, synchronize_session=False)
+    async def deactivate_all_except(self, instrument_id: int, pipeline_id: int) -> None:
+        from sqlalchemy import update
+        stmt = (
+            update(ScoringPipeline)
+            .where(ScoringPipeline.instrument_id == instrument_id)
+            .where(ScoringPipeline.id != pipeline_id)
+            .values(is_active=False)
         )
+        await self.db.execute(stmt)
 
-    def clone(self, source: ScoringPipeline, **data) -> ScoringPipeline:
+    async def clone(self, source: ScoringPipeline, **data) -> ScoringPipeline:
         cloned = ScoringPipeline(**data)
         self.db.add(cloned)
-        self.db.flush()
+        await self.db.flush()
         for node in sorted(source.nodes, key=lambda n: n.execution_order):
             self.db.add(
                 ScoringPipelineNode(
@@ -97,9 +102,9 @@ class PipelineRepository(Repository[Session]):
                     is_terminal=node.is_terminal,
                 )
             )
-        self.db.flush()
-        self.db.refresh(cloned)
+        await self.db.flush()
+        await self.db.refresh(cloned)
         return cloned
 
-    def delete(self, pipeline: ScoringPipeline) -> None:
-        self.db.delete(pipeline)
+    async def delete(self, pipeline: ScoringPipeline) -> None:
+        await self.db.delete(pipeline)

@@ -1,93 +1,90 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.base import Repository
 from app.models.klsi.research import ReliabilityResult, ResearchStudy, ValidityEvidence
 
 
 @dataclass
-class ResearchStudyRepository(Repository[Session]):
+class ResearchStudyRepository(Repository[AsyncSession]):
     """Repository for research study CRUD operations."""
 
-    def create(self, **data) -> ResearchStudy:
+    async def create(self, **data) -> ResearchStudy:
         study = ResearchStudy(**data)
         self.db.add(study)
-        self.db.flush()
-        self.db.refresh(study)
+        await self.db.flush()
+        await self.db.refresh(study)
         return study
 
-    def list(self, skip: int, limit: int, query: Optional[str]) -> List[ResearchStudy]:
-        q = self.db.query(ResearchStudy)
+    async def list(self, skip: int, limit: int, query: Optional[str]) -> List[ResearchStudy]:
+        stmt = select(ResearchStudy)
         if query:
             like = f"%{query}%"
-            q = q.filter(ResearchStudy.title.ilike(like))
-        return (
-            q.order_by(ResearchStudy.id.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+            stmt = stmt.filter(ResearchStudy.title.ilike(like))
+        stmt = stmt.order_by(ResearchStudy.id.desc()).offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
-    def get(self, study_id: int) -> Optional[ResearchStudy]:
-        return (
-            self.db.query(ResearchStudy)
-            .filter(ResearchStudy.id == study_id)
-            .first()
+    async def get(self, study_id: int) -> Optional[ResearchStudy]:
+        result = await self.db.execute(
+            select(ResearchStudy).filter(ResearchStudy.id == study_id)
         )
+        return result.scalars().first()
 
-    def delete(self, study: ResearchStudy) -> None:
-        self.db.delete(study)
+    async def delete(self, study: ResearchStudy) -> None:
+        await self.db.delete(study)
 
 
 @dataclass
-class ReliabilityRepository(Repository[Session]):
+class ReliabilityRepository(Repository[AsyncSession]):
     """Repository for reliability results linked to studies."""
 
-    def count_by_study(self, study_id: int) -> int:
-        return (
-            self.db.query(ReliabilityResult)
-            .filter(ReliabilityResult.study_id == study_id)
-            .count()
+    async def count_by_study(self, study_id: int) -> int:
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(ReliabilityResult).filter(
+            ReliabilityResult.study_id == study_id
         )
+        result = await self.db.execute(stmt)
+        return result.scalar() or 0
 
-    def add(self, study_id: int, **data) -> ReliabilityResult:
+    async def add(self, study_id: int, **data) -> ReliabilityResult:
         row = ReliabilityResult(study_id=study_id, **data)
         self.db.add(row)
-        self.db.flush()
-        self.db.refresh(row)
+        await self.db.flush()
+        await self.db.refresh(row)
         return row
 
-    def list_by_study(self, study_id: int) -> List[ReliabilityResult]:
-        return (
-            self.db.query(ReliabilityResult)
-            .filter(ReliabilityResult.study_id == study_id)
-            .all()
+    async def list_by_study(self, study_id: int) -> List[ReliabilityResult]:
+        result = await self.db.execute(
+            select(ReliabilityResult).filter(ReliabilityResult.study_id == study_id)
         )
+        return list(result.scalars().all())
 
 
 @dataclass
-class ValidityRepository(Repository[Session]):
+class ValidityRepository(Repository[AsyncSession]):
     """Repository for validity evidence records."""
 
-    def count_by_study(self, study_id: int) -> int:
-        return (
-            self.db.query(ValidityEvidence)
-            .filter(ValidityEvidence.study_id == study_id)
-            .count()
+    async def count_by_study(self, study_id: int) -> int:
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(ValidityEvidence).filter(
+            ValidityEvidence.study_id == study_id
         )
+        result = await self.db.execute(stmt)
+        return result.scalar() or 0
 
-    def add(self, study_id: int, **data) -> ValidityEvidence:
+    async def add(self, study_id: int, **data) -> ValidityEvidence:
         row = ValidityEvidence(study_id=study_id, **data)
         self.db.add(row)
-        self.db.flush()
-        self.db.refresh(row)
+        await self.db.flush()
+        await self.db.refresh(row)
         return row
 
-    def list_by_study(self, study_id: int) -> List[ValidityEvidence]:
-        return (
-            self.db.query(ValidityEvidence)
-            .filter(ValidityEvidence.study_id == study_id)
-            .all()
+    async def list_by_study(self, study_id: int) -> List[ValidityEvidence]:
+        result = await self.db.execute(
+            select(ValidityEvidence).filter(ValidityEvidence.study_id == study_id)
         )
+        return list(result.scalars().all())

@@ -2,29 +2,31 @@ from dataclasses import dataclass
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.db.repositories.base import Repository
 from app.models.klsi.learning import BackupLearningStyle, LearningStyleType
 
 
 @dataclass(slots=True, repr=True)
-class StyleRepository(Repository[Session]):
+class StyleRepository(Repository[AsyncSession]):
     """Repository helpers for learning style metadata and contextual backups."""
 
-    def list_learning_style_types(self) -> List[LearningStyleType]:
+    async def list_learning_style_types(self) -> List[LearningStyleType]:
         """Return all learning style type rows."""
-        return self.db.query(LearningStyleType).all()
+        result = await self.db.execute(select(LearningStyleType))
+        return list(result.scalars().all())
 
-    def get_by_name(self, style_name: str) -> Optional[LearningStyleType]:
+    async def get_by_name(self, style_name: str) -> Optional[LearningStyleType]:
         """Fetch a learning style type by its canonical name."""
-        return (
-            self.db.query(LearningStyleType)
+        result = await self.db.execute(
+            select(LearningStyleType)
             .filter(LearningStyleType.style_name == style_name)
-            .first()
         )
+        return result.scalars().first()
 
-    def upsert_backup_style(
+    async def upsert_backup_style(
         self,
         session_id: UUID,
         style_type_id: int,
@@ -33,14 +35,14 @@ class StyleRepository(Repository[Session]):
         contexts: Optional[List[str]] = None,
     ) -> BackupLearningStyle:
         """Create or update a backup learning style row for a session."""
-        existing = (
-            self.db.query(BackupLearningStyle)
+        result = await self.db.execute(
+            select(BackupLearningStyle)
             .filter(
                 BackupLearningStyle.session_id == session_id,
                 BackupLearningStyle.style_type_id == style_type_id,
             )
-            .first()
         )
+        existing = result.scalars().first()
         payload = {"contexts": contexts} if contexts is not None else None
         if existing:
             existing.frequency_count = frequency_count
@@ -56,4 +58,6 @@ class StyleRepository(Repository[Session]):
             percentage=None,
         )
         self.db.add(entry)
+        await self.db.flush()
+        await self.db.refresh(entry)
         return entry

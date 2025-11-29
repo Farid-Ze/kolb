@@ -2,7 +2,8 @@ import uuid
 from typing import Optional
 
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.db.repositories.base import Repository
 from app.models.klsi.assessment import AssessmentSession
@@ -14,33 +15,36 @@ from dataclasses import dataclass
 
 
 @dataclass(slots=True, repr=True)
-class SessionRepository(Repository[Session]):
+class SessionRepository(Repository[AsyncSession]):
     """Repository for assessment session access patterns."""
 
-    def get_by_id(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
-        return self.db.execute(
+    async def get_by_id(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
+        result = await self.db.execute(
             select(AssessmentSession).filter(AssessmentSession.id == session_id)
-        ).scalars().first()
+        )
+        return result.scalars().first()
 
-    def get_for_user(self, session_id: uuid.UUID, user_id: int) -> Optional[AssessmentSession]:
-        return self.db.execute(
+    async def get_for_user(self, session_id: uuid.UUID, user_id: int) -> Optional[AssessmentSession]:
+        result = await self.db.execute(
             select(AssessmentSession)
             .filter(AssessmentSession.id == session_id)
             .filter(AssessmentSession.user_id == user_id)
-        ).scalars().first()
+        )
+        return result.scalars().first()
 
-    def is_completed(self, session_id: uuid.UUID) -> bool:
-        count = self.db.execute(
+    async def is_completed(self, session_id: uuid.UUID) -> bool:
+        result = await self.db.execute(
             select(func.count())
             .select_from(AssessmentSession)
             .filter(AssessmentSession.id == session_id)
             .filter(AssessmentSession.status == SessionStatus.completed)
-        ).scalar()
+        )
+        count = result.scalar()
         return (count or 0) > 0
 
-    def get_with_details(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
+    async def get_with_details(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         """Fetch session with all report-critical relationships eagerly loaded."""
-        return self.db.execute(
+        result = await self.db.execute(
             select(AssessmentSession)
             .options(
                 joinedload(AssessmentSession.scale_score),
@@ -53,32 +57,36 @@ class SessionRepository(Repository[Session]):
                 joinedload(AssessmentSession.user),
             )
             .filter(AssessmentSession.id == session_id)
-        ).scalars().first()
+        )
+        return result.scalars().first()
 
-    def get_with_user(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
+    async def get_with_user(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         """Fetch session with associated user eager-loaded."""
-        return self.db.execute(
+        result = await self.db.execute(
             select(AssessmentSession)
             .options(joinedload(AssessmentSession.user))
             .filter(AssessmentSession.id == session_id)
-        ).scalars().first()
+        )
+        return result.scalars().first()
 
-    def get_with_instrument(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
+    async def get_with_instrument(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         """Fetch a session with instrument relationship eagerly loaded."""
-        return self.db.execute(
+        result = await self.db.execute(
             select(AssessmentSession)
             .options(joinedload(AssessmentSession.instrument))
             .filter(AssessmentSession.id == session_id)
-        ).scalars().first()
+        )
+        return result.scalars().first()
 
-    def list_lfi_context_scores(self, session_id: uuid.UUID) -> list[LFIContextScore]:
+    async def list_lfi_context_scores(self, session_id: uuid.UUID) -> list[LFIContextScore]:
         """Return all LFI context score rows for a session."""
-        return list(self.db.execute(
+        result = await self.db.execute(
             select(LFIContextScore)
             .filter(LFIContextScore.session_id == session_id)
-        ).scalars().all())
+        )
+        return list(result.scalars().all())
 
-    def get_previous_completed_session(
+    async def get_previous_completed_session(
         self,
         *,
         user_id: int,
@@ -87,7 +95,7 @@ class SessionRepository(Repository[Session]):
         exclude_session_id: uuid.UUID,
     ) -> Optional[AssessmentSession]:
         """Fetch the most recent completed session for the same assessment, excluding the given session."""
-        return self.db.execute(
+        result = await self.db.execute(
             select(AssessmentSession)
             .options(
                 joinedload(AssessmentSession.combination_score),
@@ -100,11 +108,12 @@ class SessionRepository(Repository[Session]):
             .filter(AssessmentSession.status == SessionStatus.completed)
             .filter(AssessmentSession.id != exclude_session_id)
             .order_by(AssessmentSession.end_time.desc())
-        ).scalars().first()
+        )
+        return result.scalars().first()
 
-    def get_latest_completed_for_user(self, user_id: int) -> Optional[AssessmentSession]:
+    async def get_latest_completed_for_user(self, user_id: int) -> Optional[AssessmentSession]:
         """Fetch the most recent completed session for a user with all details."""
-        return self.db.execute(
+        result = await self.db.execute(
             select(AssessmentSession)
             .options(
                 joinedload(AssessmentSession.scale_score),
@@ -116,12 +125,13 @@ class SessionRepository(Repository[Session]):
             .filter(AssessmentSession.user_id == user_id)
             .filter(AssessmentSession.status == SessionStatus.completed)
             .order_by(AssessmentSession.end_time.desc())
-        ).scalars().first()
+        )
+        return result.scalars().first()
 
-    def list_completed_for_user(self, user_id: int) -> list[AssessmentSession]:
+    async def list_completed_for_user(self, user_id: int) -> list[AssessmentSession]:
         """Return all completed sessions for a user with summary-critical relations eagerly loaded."""
-        return (
-            self.db.query(AssessmentSession)
+        result = await self.db.execute(
+            select(AssessmentSession)
             .options(
                 joinedload(AssessmentSession.learning_style).joinedload(UserLearningStyle.style_type),
                 joinedload(AssessmentSession.lfi_index),
@@ -131,10 +141,10 @@ class SessionRepository(Repository[Session]):
             .filter(AssessmentSession.user_id == user_id)
             .filter(AssessmentSession.status == SessionStatus.completed)
             .order_by(AssessmentSession.end_time.desc(), AssessmentSession.id.desc())
-            .all()
         )
+        return list(result.scalars().all())
 
-    def get_by_user(
+    async def get_by_user(
         self,
         user_id: int,
         status: Optional[str] = None,
@@ -142,7 +152,10 @@ class SessionRepository(Repository[Session]):
         limit: int = 100,
     ) -> list[AssessmentSession]:
         """List sessions for a user with optional status filter."""
-        query = self.db.query(AssessmentSession).filter(AssessmentSession.user_id == user_id)
+        stmt = select(AssessmentSession).filter(AssessmentSession.user_id == user_id)
         if status:
-            query = query.filter(AssessmentSession.status == status)
-        return query.offset(skip).limit(limit).all()
+            stmt = stmt.filter(AssessmentSession.status == status)
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+

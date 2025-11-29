@@ -2,25 +2,27 @@ from datetime import date
 from typing import Optional
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.klsi.enums import EducationLevel, Gender
 from app.models.klsi.user import User
 
 
 class UserRepository:
-    """Repository abstraction for user persistence and lookups (Sync)."""
+    """Repository abstraction for user persistence and lookups (Async)."""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    def get(self, user_id: int) -> Optional[User]:
-        return self.db.execute(select(User).filter(User.id == user_id)).scalars().first()
+    async def get(self, user_id: int) -> Optional[User]:
+        result = await self.db.execute(select(User).filter(User.id == user_id))
+        return result.scalars().first()
 
-    def get_by_email(self, email: str) -> Optional[User]:
-        return self.db.execute(select(User).filter(User.email == email)).scalars().first()
+    async def get_by_email(self, email: str) -> Optional[User]:
+        result = await self.db.execute(select(User).filter(User.email == email))
+        return result.scalars().first()
 
-    def create(
+    async def create(
         self,
         *,
         full_name: str,
@@ -51,4 +53,7 @@ class UserRepository:
             occupation=occupation,
         )
         self.db.add(user)
+        await self.db.flush()
+        await self.db.refresh(user)
         return user
+

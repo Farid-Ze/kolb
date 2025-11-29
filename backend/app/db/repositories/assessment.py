@@ -3,7 +3,8 @@ from typing import List
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.db.repositories.base import Repository
 from app.models.klsi.enums import ItemType
@@ -19,23 +20,21 @@ class ItemRankAggregate:
 
 
 @dataclass
-class AssessmentItemRepository(Repository[Session]):
+class AssessmentItemRepository(Repository[AsyncSession]):
     """Repository providing access to assessment item metadata."""
 
-    def get_learning_item_ids(self) -> List[int]:
-        rows = (
-            self.db.query(AssessmentItem.id)
-            .filter(AssessmentItem.item_type == ItemType.learning_style)
-            .all()
-        )
+    async def get_learning_item_ids(self) -> List[int]:
+        stmt = select(AssessmentItem.id).filter(AssessmentItem.item_type == ItemType.learning_style)
+        result = await self.db.execute(stmt)
+        rows = result.all()
         return [row[0] for row in rows]
 
 
 @dataclass
-class UserResponseRepository(Repository[Session]):
+class UserResponseRepository(Repository[AsyncSession]):
     """Repository exposing aggregate computations on user responses."""
 
-    def record_response(
+    async def record_response(
         self,
         *,
         session_id: UUID,
@@ -50,19 +49,22 @@ class UserResponseRepository(Repository[Session]):
             rank_value=rank_value,
         )
         self.db.add(entity)
+        await self.db.flush()
+        await self.db.refresh(entity)
         return entity
 
-    def aggregate_ranks_by_item(self, session_id: UUID) -> List[ItemRankAggregate]:
-        rows = (
-            self.db.query(
+    async def aggregate_ranks_by_item(self, session_id: UUID) -> List[ItemRankAggregate]:
+        stmt = (
+            select(
                 UserResponse.item_id,
                 UserResponse.rank_value,
                 func.count().label("cnt"),
             )
             .filter(UserResponse.session_id == session_id)
             .group_by(UserResponse.item_id, UserResponse.rank_value)
-            .all()
         )
+        result = await self.db.execute(stmt)
+        rows = result.all()
         return [
             ItemRankAggregate(
                 item_id=row.item_id,
@@ -72,33 +74,35 @@ class UserResponseRepository(Repository[Session]):
             for row in rows
         ]
 
-    def find_duplicate_choices(self, session_id: UUID) -> List[int]:
-        rows = (
-            self.db.query(UserResponse.choice_id, func.count().label("c"))
+    async def find_duplicate_choices(self, session_id: UUID) -> List[int]:
+        stmt = (
+            select(UserResponse.choice_id, func.count().label("c"))
             .filter(UserResponse.session_id == session_id)
             .group_by(UserResponse.choice_id)
             .having(func.count() > 1)
-            .all()
         )
+        result = await self.db.execute(stmt)
+        rows = result.all()
         return [row.choice_id for row in rows]
 
-    def list_with_choices(self, session_id: UUID) -> List[UserResponse]:
+    async def list_with_choices(self, session_id: UUID) -> List[UserResponse]:
         """Return responses with choice and item relationships eager-loaded."""
-        return (
-            self.db.query(UserResponse)
+        stmt = (
+            select(UserResponse)
             .options(
                 joinedload(UserResponse.choice).joinedload(ItemChoice.item),
             )
             .filter(UserResponse.session_id == session_id)
-            .all()
         )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
 
 @dataclass
-class LFIContextRepository(Repository[Session]):
+class LFIContextRepository(Repository[AsyncSession]):
     """Repository for accessing LFI context scores."""
 
-    def record_context(
+    async def record_context(
         self,
         *,
         session_id: UUID,
@@ -117,13 +121,14 @@ class LFIContextRepository(Repository[Session]):
             AE_rank=AE,
         )
         self.db.add(entity)
+        await self.db.flush()
+        await self.db.refresh(entity)
         return entity
 
-    def list_for_session(self, session_id: UUID) -> List[LFIContextScore]:
-        return (
-            self.db.query(LFIContextScore)
-            .filter(LFIContextScore.session_id == session_id)
-            .all()
-        )
+    async def list_for_session(self, session_id: UUID) -> List[LFIContextScore]:
+        stmt = select(LFIContextScore).filter(LFIContextScore.session_id == session_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
 
 

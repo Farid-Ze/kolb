@@ -5,9 +5,9 @@ from fastapi import Header, HTTPException, Depends
 from jose import jwt
 from jose.exceptions import JWTError, ExpiredSignatureError
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.db.database import get_async_db
 from app.core.config import settings
 from app.db.repositories import UserRepository
 from app.i18n.id_messages import AuthorizationMessages, SecurityMessages
@@ -151,7 +151,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scheme_name="Bearer
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", scheme_name="BearerAuth", auto_error=False)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_async_db)):
     """FastAPI dependency for extracting and validating current user from JWT.
     
     Args:
@@ -176,14 +176,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=500, detail=SecurityMessages.DB_SESSION_REQUIRED)
 
     user_repo = UserRepository(db)
-    user = user_repo.get(user_id)
+    user = await user_repo.get(user_id)
     if not user:
         raise HTTPException(status_code=401, detail=SecurityMessages.USER_NOT_FOUND)
     
     return user
 
 
-def get_current_user_optional(token: str | None = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)):
+async def get_current_user_optional(token: str | None = Depends(oauth2_scheme_optional), db: AsyncSession = Depends(get_async_db)):
     """FastAPI dependency for optional user authentication.
     
     Returns:
@@ -196,7 +196,7 @@ def get_current_user_optional(token: str | None = Depends(oauth2_scheme_optional
         payload = decode_access_token(token)
         user_id = int(payload["sub"])
         repo = UserRepository(db)
-        return repo.get(user_id)
+        return await repo.get(user_id)
     except (ValueError, JWTError):
         return None
 
@@ -211,15 +211,15 @@ class GuestUser:
         self.guest_token = guest_token
         self.is_guest = True
 
-def get_current_user_or_guest(
+async def get_current_user_or_guest(
     token: str | None = Depends(oauth2_scheme_optional),
     x_guest_token: str | None = Header(None, alias="X-Guest-Token"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Authenticate user via Bearer token OR Guest token."""
     # 1. Try Bearer Token (Registered User)
     if token:
-        user = get_current_user_optional(token, db)
+        user = await get_current_user_optional(token, db)
         if user:
             user.is_guest = False
             return user

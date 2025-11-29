@@ -7,7 +7,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, BackgroundTasks
 from pydantic import ValidationError
 
-from app.db.database import get_db
+from app.db.database import get_db, get_async_db
 from app.db.repositories import SessionRepository
 from app.engine.runtime import runtime
 from app.services.security import get_current_user, decode_access_token, get_current_user_optional
@@ -112,9 +112,9 @@ from app.core.errors import InsufficientCreditsError
 from sqlalchemy import select
 
 @router.post("/start", response_model=SessionStartResponse)
-def start_session(
+async def start_session(
     payload: StartSessionRequest,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -125,7 +125,8 @@ def start_session(
     """
     # 1. Lookup Instrument
     stmt = select(Instrument).where(Instrument.code == payload.instrument_code)
-    instrument = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    instrument = result.scalar_one_or_none()
     
     if not instrument:
         raise HTTPException(status_code=404, detail=f"Instrument {payload.instrument_code} not found")
@@ -133,7 +134,7 @@ def start_session(
     # 2. Consume Credit (Transactional)
     grant_service = GrantService(db)
     try:
-        grant_service.redeem_credit(current_user.id, instrument.id)
+        await grant_service.redeem_credit(current_user.id, instrument.id)
     except InsufficientCreditsError as e:
         raise HTTPException(status_code=402, detail=e.message)
 

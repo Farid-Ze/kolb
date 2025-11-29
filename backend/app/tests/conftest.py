@@ -6,6 +6,10 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["RUN_STARTUP_SEED"] = "False"
 print("DEBUG: LOADING CONFTEST.PY")
 
+from app.core.config import settings
+settings.database_url = "sqlite:///:memory:"
+print(f"DEBUG: Patched settings.database_url to {settings.database_url}")
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -17,6 +21,9 @@ import sys
 sys.stdout.flush()
 from app.models import engine as _engine  # register new engine authoring models
 from app.models.klsi.grant import AccessGrant
+from app.models.klsi.user import User  # Ensure User model is registered
+print(f"DEBUG: User model imported: {User}")
+print(f"DEBUG: Base metadata tables: {Base.metadata.tables.keys()}")
 # import app.instruments.klsi4  # register KLSI 4.0 plugin - REMOVED to avoid circular import crash
 from sqlalchemy import text
 

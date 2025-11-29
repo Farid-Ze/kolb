@@ -1,0 +1,33 @@
+# Testing Dependencies for QA Protocols
+# Install: pip install -r requirements-test.txt
+
+# Unit & Integration Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+pytest-xdist==3.6.1  # Parallel test execution
+
+# Property-Based Testing (The Professor Test)
+hypothesis==6.115.6
+
+# Load & Performance Testing (The Bank Vault Test)
+locust==2.32.4
+
+# Security Testing (The Hacker Test)
+safety==3.2.10
+bandit==1.8.0  # Code security linter
+
+# Mocking & Fixtures
+pytest-mock==3.14.0
+faker==33.1.0  # Generate test data
+factory-boy==3.3.1  # Test fixtures
+
+# API Testing
+httpx[http2]==0.28.1  # Async HTTP client for FastAPI testing
+
+# Database Testing
+pytest-postgresql==6.1.1  # Test database fixtures
+
+# Code Quality
+mypy==1.13.0
+ruff==0.8.4
