@@ -8,6 +8,8 @@ from app.models.klsi.enums import EducationLevel, Gender
 from app.models.klsi.user import User
 
 
+from sqlalchemy.orm.attributes import set_committed_value
+
 class UserRepository:
     """Repository abstraction for user persistence and lookups (Async)."""
 
@@ -56,6 +58,6 @@ class UserRepository:
         await self.db.flush()
         await self.db.refresh(user)
         # Avoid lazy load error in Pydantic
-        user.achievements = []
+        set_committed_value(user, "achievements", [])
         return user
 

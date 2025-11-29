@@ -38,7 +38,7 @@ class User(Base):
     )
 
     sessions: Mapped[list["AssessmentSession"]] = relationship(back_populates="user")
-    achievements: Mapped[list["UserAchievement"]] = relationship(back_populates="user")
+    achievements: Mapped[list["UserAchievement"]] = relationship(back_populates="user", lazy="noload")
     challenges: Mapped[list["UserChallenge"]] = relationship(back_populates="user")
     sphere_nodes: Mapped[list["SphereNode"]] = relationship(back_populates="user")
     reflections: Mapped[list["MemoryReflection"]] = relationship(back_populates="user")

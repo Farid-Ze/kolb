@@ -220,7 +220,8 @@ def _build_async_engine() -> AsyncEngine:
     - sqlite:// -> sqlite+aiosqlite://
     """
     url: URL = make_url(settings.database_url)
-    async_url_str = str(url)
+    # [Zenotika V4] Fix: Ensure password is not masked when converting URL to string
+    async_url_str = url.render_as_string(hide_password=False)
     
     if url.get_backend_name() == "postgresql":
         async_url_str = async_url_str.replace("postgresql://", "postgresql+psycopg://")
@@ -249,19 +250,14 @@ def _build_async_engine() -> AsyncEngine:
                 }
             )
     else:
-        kwargs.update(
-            {
-                "pool_size": settings.db_pool_size,
-                "max_overflow": settings.db_max_overflow,
-                "pool_timeout": settings.db_pool_timeout,
-                "pool_recycle": settings.db_pool_recycle,
-                "pool_pre_ping": settings.db_pool_pre_ping,
-            }
-        )
+        # [Zenotika V4] Fix: Restrict kwargs for async engine to avoid auth failures
+        # Some pool parameters (pool_recycle, pool_timeout) cause OperationalError with psycopg async
+        async_kwargs = {
+            "pool_pre_ping": settings.db_pool_pre_ping,
+        }
+        return create_async_engine(async_url_str, **async_kwargs)
 
     return create_async_engine(async_url_str, **kwargs)
-
-
 engine: Engine = _build_engine()
 SessionLocal: sessionmaker[Session] = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 database_gateway = DatabaseGateway(engine=engine, session_factory=SessionLocal)

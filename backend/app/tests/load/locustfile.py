@@ -13,10 +13,20 @@ class GrantRedemptionUser(HttpUser):
     
     def on_start(self):
         """Setup: Login and get auth token"""
+        email = f"loadtest_{uuid.uuid4().hex[:8]}@test.com"
+        password = "TestPassword123!"
+        
+        # Register first
+        self.client.post("/api/v1/auth/register", json={
+            "full_name": "Locust User",
+            "email": email,
+            "password": password
+        })
+
         # Login
         response = self.client.post("/api/v1/auth/login", json={
-            "email": f"loadtest_{uuid.uuid4().hex[:8]}@test.com",
-            "password": "TestPassword123!"
+            "email": email,
+            "password": password
         })
         if response.status_code == 200:
             self.token = response.json()["access_token"]
