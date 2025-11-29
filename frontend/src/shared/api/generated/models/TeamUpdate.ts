@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type TeamUpdate = {
-    name?: (string | null);
-    kelas?: (string | null);
-    description?: (string | null);
+    name?: string | null;
+    kelas?: string | null;
+    description?: string | null;
 };
 

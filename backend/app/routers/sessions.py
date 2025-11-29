@@ -92,6 +92,10 @@ def _sunset_header_value() -> str | None:
     return format_datetime(aware.astimezone(timezone.utc))
 
 
+from app.services.grant_service import GrantService
+from app.models.klsi.instrument import Instrument
+from sqlalchemy import select
+
 @router.post("/start", response_model=SessionStartResponse)
 def start_session(
     payload: StartSessionRequest,
@@ -102,7 +106,20 @@ def start_session(
     Start a new assessment session.
     
     This is the primary entry point for starting an assessment.
+    Enforces Grant consumption (Phase 1: Semantic Pivot).
     """
+    # 1. Lookup Instrument
+    stmt = select(Instrument).where(Instrument.code == payload.instrument_code)
+    instrument = db.execute(stmt).scalar_one_or_none()
+    
+    if not instrument:
+        raise HTTPException(status_code=404, detail=f"Instrument {payload.instrument_code} not found")
+
+    # 2. Consume Credit (Transactional)
+    grant_service = GrantService(db)
+    grant_service.consume_credit(current_user.id, instrument.id)
+
+    # 3. Start Session
     service = EngineSessionService(db)
     session = service.start_session(
         current_user,

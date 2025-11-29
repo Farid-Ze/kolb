@@ -7,8 +7,8 @@ export type UserChallengeOut = {
     id: number;
     challengeId: number;
     status: ChallengeStatus;
-    proofUrl?: (string | null);
+    proofUrl?: string | null;
     createdAt: string;
-    completedAt?: (string | null);
+    completedAt?: string | null;
 };
 

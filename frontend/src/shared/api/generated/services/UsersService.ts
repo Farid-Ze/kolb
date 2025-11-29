@@ -10,42 +10,24 @@ import { request as __request } from '../core/request';
 export class UsersService {
     /**
      * Get Me
-     * @param authorization
      * @returns UserOut Successful Response
      * @throws ApiError
      */
-    public static getMeUsersMeGet(
-        authorization?: (string | null),
-    ): CancelablePromise<UserOut> {
+    public static getMeUsersMeGet(): CancelablePromise<UserOut> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/users/me',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
     /**
      * List User Achievements
-     * @param authorization
      * @returns UserAchievementOut Successful Response
      * @throws ApiError
      */
-    public static listUserAchievementsUsersMeAchievementsGet(
-        authorization?: (string | null),
-    ): CancelablePromise<Array<UserAchievementOut>> {
+    public static listUserAchievementsUsersMeAchievementsGet(): CancelablePromise<Array<UserAchievementOut>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/users/me/achievements',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
 }

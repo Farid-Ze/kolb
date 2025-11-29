@@ -3,11 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ResearchStudyOut = {
-    id: number;
+    publicId: string;
     title: string;
-    description: (string | null);
-    startedAt: (string | null);
-    completedAt: (string | null);
-    notes: (string | null);
+    description: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    notes: string | null;
 };
 

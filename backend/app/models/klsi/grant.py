@@ -1,35 +1,47 @@
-
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
 import uuid
+from datetime import datetime, timezone
+from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Boolean, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
-if TYPE_CHECKING:
-    from app.models.klsi.user import User
-    from app.models.klsi.instrument import Instrument
-
-__all__ = ["AccessGrant"]
-
 class AccessGrant(Base):
     __tablename__ = "access_grants"
 
-    id: Mapped[str] = mapped_column(String(50), primary_key=True, default=lambda: f"grant_{uuid.uuid4().hex[:12]}")
-    grantor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Who gave this grant? (System or Admin)
+    grantor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    
+    # Who owns this grant?
     grantee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    
+    # What instrument is this for? (e.g., KLSI4, TeamRole)
     instrument_id: Mapped[int] = mapped_column(ForeignKey("instruments.id"), nullable=False)
-    study_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, comment="External Research Study ID for provenance")
-    credits_allocated: Mapped[int] = mapped_column(Integer, default=1)
-    credits_consumed: Mapped[int] = mapped_column(Integer, default=0)
-    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    
+    # Quota details
+    credits_total: Mapped[int] = mapped_column(Integer, default=1)
+    credits_used: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Audit trail from legacy store
+    source_order_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    
+    # Validity
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    grantor: Mapped["User"] = relationship("User", foreign_keys=[grantor_id])
-    grantee: Mapped[Optional["User"]] = relationship("User", foreign_keys=[grantee_id])
-    instrument: Mapped["Instrument"] = relationship("Instrument")
+    grantor = relationship("User", foreign_keys=[grantor_id])
+    grantee = relationship("User", foreign_keys=[grantee_id])
+    instrument = relationship("Instrument")
+
+    @property
+    def is_active(self) -> bool:
+        """Check if grant is valid and has remaining credits."""
+        now = datetime.now(timezone.utc)
+        not_expired = self.expiry_date is None or self.expiry_date > now
+        has_credits = self.credits_used < self.credits_total
+        return not_expired and has_credits

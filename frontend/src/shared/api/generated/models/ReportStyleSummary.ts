@@ -3,9 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ReportStyleSummary = {
-    styleCode?: (string | null);
-    styleName?: (string | null);
-    description?: (string | null);
-    quadrant?: (string | null);
+    styleCode?: string | null;
+    styleName?: string | null;
+    description?: string | null;
+    quadrant?: string | null;
 };
 

@@ -3,10 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StudyDataPoint = {
-    sessionId: number;
-    userId: number;
-    userEmail: string;
-    userName: string;
+    sessionId: string;
+    participantHash: string;
     generatedAt: string;
     ceScore: number;
     roScore: number;
@@ -14,9 +12,9 @@ export type StudyDataPoint = {
     aeScore: number;
     acCe: number;
     aeRo: number;
-    learningStyle?: (string | null);
-    styleCode?: (string | null);
-    normGroup?: (string | null);
-    assessmentDurationSeconds?: (number | null);
+    learningStyle?: string | null;
+    styleCode?: string | null;
+    normGroup?: string | null;
+    assessmentDurationSeconds?: number | null;
 };
 

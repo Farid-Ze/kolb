@@ -4,12 +4,12 @@
 /* eslint-disable */
 export type ReportShareContext = {
     shareId: number;
-    sessionId: number;
-    mediatorEmail?: (string | null);
-    mediatorName?: (string | null);
-    ownerName?: (string | null);
-    ownerEmail?: (string | null);
-    expiresAt?: (string | null);
-    note?: (string | null);
+    sessionId: string;
+    mediatorEmail?: string | null;
+    mediatorName?: string | null;
+    ownerName?: string | null;
+    ownerEmail?: string | null;
+    expiresAt?: string | null;
+    note?: string | null;
 };
 

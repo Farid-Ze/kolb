@@ -2,10 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ContextRanksWrite } from './ContextRanksWrite';
-import type { RawTotalsWrite } from './RawTotalsWrite';
+import type { ContextItemRank } from './ContextItemRank';
+import type { ItemRank } from './ItemRank';
 export type ScorePreviewRequest = {
-    raw: RawTotalsWrite;
-    contexts: Array<ContextRanksWrite>;
+    items: Array<ItemRank>;
+    contexts: Array<ContextItemRank>;
 };
 

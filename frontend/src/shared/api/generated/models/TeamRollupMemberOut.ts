@@ -4,15 +4,15 @@
 /* eslint-disable */
 export type TeamRollupMemberOut = {
     userId: number;
-    name: (string | null);
-    email: (string | null);
-    sessionId: (number | null);
-    generatedAt: (string | null);
-    acCe: (number | null);
-    aeRo: (number | null);
-    learningStyle: (string | null);
-    styleCode: (string | null);
-    rawScores: (Record<string, (number | null)> | null);
-    dialecticScores: (Record<string, (number | null)> | null);
+    name: string | null;
+    email: string | null;
+    sessionId: string | null;
+    generatedAt: string | null;
+    acCe: number | null;
+    aeRo: number | null;
+    learningStyle: string | null;
+    styleCode: string | null;
+    rawScores: any | null;
+    dialecticScores: any | null;
 };
 

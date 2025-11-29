@@ -2,8 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type CartItem = {
-    productId: number;
-    quantity?: number;
-};
-
+export enum TeamRole {
+    MEMBER = 'MEMBER',
+    LEADER = 'LEADER',
+}

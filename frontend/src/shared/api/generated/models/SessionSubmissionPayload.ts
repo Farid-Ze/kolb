@@ -10,6 +10,6 @@ export type SessionSubmissionPayload = {
     /**
      * Total duration spent by user in ms
      */
-    clientDurationMs?: (number | null);
+    clientDurationMs?: number | null;
 };
 

@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ReportDialecticSummary = {
-    acce?: (number | null);
-    aero?: (number | null);
-    intensity?: (number | null);
+    acce?: number | null;
+    aero?: number | null;
+    intensity?: number | null;
 };
 

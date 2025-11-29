@@ -2,10 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { TeamRole } from './TeamRole';
 export type TeamMemberOut = {
     id: number;
     teamId: number;
     userId: number;
-    roleInTeam: (string | null);
+    roleInTeam: TeamRole;
 };
 

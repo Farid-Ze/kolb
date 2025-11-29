@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type Token = {
     accessToken: string;
+    refreshToken?: string | null;
     tokenType?: string;
     expiresIn: number;
 };

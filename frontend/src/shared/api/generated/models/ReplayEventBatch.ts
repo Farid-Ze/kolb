@@ -2,8 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type SessionStartResponse = {
+import type { ReplayEvent } from './ReplayEvent';
+/**
+ * Batch of replay events.
+ */
+export type ReplayEventBatch = {
     sessionId: number;
-    guestToken?: (string | null);
+    events: Array<ReplayEvent>;
 };
 

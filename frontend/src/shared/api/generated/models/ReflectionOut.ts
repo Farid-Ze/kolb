@@ -8,6 +8,6 @@ export type ReflectionOut = {
     content: string;
     reflectionType: ReflectionType;
     createdAt: string;
-    sphereNodeId?: (number | null);
+    sphereNodeId?: number | null;
 };
 

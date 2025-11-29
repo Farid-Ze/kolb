@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ScorePreviewStyle = {
-    primaryName: (string | null);
-    backupName?: (string | null);
-    cyclePhase?: (string | null);
+    primaryName: string | null;
+    backupName?: string | null;
+    cyclePhase?: string | null;
 };
 

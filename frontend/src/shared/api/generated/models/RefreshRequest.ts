@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type OperationStatus = {
-    ok?: boolean;
+export type RefreshRequest = {
+    refreshToken: string;
 };
 

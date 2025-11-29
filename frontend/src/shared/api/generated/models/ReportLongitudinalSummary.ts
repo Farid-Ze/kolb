@@ -3,12 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ReportLongitudinalSummary = {
-    previousSessionId?: (number | null);
-    previousSessionDate?: (string | null);
-    timeElapsedDays?: (number | null);
-    deltaAcce?: (number | null);
-    deltaAero?: (number | null);
-    deltaLfi?: (number | null);
-    deltaIntensity?: (number | null);
+    previousSessionId?: string | null;
+    previousSessionDate?: string | null;
+    timeElapsedDays?: number | null;
+    deltaAcce?: number | null;
+    deltaAero?: number | null;
+    deltaLfi?: number | null;
+    deltaIntensity?: number | null;
 };
 

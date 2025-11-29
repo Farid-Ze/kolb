@@ -34,6 +34,10 @@ class AssessmentSession(Base):
     assessment_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     instrument_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     pipeline_version: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    
+    # Audit Note: This JSON column contains unstructured assessment results.
+    # Future Work: Normalize into dedicated tables (e.g., AssessmentScores) for SQL analytics.
+    # Current Schema: { "raw": {...}, "percentiles": {...}, "lfi": {...} }
     results_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     
     scale_score: Mapped[Optional["ScaleScore"]] = relationship(back_populates="session", uselist=False)

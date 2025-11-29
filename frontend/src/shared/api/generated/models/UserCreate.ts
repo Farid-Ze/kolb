@@ -6,10 +6,10 @@ export type UserCreate = {
     fullName: string;
     email: string;
     password: string;
-    nim?: (string | null);
-    kelas?: (string | null);
-    tahunMasuk?: (number | null);
-    guestSessionId?: (number | null);
-    guestToken?: (string | null);
+    nim?: string | null;
+    kelas?: string | null;
+    tahunMasuk?: number | null;
+    guestSessionId?: string | null;
+    guestToken?: string | null;
 };
 

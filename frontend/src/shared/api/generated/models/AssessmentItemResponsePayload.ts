@@ -6,6 +6,6 @@ export type AssessmentItemResponsePayload = {
     itemId: number;
     responseRank: number;
     responseLatencyMs: number;
-    blurEvents?: (number | null);
+    blurEvents?: number | null;
 };
 

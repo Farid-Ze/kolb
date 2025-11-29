@@ -3,17 +3,19 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { Role } from './Role';
+import type { UserAchievementOut } from './UserAchievementOut';
 export type UserOut = {
     id: number;
     fullName: string;
     email: string;
     role: Role;
-    nim?: (string | null);
-    kelas?: (string | null);
-    tahunMasuk?: (number | null);
-    avatarUrl?: (string | null);
-    zenPoints?: (number | null);
-    currentLvl?: (number | null);
-    lifeMotto?: (string | null);
+    nim?: string | null;
+    kelas?: string | null;
+    tahunMasuk?: number | null;
+    avatarUrl?: string | null;
+    zenPoints?: number;
+    currentLvl?: number;
+    lifeMotto?: string | null;
+    achievements?: Array<UserAchievementOut>;
 };
 

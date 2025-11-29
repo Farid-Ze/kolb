@@ -4,9 +4,9 @@
 /* eslint-disable */
 export type ResearchStudyCreate = {
     title: string;
-    description?: (string | null);
-    startedAt?: (string | null);
-    completedAt?: (string | null);
-    notes?: (string | null);
+    description?: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    notes?: string | null;
 };
 

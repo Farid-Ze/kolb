@@ -21,22 +21,13 @@ export class AssessmentsService {
      *
      * Raises:
      * HTTPException(401): If the user is not authenticated.
-     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getLatestAssessmentAssessmentsLatestGet(
-        authorization?: (string | null),
-    ): CancelablePromise<(AssessmentSessionResponse | null)> {
+    public static getLatestAssessmentAssessmentsLatestGet(): CancelablePromise<(AssessmentSessionResponse | null)> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/assessments/latest',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
 }

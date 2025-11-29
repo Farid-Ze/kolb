@@ -3,7 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { TeamCreate } from '../models/TeamCreate';
+import type { TeamListResponse } from '../models/TeamListResponse';
 import type { TeamMemberAdd } from '../models/TeamMemberAdd';
+import type { TeamMemberAnalyticsResponse } from '../models/TeamMemberAnalyticsResponse';
 import type { TeamMemberOut } from '../models/TeamMemberOut';
 import type { TeamOut } from '../models/TeamOut';
 import type { TeamRollupDetail } from '../models/TeamRollupDetail';
@@ -16,20 +18,15 @@ export class TeamsService {
     /**
      * Create Team
      * @param requestBody
-     * @param authorization
      * @returns TeamOut Successful Response
      * @throws ApiError
      */
     public static createTeamTeamsPost(
         requestBody: TeamCreate,
-        authorization?: (string | null),
     ): CancelablePromise<TeamOut> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/teams/',
-            headers: {
-                'authorization': authorization,
-            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -39,23 +36,23 @@ export class TeamsService {
     }
     /**
      * List Teams
-     * @param skip
-     * @param limit
+     * @param page
+     * @param size
      * @param q
-     * @returns TeamOut Successful Response
+     * @returns TeamListResponse Successful Response
      * @throws ApiError
      */
     public static listTeamsTeamsGet(
-        skip?: number,
-        limit: number = 50,
-        q?: (string | null),
-    ): CancelablePromise<Array<TeamOut>> {
+        page: number = 1,
+        size: number = 50,
+        q?: string | null,
+    ): CancelablePromise<TeamListResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/teams/',
             query: {
-                'skip': skip,
-                'limit': limit,
+                'page': page,
+                'size': size,
                 'q': q,
             },
             errors: {
@@ -87,23 +84,18 @@ export class TeamsService {
      * Update Team
      * @param teamId
      * @param requestBody
-     * @param authorization
      * @returns TeamOut Successful Response
      * @throws ApiError
      */
     public static updateTeamTeamsTeamIdPatch(
         teamId: number,
         requestBody: TeamUpdate,
-        authorization?: (string | null),
     ): CancelablePromise<TeamOut> {
         return __request(OpenAPI, {
             method: 'PATCH',
             url: '/teams/{team_id}',
             path: {
                 'team_id': teamId,
-            },
-            headers: {
-                'authorization': authorization,
             },
             body: requestBody,
             mediaType: 'application/json',
@@ -115,22 +107,17 @@ export class TeamsService {
     /**
      * Delete Team
      * @param teamId
-     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
     public static deleteTeamTeamsTeamIdDelete(
         teamId: number,
-        authorization?: (string | null),
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'DELETE',
             url: '/teams/{team_id}',
             path: {
                 'team_id': teamId,
-            },
-            headers: {
-                'authorization': authorization,
             },
             errors: {
                 422: `Validation Error`,
@@ -161,23 +148,18 @@ export class TeamsService {
      * Add Member
      * @param teamId
      * @param requestBody
-     * @param authorization
      * @returns TeamMemberOut Successful Response
      * @throws ApiError
      */
     public static addMemberTeamsTeamIdMembersPost(
         teamId: number,
         requestBody: TeamMemberAdd,
-        authorization?: (string | null),
     ): CancelablePromise<TeamMemberOut> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/teams/{team_id}/members',
             path: {
                 'team_id': teamId,
-            },
-            headers: {
-                'authorization': authorization,
             },
             body: requestBody,
             mediaType: 'application/json',
@@ -190,14 +172,12 @@ export class TeamsService {
      * Remove Member
      * @param teamId
      * @param memberId
-     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
     public static removeMemberTeamsTeamIdMembersMemberIdDelete(
         teamId: number,
         memberId: number,
-        authorization?: (string | null),
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'DELETE',
@@ -205,9 +185,6 @@ export class TeamsService {
             path: {
                 'team_id': teamId,
                 'member_id': memberId,
-            },
-            headers: {
-                'authorization': authorization,
             },
             errors: {
                 422: `Validation Error`,
@@ -255,26 +232,49 @@ export class TeamsService {
         });
     }
     /**
+     * Get Rollup Members
+     * @param teamId
+     * @param page
+     * @param size
+     * @returns TeamMemberAnalyticsResponse Successful Response
+     * @throws ApiError
+     */
+    public static getRollupMembersTeamsTeamIdAnalyticsMembersGet(
+        teamId: number,
+        page: number = 1,
+        size: number = 50,
+    ): CancelablePromise<TeamMemberAnalyticsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/teams/{team_id}/analytics/members',
+            path: {
+                'team_id': teamId,
+            },
+            query: {
+                'page': page,
+                'size': size,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Run Rollup
      * @param teamId
      * @param forDate YYYY-MM-DD optional date filter
-     * @param authorization
      * @returns TeamRollupOut Successful Response
      * @throws ApiError
      */
     public static runRollupTeamsTeamIdRollupRunPost(
         teamId: number,
-        forDate?: (string | null),
-        authorization?: (string | null),
+        forDate?: string | null,
     ): CancelablePromise<TeamRollupOut> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/teams/{team_id}/rollup/run',
             path: {
                 'team_id': teamId,
-            },
-            headers: {
-                'authorization': authorization,
             },
             query: {
                 'for_date': forDate,

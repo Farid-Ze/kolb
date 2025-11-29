@@ -12,41 +12,27 @@ import { request as __request } from '../core/request';
 export class SphereService {
     /**
      * List Nodes
-     * @param authorization
      * @returns SphereNodeOut Successful Response
      * @throws ApiError
      */
-    public static listNodesSphereNodesGet(
-        authorization?: (string | null),
-    ): CancelablePromise<Array<SphereNodeOut>> {
+    public static listNodesSphereNodesGet(): CancelablePromise<Array<SphereNodeOut>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/sphere/nodes',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
     /**
      * List Reflections
      * @param reflectionType
-     * @param authorization
      * @returns ReflectionOut Successful Response
      * @throws ApiError
      */
     public static listReflectionsSphereReflectionsGet(
         reflectionType?: (ReflectionType | null),
-        authorization?: (string | null),
     ): CancelablePromise<Array<ReflectionOut>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/sphere/reflections',
-            headers: {
-                'authorization': authorization,
-            },
             query: {
                 'reflection_type': reflectionType,
             },
@@ -58,20 +44,15 @@ export class SphereService {
     /**
      * Create Reflection
      * @param requestBody
-     * @param authorization
      * @returns ReflectionOut Successful Response
      * @throws ApiError
      */
     public static createReflectionSphereReflectionsPost(
         requestBody: ReflectionCreate,
-        authorization?: (string | null),
     ): CancelablePromise<ReflectionOut> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/sphere/reflections',
-            headers: {
-                'authorization': authorization,
-            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -81,22 +62,13 @@ export class SphereService {
     }
     /**
      * Get Prompt
-     * @param authorization
      * @returns string Successful Response
      * @throws ApiError
      */
-    public static getPromptSpherePromptGet(
-        authorization?: (string | null),
-    ): CancelablePromise<Record<string, string>> {
+    public static getPromptSpherePromptGet(): CancelablePromise<Record<string, string>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/sphere/prompt',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
 }

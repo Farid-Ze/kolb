@@ -2,6 +2,7 @@ import math
 from datetime import date, datetime
 from functools import lru_cache
 from threading import RLock
+from statistics import NormalDist
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 from uuid import UUID
 
@@ -237,6 +238,9 @@ def compute_kendalls_w(context_scores: List[Dict[str, int]]) -> float:
     This implementation minimizes Python attribute and dictionary lookup
     overhead by using local bindings and list arithmetic. Numerical
     guarding clamps the result to [0,1] per the coefficient definition.
+    
+    WARNING: This is a manual implementation. For strict academic validation,
+    verify results against `scipy.stats.kendalltau` or `pingouin` periodically.
     """
     m = len(context_scores)
     if m == 0:
@@ -458,12 +462,27 @@ def determine_backup_style_from_percentiles(
     aero_pct: float, 
     primary_style: str
 ) -> Optional[str]:
-    """Determine the second closest learning style using Euclidean distance to centroids."""
+    """Determine the second closest learning style using Euclidean distance in Z-score space.
+    
+    Refactored in Audit Stage 6 to use Z-scores (Interval Scale) instead of Percentiles (Ordinal Scale).
+    This ensures statistical validity of the Euclidean distance metric.
+    """
+    # Convert Percentiles (0-100) to Probabilities (0.001-0.999) to avoid infinity
+    def to_z(pct: float) -> float:
+        p = max(0.001, min(0.999, pct / 100.0))
+        return NormalDist().inv_cdf(p)
+
+    z_acce = to_z(acce_pct)
+    z_aero = to_z(aero_pct)
+
     distances = []
-    for style, (cx, cy) in STYLE_CENTROIDS.items():
-        # Calculate Euclidean distance
-        # STYLE_CENTROIDS are defined as (AC-CE, AE-RO).
-        dist = math.sqrt((acce_pct - cx)**2 + (aero_pct - cy)**2)
+    for style, (cx_pct, cy_pct) in STYLE_CENTROIDS.items():
+        # Convert Centroids to Z-score space as well
+        cx_z = to_z(cx_pct)
+        cy_z = to_z(cy_pct)
+        
+        # Calculate Euclidean distance in Z-space
+        dist = math.sqrt((z_acce - cx_z)**2 + (z_aero - cy_z)**2)
         distances.append((dist, style))
     
     # Sort by distance (ascending)

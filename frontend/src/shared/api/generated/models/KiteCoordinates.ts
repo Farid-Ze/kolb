@@ -2,8 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type SingleItemResponse = {
-    status: string;
-    progress: number;
+export type KiteCoordinates = {
+    CE: number;
+    RO: number;
+    AC: number;
+    AE: number;
 };
 

@@ -3,9 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ReportFlexibilitySummary = {
-    lfiScore?: (number | null);
-    percentile?: (number | null);
-    level?: (string | null);
-    levelLabel?: (string | null);
+    lfiScore?: number | null;
+    percentile?: number | null;
+    level?: string | null;
+    levelLabel?: string | null;
 };
 

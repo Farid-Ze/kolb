@@ -2,15 +2,16 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { KiteCoordinates } from './KiteCoordinates';
 export type AssessmentResultsResponse = {
-    sessionId: number;
-    finalizedAt?: (string | null);
-    kiteCoordinates?: (Record<string, number> | null);
+    sessionId: string;
+    finalizedAt?: string | null;
+    kiteCoordinates: KiteCoordinates;
     blindspots?: Array<string>;
     strengths?: Array<string>;
-    lfiScore?: (number | null);
-    percentiles?: (Record<string, any> | null);
-    cyclePhase?: (string | null);
-    backupStyle?: (string | null);
+    lfiScore: number;
+    percentiles: Record<string, any>;
+    cyclePhase?: string | null;
+    backupStyle?: string | null;
 };
 

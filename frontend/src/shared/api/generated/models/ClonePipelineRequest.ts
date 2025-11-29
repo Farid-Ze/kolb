@@ -4,8 +4,8 @@
 /* eslint-disable */
 export type ClonePipelineRequest = {
     version: string;
-    pipelineCode?: (string | null);
-    description?: (string | null);
-    metadata?: (Record<string, any> | null);
+    pipelineCode?: string | null;
+    description?: string | null;
+    metadata?: any | null;
 };
 

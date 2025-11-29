@@ -4,8 +4,8 @@
 /* eslint-disable */
 export type ValidityCreate = {
     evidenceType: string;
-    description?: (string | null);
-    metricName?: (string | null);
-    value?: (number | null);
+    description?: string | null;
+    metricName?: string | null;
+    value?: number | null;
 };
 

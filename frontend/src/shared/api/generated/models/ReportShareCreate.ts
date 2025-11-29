@@ -11,6 +11,6 @@ export type ReportShareCreate = {
      * Durasi link berlaku dalam jam (maks 14 hari)
      */
     expiresInHours?: number;
-    note?: (string | null);
+    note?: string | null;
 };
 

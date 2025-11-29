@@ -233,34 +233,27 @@ async def record_replay_events(
     """
     Record session replay events for debugging.
     
-    Stores events in a JSONL file for later playback/analysis.
+    Logs events to stdout for aggregation (Cloud-Native).
     """
     # Process in background to avoid blocking
-    background_tasks.add_task(_write_replay_logs, batch)
+    background_tasks.add_task(_log_replay_batch, batch)
     return {"status": "accepted", "count": len(batch.events)}
 
 
-def _write_replay_logs(batch: ReplayEventBatch):
-    """Write replay events to disk."""
-    import json
-    from pathlib import Path
-    
-    log_dir = Path("logs/replays")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    
-    log_file = log_dir / f"session_{batch.sessionId}.jsonl"
-    
-    try:
-        with open(log_file, "a", encoding="utf-8") as f:
-            for event in batch.events:
-                entry = {
-                    "timestamp": event.timestampMs,
+def _log_replay_batch(batch: ReplayEventBatch):
+    """Log replay events to stdout."""
+    for event in batch.events:
+        logger.info(
+            "telemetry.replay_event",
+            extra={
+                "structured_data": {
+                    "session_id": batch.sessionId,
+                    "timestamp_ms": event.timestampMs,
                     "type": event.type,
                     "payload": event.payload
                 }
-                f.write(json.dumps(entry) + "\n")
-    except Exception as e:
-        logger.error(f"Failed to write replay logs for session {batch.sessionId}: {e}")
+            }
+        )
 
 
 class GuideOpenEvent(BaseModel):

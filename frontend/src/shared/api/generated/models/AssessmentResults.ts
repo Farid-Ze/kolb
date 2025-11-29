@@ -10,6 +10,6 @@ export type AssessmentResults = {
     acceScore: number;
     aeroScore: number;
     learningStyle: string;
-    lfiScore?: (number | null);
+    lfiScore?: number | null;
 };
 

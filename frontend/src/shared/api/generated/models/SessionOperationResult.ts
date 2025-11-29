@@ -4,6 +4,6 @@
 /* eslint-disable */
 export type SessionOperationResult = {
     ok?: boolean;
-    result?: (Record<string, any> | null);
+    result?: any | null;
 };
 

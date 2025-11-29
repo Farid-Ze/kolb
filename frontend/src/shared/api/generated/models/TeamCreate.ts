@@ -4,7 +4,7 @@
 /* eslint-disable */
 export type TeamCreate = {
     name: string;
-    kelas?: (string | null);
-    description?: (string | null);
+    kelas?: string | null;
+    description?: string | null;
 };
 

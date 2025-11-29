@@ -2,12 +2,13 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SphereNodeMeta } from './SphereNodeMeta';
 export type SphereNodeOut = {
     id: number;
     posX: number;
     posY: number;
     posZ: number;
     unlockDate: string;
-    meta?: (Record<string, any> | null);
+    meta?: (SphereNodeMeta | null);
 };
 

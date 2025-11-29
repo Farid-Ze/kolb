@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60, ge=1)
 
     allowed_student_domain: str = Field(default="mahasiswa.unikom.ac.id")
-    audit_salt: str = Field(default="klsi-default-salt")
+    audit_salt: str = Field(default_factory=lambda: _load_required_env("AUDIT_SALT"), description="Salt for audit hashing")
 
     run_startup_seed: bool = Field(default=True)
     run_startup_ddl: bool = Field(default=True)

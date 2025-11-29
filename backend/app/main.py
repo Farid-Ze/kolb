@@ -31,6 +31,7 @@ from app.routers.teams import router as teams_router
 from app.routers.telemetry import router as telemetry_router
 from app.routers.sphere import router as sphere_router
 from app.routers.challenges import router as challenges_router
+from app.routers.grants import router as grants_router
 
 from app.engine.registry import engine_registry
 
@@ -232,6 +233,7 @@ api_v1_router.include_router(research_router)
 api_v1_router.include_router(telemetry_router)
 api_v1_router.include_router(sphere_router)
 api_v1_router.include_router(challenges_router)
+api_v1_router.include_router(grants_router)
 
 app.include_router(api_v1_router)
 

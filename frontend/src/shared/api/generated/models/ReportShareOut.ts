@@ -6,9 +6,9 @@ export type ReportShareOut = {
     shareId: number;
     sessionId: number;
     mediatorEmail: string;
-    mediatorName: (string | null);
+    mediatorName: string | null;
     expiresAt: string;
     shareToken: string;
-    note: (string | null);
+    note: string | null;
 };
 

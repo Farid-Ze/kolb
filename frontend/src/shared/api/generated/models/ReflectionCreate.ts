@@ -4,7 +4,7 @@
 /* eslint-disable */
 import type { ReflectionType } from './ReflectionType';
 export type ReflectionCreate = {
-    sphereNodeId?: (number | null);
+    sphereNodeId?: number | null;
     content: string;
     reflectionType: ReflectionType;
 };

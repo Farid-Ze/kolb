@@ -4,7 +4,7 @@
 /* eslint-disable */
 import type { AssessmentResults } from './AssessmentResults';
 export type AssessmentSessionResponse = {
-    id: string;
+    sessionId: string;
     date: string;
     status?: string;
     results: AssessmentResults;

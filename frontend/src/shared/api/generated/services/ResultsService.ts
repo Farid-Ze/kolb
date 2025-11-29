@@ -9,22 +9,13 @@ import { request as __request } from '../core/request';
 export class ResultsService {
     /**
      * Get Latest Results
-     * @param authorization
      * @returns AssessmentResultsResponse Successful Response
      * @throws ApiError
      */
-    public static getLatestResultsResultsLatestGet(
-        authorization?: (string | null),
-    ): CancelablePromise<AssessmentResultsResponse> {
+    public static getLatestResultsResultsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/results/latest',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
     /**
@@ -32,22 +23,13 @@ export class ResultsService {
      * Alias endpoint to match Zenotika SSOT sitemap.
      *
      * Provides the same payload as /results/latest but under a sessions-oriented path.
-     * @param authorization
      * @returns AssessmentResultsResponse Successful Response
      * @throws ApiError
      */
-    public static getLatestResultsAliasResultsSessionsLatestGet(
-        authorization?: (string | null),
-    ): CancelablePromise<AssessmentResultsResponse> {
+    public static getLatestResultsAliasResultsSessionsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/results/sessions/latest',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
 }

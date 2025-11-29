@@ -2,12 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type TeamRollupOut = {
-    id: number;
+export type TeamReportPayload = {
+    sessionId: string;
+    generatedAt?: string | null;
+    kind?: string;
     teamId: number;
-    date: string;
-    totalSessions: number;
-    avgLfi: number | null;
-    styleCounts: any | null;
+    analytics?: any | null;
 };
 

@@ -7,8 +7,8 @@ import type { ReportFlexibilitySummary } from './ReportFlexibilitySummary';
 import type { ReportLongitudinalSummary } from './ReportLongitudinalSummary';
 import type { ReportStyleSummary } from './ReportStyleSummary';
 export type ReportSummaryPayload = {
-    sessionId: number;
-    generatedAt?: (string | null);
+    sessionId: string;
+    generatedAt?: string | null;
     learningStyle?: (ReportStyleSummary | null);
     nineStyle?: (ReportStyleSummary | null);
     flexibility?: (ReportFlexibilitySummary | null);

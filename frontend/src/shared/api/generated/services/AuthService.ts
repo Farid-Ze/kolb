@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { LoginRequest } from '../models/LoginRequest';
+import type { RefreshRequest } from '../models/RefreshRequest';
 import type { Token } from '../models/Token';
 import type { UserCreate } from '../models/UserCreate';
 import type { UserOut } from '../models/UserOut';
@@ -41,6 +42,25 @@ export class AuthService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/auth/login',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Refresh Token Endpoint
+     * @param requestBody
+     * @returns Token Successful Response
+     * @throws ApiError
+     */
+    public static refreshTokenEndpointAuthRefreshPost(
+        requestBody: RefreshRequest,
+    ): CancelablePromise<Token> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/auth/refresh',
             body: requestBody,
             mediaType: 'application/json',
             errors: {

@@ -2,53 +2,40 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ReportPayload } from '../models/ReportPayload';
+import type { IndividualReportPayload } from '../models/IndividualReportPayload';
 import type { ReportShareCreate } from '../models/ReportShareCreate';
 import type { ReportShareOut } from '../models/ReportShareOut';
 import type { ReportSummaryPayload } from '../models/ReportSummaryPayload';
+import type { TeamReportPayload } from '../models/TeamReportPayload';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class ReportsService {
     /**
      * List Self Reports
-     * @param authorization
      * @returns ReportSummaryPayload Successful Response
      * @throws ApiError
      */
-    public static listSelfReportsReportsSelfGet(
-        authorization?: (string | null),
-    ): CancelablePromise<Array<ReportSummaryPayload>> {
+    public static listSelfReportsReportsSelfGet(): CancelablePromise<Array<ReportSummaryPayload>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/reports/self',
-            headers: {
-                'authorization': authorization,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
         });
     }
     /**
      * Get Report
      * @param sessionId
-     * @param authorization
-     * @returns ReportPayload Successful Response
+     * @returns any Successful Response
      * @throws ApiError
      */
     public static getReportReportsSessionIdGet(
-        sessionId: number,
-        authorization?: (string | null),
-    ): CancelablePromise<ReportPayload> {
+        sessionId: string,
+    ): CancelablePromise<(IndividualReportPayload | TeamReportPayload)> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/reports/{session_id}',
             path: {
                 'session_id': sessionId,
-            },
-            headers: {
-                'authorization': authorization,
             },
             errors: {
                 422: `Validation Error`,
@@ -59,23 +46,18 @@ export class ReportsService {
      * Create Report Share
      * @param sessionId
      * @param requestBody
-     * @param authorization
      * @returns ReportShareOut Successful Response
      * @throws ApiError
      */
     public static createReportShareReportsSessionIdSharePost(
-        sessionId: number,
+        sessionId: string,
         requestBody: ReportShareCreate,
-        authorization?: (string | null),
     ): CancelablePromise<ReportShareOut> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/reports/{session_id}/share',
             path: {
                 'session_id': sessionId,
-            },
-            headers: {
-                'authorization': authorization,
             },
             body: requestBody,
             mediaType: 'application/json',
@@ -87,22 +69,17 @@ export class ReportsService {
     /**
      * Get Shared Report
      * @param shareToken
-     * @param authorization
-     * @returns ReportPayload Successful Response
+     * @returns any Successful Response
      * @throws ApiError
      */
     public static getSharedReportReportsSharedShareTokenGet(
         shareToken: string,
-        authorization?: (string | null),
-    ): CancelablePromise<ReportPayload> {
+    ): CancelablePromise<(IndividualReportPayload | TeamReportPayload)> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/reports/shared/{share_token}',
             path: {
                 'share_token': shareToken,
-            },
-            headers: {
-                'authorization': authorization,
             },
             errors: {
                 422: `Validation Error`,

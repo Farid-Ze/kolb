@@ -5,7 +5,7 @@
 export type TeamOut = {
     id: number;
     name: string;
-    kelas: (string | null);
-    description: (string | null);
+    kelas: string | null;
+    description: string | null;
 };
 

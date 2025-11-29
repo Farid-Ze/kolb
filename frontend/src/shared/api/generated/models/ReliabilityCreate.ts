@@ -5,6 +5,6 @@
 export type ReliabilityCreate = {
     metricName: string;
     value: number;
-    notes?: (string | null);
+    notes?: string | null;
 };
 
