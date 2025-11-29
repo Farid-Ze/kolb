@@ -121,3 +121,26 @@ class GrantService:
             ]
         }
 
+    async def grant_credits(self, user_id: int, instrument_id: int, credits: int, expiry_date: Optional[datetime] = None) -> AccessGrant:
+        """Grant credits to a user."""
+        from app.db.repositories import GrantRepository
+        repo = GrantRepository(self.db)
+        grant = AccessGrant(
+            grantee_id=user_id,
+            instrument_id=instrument_id,
+            credits_total=credits,
+            expiry_date=expiry_date,
+            grantor_id=None 
+        )
+        return await repo.create(grant)
+
+    async def revoke_grant(self, grant_id: str, reason: Optional[str] = None) -> None:
+        """Revoke a grant."""
+        from app.db.repositories import GrantRepository
+        repo = GrantRepository(self.db)
+        grant = await repo.get_by_id(grant_id)
+        if not grant:
+            raise ValueError(f"Grant {grant_id} not found")
+        await repo.revoke(grant)
+        await self.db.commit()
+

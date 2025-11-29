@@ -57,3 +57,16 @@ class GrantRepository:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_by_id(self, grant_id: str) -> Optional[AccessGrant]:
+        """Get grant by ID."""
+        # Note: grant_id is UUID but passed as string or UUID object
+        stmt = select(AccessGrant).where(AccessGrant.id == grant_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def revoke(self, grant: AccessGrant) -> None:
+        """Revoke a grant by expiring it immediately."""
+        grant.expiry_date = datetime.now(timezone.utc)
+        self.db.add(grant)
+        await self.db.flush()
+

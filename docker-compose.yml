@@ -21,7 +21,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,7 +43,7 @@ services:
     networks:
       - backend-net
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,10 +53,10 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # API Service (Python 3.13t No-GIL)
+  # API Service (Python 3.11 Stable)
   # Connects to both networks to bridge Frontend and Database
   api:
-    image: klsi-nogil:v2.0  # Updated for API modernization + generic pagination
+    image: klsi-backend:v4.0 # Updated for API modernization + generic pagination
     build:
       context: ./backend
     restart: unless-stopped
@@ -70,10 +70,9 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       AUDIT_SALT: ${AUDIT_SALT:-dev_audit_salt_change_me}
       ENV: ${ENV:-production}
-      PYTHON_GIL: ${PYTHON_GIL:-0}
       PYTHONPATH: ${PYTHONPATH:-/app}
       # New: OpenAPI & CORS configuration
-      RUN_STARTUP_DDL: ${RUN_STARTUP_DDL:-false}  # Use Alembic in production
+      RUN_STARTUP_DDL: ${RUN_STARTUP_DDL:-false} # Use Alembic in production
       RUN_STARTUP_SEED: ${RUN_STARTUP_SEED:-false}
       I18N_PRELOAD_ENABLED: ${I18N_PRELOAD_ENABLED:-true}
       REGISTRY_AUTO_DISCOVER_ENABLED: ${REGISTRY_AUTO_DISCOVER_ENABLED:-false}
@@ -81,7 +80,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -108,7 +107,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -338,3 +338,38 @@ def delete_instrument_pipeline(
             pipeline_id=pipeline_id,
         )
         raise
+
+# Grant Management Endpoints
+from app.schemas.grant import GrantCreate, GrantRevoke, GrantOut
+from app.db.database import get_async_db
+from app.i18n.id_messages import AuthorizationMessages
+
+@router.post("/users/{user_id}/grant", response_model=GrantOut)
+async def grant_credits(
+    user_id: int,
+    payload: GrantCreate,
+    db: Any = Depends(get_async_db),
+    current_user: Any = Depends(get_current_user),
+):
+    require_mediator(current_user, AuthorizationMessages.MEDIATOR_GRANT_MANAGEMENT_ONLY)
+    from app.services.grant_service import GrantService
+    service = GrantService(db)
+    return await service.grant_credits(
+        user_id=user_id,
+        instrument_id=payload.instrument_id,
+        credits=payload.credits,
+        expiry_date=payload.expiry_date
+    )
+
+@router.post("/users/{user_id}/revoke")
+async def revoke_grant(
+    user_id: int,
+    payload: GrantRevoke,
+    db: Any = Depends(get_async_db),
+    current_user: Any = Depends(get_current_user),
+):
+    require_mediator(current_user, AuthorizationMessages.MEDIATOR_GRANT_MANAGEMENT_ONLY)
+    from app.services.grant_service import GrantService
+    service = GrantService(db)
+    await service.revoke_grant(payload.grant_id, reason=payload.reason)
+    return {"status": "success"}
