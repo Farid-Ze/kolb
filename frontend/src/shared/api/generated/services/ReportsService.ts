@@ -16,10 +16,10 @@ export class ReportsService {
      * @returns ReportSummaryPayload Successful Response
      * @throws ApiError
      */
-    public static listSelfReportsReportsSelfGet(): CancelablePromise<Array<ReportSummaryPayload>> {
+    public static listSelfReportsApiV1ReportsSelfGet(): CancelablePromise<Array<ReportSummaryPayload>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/reports/self',
+            url: '/api/v1/reports/self',
         });
     }
     /**
@@ -28,12 +28,12 @@ export class ReportsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getReportReportsSessionIdGet(
+    public static getReportApiV1ReportsSessionIdGet(
         sessionId: string,
     ): CancelablePromise<(IndividualReportPayload | TeamReportPayload)> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/reports/{session_id}',
+            url: '/api/v1/reports/{session_id}',
             path: {
                 'session_id': sessionId,
             },
@@ -49,13 +49,13 @@ export class ReportsService {
      * @returns ReportShareOut Successful Response
      * @throws ApiError
      */
-    public static createReportShareReportsSessionIdSharePost(
+    public static createReportShareApiV1ReportsSessionIdSharePost(
         sessionId: string,
         requestBody: ReportShareCreate,
     ): CancelablePromise<ReportShareOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/reports/{session_id}/share',
+            url: '/api/v1/reports/{session_id}/share',
             path: {
                 'session_id': sessionId,
             },
@@ -72,12 +72,12 @@ export class ReportsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getSharedReportReportsSharedShareTokenGet(
+    public static getSharedReportApiV1ReportsSharedShareTokenGet(
         shareToken: string,
     ): CancelablePromise<(IndividualReportPayload | TeamReportPayload)> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/reports/shared/{share_token}',
+            url: '/api/v1/reports/shared/{share_token}',
             path: {
                 'share_token': shareToken,
             },

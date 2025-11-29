@@ -2,7 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AnalyticsData } from './AnalyticsData';
+import type { LearningSpaceData } from './LearningSpaceData';
 import type { ReportShareContext } from './ReportShareContext';
+import type { VisualizationConfig } from './VisualizationConfig';
 export type IndividualReportPayload = {
     sessionId: string;
     generatedAt?: string | null;
@@ -11,10 +14,10 @@ export type IndividualReportPayload = {
     percentiles: Record<string, any>;
     style: Record<string, any>;
     lfi: Record<string, any>;
-    analytics: Record<string, any>;
-    visualization?: any | null;
+    analytics: AnalyticsData;
+    visualization?: (VisualizationConfig | null);
     sessionDesigns?: any[] | null;
-    learningSpace?: any | null;
+    learningSpace?: (LearningSpaceData | null);
     enhancedAnalytics?: any | null;
     notes?: any | null;
     owner?: any | null;

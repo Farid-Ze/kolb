@@ -3,12 +3,15 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ReliabilityCreate } from '../models/ReliabilityCreate';
+import type { ReliabilityOut } from '../models/ReliabilityOut';
 import type { ResearchStudyCreate } from '../models/ResearchStudyCreate';
+import type { ResearchStudyDataCursorOut } from '../models/ResearchStudyDataCursorOut';
 import type { ResearchStudyDataOut } from '../models/ResearchStudyDataOut';
 import type { ResearchStudyOut } from '../models/ResearchStudyOut';
 import type { ResearchStudyUpdate } from '../models/ResearchStudyUpdate';
 import type { StudyDataFilter } from '../models/StudyDataFilter';
 import type { ValidityCreate } from '../models/ValidityCreate';
+import type { ValidityOut } from '../models/ValidityOut';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -19,12 +22,12 @@ export class ResearchService {
      * @returns ResearchStudyOut Successful Response
      * @throws ApiError
      */
-    public static createStudyResearchStudiesPost(
+    public static createStudyApiV1ResearchStudiesPost(
         requestBody: ResearchStudyCreate,
     ): CancelablePromise<ResearchStudyOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/research/studies',
+            url: '/api/v1/research/studies',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -40,14 +43,14 @@ export class ResearchService {
      * @returns ResearchStudyOut Successful Response
      * @throws ApiError
      */
-    public static listStudiesResearchStudiesGet(
+    public static listStudiesApiV1ResearchStudiesGet(
         skip?: number,
         limit: number = 50,
         q?: string | null,
     ): CancelablePromise<Array<ResearchStudyOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/research/studies',
+            url: '/api/v1/research/studies',
             query: {
                 'skip': skip,
                 'limit': limit,
@@ -64,12 +67,12 @@ export class ResearchService {
      * @returns ResearchStudyOut Successful Response
      * @throws ApiError
      */
-    public static getStudyResearchStudiesStudyIdGet(
+    public static getStudyApiV1ResearchStudiesStudyIdGet(
         studyId: string,
     ): CancelablePromise<ResearchStudyOut> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/research/studies/{study_id}',
+            url: '/api/v1/research/studies/{study_id}',
             path: {
                 'study_id': studyId,
             },
@@ -85,13 +88,13 @@ export class ResearchService {
      * @returns ResearchStudyOut Successful Response
      * @throws ApiError
      */
-    public static updateStudyResearchStudiesStudyIdPatch(
+    public static updateStudyApiV1ResearchStudiesStudyIdPatch(
         studyId: string,
         requestBody: ResearchStudyUpdate,
     ): CancelablePromise<ResearchStudyOut> {
         return __request(OpenAPI, {
             method: 'PATCH',
-            url: '/research/studies/{study_id}',
+            url: '/api/v1/research/studies/{study_id}',
             path: {
                 'study_id': studyId,
             },
@@ -108,12 +111,12 @@ export class ResearchService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static deleteStudyResearchStudiesStudyIdDelete(
+    public static deleteStudyApiV1ResearchStudiesStudyIdDelete(
         studyId: string,
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/research/studies/{study_id}',
+            url: '/api/v1/research/studies/{study_id}',
             path: {
                 'study_id': studyId,
             },
@@ -129,13 +132,13 @@ export class ResearchService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static addReliabilityResearchStudiesStudyIdReliabilityPost(
+    public static addReliabilityApiV1ResearchStudiesStudyIdReliabilityPost(
         studyId: string,
         requestBody: ReliabilityCreate,
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/research/studies/{study_id}/reliability',
+            url: '/api/v1/research/studies/{study_id}/reliability',
             path: {
                 'study_id': studyId,
             },
@@ -149,15 +152,15 @@ export class ResearchService {
     /**
      * List Reliability
      * @param studyId
-     * @returns any Successful Response
+     * @returns ReliabilityOut Successful Response
      * @throws ApiError
      */
-    public static listReliabilityResearchStudiesStudyIdReliabilityGet(
+    public static listReliabilityApiV1ResearchStudiesStudyIdReliabilityGet(
         studyId: string,
-    ): CancelablePromise<Array<Record<string, any>>> {
+    ): CancelablePromise<Array<ReliabilityOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/research/studies/{study_id}/reliability',
+            url: '/api/v1/research/studies/{study_id}/reliability',
             path: {
                 'study_id': studyId,
             },
@@ -173,13 +176,13 @@ export class ResearchService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static addValidityResearchStudiesStudyIdValidityPost(
+    public static addValidityApiV1ResearchStudiesStudyIdValidityPost(
         studyId: string,
         requestBody: ValidityCreate,
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/research/studies/{study_id}/validity',
+            url: '/api/v1/research/studies/{study_id}/validity',
             path: {
                 'study_id': studyId,
             },
@@ -193,15 +196,15 @@ export class ResearchService {
     /**
      * List Validity
      * @param studyId
-     * @returns any Successful Response
+     * @returns ValidityOut Successful Response
      * @throws ApiError
      */
-    public static listValidityResearchStudiesStudyIdValidityGet(
+    public static listValidityApiV1ResearchStudiesStudyIdValidityGet(
         studyId: string,
-    ): CancelablePromise<Array<Record<string, any>>> {
+    ): CancelablePromise<Array<ValidityOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/research/studies/{study_id}/validity',
+            url: '/api/v1/research/studies/{study_id}/validity',
             path: {
                 'study_id': studyId,
             },
@@ -214,16 +217,16 @@ export class ResearchService {
      * Get Study Data
      * @param studyId
      * @param requestBody
-     * @returns ResearchStudyDataOut Successful Response
+     * @returns any Successful Response
      * @throws ApiError
      */
-    public static getStudyDataResearchStudiesStudyIdDataPost(
+    public static getStudyDataApiV1ResearchStudiesStudyIdDataGet(
         studyId: string,
         requestBody: StudyDataFilter,
-    ): CancelablePromise<ResearchStudyDataOut> {
+    ): CancelablePromise<(ResearchStudyDataOut | ResearchStudyDataCursorOut)> {
         return __request(OpenAPI, {
-            method: 'POST',
-            url: '/research/studies/{study_id}/data',
+            method: 'GET',
+            url: '/api/v1/research/studies/{study_id}/data',
             path: {
                 'study_id': studyId,
             },

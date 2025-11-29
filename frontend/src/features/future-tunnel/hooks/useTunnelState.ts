@@ -12,7 +12,7 @@ const buildInitialContextDrafts = (): ContextDraftMap =>
   }, {})
 
 export type TunnelState = {
-  sessionId: number | null
+  sessionId: string | null
   phase: TunnelPhase
   drafts: Record<number, TunnelItemDraft>
   contextDrafts: ContextDraftMap
@@ -23,11 +23,11 @@ export type TunnelState = {
 }
 
 export type TunnelAction =
-  | { type: 'START_SESSION'; sessionId: number }
+  | { type: 'START_SESSION'; sessionId: string }
   | { type: 'SET_PHASE'; phase: TunnelPhase }
   | { type: 'SET_ITEM_RANK'; itemId: number; ranks: Record<number, number> }
   | { type: 'SET_CONTEXT_RANK'; contextName: string; draft: TunnelContextDraft }
-  | { type: 'HYDRATE'; sessionId: number; drafts?: Record<number, TunnelItemDraft>; contextDrafts?: ContextDraftMap }
+  | { type: 'HYDRATE'; sessionId: string; drafts?: Record<number, TunnelItemDraft>; contextDrafts?: ContextDraftMap }
   | { type: 'RESET' }
   | { type: 'SET_SUBMISSION_RESULT'; result: SessionOperationResult['result'] }
   | { type: 'SET_SUBMISSION_ERROR'; error: Error }
@@ -110,7 +110,7 @@ export function useTunnelState() {
   const actionBufferRef = useRef<any[]>([])
 
   // Helper to flush logs
-  const flushActions = useCallback((overrideSessionId?: number) => {
+  const flushActions = useCallback((overrideSessionId?: string) => {
     const sid = overrideSessionId ?? state.sessionId
     if (actionBufferRef.current.length === 0 || !sid) return
 

@@ -24,10 +24,10 @@ export class AssessmentsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getLatestAssessmentAssessmentsLatestGet(): CancelablePromise<(AssessmentSessionResponse | null)> {
+    public static getLatestAssessmentApiV1AssessmentsLatestGet(): CancelablePromise<(AssessmentSessionResponse | null)> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/assessments/latest',
+            url: '/api/v1/assessments/latest',
         });
     }
 }

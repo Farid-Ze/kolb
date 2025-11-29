@@ -12,10 +12,10 @@ export class ResultsService {
      * @returns AssessmentResultsResponse Successful Response
      * @throws ApiError
      */
-    public static getLatestResultsResultsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
+    public static getLatestResultsApiV1ResultsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/results/latest',
+            url: '/api/v1/results/latest',
         });
     }
     /**
@@ -26,10 +26,10 @@ export class ResultsService {
      * @returns AssessmentResultsResponse Successful Response
      * @throws ApiError
      */
-    public static getLatestResultsAliasResultsSessionsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
+    public static getLatestResultsAliasApiV1ResultsSessionsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/results/sessions/latest',
+            url: '/api/v1/results/sessions/latest',
         });
     }
 }

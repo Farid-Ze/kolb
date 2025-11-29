@@ -14,11 +14,11 @@ function simpleDebounce<T extends (...args: any[]) => any>(func: T, wait: number
 }
 
 export function useAssessmentSession(sessionId?: string) {
-    const [currentSessionId, setCurrentSessionId] = useState<number | null>(sessionId ? parseInt(sessionId) : null);
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId || null);
 
     // Start/Resume Session
     const startSessionMutation = useMutation({
-        mutationFn: () => SessionsService.startSessionSessionsStartPost(),
+        mutationFn: () => SessionsService.startSessionApiV1SessionsStartPost({ instrumentCode: 'KLSI4' }),
         onSuccess: (data) => {
             setCurrentSessionId(data.sessionId);
             toast.success('Assessment session started');
@@ -32,14 +32,14 @@ export function useAssessmentSession(sessionId?: string) {
     // Fetch Items
     const { data: items, isLoading: isLoadingItems } = useQuery({
         queryKey: ['session', currentSessionId, 'items'],
-        queryFn: () => SessionsService.getItemsSessionsSessionIdItemsGet(currentSessionId!),
+        queryFn: () => SessionsService.getItemsApiV1SessionsSessionIdItemsGet(currentSessionId!),
         enabled: !!currentSessionId,
     });
 
     // Autosave Mutation
     const autosaveMutation = useMutation({
-        mutationFn: (payload: { sessionId: number, responses: AssessmentItemResponsePayload[] }) =>
-            SessionsService.upsertSessionResponsesSessionsSessionIdResponsesPatch(payload.sessionId, payload.responses),
+        mutationFn: (payload: { sessionId: string, responses: AssessmentItemResponsePayload[] }) =>
+            SessionsService.upsertSessionResponsesApiV1SessionsSessionIdResponsesPatch(payload.sessionId, payload.responses),
         onError: () => {
             toast.error('Failed to save progress');
         }
@@ -47,7 +47,7 @@ export function useAssessmentSession(sessionId?: string) {
 
     // Debounced Autosave
     const debouncedSave = useRef(
-        simpleDebounce((id: number, responses: AssessmentItemResponsePayload[]) => {
+        simpleDebounce((id: string, responses: AssessmentItemResponsePayload[]) => {
             autosaveMutation.mutate({ sessionId: id, responses });
         }, 1000)
     ).current;

@@ -5,7 +5,7 @@
 /**
  * Raw ranking for a specific context scenario (Audit Point 1).
  */
-export type ContextItemRank = {
+export type ContextRanksWrite = {
     /**
      * ID of the context scenario (1-8)
      */

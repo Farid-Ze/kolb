@@ -64,22 +64,7 @@ const deriveModeRanks = (item: AssessmentItem, draft?: TunnelItemDraft): Record<
   return Object.keys(ranks).length === MODE_CODES.length ? ranks : null
 }
 
-const mapResponseRanksToChoiceIds = (item: AssessmentItem, ranks: Record<string, number>) => {
-  const lookup = item.options.reduce<Record<string, number>>((acc, option) => {
-    if (option.code) {
-      acc[option.code.toUpperCase()] = option.id
-    }
-    return acc
-  }, {})
-  const mapped: Record<number, number> = {}
-  Object.entries(ranks).forEach(([modeCode, rankValue]) => {
-    const choiceId = lookup[modeCode.toUpperCase()]
-    if (choiceId) {
-      mapped[choiceId] = rankValue
-    }
-  })
-  return mapped
-}
+
 
 const SESSION_STORAGE_KEY = 'zenotika.tunnel.sessionId'
 const ITEM_DRAFTS_STORAGE_KEY = 'zenotika.tunnel.itemDrafts'
@@ -206,11 +191,10 @@ export function useTunnelSession() {
     const storedContexts = safeParseJSON<ContextDraftMap>(localStorage.getItem(CONTEXT_DRAFTS_STORAGE_KEY))
 
     if (storedSession) {
-      const parsed = Number(storedSession)
-      if (Number.isFinite(parsed)) {
+      if (storedSession) {
         dispatch({
           type: 'HYDRATE',
-          sessionId: parsed,
+          sessionId: storedSession,
           drafts: storedDrafts ?? undefined,
           contextDrafts: storedContexts ?? undefined,
         })
@@ -288,20 +272,20 @@ export function useTunnelSession() {
 
   const itemsQuery = useQuery<AssessmentItem[], Error>({
     queryKey: ['tunnel-items', sessionId],
-    queryFn: () => fetchSessionItems(sessionId as number),
+    queryFn: () => fetchSessionItems(sessionId as string),
     enabled: Boolean(sessionId),
     staleTime: 5 * 60 * 1000,
   })
 
   const sessionStateQuery = useQuery({
     queryKey: ['tunnel-session-state', sessionId],
-    queryFn: () => fetchSessionState(sessionId as number),
+    queryFn: () => fetchSessionState(sessionId as string),
     enabled: Boolean(sessionId),
     staleTime: 60 * 1000,
   })
 
   const autosaveMutation = useMutation({
-    mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: number; payload: SessionAutosavePayload }) =>
+    mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: string; payload: SessionAutosavePayload }) =>
       autosaveSession(targetSessionId, payload),
     onSuccess: () => dispatch({ type: 'SET_AUTOSAVE_SUCCESS' }),
   })
@@ -329,7 +313,15 @@ export function useTunnelSession() {
       if (!item) {
         return
       }
-      const mapped = mapResponseRanksToChoiceIds(item, response.ranks)
+
+      // Map ItemChoiceRank[] to Record<number, number>
+      const mapped: Record<number, number> = {};
+      if (Array.isArray(response.ranks)) {
+        response.ranks.forEach((r: any) => {
+          mapped[r.choiceId] = r.rank;
+        });
+      }
+
       if (Object.keys(mapped).length) {
         newDrafts[item.id] = {
           itemId: item.id,
@@ -379,7 +371,7 @@ export function useTunnelSession() {
   const canSubmit = Boolean(sessionId) && totalItems > 0 && rankedItemsCount === totalItems && contextsCompleteCount === totalContexts
 
   const submitMutation = useMutation({
-    mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: number; payload: SessionSubmissionPayload }) =>
+    mutationFn: ({ sessionId: targetSessionId, payload }: { sessionId: string; payload: SessionSubmissionPayload }) =>
       submitAllResponses(targetSessionId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['results'] })
@@ -393,7 +385,7 @@ export function useTunnelSession() {
       itemId,
       responseMap,
     }: {
-      sessionId: number
+      sessionId: string
       itemId: number
       responseMap: Record<number, number>
     }) => submitSingleResponse(targetSessionId, itemId, responseMap),
@@ -488,11 +480,14 @@ export function useTunnelSession() {
 
     return {
       items: learningItems.map((item) => {
-        const ranks = drafts[item.id]?.ranks
-        if (!ranks || Object.keys(ranks).length !== MODE_CODES.length) {
-          throw new Error('Incomplete item ranks detected.')
+        const itemRanks = drafts[item.id]?.ranks || {}
+        return {
+          itemId: item.id,
+          ranks: Object.entries(itemRanks).map(([choiceId, rank]) => ({
+            choiceId: parseInt(choiceId),
+            rank: rank as number
+          }))
         }
-        return { itemId: item.id, ranks }
       }),
       contexts: LFI_CONTEXTS.map((contextName) => {
         const draft = contextDrafts[contextName]

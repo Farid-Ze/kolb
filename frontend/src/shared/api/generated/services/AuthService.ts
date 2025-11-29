@@ -17,12 +17,12 @@ export class AuthService {
      * @returns UserOut Successful Response
      * @throws ApiError
      */
-    public static registerAuthRegisterPost(
+    public static registerApiV1AuthRegisterPost(
         requestBody: UserCreate,
     ): CancelablePromise<UserOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/auth/register',
+            url: '/api/v1/auth/register',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -36,12 +36,12 @@ export class AuthService {
      * @returns Token Successful Response
      * @throws ApiError
      */
-    public static loginAuthLoginPost(
+    public static loginApiV1AuthLoginPost(
         requestBody: LoginRequest,
     ): CancelablePromise<Token> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/auth/login',
+            url: '/api/v1/auth/login',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -55,12 +55,12 @@ export class AuthService {
      * @returns Token Successful Response
      * @throws ApiError
      */
-    public static refreshTokenEndpointAuthRefreshPost(
+    public static refreshTokenEndpointApiV1AuthRefreshPost(
         requestBody: RefreshRequest,
     ): CancelablePromise<Token> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/auth/refresh',
+            url: '/api/v1/auth/refresh',
             body: requestBody,
             mediaType: 'application/json',
             errors: {

@@ -21,12 +21,12 @@ export class TeamsService {
      * @returns TeamOut Successful Response
      * @throws ApiError
      */
-    public static createTeamTeamsPost(
+    public static createTeamApiV1TeamsPost(
         requestBody: TeamCreate,
     ): CancelablePromise<TeamOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/teams/',
+            url: '/api/v1/teams/',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -42,14 +42,14 @@ export class TeamsService {
      * @returns TeamListResponse Successful Response
      * @throws ApiError
      */
-    public static listTeamsTeamsGet(
+    public static listTeamsApiV1TeamsGet(
         page: number = 1,
         size: number = 50,
         q?: string | null,
     ): CancelablePromise<TeamListResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/teams/',
+            url: '/api/v1/teams/',
             query: {
                 'page': page,
                 'size': size,
@@ -66,12 +66,12 @@ export class TeamsService {
      * @returns TeamOut Successful Response
      * @throws ApiError
      */
-    public static getTeamTeamsTeamIdGet(
+    public static getTeamApiV1TeamsTeamIdGet(
         teamId: number,
     ): CancelablePromise<TeamOut> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/teams/{team_id}',
+            url: '/api/v1/teams/{team_id}',
             path: {
                 'team_id': teamId,
             },
@@ -87,13 +87,13 @@ export class TeamsService {
      * @returns TeamOut Successful Response
      * @throws ApiError
      */
-    public static updateTeamTeamsTeamIdPatch(
+    public static updateTeamApiV1TeamsTeamIdPatch(
         teamId: number,
         requestBody: TeamUpdate,
     ): CancelablePromise<TeamOut> {
         return __request(OpenAPI, {
             method: 'PATCH',
-            url: '/teams/{team_id}',
+            url: '/api/v1/teams/{team_id}',
             path: {
                 'team_id': teamId,
             },
@@ -110,12 +110,12 @@ export class TeamsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static deleteTeamTeamsTeamIdDelete(
+    public static deleteTeamApiV1TeamsTeamIdDelete(
         teamId: number,
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/teams/{team_id}',
+            url: '/api/v1/teams/{team_id}',
             path: {
                 'team_id': teamId,
             },
@@ -130,12 +130,12 @@ export class TeamsService {
      * @returns TeamMemberOut Successful Response
      * @throws ApiError
      */
-    public static listMembersTeamsTeamIdMembersGet(
+    public static listMembersApiV1TeamsTeamIdMembersGet(
         teamId: number,
     ): CancelablePromise<Array<TeamMemberOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/teams/{team_id}/members',
+            url: '/api/v1/teams/{team_id}/members',
             path: {
                 'team_id': teamId,
             },
@@ -151,13 +151,13 @@ export class TeamsService {
      * @returns TeamMemberOut Successful Response
      * @throws ApiError
      */
-    public static addMemberTeamsTeamIdMembersPost(
+    public static addMemberApiV1TeamsTeamIdMembersPost(
         teamId: number,
         requestBody: TeamMemberAdd,
     ): CancelablePromise<TeamMemberOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/teams/{team_id}/members',
+            url: '/api/v1/teams/{team_id}/members',
             path: {
                 'team_id': teamId,
             },
@@ -175,13 +175,13 @@ export class TeamsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static removeMemberTeamsTeamIdMembersMemberIdDelete(
+    public static removeMemberApiV1TeamsTeamIdMembersMemberIdDelete(
         teamId: number,
         memberId: number,
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/teams/{team_id}/members/{member_id}',
+            url: '/api/v1/teams/{team_id}/members/{member_id}',
             path: {
                 'team_id': teamId,
                 'member_id': memberId,
@@ -197,14 +197,40 @@ export class TeamsService {
      * @returns TeamRollupOut Successful Response
      * @throws ApiError
      */
-    public static listRollupsTeamsTeamIdRollupsGet(
+    public static listRollupsApiV1TeamsTeamIdRollupsGet(
         teamId: number,
     ): CancelablePromise<Array<TeamRollupOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/teams/{team_id}/rollups',
+            url: '/api/v1/teams/{team_id}/rollups',
             path: {
                 'team_id': teamId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Create Rollup
+     * Create a new rollup snapshot for the team.
+     * @param teamId
+     * @param forDate YYYY-MM-DD optional date filter
+     * @returns TeamRollupOut Successful Response
+     * @throws ApiError
+     */
+    public static createRollupApiV1TeamsTeamIdRollupsPost(
+        teamId: number,
+        forDate?: string | null,
+    ): CancelablePromise<TeamRollupOut> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/teams/{team_id}/rollups',
+            path: {
+                'team_id': teamId,
+            },
+            query: {
+                'for_date': forDate,
             },
             errors: {
                 422: `Validation Error`,
@@ -217,12 +243,12 @@ export class TeamsService {
      * @returns TeamRollupDetail Successful Response
      * @throws ApiError
      */
-    public static getRollupTeamsTeamIdRollupGet(
+    public static getRollupApiV1TeamsTeamIdRollupGet(
         teamId: number,
     ): CancelablePromise<TeamRollupDetail> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/teams/{team_id}/rollup',
+            url: '/api/v1/teams/{team_id}/rollup',
             path: {
                 'team_id': teamId,
             },
@@ -239,14 +265,14 @@ export class TeamsService {
      * @returns TeamMemberAnalyticsResponse Successful Response
      * @throws ApiError
      */
-    public static getRollupMembersTeamsTeamIdAnalyticsMembersGet(
+    public static getRollupMembersApiV1TeamsTeamIdAnalyticsMembersGet(
         teamId: number,
         page: number = 1,
         size: number = 50,
     ): CancelablePromise<TeamMemberAnalyticsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/teams/{team_id}/analytics/members',
+            url: '/api/v1/teams/{team_id}/analytics/members',
             path: {
                 'team_id': teamId,
             },
@@ -260,19 +286,20 @@ export class TeamsService {
         });
     }
     /**
+     * @deprecated
      * Run Rollup
      * @param teamId
      * @param forDate YYYY-MM-DD optional date filter
      * @returns TeamRollupOut Successful Response
      * @throws ApiError
      */
-    public static runRollupTeamsTeamIdRollupRunPost(
+    public static runRollupApiV1TeamsTeamIdRollupRunPost(
         teamId: number,
         forDate?: string | null,
     ): CancelablePromise<TeamRollupOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/teams/{team_id}/rollup/run',
+            url: '/api/v1/teams/{team_id}/rollup/run',
             path: {
                 'team_id': teamId,
             },

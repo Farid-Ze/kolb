@@ -2,6 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ActionEvent } from '../models/ActionEvent';
+import type { AssessmentTelemetryEvent } from '../models/AssessmentTelemetryEvent';
+import type { GuideOpenEvent } from '../models/GuideOpenEvent';
+import type { PageViewEvent } from '../models/PageViewEvent';
 import type { ReplayEventBatch } from '../models/ReplayEventBatch';
 import type { TelemetryBatch } from '../models/TelemetryBatch';
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -46,13 +50,13 @@ export class TelemetryService {
                  * @returns any Successful Response
                  * @throws ApiError
                  */
-                public static batchTelemetryTelemetryBatchPost(
+                public static batchTelemetryApiV1TelemetryBatchPost(
                     contentLength: number,
                     requestBody: TelemetryBatch,
                 ): CancelablePromise<any> {
                     return __request(OpenAPI, {
                         method: 'POST',
-                        url: '/telemetry/batch',
+                        url: '/api/v1/telemetry/batch',
                         headers: {
                             'Content-Length': contentLength,
                         },
@@ -67,17 +71,93 @@ export class TelemetryService {
                  * Record Replay Events
                  * Record session replay events for debugging.
                  *
-                 * Stores events in a JSONL file for later playback/analysis.
+                 * Logs events to stdout for aggregation (Cloud-Native).
                  * @param requestBody
                  * @returns any Successful Response
                  * @throws ApiError
                  */
-                public static recordReplayEventsTelemetryReplayEventsPost(
+                public static recordReplayEventsApiV1TelemetryReplayEventsPost(
                     requestBody: ReplayEventBatch,
                 ): CancelablePromise<any> {
                     return __request(OpenAPI, {
                         method: 'POST',
-                        url: '/telemetry/replay-events',
+                        url: '/api/v1/telemetry/replay-events',
+                        body: requestBody,
+                        mediaType: 'application/json',
+                        errors: {
+                            422: `Validation Error`,
+                        },
+                    });
+                }
+                /**
+                 * Record Guide Open
+                 * @param requestBody
+                 * @returns any Successful Response
+                 * @throws ApiError
+                 */
+                public static recordGuideOpenApiV1TelemetryGuideOpenPost(
+                    requestBody: GuideOpenEvent,
+                ): CancelablePromise<any> {
+                    return __request(OpenAPI, {
+                        method: 'POST',
+                        url: '/api/v1/telemetry/guide-open',
+                        body: requestBody,
+                        mediaType: 'application/json',
+                        errors: {
+                            422: `Validation Error`,
+                        },
+                    });
+                }
+                /**
+                 * Record Page View
+                 * @param requestBody
+                 * @returns any Successful Response
+                 * @throws ApiError
+                 */
+                public static recordPageViewApiV1TelemetryPageViewPost(
+                    requestBody: PageViewEvent,
+                ): CancelablePromise<any> {
+                    return __request(OpenAPI, {
+                        method: 'POST',
+                        url: '/api/v1/telemetry/page-view',
+                        body: requestBody,
+                        mediaType: 'application/json',
+                        errors: {
+                            422: `Validation Error`,
+                        },
+                    });
+                }
+                /**
+                 * Record Action
+                 * @param requestBody
+                 * @returns any Successful Response
+                 * @throws ApiError
+                 */
+                public static recordActionApiV1TelemetryActionPost(
+                    requestBody: ActionEvent,
+                ): CancelablePromise<any> {
+                    return __request(OpenAPI, {
+                        method: 'POST',
+                        url: '/api/v1/telemetry/action',
+                        body: requestBody,
+                        mediaType: 'application/json',
+                        errors: {
+                            422: `Validation Error`,
+                        },
+                    });
+                }
+                /**
+                 * Record Assessment Telemetry
+                 * @param requestBody
+                 * @returns any Successful Response
+                 * @throws ApiError
+                 */
+                public static recordAssessmentTelemetryApiV1TelemetryAssessmentPost(
+                    requestBody: AssessmentTelemetryEvent,
+                ): CancelablePromise<any> {
+                    return __request(OpenAPI, {
+                        method: 'POST',
+                        url: '/api/v1/telemetry/assessment',
                         body: requestBody,
                         mediaType: 'application/json',
                         errors: {

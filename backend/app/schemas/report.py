@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Mapping, List, Optional, Literal, Union
 
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, field_validator
 
 from app.schemas.base import CamelModel
 

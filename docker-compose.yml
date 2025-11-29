@@ -50,6 +50,7 @@ services:
       # Use psycopg 3 driver
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      AUDIT_SALT: ${AUDIT_SALT:-dev_audit_salt_change_me}
       ENV: ${ENV:-production}
       PYTHON_GIL: ${PYTHON_GIL:-0}
       PYTHONPATH: ${PYTHONPATH:-/app}

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { EngineService } from '@/shared/api/generated';
+import { SessionsService } from '@/shared/api/generated';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/button';
 import { useAuth } from '@/features/auth/context';
@@ -9,7 +9,7 @@ export function Dashboard() {
 
     const { data: sessions, isLoading } = useQuery({
         queryKey: ['sessions'],
-        queryFn: () => EngineService.listSessionsEngineSessionsGet(),
+        queryFn: () => SessionsService.listSessionsApiV1SessionsGet(),
     });
 
     return (

@@ -13,10 +13,10 @@ export class ChallengesService {
      * @returns UserChallengeOut Successful Response
      * @throws ApiError
      */
-    public static listUserChallengesChallengesUserGet(): CancelablePromise<Array<UserChallengeOut>> {
+    public static listUserChallengesApiV1ChallengesUserGet(): CancelablePromise<Array<UserChallengeOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/challenges/user',
+            url: '/api/v1/challenges/user',
         });
     }
     /**
@@ -26,13 +26,13 @@ export class ChallengesService {
      * @returns UserChallengeOut Successful Response
      * @throws ApiError
      */
-    public static completeUserChallengeChallengesUserChallengeIdCompletePost(
+    public static completeUserChallengeApiV1ChallengesUserChallengeIdCompletePost(
         challengeId: number,
         requestBody: ChallengeCompletionPayload,
     ): CancelablePromise<UserChallengeOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/challenges/user/{challenge_id}/complete',
+            url: '/api/v1/challenges/user/{challenge_id}/complete',
             path: {
                 'challenge_id': challengeId,
             },

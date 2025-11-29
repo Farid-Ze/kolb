@@ -11,7 +11,7 @@ export function AssessmentRunner() {
     // const [responses, setResponses] = useState<Record<number, any>>({}); // Unused for now
 
     const currentItem = items?.[currentIndex];
-    const { recordTelemetry } = useAssessmentTelemetry(sessionId ? parseInt(sessionId) : undefined, currentItem?.id);
+    const { recordTelemetry } = useAssessmentTelemetry(sessionId, currentItem?.id);
 
     if (isLoading) {
         return <div className="p-8 text-center">Loading assessment...</div>;

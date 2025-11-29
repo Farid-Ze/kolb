@@ -13,10 +13,10 @@ export class AdminService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getNormCacheStatsAdminNormsCacheStatsGet(): CancelablePromise<any> {
+    public static getNormCacheStatsApiV1AdminNormsCacheStatsGet(): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/admin/norms/cache-stats',
+            url: '/api/v1/admin/norms/cache-stats',
         });
     }
     /**
@@ -27,10 +27,10 @@ export class AdminService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getExternalNormCacheStatsAdminNormsExternalCacheStatsGet(): CancelablePromise<any> {
+    public static getExternalNormCacheStatsApiV1AdminNormsExternalCacheStatsGet(): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/admin/norms/external-cache-stats',
+            url: '/api/v1/admin/norms/external-cache-stats',
         });
     }
     /**
@@ -43,12 +43,12 @@ export class AdminService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getPerfMetricsAdminPerfMetricsGet(
+    public static getPerfMetricsApiV1AdminPerfMetricsGet(
         reset: boolean = false,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/admin/perf-metrics',
+            url: '/api/v1/admin/perf-metrics',
             query: {
                 'reset': reset,
             },
@@ -64,13 +64,13 @@ export class AdminService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static listInstrumentPipelinesAdminInstrumentsInstrumentCodePipelinesGet(
+    public static listInstrumentPipelinesApiV1AdminInstrumentsInstrumentCodePipelinesGet(
         instrumentCode: string,
         instrumentVersion?: string | null,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/admin/instruments/{instrument_code}/pipelines',
+            url: '/api/v1/admin/instruments/{instrument_code}/pipelines',
             path: {
                 'instrument_code': instrumentCode,
             },
@@ -90,14 +90,14 @@ export class AdminService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static activateInstrumentPipelineAdminInstrumentsInstrumentCodePipelinesPipelineIdActivatePost(
+    public static activateInstrumentPipelineApiV1AdminInstrumentsInstrumentCodePipelinesPipelineIdActivatePost(
         instrumentCode: string,
         pipelineId: number,
         instrumentVersion?: string | null,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/activate',
+            url: '/api/v1/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/activate',
             path: {
                 'instrument_code': instrumentCode,
                 'pipeline_id': pipelineId,
@@ -119,7 +119,7 @@ export class AdminService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static cloneInstrumentPipelineAdminInstrumentsInstrumentCodePipelinesPipelineIdClonePost(
+    public static cloneInstrumentPipelineApiV1AdminInstrumentsInstrumentCodePipelinesPipelineIdClonePost(
         instrumentCode: string,
         pipelineId: number,
         requestBody: ClonePipelineRequest,
@@ -127,7 +127,7 @@ export class AdminService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/clone',
+            url: '/api/v1/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/clone',
             path: {
                 'instrument_code': instrumentCode,
                 'pipeline_id': pipelineId,
@@ -150,14 +150,14 @@ export class AdminService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static deleteInstrumentPipelineAdminInstrumentsInstrumentCodePipelinesPipelineIdDelete(
+    public static deleteInstrumentPipelineApiV1AdminInstrumentsInstrumentCodePipelinesPipelineIdDelete(
         instrumentCode: string,
         pipelineId: number,
         instrumentVersion?: string | null,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/admin/instruments/{instrument_code}/pipelines/{pipeline_id}',
+            url: '/api/v1/admin/instruments/{instrument_code}/pipelines/{pipeline_id}',
             path: {
                 'instrument_code': instrumentCode,
                 'pipeline_id': pipelineId,

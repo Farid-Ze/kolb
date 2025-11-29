@@ -4,7 +4,7 @@
 /* eslint-disable */
 export type ReportShareOut = {
     shareId: number;
-    sessionId: number;
+    sessionId: string;
     mediatorEmail: string;
     mediatorName: string | null;
     expiresAt: string;

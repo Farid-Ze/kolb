@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { TelemetryService } from '@/shared/api/generated';
 
-export function useAssessmentTelemetry(sessionId?: number, itemId?: number) {
+export function useAssessmentTelemetry(sessionId?: string, itemId?: number) {
     const startTimeRef = useRef<number>(Date.now());
     const blurCountRef = useRef<number>(0);
 
@@ -27,7 +27,7 @@ export function useAssessmentTelemetry(sessionId?: number, itemId?: number) {
         const latency = endTime - startTimeRef.current;
 
         try {
-            await TelemetryService.recordAssessmentTelemetryTelemetryAssessmentPost({
+            await TelemetryService.recordAssessmentTelemetryApiV1TelemetryAssessmentPost({
                 sessionId,
                 itemId,
                 responseRank,

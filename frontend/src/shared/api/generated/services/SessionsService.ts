@@ -4,12 +4,63 @@
 /* eslint-disable */
 import type { AssessmentItemResponsePayload } from '../models/AssessmentItemResponsePayload';
 import type { SessionAutosavePayload } from '../models/SessionAutosavePayload';
+import type { SessionListResponse } from '../models/SessionListResponse';
 import type { SessionOperationResult } from '../models/SessionOperationResult';
+import type { SessionStartResponse } from '../models/SessionStartResponse';
 import type { SessionSubmissionPayload } from '../models/SessionSubmissionPayload';
+import type { SessionUpdate } from '../models/SessionUpdate';
+import type { StartSessionRequest } from '../models/StartSessionRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class SessionsService {
+    /**
+     * List Sessions
+     * List all assessment sessions for the current user.
+     * @param skip
+     * @param limit
+     * @returns SessionListResponse Successful Response
+     * @throws ApiError
+     */
+    public static listSessionsApiV1SessionsGet(
+        skip?: number,
+        limit: number = 100,
+    ): CancelablePromise<Array<SessionListResponse>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/sessions/',
+            query: {
+                'skip': skip,
+                'limit': limit,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Start Session
+     * Start a new assessment session.
+     *
+     * This is the primary entry point for starting an assessment.
+     * Enforces Grant consumption (Phase 1: Semantic Pivot).
+     * @param requestBody
+     * @returns SessionStartResponse Successful Response
+     * @throws ApiError
+     */
+    public static startSessionApiV1SessionsStartPost(
+        requestBody: StartSessionRequest,
+    ): CancelablePromise<SessionStartResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/sessions/start',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
     /**
      * Get Delivery
      * Fetch full delivery package including items, manifest, and locale resources.
@@ -24,14 +75,14 @@ export class SessionsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getDeliverySessionsSessionIdDeliveryGet(
+    public static getDeliveryApiV1SessionsSessionIdDeliveryGet(
         sessionId: string,
         locale?: string | null,
         lite: boolean = false,
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/sessions/{session_id}/delivery',
+            url: '/api/v1/sessions/{session_id}/delivery',
             path: {
                 'session_id': sessionId,
             },
@@ -56,12 +107,12 @@ export class SessionsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getItemsSessionsSessionIdItemsGet(
+    public static getItemsApiV1SessionsSessionIdItemsGet(
         sessionId: string,
     ): CancelablePromise<Array<any>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/sessions/{session_id}/items',
+            url: '/api/v1/sessions/{session_id}/items',
             path: {
                 'session_id': sessionId,
             },
@@ -79,13 +130,13 @@ export class SessionsService {
      * @returns SessionOperationResult Successful Response
      * @throws ApiError
      */
-    public static submitAllResponsesSessionsSessionIdSubmitAllResponsesPost(
+    public static submitAllResponsesApiV1SessionsSessionIdSubmitAllResponsesPost(
         sessionId: string,
         requestBody: SessionSubmissionPayload,
     ): CancelablePromise<SessionOperationResult> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/sessions/{session_id}/submit-all-responses',
+            url: '/api/v1/sessions/{session_id}/submit-all-responses',
             path: {
                 'session_id': sessionId,
             },
@@ -97,17 +148,50 @@ export class SessionsService {
         });
     }
     /**
+     * Update Session
+     * Update session state.
+     *
+     * - Set status='completed' to finalize the session.
+     * @param sessionId
+     * @param requestBody
+     * @param idempotencyKey Unique key to prevent duplicate operations
+     * @returns SessionOperationResult Successful Response
+     * @throws ApiError
+     */
+    public static updateSessionApiV1SessionsSessionIdPatch(
+        sessionId: string,
+        requestBody: SessionUpdate,
+        idempotencyKey?: string | null,
+    ): CancelablePromise<SessionOperationResult> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/sessions/{session_id}',
+            path: {
+                'session_id': sessionId,
+            },
+            headers: {
+                'idempotency-key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * @deprecated
      * Finalize
      * @param sessionId
      * @returns SessionOperationResult Successful Response
      * @throws ApiError
      */
-    public static finalizeSessionsSessionIdFinalizePost(
+    public static finalizeApiV1SessionsSessionIdFinalizePost(
         sessionId: string,
     ): CancelablePromise<SessionOperationResult> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/sessions/{session_id}/finalize',
+            url: '/api/v1/sessions/{session_id}/finalize',
             path: {
                 'session_id': sessionId,
             },
@@ -123,12 +207,12 @@ export class SessionsService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static sessionValidationSessionsSessionIdValidationGet(
+    public static sessionValidationApiV1SessionsSessionIdValidationGet(
         sessionId: string,
     ): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/sessions/{session_id}/validation',
+            url: '/api/v1/sessions/{session_id}/validation',
             path: {
                 'session_id': sessionId,
             },
@@ -148,13 +232,13 @@ export class SessionsService {
      * @returns SessionOperationResult Successful Response
      * @throws ApiError
      */
-    public static autosaveSessionSessionsSessionIdAutosavePost(
+    public static autosaveSessionApiV1SessionsSessionIdAutosavePost(
         sessionId: string,
         requestBody: SessionAutosavePayload,
     ): CancelablePromise<SessionOperationResult> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/sessions/{session_id}/autosave',
+            url: '/api/v1/sessions/{session_id}/autosave',
             path: {
                 'session_id': sessionId,
             },
@@ -172,13 +256,13 @@ export class SessionsService {
      * @returns void
      * @throws ApiError
      */
-    public static upsertSessionResponsesSessionsSessionIdResponsesPatch(
+    public static upsertSessionResponsesApiV1SessionsSessionIdResponsesPatch(
         sessionId: string,
         requestBody: Array<AssessmentItemResponsePayload>,
     ): CancelablePromise<void> {
         return __request(OpenAPI, {
             method: 'PATCH',
-            url: '/sessions/{session_id}/responses',
+            url: '/api/v1/sessions/{session_id}/responses',
             path: {
                 'session_id': sessionId,
             },

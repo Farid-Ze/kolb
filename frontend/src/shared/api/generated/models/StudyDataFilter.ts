@@ -9,5 +9,9 @@ export type StudyDataFilter = {
     normGroup?: string | null;
     page?: number;
     size?: number;
+    /**
+     * Cursor for pagination (base64 encoded id/timestamp). Overrides page.
+     */
+    cursor?: string | null;
 };
 

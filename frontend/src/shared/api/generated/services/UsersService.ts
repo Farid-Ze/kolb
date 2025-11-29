@@ -13,10 +13,10 @@ export class UsersService {
      * @returns UserOut Successful Response
      * @throws ApiError
      */
-    public static getMeUsersMeGet(): CancelablePromise<UserOut> {
+    public static getMeApiV1UsersMeGet(): CancelablePromise<UserOut> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/users/me',
+            url: '/api/v1/users/me',
         });
     }
     /**
@@ -24,10 +24,10 @@ export class UsersService {
      * @returns UserAchievementOut Successful Response
      * @throws ApiError
      */
-    public static listUserAchievementsUsersMeAchievementsGet(): CancelablePromise<Array<UserAchievementOut>> {
+    public static listUserAchievementsApiV1UsersMeAchievementsGet(): CancelablePromise<Array<UserAchievementOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/users/me/achievements',
+            url: '/api/v1/users/me/achievements',
         });
     }
 }

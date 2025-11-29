@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fetchUser = useCallback(async () => {
         try {
-            const userProfile = await UsersService.getMeUsersMeGet();
+            const userProfile = await UsersService.getMeApiV1UsersMeGet();
             setUser(userProfile);
             setIsGuest(false);
         } catch (error) {
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [fetchUser]);
 
     const login = async (data: LoginRequest) => {
-        const response = await AuthService.loginAuthLoginPost(data);
+        const response = await AuthService.loginApiV1AuthLoginPost(data);
         // @ts-ignore - Token type might have access_token as snake_case or accessToken as camelCase depending on generator config
         // We assume access_token based on standard FastAPI OAuth2
         const token = response.access_token || response.accessToken;
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const register = async (data: UserCreate) => {
-        await AuthService.registerAuthRegisterPost(data);
+        await AuthService.registerApiV1AuthRegisterPost(data);
         // After register, usually we redirect to login or auto-login.
         // For now, let the caller handle the next step (e.g. redirect).
     };

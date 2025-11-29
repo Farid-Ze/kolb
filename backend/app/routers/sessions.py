@@ -2,7 +2,7 @@ import uuid
 from datetime import timezone
 from email.utils import format_datetime
 
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, BackgroundTasks
 from pydantic import ValidationError
@@ -29,6 +29,7 @@ from app.schemas.session import (
     StartSessionRequest,
     SessionUpdate,
     SessionStatus,
+    SessionListResponse,
 )
 from app.services.assessments import upsert_responses
 from app.core.config import settings
@@ -38,6 +39,19 @@ from app.i18n.id_messages import SessionErrorMessages
 from app.services.engine import EngineSessionService
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
+
+
+@router.get("/", response_model=list[SessionListResponse])
+def list_sessions(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: Any = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """List all assessment sessions for the current user."""
+    repo = SessionRepository(db)
+    sessions = repo.get_by_user(current_user.id, skip=skip, limit=limit)
+    return sessions
 
 
 class ForceFinalizeRequest(CamelModel):

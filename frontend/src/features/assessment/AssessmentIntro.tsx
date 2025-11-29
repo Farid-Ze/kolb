@@ -8,7 +8,7 @@ export function AssessmentIntro() {
     const navigate = useNavigate();
 
     const startSessionMutation = useMutation({
-        mutationFn: () => SessionsService.startSessionSessionsStartPost(),
+        mutationFn: () => SessionsService.startSessionApiV1SessionsStartPost({ instrumentCode: 'KLSI', instrumentVersion: '4.0' }),
         onSuccess: (data) => {
             toast.success('Assessment started');
             navigate(`/assessment/${data.sessionId}`);

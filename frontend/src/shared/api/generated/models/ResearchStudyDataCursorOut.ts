@@ -5,34 +5,25 @@
 import type { StudyDataPoint } from './StudyDataPoint';
 import type { StudyDataSummary } from './StudyDataSummary';
 /**
- * Paginated research study data export with metadata.
- *
- * Extends PaginatedResponse to include study-specific metadata:
- * - items: List[StudyDataPoint] (inherited, contains paginated data points)
- * - total, page, size, pages (inherited pagination metadata)
- * - study_public_id, study_title, filters_applied, summary (custom fields)
+ * Cursor-paginated research study data export with metadata.
  */
-export type ResearchStudyDataOut = {
+export type ResearchStudyDataCursorOut = {
     /**
      * List of items for the current page
      */
     items: Array<StudyDataPoint>;
     /**
-     * Total count of all items across all pages
+     * Cursor for the next page. Null if no more items.
      */
-    total: number;
+    nextCursor?: string | null;
     /**
-     * Current page number (1-indexed)
+     * Cursor for the previous page.
      */
-    page: number;
+    prevCursor?: string | null;
     /**
      * Number of items per page
      */
     size: number;
-    /**
-     * Total number of pages
-     */
-    pages: number;
     studyPublicId: string;
     studyTitle: string;
     filtersApplied: Record<string, any>;

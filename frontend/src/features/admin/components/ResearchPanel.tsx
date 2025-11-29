@@ -68,7 +68,7 @@ export function ResearchPanel() {
       ) : (
         <div className="space-y-4">
           {studies?.map((study) => (
-            <div key={study.id} className="flex items-center justify-between rounded-lg border border-[var(--zen-border)] bg-[var(--zen-bg)] p-4">
+            <div key={study.publicId} className="flex items-center justify-between rounded-lg border border-[var(--zen-border)] bg-[var(--zen-bg)] p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
                   <FileText className="h-5 w-5" />

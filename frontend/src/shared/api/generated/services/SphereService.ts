@@ -15,10 +15,10 @@ export class SphereService {
      * @returns SphereNodeOut Successful Response
      * @throws ApiError
      */
-    public static listNodesSphereNodesGet(): CancelablePromise<Array<SphereNodeOut>> {
+    public static listNodesApiV1SphereNodesGet(): CancelablePromise<Array<SphereNodeOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/sphere/nodes',
+            url: '/api/v1/sphere/nodes',
         });
     }
     /**
@@ -27,12 +27,12 @@ export class SphereService {
      * @returns ReflectionOut Successful Response
      * @throws ApiError
      */
-    public static listReflectionsSphereReflectionsGet(
+    public static listReflectionsApiV1SphereReflectionsGet(
         reflectionType?: (ReflectionType | null),
     ): CancelablePromise<Array<ReflectionOut>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/sphere/reflections',
+            url: '/api/v1/sphere/reflections',
             query: {
                 'reflection_type': reflectionType,
             },
@@ -47,12 +47,12 @@ export class SphereService {
      * @returns ReflectionOut Successful Response
      * @throws ApiError
      */
-    public static createReflectionSphereReflectionsPost(
+    public static createReflectionApiV1SphereReflectionsPost(
         requestBody: ReflectionCreate,
     ): CancelablePromise<ReflectionOut> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/sphere/reflections',
+            url: '/api/v1/sphere/reflections',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -65,10 +65,10 @@ export class SphereService {
      * @returns string Successful Response
      * @throws ApiError
      */
-    public static getPromptSpherePromptGet(): CancelablePromise<Record<string, string>> {
+    public static getPromptApiV1SpherePromptGet(): CancelablePromise<Record<string, string>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/sphere/prompt',
+            url: '/api/v1/sphere/prompt',
         });
     }
 }

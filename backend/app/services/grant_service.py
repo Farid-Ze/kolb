@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 from app.db.repositories.grant import GrantRepository
 from app.models.klsi.grant import AccessGrant
 
+class InsufficientCreditsError(Exception):
+    """Raised when a user has no active grants or insufficient credits."""
+    pass
+
 class GrantService:
     def __init__(self, db: Session):
         self.db = db

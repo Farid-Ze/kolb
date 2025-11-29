@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { EngineService } from '@/shared/api/generated';
+import { ReportsService, type IndividualReportPayload } from '@/shared/api/generated';
 import { KiteDiagram } from './components/KiteDiagram';
 import { Button } from '@/shared/components/ui/button';
 
@@ -9,7 +9,7 @@ export function Results() {
 
     const { data: report, isLoading } = useQuery({
         queryKey: ['session', sessionId, 'report'],
-        queryFn: () => EngineService.engineReportEngineSessionsSessionIdReportGet(parseInt(sessionId!)),
+        queryFn: () => ReportsService.getReportApiV1ReportsSessionIdGet(sessionId!),
         enabled: !!sessionId,
     });
 
@@ -21,11 +21,23 @@ export function Results() {
         return <div className="p-8 text-center">Report not found.</div>;
     }
 
+    if ('members' in report) {
+        return <div className="p-8 text-center">Team reports are not supported in this view.</div>;
+    }
+
+    const individualReport = report as IndividualReportPayload;
+
     // Safe access to report properties
-    const styleName = report.style?.styleName || 'Unknown';
-    const kiteData = report.visualization?.kiteCoordinates;
-    const strengths = report.analytics?.strengths as string[] | undefined;
-    const blindspots = report.analytics?.blindspots as string[] | undefined;
+    const styleName = individualReport.style?.styleName || 'Unknown';
+
+    // Map raw scores to KiteDiagram format
+    const rawScores = individualReport.analytics?.rawScores || {};
+    const kiteData = {
+        AC: rawScores['AC'] || 0,
+        CE: rawScores['CE'] || 0,
+        AE: rawScores['AE'] || 0,
+        RO: rawScores['RO'] || 0,
+    };
 
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-8">
@@ -44,21 +56,8 @@ export function Results() {
 
                 <div className="space-y-6">
                     <div className="bg-white p-6 rounded-lg shadow-sm border">
-                        <h2 className="text-lg font-semibold mb-2">Key Strengths</h2>
-                        <ul className="list-disc list-inside space-y-1 text-gray-700">
-                            {strengths?.map((strength, i) => (
-                                <li key={i}>{strength}</li>
-                            )) || <li>No strengths identified.</li>}
-                        </ul>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-lg shadow-sm border">
-                        <h2 className="text-lg font-semibold mb-2">Development Areas</h2>
-                        <ul className="list-disc list-inside space-y-1 text-gray-700">
-                            {blindspots?.map((blindspot, i) => (
-                                <li key={i}>{blindspot}</li>
-                            )) || <li>No development areas identified.</li>}
-                        </ul>
+                        <h2 className="text-lg font-semibold mb-2">Analytics</h2>
+                        <p className="text-gray-600">Detailed analytics coming soon.</p>
                     </div>
                 </div>
             </div>

@@ -14,12 +14,12 @@ export class ScoreService {
      * @returns ScorePreviewResponse Successful Response
      * @throws ApiError
      */
-    public static scoreRawScoreRawPost(
+    public static scoreRawApiV1ScoreRawPost(
         requestBody: ScorePreviewRequest,
     ): CancelablePromise<ScorePreviewResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/score/raw',
+            url: '/api/v1/score/raw',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
