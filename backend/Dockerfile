@@ -66,11 +66,11 @@ USER appuser
 
 EXPOSE 8000
 
-# Run with uvicorn in production mode
-CMD ["python", "-m", "uvicorn", "app.main:app", \
-    "--host", "0.0.0.0", \
-    "--port", "8000", \
-    "--workers", "4", \
-    "--timeout-keep-alive", "30", \
-    "--access-log", \
-    "--log-level", "info"]
+# Run with gunicorn in production mode
+CMD ["gunicorn", "app.main:app", \
+    "-w", "4", \
+    "-k", "uvicorn.workers.UvicornWorker", \
+    "--bind", "0.0.0.0:8000", \
+    "--timeout", "60", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-"]

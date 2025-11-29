@@ -94,32 +94,15 @@ class EngineSessionService:
         instrument_code: str,
         instrument_version: Optional[str] = None,
     ):
-        # [Zenotika V4] Semantic Pivot: Check for Access Grant
-        # Enforce grant redemption for KLSI instruments
-        if instrument_code == "KLSI":
-            version = instrument_version or "4.0"
-            
-            # Fetch all instruments and filter in Python to avoid JSON dialect issues
-            # This is acceptable as the product catalog is small (Registry pattern)
-            instruments = self.db.execute(select(Instrument)).scalars().all()
-            instrument = next(
-                (i for i in instruments if i.code == instrument_code and i.version == version),
-                None
-            )
-            
-            if instrument and user:
-                try:
-                    grant = GrantService.redeem_credit(self.db, user.id, instrument.id)
-                    # [Zenotika V4] Provenance: Capture study_id from grant
-                    study_id = grant.study_id
-                except InsufficientCreditsError:
-                    raise PermissionDeniedError(
-                        SessionErrorMessages.INSUFFICIENT_CREDITS or "Insufficient credits to start this assessment."
-                    )
-            else:
-                study_id = None
-        else:
-            study_id = None
+        # [Zenotika V4] Semantic Pivot: Grant check moved to Router to support Async/Sync hybrid
+        
+        return runtime.start_session(
+            self.db,
+            user,
+            instrument_code=instrument_code,
+            instrument_version=instrument_version,
+            study_id=None, # Study ID tracking moved to router/provenance if needed
+        )
 
         return runtime.start_session(
             self.db,

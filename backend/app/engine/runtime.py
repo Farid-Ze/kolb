@@ -482,7 +482,8 @@ class EngineRuntime:
         with correlation_context(correlation_id):
             repo_provider = get_repository_provider(db)
             instrument_repo = repo_provider.instruments
-            instrument = instrument_repo.get_by_code(instrument_code, instrument_version)
+            # [Zenotika V4] Runtime is sync, use sync method
+            instrument = instrument_repo.get_by_code_sync(instrument_code, instrument_version)
             if not instrument:
                 logger.warning(
                     "instrument_not_found",
@@ -507,6 +508,7 @@ class EngineRuntime:
                             "instrument_code": inst_id.key,
                             "instrument_version": inst_id.version,
                             "correlation_id": correlation_id,
+                            "available_plugins": self._registry._describe_available(),
                         }
                     },
                 )

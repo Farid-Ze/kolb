@@ -114,7 +114,8 @@ from sqlalchemy import select
 @router.post("/start", response_model=SessionStartResponse)
 async def start_session(
     payload: StartSessionRequest,
-    db: Any = Depends(get_async_db),
+    db_async: Any = Depends(get_async_db),
+    db_sync: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -123,24 +124,32 @@ async def start_session(
     This is the primary entry point for starting an assessment.
     Enforces Grant consumption (Phase 1: Semantic Pivot).
     """
-    # 1. Lookup Instrument
+    from fastapi.concurrency import run_in_threadpool
+
+    # 1. Lookup Instrument (Async)
     stmt = select(Instrument).where(Instrument.code == payload.instrument_code)
-    result = await db.execute(stmt)
+    result = await db_async.execute(stmt)
     instrument = result.scalar_one_or_none()
     
     if not instrument:
         raise HTTPException(status_code=404, detail=f"Instrument {payload.instrument_code} not found")
 
-    # 2. Consume Credit (Transactional)
-    grant_service = GrantService(db)
-    try:
-        await grant_service.redeem_credit(current_user.id, instrument.id)
-    except InsufficientCreditsError as e:
-        raise HTTPException(status_code=402, detail=e.message)
+    # 2. Consume Credit (Async Transactional)
+    # Only for KLSI instruments for now
+    if payload.instrument_code == "KLSI":
+        grant_service = GrantService(db_async)
+        try:
+            await grant_service.redeem_credit(current_user.id, instrument.id)
+        except InsufficientCreditsError as e:
+            raise HTTPException(status_code=402, detail=e.message)
 
-    # 3. Start Session
-    service = EngineSessionService(db)
-    session = service.start_session(
+    # 3. Start Session (Sync Engine in Threadpool)
+    # We use db_sync for the engine because runtime is synchronous
+    service = EngineSessionService(db_sync)
+    
+    # Wrap blocking call
+    session = await run_in_threadpool(
+        service.start_session,
         current_user,
         instrument_code=payload.instrument_code,
         instrument_version=payload.instrument_version,

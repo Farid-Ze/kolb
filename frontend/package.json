@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "generate-client": "openapi --input ./openapi.json --output ./src/shared/api/generated --client axios",
+    "gen:api": "openapi --input ./openapi.json --output ./src/shared/api/generated --client axios",
     "codegen": "node ./scripts/codegen.js"
   },
   "dependencies": {

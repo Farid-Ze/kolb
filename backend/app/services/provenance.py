@@ -71,7 +71,46 @@ def _upsert_scale_provenance_sync(
         )
 
 
-def log_provenance_background_task(
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.database import AsyncSessionLocal
+
+async def _upsert_scale_provenance_async(
+    db: AsyncSession,
+    session_id: UUID,
+    raw_scores: ScaleDict,
+    percentile_map: Dict[str, Optional[float]],
+    provenance_map: Dict[str, str],
+    truncations: Dict[str, bool],
+    algorithm_sha: Optional[str] = None,
+) -> None:
+    await db.execute(
+        delete(ScaleProvenance).where(ScaleProvenance.session_id == session_id)
+    )
+    for scale_code in ALL_SCALE_CODES:
+        if scale_code not in raw_scores or scale_code not in provenance_map:
+            continue
+        raw_value = raw_scores[scale_code]
+        if raw_value is None:
+            continue
+        source_kind, norm_group, norm_version = _normalize_provenance(provenance_map[scale_code])
+        db.add(
+            ScaleProvenance(
+                session_id=session_id,
+                scale_code=scale_code,
+                raw_score=float(raw_value),
+                percentile_value=percentile_map.get(scale_code),
+                provenance_tag=provenance_map[scale_code],
+                source_kind=source_kind,
+                norm_group=norm_group,
+                norm_version=norm_version,
+                truncated=bool(truncations.get(scale_code, False)),
+                algorithm_sha=algorithm_sha,
+            )
+        )
+
+
+async def log_provenance_background_task(
     session_id: UUID,
     raw_scores: ScaleDict,
     percentile_map: Dict[str, Optional[float]],
@@ -80,13 +119,13 @@ def log_provenance_background_task(
     algorithm_sha: Optional[str] = None,
 ) -> None:
     """
-    Background task to log provenance. Creates its own DB session.
+    Background task to log provenance. Creates its own Async DB session.
     """
-    with SessionLocal() as db:
-        _upsert_scale_provenance_sync(
+    async with AsyncSessionLocal() as db:
+        await _upsert_scale_provenance_async(
             db, session_id, raw_scores, percentile_map, provenance_map, truncations, algorithm_sha
         )
-        db.commit()
+        await db.commit()
 
 
 def backfill_scale_provenance(

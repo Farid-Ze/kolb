@@ -50,6 +50,10 @@ print(f"DEBUG: Base metadata tables: {Base.metadata.tables.keys()}")
 @pytest.fixture(scope="session", autouse=True)
 def db_setup():
     print("DEBUG: Executing db_setup fixture")
+    # [Zenotika V4] Explicitly register plugins for tests since lifespan might not trigger reliably
+    from app.main import _register_explicit_plugins
+    _register_explicit_plugins()
+    print("DEBUG: Explicitly registered plugins in conftest")
     # Recreate schema fresh to pick up new columns added in models (e.g., provenance fields)
     db_url = str(engine.url)
     if db_url.startswith("sqlite"):
