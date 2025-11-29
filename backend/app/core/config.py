@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     db_pool_recycle: int = Field(default=3600, ge=300, description="Seconds before recycling a connection")
     db_pool_pre_ping: bool = Field(default=True, description="Enable connection health checks before use")
 
+    # Redis / Caching
+    redis_url: str = Field(default="redis://localhost:6379/0")
+    cache_enabled: bool = Field(default=False)
+
     disable_legacy_submission: bool = Field(default=False)
     disable_legacy_router: bool = Field(default=False)
     legacy_sunset: Optional[datetime] = Field(default=None)

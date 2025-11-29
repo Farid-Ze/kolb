@@ -7,7 +7,6 @@ alembic==1.13.2
 python-multipart==0.0.9
 # psycopg (v3) - building from source for 3.13t
 psycopg==3.2.1
-# psycopg-c==3.2.1  <-- Removed: Fails to build on 3.13t. psycopg v3 falls back to pure Python.
 # asyncpg removed as it fails to build and app uses sync DB
 # asyncpg==0.30.0
 python-jose==3.3.0
@@ -21,6 +20,7 @@ PyYAML==6.0.2
 # Numpy 2.0+ has better free-threading support
 numpy>=2.1.0
 
-# aiosqlite removed
+aiosqlite>=0.17.0
 # Greenlet needs to be a version compatible with 3.13t/3.14t
 greenlet>=3.1.0
+redis>=5.0.0

@@ -2,13 +2,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UUID, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
 class AccessGrant(Base):
     __tablename__ = "access_grants"
+    __table_args__ = (
+        CheckConstraint('credits_consumed <= credits_total', name='check_credits_limit'),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
@@ -16,17 +19,18 @@ class AccessGrant(Base):
     grantor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     
     # Who owns this grant?
-    grantee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    grantee_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     
     # What instrument is this for? (e.g., KLSI4, TeamRole)
     instrument_id: Mapped[int] = mapped_column(ForeignKey("instruments.id"), nullable=False)
     
     # Quota details
     credits_total: Mapped[int] = mapped_column(Integer, default=1)
-    credits_used: Mapped[int] = mapped_column(Integer, default=0)
+    credits_consumed: Mapped[int] = mapped_column(Integer, default=0)
     
     # Audit trail from legacy store
-    source_order_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    source_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    study_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
     # Validity
     expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -43,5 +47,5 @@ class AccessGrant(Base):
         """Check if grant is valid and has remaining credits."""
         now = datetime.now(timezone.utc)
         not_expired = self.expiry_date is None or self.expiry_date > now
-        has_credits = self.credits_used < self.credits_total
+        has_credits = self.credits_consumed < self.credits_total
         return not_expired and has_credits

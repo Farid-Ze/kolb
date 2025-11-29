@@ -5,7 +5,7 @@ All error messages are centralized in app.i18n.id_messages for consistent locali
 
 from typing import Any
 
-from app.i18n.id_messages import DomainErrorMessages
+from app.i18n.id_messages import DomainErrorMessages, SessionErrorMessages
 
 __all__ = [
     "DomainError",
@@ -21,6 +21,7 @@ __all__ = [
     "PipelineNotFoundError",
     "PipelineConflictError",
     "ConfigurationError",
+    "InsufficientCreditsError",
 ]
 
 
@@ -137,3 +138,11 @@ class ConfigurationError(DomainError):
     error_code = "configuration_error"
     status_code = 500
     default_message = DomainErrorMessages.CONFIGURATION_ERROR
+
+
+class InsufficientCreditsError(DomainError):
+    """Raised when user has no remaining credits for an instrument."""
+
+    error_code = "insufficient_credits"
+    status_code = 402
+    default_message = SessionErrorMessages.INSUFFICIENT_CREDITS

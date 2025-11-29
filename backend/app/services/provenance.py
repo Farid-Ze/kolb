@@ -1,4 +1,5 @@
 from typing import Dict, Iterable, Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -37,11 +38,12 @@ def _normalize_provenance(tag: str) -> tuple[str, Optional[str], Optional[str]]:
 
 def _upsert_scale_provenance_sync(
     db: Session,
-    session_id: int,
+    session_id: UUID,
     raw_scores: ScaleDict,
     percentile_map: Dict[str, Optional[float]],
     provenance_map: Dict[str, str],
     truncations: Dict[str, bool],
+    algorithm_sha: Optional[str] = None,
 ) -> None:
     db.query(ScaleProvenance).filter(ScaleProvenance.session_id == session_id).delete(
         synchronize_session=False
@@ -64,30 +66,32 @@ def _upsert_scale_provenance_sync(
                 norm_group=norm_group,
                 norm_version=norm_version,
                 truncated=bool(truncations.get(scale_code, False)),
+                algorithm_sha=algorithm_sha,
             )
         )
 
 
 def log_provenance_background_task(
-    session_id: int,
+    session_id: UUID,
     raw_scores: ScaleDict,
     percentile_map: Dict[str, Optional[float]],
     provenance_map: Dict[str, str],
     truncations: Dict[str, bool],
+    algorithm_sha: Optional[str] = None,
 ) -> None:
     """
     Background task to log provenance. Creates its own DB session.
     """
     with SessionLocal() as db:
         _upsert_scale_provenance_sync(
-            db, session_id, raw_scores, percentile_map, provenance_map, truncations
+            db, session_id, raw_scores, percentile_map, provenance_map, truncations, algorithm_sha
         )
         db.commit()
 
 
 def backfill_scale_provenance(
     db: Session,
-    session_ids: Optional[Iterable[int]] = None,
+    session_ids: Optional[Iterable[UUID]] = None,
 ) -> None:
     query = (
         db.query(
@@ -137,5 +141,6 @@ def backfill_scale_provenance(
             percentiles,
             provenance_map,
             truncated,
+            algorithm_sha=None,
         )
     db.flush()

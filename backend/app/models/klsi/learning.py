@@ -178,6 +178,7 @@ class ScaleProvenance(Base):
     source_kind: Mapped[str] = mapped_column(String(20))
     norm_group: Mapped[str | None] = mapped_column(String(150), nullable=True)
     norm_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    algorithm_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
     truncated: Mapped[bool] = mapped_column(Boolean, default=False)
 
     session: Mapped["AssessmentSession"] = relationship(back_populates="scale_provenances")

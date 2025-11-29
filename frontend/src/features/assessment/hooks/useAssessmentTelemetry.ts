@@ -44,9 +44,44 @@ export function useAssessmentTelemetry(sessionId?: string, itemId?: number) {
         }
     }, [sessionId, itemId]);
 
+    const sendTelemetry = useCallback((payload: any) => {
+        if (!sessionId) return;
+
+        const fullPayload = {
+            sessionId,
+            timestamp: Date.now(),
+            ...payload,
+            meta: {
+                userAgent: navigator.userAgent,
+                screenResolution: `${window.screen.width}x${window.screen.height}`,
+                ...payload.meta
+            }
+        };
+
+        const blob = new Blob([JSON.stringify(fullPayload)], { type: 'application/json' });
+
+        // Use beacon for reliable transmission during unload/visibility change
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/v1/telemetry/assessment', blob);
+        } else {
+            // Fallback for older browsers (unlikely needed but good practice)
+            TelemetryService.recordAssessmentTelemetryApiV1TelemetryAssessmentPost(fullPayload).catch(console.warn);
+        }
+    }, [sessionId]);
+
+    const sendItemChanged = useCallback((itemId: number, fromRank: number | null, toRank: number | null) => {
+        sendTelemetry({
+            itemId,
+            event: 'rank_change',
+            fromRank,
+            toRank,
+            responseLatencyMs: Date.now() - startTimeRef.current
+        });
+    }, [sendTelemetry]);
+
     return {
         recordTelemetry,
-        sendTelemetry: (_payload: any) => recordTelemetry(0), // Mock implementation
-        sendItemChanged: (_itemId: number, ..._args: any[]) => recordTelemetry(0) // Mock implementation
+        sendTelemetry,
+        sendItemChanged
     };
 }

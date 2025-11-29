@@ -1,60 +1,90 @@
+import logging
+import time
 from datetime import datetime, timezone
-from typing import Dict, Any
+from functools import wraps
+from typing import Optional
 
-from fastapi import HTTPException, status
+from sqlalchemy import select, or_
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.db.repositories.grant import GrantRepository
+from app.core.errors import InsufficientCreditsError
+from app.models.klsi.audit import AuditLog
 from app.models.klsi.grant import AccessGrant
 
-class InsufficientCreditsError(Exception):
-    """Raised when a user has no active grants or insufficient credits."""
-    pass
+logger = logging.getLogger(__name__)
+
+def retry_on_deadlock(max_retries: int = 3, initial_wait: float = 0.1):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except OperationalError as e:
+                    # Check for deadlock (Postgres code 40P01) or serialization failure (40001)
+                    if e.orig and hasattr(e.orig, 'pgcode') and e.orig.pgcode in ('40P01', '40001'):
+                        retries += 1
+                        if retries > max_retries:
+                            logger.error(f"Max retries reached for deadlock: {e}")
+                            raise
+                        wait_time = initial_wait * (2 ** (retries - 1))
+                        logger.warning(f"Deadlock detected, retrying in {wait_time}s... (Attempt {retries}/{max_retries})")
+                        time.sleep(wait_time)
+                    else:
+                        raise
+        return wrapper
+    return decorator
 
 class GrantService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = GrantRepository(db)
 
-    def consume_credit(self, user_id: int, instrument_id: int) -> AccessGrant:
+    @retry_on_deadlock()
+    def redeem_credit(self, user_id: int, instrument_id: int, session_id: Optional[str] = None) -> AccessGrant:
         """
-        Consume 1 credit for the given user and instrument.
-        Raises 403 Forbidden if no active grant is available.
+        Atomically redeem a credit for the user.
+        Uses pessimistic locking (SELECT ... FOR UPDATE) to prevent race conditions.
         """
-        # 1. Get active grant with row lock
-        grant = self.repo.get_active_grant_for_user_locked(user_id, instrument_id)
+        now = datetime.now(timezone.utc)
         
-        if not grant:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No active grant found or quota exceeded."
+        # 1. Select valid grant with locking
+        stmt = (
+            select(AccessGrant)
+            .where(
+                AccessGrant.grantee_id == user_id,
+                AccessGrant.instrument_id == instrument_id,
+                AccessGrant.credits_consumed < AccessGrant.credits_total,
+                or_(AccessGrant.expiry_date.is_(None), AccessGrant.expiry_date > now)
             )
-            
-        # 2. Mutate state
-        grant.credits_used += 1
-        grant.updated_at = datetime.now(timezone.utc)
+            .with_for_update() # Pessimistic Lock
+            .order_by(AccessGrant.created_at.asc())
+            .limit(1)
+        )
+
+        grant = self.db.execute(stmt).scalar_one_or_none()
+
+        if not grant:
+            raise InsufficientCreditsError(detail=f"User {user_id} has no credits for instrument {instrument_id}")
+
+        # 3. Mutation
+        grant.credits_consumed += 1
         
-        # 3. Commit is expected to be handled by the caller (FastAPI dependency)
-        # But to be safe and atomic here, we can flush.
-        self.db.flush()
+        # 4. Audit Trail
+        audit_action = f"REDEEM_GRANT:{grant.id}"
+        if session_id:
+            audit_action += f":SESSION:{session_id}"
+            
+        audit_log = AuditLog(
+            actor=str(user_id),
+            action=audit_action,
+            payload_hash="hash_placeholder" 
+        )
+        self.db.add(audit_log)
+        
+        # 5. Commit to release lock and save changes
+        self.db.commit()
+        self.db.refresh(grant)
         
         return grant
-
-    def get_grant_summary(self, user_id: int) -> Dict[str, Any]:
-        """
-        Get a summary of grants for the user.
-        Returns: { "instruments": { "1": 5, "2": 2 } }
-        """
-        grants = self.repo.get_all_active_grants(user_id)
-        
-        summary = {}
-        for grant in grants:
-            remaining = grant.credits_total - grant.credits_used
-            inst_id = str(grant.instrument_id)
-            
-            if inst_id in summary:
-                summary[inst_id] += remaining
-            else:
-                summary[inst_id] = remaining
-                
-        return {"instruments": summary}

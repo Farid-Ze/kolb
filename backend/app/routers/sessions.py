@@ -108,6 +108,7 @@ def _sunset_header_value() -> str | None:
 
 from app.services.grant_service import GrantService
 from app.models.klsi.instrument import Instrument
+from app.core.errors import InsufficientCreditsError
 from sqlalchemy import select
 
 @router.post("/start", response_model=SessionStartResponse)
@@ -131,7 +132,10 @@ def start_session(
 
     # 2. Consume Credit (Transactional)
     grant_service = GrantService(db)
-    grant_service.consume_credit(current_user.id, instrument.id)
+    try:
+        grant_service.redeem_credit(current_user.id, instrument.id)
+    except InsufficientCreditsError as e:
+        raise HTTPException(status_code=402, detail=e.message)
 
     # 3. Start Session
     service = EngineSessionService(db)

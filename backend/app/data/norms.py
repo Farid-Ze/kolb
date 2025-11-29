@@ -43,14 +43,27 @@ APPENDIX_VERSION = "v1.0"
 
 @dataclass(frozen=True, slots=True)
 class AppendixTable(Mapping[int, float]):
-    """Immutable mapping with cached sorted keys for percentile lookup."""
+    """Immutable mapping with optimized O(1) lookup for contiguous integer keys."""
 
     name: str
     _data: Mapping[int, float]
     _keys: tuple[int, ...] = field(init=False, repr=False)
+    _lookup_array: tuple[float, ...] | None = field(init=False, repr=False, default=None)
+    _offset: int = field(init=False, repr=False, default=0)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_keys", tuple(sorted(self._data.keys())))
+        sorted_keys = sorted(self._data.keys())
+        object.__setattr__(self, "_keys", tuple(sorted_keys))
+        
+        # Check for contiguous integer range for O(1) optimization
+        if sorted_keys:
+            min_k, max_k = sorted_keys[0], sorted_keys[-1]
+            # Verify contiguity: (max - min + 1) == len
+            if (max_k - min_k + 1) == len(sorted_keys):
+                # Build lookup array
+                array = [self._data[k] for k in range(min_k, max_k + 1)]
+                object.__setattr__(self, "_lookup_array", tuple(array))
+                object.__setattr__(self, "_offset", min_k)
 
     def __getitem__(self, key: int) -> float:
         return self._data[key]
@@ -74,6 +87,38 @@ class AppendixTable(Mapping[int, float]):
         return self._data
 
     def lookup(self, raw: int) -> float | None:
+        """O(1) lookup for contiguous keys, falling back to O(log n)."""
+        if self._lookup_array is not None:
+            # O(1) Direct Access
+            idx = raw - self._offset
+            if 0 <= idx < len(self._lookup_array):
+                return self._lookup_array[idx]
+            # Fallback for out-of-bounds (nearest neighbor logic handled by caller or fallback below?)
+            # The docstring for lookup_percentile says:
+            # "Nearest-lower fallback... If no exact match, choose largest key < raw..."
+            
+            # If raw < min_key, return None (or handle via bisect logic which returns None if pos==0?)
+            # lookup_percentile returns None if raw < min_key (pos=0 -> None? No, pos=0 check)
+            # Let's check lookup_percentile behavior.
+            # pos = bisect_left(keys, raw)
+            # if pos > 0: return table[keys[pos-1]]
+            
+            # If raw < min_key: pos=0. pos>0 is False. pos<len is True. Returns keys[0]?
+            # No, logic is:
+            # if pos > 0: return table[keys[pos-1]]
+            # if pos < len: return table[keys[pos]]
+            
+            # If raw < min_key: pos=0. Returns keys[0]. (Nearest upper)
+            # If raw > max_key: pos=len. Returns keys[len-1] (via pos>0 check). (Nearest lower)
+            
+            # My O(1) logic needs to match this.
+            if idx < 0:
+                return self._lookup_array[0] # Nearest upper (min key)
+            if idx >= len(self._lookup_array):
+                return self._lookup_array[-1] # Nearest lower (max key)
+                
+            return self._lookup_array[idx]
+
         return lookup_percentile(raw, self._data)
 
 

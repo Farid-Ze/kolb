@@ -9,6 +9,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 from sqlalchemy.pool import QueuePool, StaticPool
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 
 from app.core.config import settings
@@ -211,14 +212,89 @@ def _set_engine_snapshot(engine_instance: Engine, kwargs: dict[str, object]) -> 
     logger.info("db_engine_config_snapshot", extra={"structured_data": snapshot})
 
 
+def _build_async_engine() -> AsyncEngine:
+    """
+    Builds an asynchronous SQLAlchemy engine.
+    Transforms the sync database URL to an async-compatible one:
+    - postgresql:// -> postgresql+psycopg://
+    - sqlite:// -> sqlite+aiosqlite://
+    """
+    url: URL = make_url(settings.database_url)
+    async_url_str = str(url)
+    
+    if url.get_backend_name() == "postgresql":
+        async_url_str = async_url_str.replace("postgresql://", "postgresql+psycopg://")
+    elif url.get_backend_name() == "sqlite":
+        async_url_str = async_url_str.replace("sqlite://", "sqlite+aiosqlite://")
+    
+    kwargs: dict[str, object] = {
+        "echo": False,
+        "future": True,
+    }
+
+    if url.get_backend_name() == "sqlite":
+        connect_args: dict[str, object] = {"check_same_thread": False}
+        database = url.database or ""
+        if database.startswith("file:"):
+            connect_args["uri"] = True
+        kwargs["connect_args"] = connect_args
+
+        if database in ("", None, ":memory:", "file::memory:"):
+            kwargs["poolclass"] = StaticPool
+        else:
+             kwargs.update(
+                {
+                    "poolclass": QueuePool,
+                    "pool_size": settings.db_pool_size,
+                    "max_overflow": settings.db_max_overflow,
+                    "pool_timeout": settings.db_pool_timeout,
+                    "pool_recycle": settings.db_pool_recycle,
+                    "pool_pre_ping": settings.db_pool_pre_ping,
+                }
+            )
+    else:
+        kwargs.update(
+            {
+                "pool_size": settings.db_pool_size,
+                "max_overflow": settings.db_max_overflow,
+                "pool_timeout": settings.db_pool_timeout,
+                "pool_recycle": settings.db_pool_recycle,
+                "pool_pre_ping": settings.db_pool_pre_ping,
+            }
+        )
+
+    return create_async_engine(async_url_str, **kwargs)
+
+
 engine: Engine = _build_engine()
 SessionLocal: sessionmaker[Session] = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 database_gateway = DatabaseGateway(engine=engine, session_factory=SessionLocal)
+
+async_engine: AsyncEngine = _build_async_engine()
+AsyncSessionLocal = sessionmaker(
+    bind=async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False,
+    autocommit=False,
+    future=True,
+)
 
 
 def get_db():
     with database_gateway.session() as session:
         yield session
+
+
+async def get_async_db() -> Iterator[AsyncSession]:
+    """
+    Dependency for getting an async database session.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 
 
 
@@ -362,7 +438,10 @@ __all__ = [
     "database_gateway",
     "engine",
     "SessionLocal",
+    "async_engine",
+    "AsyncSessionLocal",
     "get_db",
+    "get_async_db",
     "get_session",
     "transactional_session",
     "hyperatomic_session",

@@ -36,6 +36,23 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Redis Service (Caching)
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # API Service (Python 3.13t No-GIL)
   # Connects to both networks to bridge Frontend and Database
   api:
@@ -49,6 +66,7 @@ services:
     environment:
       # Use psycopg 3 driver
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       AUDIT_SALT: ${AUDIT_SALT:-dev_audit_salt_change_me}
       ENV: ${ENV:-production}

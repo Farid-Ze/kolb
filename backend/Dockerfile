@@ -82,7 +82,22 @@ COPY app ./app
 COPY alembic.ini ./alembic.ini
 COPY generate_openapi.py ./generate_openapi.py
 
+# Create a non-root user and group
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Change ownership of the application directory
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
 EXPOSE 8000
 
-# Run with uvicorn
-CMD ["python3.13t", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run with uvicorn in production mode
+CMD ["python3.13t", "-m", "uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "4", \
+     "--timeout-keep-alive", "30", \
+     "--access-log", \
+     "--log-level", "info"]

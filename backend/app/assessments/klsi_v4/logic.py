@@ -8,6 +8,14 @@ from uuid import UUID
 
 from cachetools import LRUCache
 from sqlalchemy.orm import Session
+import hashlib
+from pathlib import Path
+
+try:
+    _file_bytes = Path(__file__).read_bytes()
+    ALGORITHM_VERSION_SHA = hashlib.sha256(_file_bytes).hexdigest()
+except Exception:
+    ALGORITHM_VERSION_SHA = "unknown"
 
 from app.assessments.klsi_v4 import load_config
 from app.assessments.klsi_v4.calculations import (
@@ -772,7 +780,8 @@ def apply_percentiles(
         "raw_scores": raw_scores,
         "percentile_map": percentiles,
         "provenance_map": provenance,
-        "truncations": truncations
+        "truncations": truncations,
+        "algorithm_sha": ALGORITHM_VERSION_SHA,
     })
     
     return entity
