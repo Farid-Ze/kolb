@@ -6,6 +6,7 @@ pytest==8.3.3
 pytest-asyncio==0.24.0
 pytest-cov==6.0.0
 pytest-xdist==3.6.1  # Parallel test execution
+pytest-env==1.1.5
 
 # Property-Based Testing (The Professor Test)
 hypothesis==6.115.6

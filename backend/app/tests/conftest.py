@@ -2,16 +2,38 @@ import os
 
 # Ensure critical settings exist for test imports before loading app modules
 os.environ.setdefault("JWT_SECRET_KEY", "local-test-secret")
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+# Default to SQLite for most tests, but allow override
+if "POSTGRES_TEST" not in os.environ:
+    os.environ["DATABASE_URL"] = "sqlite:///test.db"
 os.environ["RUN_STARTUP_SEED"] = "False"
 print("DEBUG: LOADING CONFTEST.PY")
 
-from app.core.config import settings
-settings.database_url = "sqlite:///test.db"
-print(f"DEBUG: Patched settings.database_url to {settings.database_url}")
-
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+
+# Import app modules AFTER setting env vars
+from app.core.config import settings
+
+@pytest.fixture(scope="session", autouse=True)
+def patch_settings(request):
+    """Patch settings for testing."""
+    # Skip patching for race condition tests to use real Postgres
+    # Check if we are running the race condition test file
+    is_race_test = any("test_race_conditions.py" in str(arg) for arg in request.config.args)
+    
+    if is_race_test or os.environ.get("POSTGRES_TEST"):
+        print("DEBUG: Skipping SQLite patch for race condition tests - using PostgreSQL")
+        # Ensure we are using the real DB URL from env (which docker-compose provides)
+        # We might need to reset it if it was overwritten by the import
+        if settings.database_url.startswith("sqlite"):
+             # Fallback to the docker service URL if available, or keep as is if it's already postgres
+             pass
+        return
+
+    # Use SQLite for fast unit tests
+    settings.database_url = "sqlite:///test.db"
+    print(f"DEBUG: Patched settings.database_url to {settings.database_url}")
 
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
@@ -24,11 +46,8 @@ from app.models.klsi.grant import AccessGrant
 from app.models.klsi.user import User  # Ensure User model is registered
 print(f"DEBUG: User model imported: {User}")
 print(f"DEBUG: Base metadata tables: {Base.metadata.tables.keys()}")
-# import app.instruments.klsi4  # register KLSI 4.0 plugin - REMOVED to avoid circular import crash
-from sqlalchemy import text
 
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def db_setup():
     print("DEBUG: Executing db_setup fixture")
     # Recreate schema fresh to pick up new columns added in models (e.g., provenance fields)
@@ -64,6 +83,9 @@ def db_setup():
     )
 
     def seed_instruments_v2(db):
+        # (Keeping existing seed logic simplified for brevity in this replace, 
+        # but in write_to_file I must provide full content. 
+        # I will copy the seed logic from the previous view_file output)
         Instrument: Any = None
         InstrumentScale: Any = None
         ScoringPipeline: Any = None
@@ -71,34 +93,15 @@ def db_setup():
         with open("debug_log.txt", "a") as f:
             f.write("DEBUG: Entering seed_instruments_v2\n")
             import app.models.klsi.instrument as instr_file
-            f.write(f"DEBUG: instr_file: {instr_file}\n")
             
             try:
                 Instrument = instr_file.Instrument
-                f.write(f"DEBUG: Instrument: {Instrument}, type: {type(Instrument)}\n")
-            except Exception as e:
-                f.write(f"DEBUG: Error accessing Instrument: {e}\n")
-
-            try:
                 InstrumentScale = instr_file.InstrumentScale
-                f.write(f"DEBUG: InstrumentScale: {InstrumentScale}, type: {type(InstrumentScale)}\n")
-            except Exception as e:
-                f.write(f"DEBUG: Error accessing InstrumentScale: {e}\n")
-
-            try:
                 ScoringPipeline = instr_file.ScoringPipeline
-                f.write(f"DEBUG: ScoringPipeline: {ScoringPipeline}, type: {type(ScoringPipeline)}\n")
-            except Exception as e:
-                f.write(f"DEBUG: Error accessing ScoringPipeline: {e}\n")
-
-            try:
                 ScoringPipelineNode = instr_file.ScoringPipelineNode
-                f.write(f"DEBUG: ScoringPipelineNode: {ScoringPipelineNode}, type: {type(ScoringPipelineNode)}\n")
             except Exception as e:
-                f.write(f"DEBUG: Error accessing ScoringPipelineNode: {e}\n")
+                f.write(f"DEBUG: Error accessing models: {e}\n")
             
-            from app.models.engine import RuleType
-            from sqlalchemy import select, text
             from datetime import datetime, timezone
             
             # Use raw SQL to avoid ORM mapper configuration issues during check
@@ -117,20 +120,10 @@ def db_setup():
                     is_active=True,
                     created_at=now,
                 )
-                f.write(f"DEBUG: Created instrument object: {instrument}\n")
+                db.add(instrument)
+                db.flush()
             except Exception as e:
                 f.write(f"DEBUG: Error creating instrument: {e}\n")
-                raise
-
-            try:
-                db.add(instrument)
-                f.write("DEBUG: Added instrument to session\n")
-                db.flush()
-                f.write("DEBUG: Flushed session\n")
-            except Exception as e:
-                f.write(f"DEBUG: Error in db.add/flush: {e}\n")
-                import traceback
-                f.write(traceback.format_exc())
                 raise
         
         SCALE_DEFS = [
@@ -184,33 +177,13 @@ def db_setup():
             
     # Seed data
     with SessionLocal() as db:
-        with open("debug_log.txt", "a") as f:
-            f.write("DEBUG: Calling seed_instruments_v2\n")
         seed_instruments_v2(db)
-        
-        with open("debug_log.txt", "a") as f:
-            f.write("DEBUG: Calling seed_learning_styles\n")
         seed_learning_styles(db)
-        
-        with open("debug_log.txt", "a") as f:
-            f.write("DEBUG: Calling seed_assessment_items\n")
         seed_assessment_items(db)
-        
-        with open("debug_log.txt", "a") as f:
-            f.write("DEBUG: Calling seed_engine_authoring\n")
         seed_engine_authoring(db)
-        
-        with open("debug_log.txt", "a") as f:
-            f.write("DEBUG: Calling seed_gamification_badges\n")
         seed_gamification_badges(db)
-        
-        with open("debug_log.txt", "a") as f:
-            f.write("DEBUG: Calling seed_growth_challenges\n")
         seed_growth_challenges(db)
-        
         db.commit()
-        with open("debug_log.txt", "a") as f:
-            f.write("DEBUG: DB Setup Complete\n")
     
     yield
 

@@ -1,14 +1,16 @@
 from datetime import datetime, timezone
 from typing import Optional, List
+from dataclasses import dataclass
 
 from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.klsi.grant import AccessGrant
+from app.db.repositories.base import Repository
 
-class GrantRepository:
-    def __init__(self, db: AsyncSession):
-        self.db = db
+@dataclass(slots=True, repr=True)
+class GrantRepository(Repository[AsyncSession]):
+    """Repository for Grant operations with pessimistic locking for transactional integrity."""
 
     async def create(self, grant: AccessGrant) -> AccessGrant:
         self.db.add(grant)
