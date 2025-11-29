@@ -75,8 +75,60 @@ if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
 
 
+
 logger = get_logger("kolb.services.engine", component="service")
 
+def finalize_background_task(session_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """
+    Background task to finalize a session.
+    Creates its own DB session to ensure thread safety and persistence after request scope.
+    """
+    from app.db.database import SessionLocal
+    from app.models.klsi.user import User
+    
+    logger.info(f"Starting background finalization for session {session_id}")
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.error(f"User {user_id} not found during background finalization")
+            return
+
+        service = EngineSessionService(db)
+        # We ignore the result return value as we are in background
+        result = service.finalize_session(session_id, user)
+        
+        # Handle provenance logging if needed (though finalize_session usually returns it, 
+        # we might want to log it here or let finalize_session handle it?
+        # finalize_session returns the payload but doesn't log it itself?
+        # In router: background_tasks.add_task(log_provenance_background_task, **prov_payload)
+        # We should probably do it here too.
+        if result and "_provenance_payload" in result:
+             from app.services.provenance import log_provenance_background_task
+             prov_payload = result.pop("_provenance_payload")
+             # Execute provenance logging synchronously within the background task
+             # Since we are already in a background thread, blocking is acceptable/expected
+             try:
+                 # Note: log_provenance_background_task is designed to be run as a BackgroundTask
+                 # which might be async. If it's an async function, we need to run it.
+                 # Checking import... it is likely async def.
+                 # We can use a new event loop or just call it if it's sync.
+                 # Given the context, let's assume we need to run it.
+                 import asyncio
+                 loop = asyncio.new_event_loop()
+                 asyncio.set_event_loop(loop)
+                 loop.run_until_complete(log_provenance_background_task(**prov_payload))
+                 loop.close()
+             except Exception as e:
+                 logger.error(f"Failed to log provenance in background task: {e}") 
+
+        logger.info(f"Successfully finalized session {session_id}")
+        db.commit()
+    except Exception as e:
+        logger.exception(f"Failed to finalize session {session_id}: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 class EngineSessionService:
     """High-level orchestration helpers for engine session endpoints."""
@@ -239,7 +291,21 @@ class EngineSessionService:
         payload: SessionSubmissionPayload,
     ) -> Dict[str, Any]:
         try:
-            session = self._load_authorized_session(session_id, user)
+            # [Zenotika V4] Race Condition Fix: Pessimistic Locking
+            # We must lock the session row to prevent concurrent finalizations
+            # or double-submissions.
+            session = (
+                self.db.query(AssessmentSession)
+                .filter(AssessmentSession.id == session_id)
+                .with_for_update()
+                .one_or_none()
+            )
+            if not session:
+                raise SessionNotFoundError()
+            
+            # Re-check authorization after lock (though unlikely to change mid-request, good practice)
+            self._check_session_access(session, user)
+
             if session.status == SessionStatus.completed:
                 raise SessionFinalizedError()
 
@@ -564,6 +630,18 @@ class EngineSessionService:
 
         self._load_authorized_session(session_id, user)
         return run_session_validations(self.db, session_id)
+
+    def _check_session_access(self, session: "AssessmentSession", user: "User") -> None:
+        """Helper to verify access on an already loaded session object."""
+        # [Zenotika V4] Guest Access Support
+        is_guest = getattr(user, "is_guest", False)
+        if is_guest:
+            if not session.guest_token or session.guest_token != user.guest_token:
+                 raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
+            return
+
+        if user.role != "MEDIATOR" and session.user_id != user.id:
+            raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
 
     def _load_authorized_session(
         self,

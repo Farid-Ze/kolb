@@ -25,7 +25,13 @@ export function AssessmentRunner() {
 
     const handleNext = () => {
         if (isLastItem) {
-            navigate(`/results/${sessionId}`);
+            if (document.startViewTransition) {
+                document.startViewTransition(() => {
+                    navigate(`/results/${sessionId}`);
+                });
+            } else {
+                navigate(`/results/${sessionId}`);
+            }
         } else {
             setCurrentIndex(prev => prev + 1);
         }

@@ -35,6 +35,7 @@ from app.routers.grants import router as grants_router
 
 from app.engine.registry import engine_registry
 
+from fastapi.middleware.cors import CORSMiddleware
 from app.routers.engine import router as engine_router
 
 
@@ -213,6 +214,17 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.openapi = custom_openapi
 register_exception_handlers(app)
+
+# [Zenotika V4] Security: CORS Configuration
+# Explicitly allow frontend origin to prevent unauthorized cross-origin requests
+if settings.backend_cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.backend_cors_origins],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Register routers at import time so tests see routes without requiring startup
 # Create v1 router

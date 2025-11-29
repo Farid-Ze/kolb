@@ -14,7 +14,31 @@ export function Results() {
     });
 
     if (isLoading) {
-        return <div className="p-8 text-center">Generating report...</div>;
+        return (
+            <div className="max-w-4xl mx-auto p-6 space-y-8 animate-pulse">
+                <div className="text-center space-y-4">
+                    <div className="h-10 bg-gray-200 rounded w-3/4 mx-auto"></div>
+                    <div className="h-6 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border h-96">
+                        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                        <div className="h-full bg-gray-100 rounded"></div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-lg shadow-sm border h-48">
+                            <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+                            <div className="space-y-2">
+                                <div className="h-4 bg-gray-200 rounded w-full"></div>
+                                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     if (!report) {
@@ -42,14 +66,24 @@ export function Results() {
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-8">
             <div className="text-center space-y-4">
-                <h1 className="text-3xl font-bold">Your Learning Style Profile</h1>
+                {/* [IMPLEMENTASI BARU] Menambahkan viewTransitionName pada Judul */}
+                <h1
+                    className="text-3xl font-bold"
+                    style={{ viewTransitionName: 'page-title' } as React.CSSProperties}
+                >
+                    Your Learning Style Profile
+                </h1>
                 <p className="text-xl text-gray-600">
                     You are a <span className="font-bold text-blue-600">{styleName}</span> learner.
                 </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-                <div className="bg-white p-6 rounded-lg shadow-sm border">
+                {/* [IMPLEMENTASI BARU] Menambahkan viewTransitionName pada Kartu Utama */}
+                <div
+                    className="bg-white p-6 rounded-lg shadow-sm border"
+                    style={{ viewTransitionName: 'card-morph' } as React.CSSProperties}
+                >
                     <h2 className="text-lg font-semibold mb-4">Learning Style Kite</h2>
                     <KiteDiagram data={kiteData} />
                 </div>

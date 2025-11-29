@@ -9,6 +9,7 @@ from app.schemas.user import UserAchievementOut
 class Role(str, Enum):
     MAHASISWA = "MAHASISWA"
     MEDIATOR = "MEDIATOR"
+    USER = "USER"
 
 class UserCreate(CamelModel):
     full_name: str

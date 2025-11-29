@@ -34,6 +34,10 @@ class _LRU(OrderedDict):
             return value
 
 
+
+# Global cache shared across instances (per process)
+_GLOBAL_CACHE = _LRU(maxsize=8192)
+
 class CachedCompositeNormProvider:
     """Hybrid DB+Appendix norm repository with LRU caching."""
 
@@ -47,7 +51,8 @@ class CachedCompositeNormProvider:
     ):
         self.db = db
         self.group_chain = group_chain or []
-        self._cache: _LRU = _LRU(maxsize=max_cache)
+        # Use global cache to persist across requests
+        self._cache: _LRU = _GLOBAL_CACHE
         self._appendix = AppendixNormProvider()
         self._norm_repo: NormConversionReader = norm_repo or NormativeConversionRepository(db)
 

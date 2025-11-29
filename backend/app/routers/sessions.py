@@ -303,6 +303,7 @@ def update_session(
     session_id: uuid.UUID,
     payload: SessionUpdate,
     background_tasks: BackgroundTasks,
+    response: Response,
     idempotency_key: Optional[str] = Header(None, description="Unique key to prevent duplicate operations"),
     db: Any = Depends(get_db),
     current_user: Any = Depends(get_current_user),
@@ -314,16 +315,20 @@ def update_session(
     """
     if payload.status == SessionStatus.COMPLETED:
         # Re-use finalize logic
-        return finalize(session_id, background_tasks, db, current_user)
+        return finalize(session_id, background_tasks, response, db, current_user)
     
     # Future: Handle other updates (e.g. abandonment)
     return SessionOperationResult(ok=True)
 
 
+from app.services.engine import EngineSessionService, finalize_background_task
+from fastapi import status
+
 @router.post("/{session_id}/finalize", response_model=SessionOperationResult, deprecated=True)
 def finalize(
     session_id: uuid.UUID, 
     background_tasks: BackgroundTasks,
+    response: Response,
     db: Any = Depends(get_db), 
     current_user: Any = Depends(get_current_user)
 ):
@@ -334,14 +339,12 @@ def finalize(
         issues = validation_snapshot.get("issues", [])
         raise HTTPException(status_code=400, detail={"issues": issues, "diagnostics": validation_snapshot.get("diagnostics")})
     
-    service = EngineSessionService(db)
-    result = service.finalize_session(session_id, current_user)
+    # [Zenotika V5] Async Scoring (Fire-and-Forget)
+    # We enqueue the finalization and return immediately.
+    background_tasks.add_task(finalize_background_task, session_id, current_user.id)
     
-    if result and "_provenance_payload" in result:
-        prov_payload = result.pop("_provenance_payload")
-        background_tasks.add_task(log_provenance_background_task, **prov_payload)
-
-    return SessionOperationResult(result=result)
+    response.status_code = status.HTTP_202_ACCEPTED
+    return SessionOperationResult(ok=True, result={"status": "processing", "message": "Finalization queued"})
 
 @router.get("/{session_id}/validation", response_model=dict)
 def session_validation(

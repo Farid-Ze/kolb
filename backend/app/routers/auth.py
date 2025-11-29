@@ -35,7 +35,7 @@ async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
     if domain != settings.allowed_student_domain and payload.nim:
         # Jika mendaftar sebagai mahasiswa (mengisi NIM), wajib domain mahasiswa
         raise HTTPException(status_code=400, detail=AuthMessages.INVALID_STUDENT_DOMAIN)
-    role = Role.MAHASISWA if domain == settings.allowed_student_domain else Role.MEDIATOR
+    role = Role.MAHASISWA if domain == settings.allowed_student_domain else Role.USER
 
     # validate NIM (8 chars) & kelas format IF-<number> & tahun_masuk reasonable
     if role == Role.MAHASISWA:

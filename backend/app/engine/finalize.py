@@ -478,9 +478,15 @@ def finalize_assessment(
                         frequency_count=int(count),
                         contexts=contexts_for_style.get(sname, []),
                     )
-            except Exception:
+            except Exception as exc:
                 # Non-fatal: keep finalize robust even if analysis fails
-                pass
+                # [Zenotika V4] Observability: Log failure instead of swallowing
+                from app.core.logging import get_logger
+                logger = get_logger("kolb.engine.finalize")
+                logger.warning(
+                    "backup_style_analysis_failed",
+                    extra={"structured_data": {"session_id": session_id, "error": str(exc)}}
+                )
         # Near-boundary style window detection using combination raw ACCE/AERO
         if "combination" in ctx:
             combo_ctx = ctx["combination"]
