@@ -14,6 +14,7 @@ from app.db.repositories import (
     TeamRepository,
     TeamRollupRepository,
 )
+from app.db.repositories.team import TeamAnalyticsRepository
 from app.db.repositories.user import UserRepository
 from app.schemas.team import (
     TeamCreate,
@@ -25,6 +26,7 @@ from app.schemas.team import (
     TeamUpdate,
     TeamMemberAnalyticsResponse,
     TeamListResponse,
+    TeamRollupMemberOut,
 )
 from app.i18n.id_messages import AuthorizationMessages, TeamMessages
 from app.services.rollup import get_team_rollup_snapshot, compute_team_rollup

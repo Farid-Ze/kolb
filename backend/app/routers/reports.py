@@ -45,10 +45,8 @@ async def get_report(
             # Students can only see their own basic reports
             elif session.user_id and viewer.id != session.user_id:
                 raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
-            # [Zenotika V4] IDOR Protection for Anonymous Sessions
-            # If session is anonymous (user_id is None), we MUST verify the guest token matches.
+            # IDOR Fix: For anonymous sessions, verify guest token
             elif session.user_id is None:
-                 # Check if viewer is a guest (has guest_token) and it matches
                  viewer_guest_token = getattr(viewer, "guest_token", None)
                  if not viewer_guest_token or viewer_guest_token != session.guest_token:
                       raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)

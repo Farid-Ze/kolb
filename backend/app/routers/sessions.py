@@ -42,15 +42,15 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
 @router.get("/", response_model=list[SessionListResponse])
-def list_sessions(
+async def list_sessions(
     skip: int = 0,
     limit: int = 100,
     current_user: Any = Depends(get_current_user),
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
 ):
     """List all assessment sessions for the current user."""
     repo = SessionRepository(db)
-    sessions = repo.get_by_user(current_user.id, skip=skip, limit=limit)
+    sessions = await repo.get_by_user(current_user.id, skip=skip, limit=limit)
     return sessions
 
 
@@ -445,18 +445,27 @@ def autosave_session(
 
 
 @router.patch("/{session_id}/responses", status_code=204)
-def upsert_session_responses(
+async def upsert_session_responses(
     session_id: uuid.UUID,
     payload: list[AssessmentItemResponsePayload],
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     repo = SessionRepository(db)
-    sess = repo.get_for_user(session_id, current_user.id)
+    sess = await repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.ACCESS_DENIED)
 
-    upsert_responses(db, session_id, payload)
+    # Use run_in_threadpool since upsert_responses is sync
+    from fastapi.concurrency import run_in_threadpool
+    from app.db.database import get_db
+    
+    # Get a sync session for the sync service function
+    def _upsert_sync():
+        with next(get_db()) as sync_db:
+            upsert_responses(sync_db, session_id, payload)
+    
+    await run_in_threadpool(_upsert_sync)
     return Response(status_code=204)
 
 

@@ -141,8 +141,14 @@ def verify_refresh_token(token: str) -> str:
         if payload.get("type") != "refresh":
             raise ValueError("Invalid token type")
         return payload["sub"]
-    except Exception:
-        raise ValueError("Invalid refresh token")
+    except Exception as e:
+        from app.core.logging import get_logger
+        logger = get_logger("kolb.services.security")
+        logger.warning(
+            "refresh_token_verification_failed",
+            extra={"structured_data": {"error": str(e), "error_type": type(e).__name__}}
+        )
+        raise ValueError("Invalid refresh token") from e
 
 
 from fastapi.security import OAuth2PasswordBearer

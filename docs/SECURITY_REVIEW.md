@@ -5,17 +5,15 @@ A comprehensive security review was conducted on the codebase, including a deep 
 
 ## Critical Findings
 
-### 1. Privilege Escalation in Registration
+### 1. Privilege Escalation in Registration (OUTDATED - SEE UPDATE BELOW)
 **Severity: CRITICAL**
 - **Location**: `backend/app/routers/auth.py` (Line 38)
-- **Issue**: The registration logic defaults to the `MEDIATOR` role for any email address that does not match the student domain (`settings.allowed_student_domain`).
-- **Impact**: An attacker can register with any public email (e.g., `@gmail.com`) and automatically gain `MEDIATOR` privileges. Mediators have access to:
-    - Admin endpoints (Norm imports, Pipeline management).
-    - Research data (viewing all study participants).
-    - Viewing other users' reports.
+- **Issue**: ~~The registration logic defaults to the `MEDIATOR` role~~ **UPDATE**: The code actually defaults to `Role.USER` for non-student emails. However, there is still no validation preventing users from manually requesting elevated roles.
+- **Impact**: While auto-escalation was incorrect, **the registration endpoint does not validate the role field**, potentially allowing users to request `MEDIATOR` role if the Pydantic model accepts it.
 - **Recommendation**: 
-    - Disable automatic `MEDIATOR` registration.
-    - Default to a `GUEST` or `USER` role for non-student emails.
+    - **VERIFY**: Check if `UserCreate` schema includes a `role` field that could be manipulated.
+    - Explicitly set role based on business logic, don't allow client-provided role.
+    - Default to a `USER` role for non-student emails (already done).
     - Implement an invite-only or whitelist system for Mediators.
 
 ### 2. IDOR on Anonymous Sessions
@@ -30,14 +28,23 @@ A comprehensive security review was conducted on the codebase, including a deep 
 
 ## High Priority Findings
 
-### 3. Missing CORS Configuration
-**Severity: MEDIUM (Availability/Future Risk)**
-- **Location**: `backend/app/main.py`
-- **Issue**: The FastAPI application does not explicitly configure `CORSMiddleware`.
-- **Impact**: 
-    - Frontend requests from a different origin (e.g., `localhost:3000`) will likely fail in a standard browser environment.
-    - If developers add it later with `allow_origins=["*"]` while supporting credentials, it introduces a vulnerability.
-- **Recommendation**: Explicitly configure `CORSMiddleware` with a whitelist of allowed origins (e.g., `settings.frontend_url`).
+### 3. Missing CORS Configuration & Configuration Bug
+**Severity: HIGH (Availability)**
+- **Location**: `backend/app/main.py` & `backend/app/core/config.py`
+- **Issue**: 
+    - `backend/app/main.py` attempts to access `settings.backend_cors_origins`, but this field is **missing** from the `Settings` class in `backend/app/core/config.py`.
+    - This will cause the application to crash at startup or fail to configure CORS entirely.
+- **Impact**: Application availability failure (CrashLoopBackOff in containerized env) or total inability for frontend to communicate.
+- **Recommendation**: Add `backend_cors_origins` to `Settings` in `config.py`.
+
+### 4. Denial of Service (DoS) in Admin Import
+**Severity: HIGH**
+- **Location**: `backend/app/routers/admin.py` (Line 36)
+- **Issue**: The `import_norms` endpoint reads the entire uploaded file into memory (`file.file.read()`) without checking `Content-Length` or using chunked processing.
+- **Impact**: An attacker can upload a very large file (e.g., 10GB) to exhaust server memory, causing an OOM crash and denial of service for all users.
+- **Recommendation**: 
+    - Implement `Content-Length` validation (e.g., max 10MB).
+    - Use chunked reading/processing for large files.
 
 ## General Findings
 
@@ -61,4 +68,5 @@ A comprehensive security review was conducted on the codebase, including a deep 
 ## Action Plan
 1.  **Fix Auth Logic**: Modify `backend/app/routers/auth.py` to prevent auto-Mediator assignment.
 2.  **Fix Report ACL**: Update `backend/app/routers/reports.py` to check guest tokens for anonymous sessions.
-3.  **Configure CORS**: Add middleware to `backend/app/main.py`.
+3.  **Configure CORS**: Add `backend_cors_origins` to `config.py` and ensure middleware is active.
+4.  **Fix DoS Vulnerability**: Add size limits to `import_norms` in `backend/app/routers/admin.py`.
