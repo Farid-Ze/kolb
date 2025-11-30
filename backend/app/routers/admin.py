@@ -35,6 +35,7 @@ def _log_db_failure(event: str, **structured: Any) -> None:
 @router.post("/norms/import", include_in_schema=False)
 def import_norms(
     norm_group: str,
+    content_length: int = Header(..., alias="Content-Length"),
     file: UploadFile = File(...),
     norm_version: str = "default",
     db: Any = Depends(get_db),
@@ -42,8 +43,18 @@ def import_norms(
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_NORM_IMPORT_ONLY)
     
+    # [Security Fix] Limit upload size to 10MB
+    MAX_FILE_SIZE = 10 * 1024 * 1024
+    if content_length > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
     # Read file content synchronously
     content_bytes = file.file.read()
+    
+    # Double check actual size read
+    if len(content_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
     content = content_bytes.decode('utf-8')
 
     fname = file.filename or ""

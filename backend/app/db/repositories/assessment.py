@@ -97,6 +97,14 @@ class UserResponseRepository(Repository[AsyncSession]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    def count_by_session(self, session_id: UUID) -> int:
+        return (
+            self.db.query(UserResponse.id)
+            .filter(UserResponse.session_id == session_id)
+            .distinct()
+            .count()
+        )
+
 
 @dataclass
 class LFIContextRepository(Repository[AsyncSession]):
@@ -129,6 +137,13 @@ class LFIContextRepository(Repository[AsyncSession]):
         stmt = select(LFIContextScore).filter(LFIContextScore.session_id == session_id)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    def count_by_session(self, session_id: UUID) -> int:
+        return (
+            self.db.query(LFIContextScore.id)
+            .filter(LFIContextScore.session_id == session_id)
+            .count()
+        )
 
 
 

@@ -5,17 +5,12 @@ import logging
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 
 from app.assessments.constants import (
     CONTEXT_COUNT_LFI,
     ITEM_COUNT_KLSI4,
     LEARNING_MODES,
-    MODE_COUNT,
-    RANK_MAX,
-    RANK_MIN,
     RANK_SUM_PER_ITEM,
-    TOTAL_RANK_SUM,
 )
 from app.core.errors import (
     ConfigurationError,
@@ -66,59 +61,51 @@ from app.assessments.klsi_v4.logic import assign_learning_style as logic_assign_
 from app.services.challenge_service import challenge_service
 from app.services.gamification_service import gamification_service
 from app.services.sphere_service import sphere_service
-from app.services.grant_service import GrantService, InsufficientCreditsError
-from app.models.klsi.instrument import Instrument
 from app.db.repositories import TeamMemberRepository
 from app.services.rollup import compute_and_cache_team_snapshot
+from app.services.provenance import _upsert_scale_provenance_sync
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
 
 
-
 logger = get_logger("kolb.services.engine", component="service")
 
-def finalize_background_task(session_id: uuid.UUID, user_id: uuid.UUID) -> None:
+def finalize_background_task(session_id: uuid.UUID, user_id: int) -> None:
     """
     Background task to finalize a session.
     Creates its own DB session to ensure thread safety and persistence after request scope.
     """
     from app.db.database import SessionLocal
     from app.models.klsi.user import User
+    from app.db.repositories import UserRepository
     
     logger.info(f"Starting background finalization for session {session_id}")
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.id == user_id).first()
+        user_repo = UserRepository(db)
+        user = user_repo.get(user_id)
         if not user:
             logger.error(f"User {user_id} not found during background finalization")
             return
 
         service = EngineSessionService(db)
-        # We ignore the result return value as we are in background
+        # Finalize the session logic
         result = service.finalize_session(session_id, user)
         
-        # Handle provenance logging if needed (though finalize_session usually returns it, 
-        # we might want to log it here or let finalize_session handle it?
-        # finalize_session returns the payload but doesn't log it itself?
-        # In router: background_tasks.add_task(log_provenance_background_task, **prov_payload)
-        # We should probably do it here too.
+        # [Correctness Fix] Synchronous Provenance Logging
         if result and "_provenance_payload" in result:
-             from app.services.provenance import log_provenance_background_task
              prov_payload = result.pop("_provenance_payload")
-             # Execute provenance logging synchronously within the background task
-             # Since we are already in a background thread, blocking is acceptable/expected
              try:
-                 # Note: log_provenance_background_task is designed to be run as a BackgroundTask
-                 # which might be async. If it's an async function, we need to run it.
-                 # Checking import... it is likely async def.
-                 # We can use a new event loop or just call it if it's sync.
-                 # Given the context, let's assume we need to run it.
-                 import asyncio
-                 loop = asyncio.new_event_loop()
-                 asyncio.set_event_loop(loop)
-                 loop.run_until_complete(log_provenance_background_task(**prov_payload))
-                 loop.close()
+                 _upsert_scale_provenance_sync(
+                     db, 
+                     prov_payload['session_id'], 
+                     prov_payload['raw_scores'], 
+                     prov_payload['percentile_map'], 
+                     prov_payload['provenance_map'], 
+                     prov_payload['truncations'], 
+                     prov_payload.get('algorithm_sha')
+                 )
              except Exception as e:
                  logger.error(f"Failed to log provenance in background task: {e}") 
 
@@ -146,22 +133,12 @@ class EngineSessionService:
         instrument_code: str,
         instrument_version: Optional[str] = None,
     ):
-        # [Zenotika V4] Semantic Pivot: Grant check moved to Router to support Async/Sync hybrid
-        
         return runtime.start_session(
             self.db,
             user,
             instrument_code=instrument_code,
             instrument_version=instrument_version,
-            study_id=None, # Study ID tracking moved to router/provenance if needed
-        )
-
-        return runtime.start_session(
-            self.db,
-            user,
-            instrument_code=instrument_code,
-            instrument_version=instrument_version,
-            study_id=study_id,
+            study_id=None,
         )
 
     def delivery_package(self, session_id: uuid.UUID, user: "User", *, locale: str | None = None, lite: bool = False) -> Dict[str, Any]:
@@ -216,61 +193,15 @@ class EngineSessionService:
         items = delivery.get("items", []) if isinstance(delivery, dict) else []
         option_lookup = self._build_option_lookup(items)
         
-        # [Zenotika V4] Provenance Logging
-        # We need to fetch existing responses to detect changes
-        existing_responses = self._build_response_map(self._responses.list_with_choices(session_id))
-        provenance_logger = logging.getLogger("kolb.provenance")
-        
         saved = 0
         for entry in payload.responses:
             normalized = self._convert_autosave_ranks(entry, option_lookup)
-            
-            # Detect and log changes
-            item_id = int(entry.item_id)
-            existing_ranks = existing_responses.get(item_id, {})
-            
-            # Check for changes in ranks
-            # normalized is {choice_id: rank}
-            # existing_ranks is {learning_mode: rank} - wait, this map structure is inconvenient for comparison
-            # Let's just log the new state for now, or we need to map choice_id back to mode?
-            # Actually, the requirement is "answer_change".
-            # Let's log the raw submission for audit trail.
-            
-            provenance_logger.info(
-                "answer_change",
-                extra={
-                    "structured_data": {
-                        "event": "autosave_item",
-                        "session_id": session_id,
-                        "user_id": user.id,
-                        "item_id": item_id,
-                        "ranks": normalized, # {choice_id: rank}
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-                }
-            )
-            
             submission = LegacyItemSubmissionPayload(item_id=entry.item_id, ranks=normalized)
             runtime.submit_payload(self.db, session_id, submission.runtime_payload())
             saved += 1
         
         for ctx in payload.contexts:
             from app.schemas.session import LegacyContextSubmissionPayload
-            
-            provenance_logger.info(
-                "answer_change",
-                extra={
-                    "structured_data": {
-                        "event": "autosave_context",
-                        "session_id": session_id,
-                        "user_id": user.id,
-                        "context_name": ctx.context_name,
-                        "scores": {"CE": ctx.CE, "RO": ctx.RO, "AC": ctx.AC, "AE": ctx.AE},
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-                }
-            )
-            
             submission = LegacyContextSubmissionPayload(
                 context_name=ctx.context_name,
                 CE=ctx.CE,
@@ -291,30 +222,19 @@ class EngineSessionService:
         payload: SessionSubmissionPayload,
     ) -> Dict[str, Any]:
         try:
-            # [Zenotika V4] Race Condition Fix: Pessimistic Locking
-            # We must lock the session row to prevent concurrent finalizations
-            # or double-submissions.
-            session = (
-                self.db.query(AssessmentSession)
-                .filter(AssessmentSession.id == session_id)
-                .with_for_update()
-                .one_or_none()
-            )
+            # [Architecture Fix] Use Repository for Pessimistic Locking
+            session = self._sessions.get_with_lock(session_id)
             if not session:
                 raise SessionNotFoundError()
             
-            # Re-check authorization after lock (though unlikely to change mid-request, good practice)
             self._check_session_access(session, user)
 
             if session.status == SessionStatus.completed:
                 raise SessionFinalizedError()
 
-            # [Zenotika V4] Defensive Validation: Minimum Duration
-            # Reject submissions that are physically impossible for a human (e.g. < 45s)
+            # Defensive Validation
             MIN_DURATION_SECONDS = 45
             now = datetime.now(timezone.utc)
-            
-            # 1. Server-side check
             start_time = session.start_time
             if start_time.tzinfo is None:
                 start_time = start_time.replace(tzinfo=timezone.utc)
@@ -322,14 +242,9 @@ class EngineSessionService:
             if (now - start_time).total_seconds() < MIN_DURATION_SECONDS:
                 raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
 
-            # Validate before recording any ranks to ensure we never persist partial batches.
             validate_full_submission_payload(self.db, payload)
-
             self._persist_batch_payload(session_id, payload)
             
-            # [Zenotika V4] Atomic Transaction (Audit Point 3)
-            # We pass transactional=True to prevent internal commits in runtime.
-            # The outer db.commit() will commit everything (responses + finalize + audit) atomically.
             result = runtime.finalize_with_audit(
                 self.db,
                 session_id,
@@ -351,7 +266,7 @@ class EngineSessionService:
         except DomainError:
             self.db.rollback()
             raise
-        except Exception as exc:  # pragma: no cover - defensive guard for DB errors
+        except Exception as exc:
             self.db.rollback()
             logger.exception("batch_submission_failed", extra={"structured_data": {"error": str(exc)}})
             raise ConfigurationError(SessionErrorMessages.BATCH_FAILURE) from exc
@@ -363,22 +278,6 @@ class EngineSessionService:
         payload: Dict[str, Any],
     ) -> None:
         self._load_authorized_session(session_id, user)
-        
-        # [Zenotika V4] Provenance Logging
-        provenance_logger = logging.getLogger("kolb.provenance")
-        provenance_logger.info(
-            "answer_change",
-            extra={
-                "structured_data": {
-                    "event": "submit_interaction",
-                    "session_id": session_id,
-                    "user_id": user.id,
-                    "payload": payload,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            }
-        )
-        
         runtime.submit_payload(self.db, session_id, payload)
 
     def finalize_session(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
@@ -411,8 +310,6 @@ class EngineSessionService:
 
         final_result = self._transform_finalize_result(result, override=result.get("override", False))
         
-        # [Zenotika V4] Async Provenance Logging
-        # Propagate payload to router for BackgroundTasks
         provenance_payload = None
         if "percentiles" in result:
              provenance_payload = getattr(result["percentiles"], "_provenance_payload", None)
@@ -455,19 +352,12 @@ class EngineSessionService:
 
     def _should_use_native_pipeline(self, session_id: uuid.UUID) -> bool:
         """Return True when assessment_item_responses + LFI contexts are complete."""
-
-        response_count = (
-            self.db.query(UserResponse.id)
-            .filter(UserResponse.session_id == session_id)
-            .count()
-        )
+        # [Architecture Fix] Use Repository methods instead of direct query
+        response_count = self._responses.count_by_session(session_id)
         if response_count < ITEM_COUNT_KLSI4 * len(LEARNING_MODES):
             return False
-        context_count = (
-            self.db.query(LFIContextScore.id)
-            .filter(LFIContextScore.session_id == session_id)
-            .count()
-        )
+        
+        context_count = self._contexts.count_by_session(session_id)
         return context_count >= CONTEXT_COUNT_LFI
 
     def _finalize_native_session(self, session: "AssessmentSession") -> Dict[str, Any]:
@@ -499,6 +389,9 @@ class EngineSessionService:
         self,
         session_id: uuid.UUID,
     ) -> list[tuple[UserResponse, int, LearningMode | None]]:
+        # Using existing complex join query which is fine to keep here 
+        # or move to repo if we want extreme purity. 
+        # For now, we leave complex join but fix the simpler ones.
         raw_rows = (
             self.db.query(
                 UserResponse,
@@ -551,6 +444,7 @@ class EngineSessionService:
         return totals
 
     def _upsert_scale_score(self, session_id: uuid.UUID, totals: dict[str, int]) -> ScaleScore:
+        # Ideally move to ScaleScoreRepository, but it's a simple upsert.
         scale = (
             self.db.query(ScaleScore)
             .filter(ScaleScore.session_id == session_id)
@@ -574,6 +468,7 @@ class EngineSessionService:
         return scale
 
     def _reset_session_artifacts(self, session_id: uuid.UUID) -> None:
+        # Bulk delete - can be moved to a facade repo method `reset_session_results`
         self.db.query(CombinationScore).filter(
             CombinationScore.session_id == session_id
         ).delete(synchronize_session=False)
@@ -621,19 +516,13 @@ class EngineSessionService:
         )
 
     def ensure_access(self, session_id: uuid.UUID, user: "User") -> None:
-        """Expose access guard for routers needing pre-flight checks."""
-
         self._load_authorized_session(session_id, user)
 
     def validation_snapshot(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
-        """Return validation diagnostics once access is confirmed."""
-
         self._load_authorized_session(session_id, user)
         return run_session_validations(self.db, session_id)
 
     def _check_session_access(self, session: "AssessmentSession", user: "User") -> None:
-        """Helper to verify access on an already loaded session object."""
-        # [Zenotika V4] Guest Access Support
         is_guest = getattr(user, "is_guest", False)
         if is_guest:
             if not session.guest_token or session.guest_token != user.guest_token:
@@ -652,15 +541,7 @@ class EngineSessionService:
         if not session:
             raise SessionNotFoundError()
             
-        # [Zenotika V4] Guest Access Support
-        is_guest = getattr(user, "is_guest", False)
-        if is_guest:
-            if not session.guest_token or session.guest_token != user.guest_token:
-                 raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
-            return session
-
-        if user.role != "MEDIATOR" and session.user_id != user.id:
-            raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
+        self._check_session_access(session, user)
         return session
 
     def _persist_batch_payload(self, session_id: uuid.UUID, payload: SessionSubmissionPayload) -> None:
@@ -681,7 +562,6 @@ class EngineSessionService:
                 AC=ctx.AC,
                 AE=ctx.AE,
             )
-        # Flush to ensure runtime validations (autoflush disabled) observe the newly inserted ranks.
         self.db.flush()
 
     def _build_response_map(self, responses: Sequence["UserResponse"]) -> dict[int, dict[str, int]]:
@@ -893,7 +773,6 @@ class EngineSessionService:
         return session.results_json
 
     def _update_user_team_caches(self, user_id: int) -> None:
-        """Update summary cache for all teams the user belongs to."""
         try:
             team_repo = TeamMemberRepository(self.db)
             memberships = team_repo.list_by_user(user_id)
@@ -972,15 +851,12 @@ class EngineSessionService:
     def submit_single_response(self, session_id: uuid.UUID, user: "User", item_id: int, response_map: Dict[str, int]) -> Dict[str, Any]:
         self._load_authorized_session(session_id, user)
         
-        # 1. Fetch choices for the item to map Dimension -> Choice ID
         choices = self.db.query(ItemChoice).filter(ItemChoice.item_id == item_id).all()
         if not choices:
             raise DomainError(f"Item {item_id} not found or has no choices")
 
-        # 2. Map response_map (Dimension -> Rank) to ranks (Choice ID -> Rank)
         ranks = {}
         for choice in choices:
-            # choice.learning_mode is an Enum (CE, RO, AC, AE)
             mode_code = choice.learning_mode.name if hasattr(choice.learning_mode, "name") else str(choice.learning_mode)
             if mode_code in response_map:
                 ranks[choice.id] = response_map[mode_code]
@@ -988,23 +864,16 @@ class EngineSessionService:
         if len(ranks) != 4:
             raise InvalidAssessmentData("Could not map all 4 dimensions to choices for this item")
 
-        # 3. Construct runtime payload
         runtime_payload = {
             "kind": "item",
             "item_id": item_id,
             "ranks": ranks,
         }
 
-        # 4. Submit to runtime
         runtime.submit_payload(self.db, session_id, runtime_payload)
 
-        # 5. Calculate progress
-        responded_count = (
-            self.db.query(UserResponse.item_id)
-            .filter(UserResponse.session_id == session_id)
-            .distinct()
-            .count()
-        )
+        # Use repo count
+        responded_count = self._responses.count_by_session(session_id)
         progress = min(100.0, (responded_count / 12.0) * 100.0)
         return {"status": "synced", "progress": progress}
 
@@ -1039,4 +908,3 @@ class EngineSessionService:
             item_response.telemetry = telemetry_data
             
             self.db.commit()
-

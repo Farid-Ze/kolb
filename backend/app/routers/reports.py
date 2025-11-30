@@ -15,19 +15,27 @@ from app.services.report_share import (
     SharePermissionError,
     ShareValidationError,
 )
+from app.core.cache import cached
 from app.services.security import get_current_user, get_current_user_optional, get_current_user_or_guest
+from fastapi.concurrency import run_in_threadpool
+
+router = APIRouter(prefix="/reports", tags=["reports"])
+
+def report_key_builder(session_id: uuid.UUID, *args, **kwargs) -> str:
+    # We can't easily access current_user here to make key unique per user, 
+    # but build_report results are user-agnostic (unless viewer_role changes data).
+    # Ideally, we include viewer role in cache key.
+    # For now, let's keep it simple or remove caching if it poses security risk.
+    # Given the risk of caching unauthorized data, we will depend on service layer caching.
+    return f"report:{session_id}"
 
 @router.get("/{session_id}", response_model=ReportPayload)
-@cached(ttl=3600, key_builder=report_key_builder)
 async def get_report(
     session_id: uuid.UUID,
     db: Any = Depends(get_db),
     viewer: Any | None = Depends(get_current_user_or_guest)
 ):
     repo = SessionRepository(db)
-    # Note: We must check permissions inside the cached function, 
-    # but since cache key includes viewer_id, unauthorized users won't hit the cache of authorized users.
-    # They will execute the function and hit the 403 check.
     
     # We use run_in_threadpool for blocking DB operations
     def _get_report_sync():
@@ -36,23 +44,33 @@ async def get_report(
         if not session:
             raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
         
-        # Determine viewer role for analytics access control
+        # [SECURITY FIX] IDOR Protection & Guest Access Control
         viewer_role = None
-        if viewer:
-            # Only provide enhanced analytics if viewer is a MEDIATOR viewing student data
+        
+        # Case 1: Anonymous Session (Guest)
+        if session.user_id is None:
+            if not viewer:
+                raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
+            
+            # Must match the guest token exactly
+            viewer_guest_token = getattr(viewer, "guest_token", None)
+            if not viewer_guest_token or viewer_guest_token != session.guest_token:
+                raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
+                
+        # Case 2: Registered User Session
+        else:
+            if not viewer:
+                raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
+                
+            # Mediator Access
             if viewer.role == "MEDIATOR":
                 viewer_role = "MEDIATOR"
-            # Students can only see their own basic reports
-            elif session.user_id and viewer.id != session.user_id:
+            # Owner Access
+            elif viewer.id == session.user_id:
+                pass # Authorized as owner
+            # Unauthorized
+            else:
                 raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
-            # IDOR Fix: For anonymous sessions, verify guest token
-            elif session.user_id is None:
-                 viewer_guest_token = getattr(viewer, "guest_token", None)
-                 if not viewer_guest_token or viewer_guest_token != session.guest_token:
-                      raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
-        else:
-             # No viewer (anonymous request without guest token) -> Forbidden
-             raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
         
         try:
             data = build_report(db, session_id, viewer_role=viewer_role)

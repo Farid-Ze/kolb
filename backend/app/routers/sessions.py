@@ -48,8 +48,12 @@ async def list_sessions(
     current_user: Any = Depends(get_current_user),
     db: Any = Depends(get_async_db),
 ):
-    """List all assessment sessions for the current user."""
+    """List all assessment sessions for the current user.
+    
+    [Architecture Fix] Converted to async def to match async repository.
+    """
     repo = SessionRepository(db)
+    # Added await to consume the coroutine
     sessions = await repo.get_by_user(current_user.id, skip=skip, limit=limit)
     return sessions
 
@@ -451,6 +455,11 @@ async def upsert_session_responses(
     db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
+    """
+    Upsert session responses in batch (Async).
+    
+    [Architecture Fix] Converted to async def.
+    """
     repo = SessionRepository(db)
     sess = await repo.get_for_user(session_id, current_user.id)
     if not sess or sess.user_id != current_user.id:
@@ -462,10 +471,9 @@ async def upsert_session_responses(
     
     # Get a sync session for the sync service function
     def _upsert_sync():
+        # Manually create a sync session for the service call
         with next(get_db()) as sync_db:
             upsert_responses(sync_db, session_id, payload)
     
     await run_in_threadpool(_upsert_sync)
     return Response(status_code=204)
-
-

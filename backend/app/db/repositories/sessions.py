@@ -159,3 +159,12 @@ class SessionRepository(Repository[AsyncSession]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    def get_with_lock(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
+        """Fetch session with pessimistic write lock (FOR UPDATE)."""
+        return (
+            self.db.query(AssessmentSession)
+            .filter(AssessmentSession.id == session_id)
+            .with_for_update()
+            .one_or_none()
+        )
+

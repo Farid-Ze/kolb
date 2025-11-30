@@ -14,6 +14,7 @@ from app.db.repositories import (
     TeamRepository,
     TeamRollupRepository,
 )
+# [Correctness Fix] Import missing classes
 from app.db.repositories.team import TeamAnalyticsRepository
 from app.db.repositories.user import UserRepository
 from app.schemas.team import (
@@ -81,15 +82,6 @@ def list_teams(
     repo = TeamRepository(db)
     skip = (page - 1) * size
     items = repo.list(skip, size, q)
-    # Note: TeamRepository.list currently returns just list. 
-    # We need to implement count or fetch all to get total.
-    # For now, assuming repo has a count method or we fetch all (inefficient but safe for small data).
-    # Better approach: Add count_all method to repository.
-    
-    # Let's check if repo has count method. If not, we might need to add it.
-    # Assuming standard repository pattern, let's try to find count.
-    # If not available, we will do a separate count query.
-    
     total = repo.count(q)
     
     import math

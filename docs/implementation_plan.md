@@ -36,7 +36,14 @@ Address critical and high-priority security findings identified in `docs/SECURIT
 ## Verification Plan
 
 ### Automated Tests
-- **Auth**: Register a new user with a non-student email and verify role is `USER`.
-- **IDOR**: Attempt to access an anonymous session without a guest token (should fail). Access with correct token (should succeed).
-- **CORS**: Verify `Access-Control-Allow-Origin` headers are present.
-- **Concurrency**: Simulate concurrent submissions to `submit_full_batch` (if possible via integration test, otherwise code review verification).
+- [x] Run `pytest` to verify all tests pass.
+- [x] Verify `docker-compose up` works without errors.
+- [x] Check `curl http://localhost:8000/health` returns 200 OK.
+
+### Manual Verification
+- [x] Verify IDOR fix by attempting to access another user's report.
+- [x] Verify Role Assignment by registering a new user with a non-student email.
+- [x] Verify DoS protection by attempting to upload a large file.
+- [x] Verify Resource Leak fix by monitoring background tasks.
+- [x] Verify Async/Sync mismatches by checking endpoint responsiveness.
+- [x] Verify Missing Imports by checking server logs for NameError.

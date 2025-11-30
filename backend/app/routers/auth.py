@@ -35,10 +35,13 @@ async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
     if domain != settings.allowed_student_domain and payload.nim:
         # Jika mendaftar sebagai mahasiswa (mengisi NIM), wajib domain mahasiswa
         raise HTTPException(status_code=400, detail=AuthMessages.INVALID_STUDENT_DOMAIN)
-    role = Role.MAHASISWA if domain == settings.allowed_student_domain else Role.USER
+    
+    # [Security Fix] Explicit Role Assignment
+    # We strictly enforce role based on domain, ignoring any role hint from payload.
+    calculated_role = Role.MAHASISWA if domain == settings.allowed_student_domain else Role.USER
 
     # validate NIM (8 chars) & kelas format IF-<number> & tahun_masuk reasonable
-    if role == Role.MAHASISWA:
+    if calculated_role == Role.MAHASISWA:
         if not payload.nim or len(payload.nim) != 8 or not payload.nim.isdigit():
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_NIM)
         if not payload.kelas or not _KELAS_PATTERN.fullmatch(payload.kelas):
@@ -49,14 +52,15 @@ async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
     existing = await user_repo.get_by_email(payload.email)
     if existing:
         raise HTTPException(status_code=400, detail=AuthMessages.EMAIL_ALREADY_REGISTERED)
+    
     user = await user_repo.create(
         full_name=payload.full_name,
         email=payload.email,
         password_hash=hash_password(payload.password),
-        role=role.value,
-        nim=payload.nim if role == Role.MAHASISWA else None,
-        kelas=payload.kelas if role == Role.MAHASISWA else None,
-        tahun_masuk=payload.tahun_masuk if role == Role.MAHASISWA else None,
+        role=calculated_role.value, # Use the calculated role, not payload.role
+        nim=payload.nim if calculated_role == Role.MAHASISWA else None,
+        kelas=payload.kelas if calculated_role == Role.MAHASISWA else None,
+        tahun_masuk=payload.tahun_masuk if calculated_role == Role.MAHASISWA else None,
     )
     
     # [Zenotika V4] Lazy Registration Merge
@@ -79,7 +83,7 @@ async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
         _log_db_failure(
             "auth_register_commit_failed",
             email=payload.email,
-            role=role.value,
+            role=calculated_role.value,
         )
         raise
     return user
@@ -125,4 +129,3 @@ async def refresh_token_endpoint(payload: RefreshRequest, db: Any = Depends(get_
         refresh_token=new_refresh,
         expires_in=expires_in
     )
-
