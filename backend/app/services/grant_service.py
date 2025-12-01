@@ -24,7 +24,8 @@ def retry_on_deadlock(max_retries: int = 3, initial_wait: float = 0.1):
                     return await func(*args, **kwargs)
                 except OperationalError as e:
                     # Check for deadlock (Postgres code 40P01) or serialization failure (40001)
-                    if e.orig and hasattr(e.orig, 'pgcode') and e.orig.pgcode in ('40P01', '40001'):
+                    pgcode = getattr(e.orig, 'pgcode', None)
+                    if pgcode and pgcode in ('40P01', '40001'):
                         retries += 1
                         if retries > max_retries:
                             logger.error(f"Max retries reached for deadlock: {e}")
@@ -45,50 +46,72 @@ class GrantService:
     async def redeem_credit(self, user_id: int, instrument_id: int, session_id: Optional[str] = None) -> AccessGrant:
         """
         Atomically redeem a credit for the user.
-        Uses pessimistic locking (SELECT ... FOR UPDATE) to prevent race conditions.
+        Uses Optimistic Locking (Compare-and-Swap) to prevent race conditions.
         """
-        now = datetime.now(timezone.utc)
+        from sqlalchemy import update
         
-        # 1. Select valid grant with locking
-        stmt = (
-            select(AccessGrant)
-            .where(
-                AccessGrant.grantee_id == user_id,
-                AccessGrant.instrument_id == instrument_id,
-                AccessGrant.credits_consumed < AccessGrant.credits_total,
-                or_(AccessGrant.expiry_date.is_(None), AccessGrant.expiry_date > now)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        # Loop for optimistic retry
+        for _ in range(5):
+            # 1. Select valid grant (No Lock needed for Optimistic)
+            stmt = (
+                select(AccessGrant)
+                .where(
+                    AccessGrant.grantee_id == user_id,
+                    AccessGrant.instrument_id == instrument_id,
+                    AccessGrant.credits_consumed < AccessGrant.credits_total,
+                    or_(AccessGrant.expiry_date.is_(None), AccessGrant.expiry_date > now)
+                )
+                .order_by(AccessGrant.created_at.asc())
+                .limit(1)
             )
-            .with_for_update() # Pessimistic Lock
-            .order_by(AccessGrant.created_at.asc())
-            .limit(1)
-        )
 
-        result = await self.db.execute(stmt)
-        grant = result.scalar_one_or_none()
+            result = await self.db.execute(stmt)
+            grant = result.scalar_one_or_none()
 
-        if not grant:
-            raise InsufficientCreditsError(detail=f"User {user_id} has no credits for instrument {instrument_id}")
+            if not grant:
+                raise InsufficientCreditsError(detail=f"User {user_id} has no credits for instrument {instrument_id}")
 
-        # 3. Mutation
-        grant.credits_consumed += 1
-        
-        # 4. Audit Trail
-        audit_action = f"REDEEM_GRANT:{grant.id}"
-        if session_id:
-            audit_action += f":SESSION:{session_id}"
+            # 2. Atomic Update with Version Check (credits_consumed)
+            update_stmt = (
+                update(AccessGrant)
+                .where(
+                    AccessGrant.id == grant.id,
+                    AccessGrant.credits_consumed == grant.credits_consumed # Optimistic Lock
+                )
+                .values(
+                    credits_consumed=AccessGrant.credits_consumed + 1,
+                    updated_at=now
+                )
+            )
             
-        audit_log = AuditLog(
-            actor=str(user_id),
-            action=audit_action,
-            payload_hash="hash_placeholder" 
-        )
-        self.db.add(audit_log)
+            result = await self.db.execute(update_stmt)
+            
+            if result.rowcount == 1:
+                # Success!
+                # 3. Audit Trail
+                audit_action = f"REDEEM_GRANT:{grant.id}"
+                if session_id:
+                    audit_action += f":SESSION:{session_id}"
+                    
+                audit_log = AuditLog(
+                    actor=str(user_id),
+                    action=audit_action,
+                    payload_hash="hash_placeholder",
+                    created_at=now
+                )
+                self.db.add(audit_log)
+                
+                await self.db.commit()
+                await self.db.refresh(grant)
+                return grant
+            else:
+                # Failed (someone else updated it), retry
+                await self.db.rollback()
+                continue
         
-        # 5. Commit to release lock and save changes
-        await self.db.commit()
-        await self.db.refresh(grant)
-        
-        return grant
+        raise InsufficientCreditsError(detail="Failed to redeem credit due to high concurrency")
 
     async def get_grant_summary(self, user_id: int) -> dict:
         """

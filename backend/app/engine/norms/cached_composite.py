@@ -108,7 +108,7 @@ class CachedCompositeNormProvider:
                     rows: List[NormativeConversionRow] = []
                     query_executed = False
                     if by_scale:
-                        rows = self._norm_repo.fetch_batch(base_group, versions, by_scale)
+                        rows = self._norm_repo.fetch_batch_sync(base_group, versions, by_scale)
                         query_executed = True
                     if query_executed:
                         inc_counter("norms.cached.batch.query")
@@ -162,7 +162,7 @@ class CachedCompositeNormProvider:
             base_group, req_version = _split_norm_group_token(token)
             versions = [req_version] if req_version == DEFAULT_NORM_VERSION else [req_version, DEFAULT_NORM_VERSION]
             if sample.scale != "LFI":
-                result = self._norm_repo.fetch_first_for_versions(
+                result = self._norm_repo.fetch_first_for_versions_sync(
                     base_group,
                     versions,
                     sample.scale,

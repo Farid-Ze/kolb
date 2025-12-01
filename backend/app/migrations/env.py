@@ -17,10 +17,13 @@ if config.config_file_name is not None:
 # Provide database url via env var fallback
 if not config.get_main_option("sqlalchemy.url"):
     db_url = os.getenv("DATABASE_URL", "sqlite:///./klsi.db")
+    # [Fix] Replace async driver with sync driver for Alembic
+    if db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://")
     config.set_main_option("sqlalchemy.url", db_url)
 
 # Add project root to sys.path for app imports
-project_root = Path(__file__).resolve().parents[1]
+project_root = Path(__file__).resolve().parents[2]
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 

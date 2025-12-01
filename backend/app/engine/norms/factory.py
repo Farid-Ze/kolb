@@ -41,7 +41,7 @@ def _make_cached_db_lookup(db: Session):
         versions = [req_version]
         if req_version != "default":
             versions.append("default")
-        result = repo.fetch_first_for_versions(base_group, versions, scale_name, int(raw))
+        result = repo.fetch_first_for_versions_sync(base_group, versions, scale_name, int(raw))
         if result:
             entry, resolved_version = result
             return entry.percentile, resolved_version
@@ -112,7 +112,7 @@ def _maybe_build_preloaded_map(db: Session) -> None:
     scales: set[str] = set()
     try:
         repo = NormativeConversionRepository(db)
-        rows = repo.fetch_all_entries()
+        rows = repo.fetch_all_entries_sync()
         for entry in rows:
             key = (
                 entry.norm_group,
@@ -328,7 +328,7 @@ class _RepositoryNormDataSource(NormDataSource):
         limit: int = 100,
     ) -> list[tuple[int, float]]:
         base_group, version = _split_group_token(norm_group)
-        rows = self._repo.fetch_scale_chunk(
+        rows = self._repo.fetch_scale_chunk_sync(
             base_group,
             version or _DEFAULT_VERSION,
             scale_name,

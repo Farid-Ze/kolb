@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -48,7 +49,7 @@ class LFIContextRule:
     def __init__(self) -> None:
         self.code = "LFI_CONTEXT_COUNT"
 
-    def validate(self, db: Session, session_id: int) -> List[ValidationIssue]:
+    def validate(self, db: Session, session_id: UUID) -> List[ValidationIssue]:
         from app.models.klsi.learning import LFIContextScore
 
         count = (
@@ -81,7 +82,7 @@ class RawModesStep:
         self.name = "raw_modes"
         self.depends_on = []
 
-    def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
+    def run(self, db: Session, session_id: UUID, ctx: ScoringContext) -> None:
         scale = compute_raw_scale_scores(db, session_id)
         ctx[self.name] = {
             "CE": scale.CE_raw,
@@ -101,7 +102,7 @@ class CombinationStep:
         self.name = "combination"
         self.depends_on = ["raw_modes"]
 
-    def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
+    def run(self, db: Session, session_id: UUID, ctx: ScoringContext) -> None:
         scale_entity = ctx["raw_modes"]["entity"]
         combo = compute_combination_scores(db, scale_entity)
         ctx[self.name] = {
@@ -124,7 +125,7 @@ class StyleClassificationStep:
         self.name = "style"
         self.depends_on = ["combination"]
 
-    def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
+    def run(self, db: Session, session_id: UUID, ctx: ScoringContext) -> None:
         combo_entity = ctx["combination"]["entity"]
         user_style, intensities = assign_style(db, combo_entity)
         ctx[self.name] = {
@@ -146,7 +147,7 @@ class LfiStep:
         self.name = "lfi"
         self.depends_on = ["raw_modes"]
 
-    def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
+    def run(self, db: Session, session_id: UUID, ctx: ScoringContext) -> None:
         lfi_entity = compute_lfi(db, session_id)
         ctx[self.name] = {
             "W": lfi_entity.W_coefficient,
@@ -167,7 +168,7 @@ class PercentileStep:
         self.name = "percentiles"
         self.depends_on = ["raw_modes", "combination", "style"]
 
-    def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
+    def run(self, db: Session, session_id: UUID, ctx: ScoringContext) -> None:
         scale_entity = ctx["raw_modes"]["entity"]
         combo_entity = ctx["combination"]["entity"]
         percentiles = apply_percentiles(db, session_id, scale_entity, combo_entity)
@@ -196,7 +197,7 @@ class DeltaStep:
         self.name = "delta"
         self.depends_on = ["combination", "style", "lfi"]
 
-    def run(self, db: Session, session_id: int, ctx: ScoringContext) -> None:
+    def run(self, db: Session, session_id: UUID, ctx: ScoringContext) -> None:
         combo_entity = ctx["combination"]["entity"]
         lfi_entity = ctx["lfi"]["entity"]
         intensity_metrics = ctx["style"].get("intensity_metrics")
@@ -230,7 +231,7 @@ class KLSIReportComposer:
     def build(
         self,
         db: Session,
-        session_id: int,
+        session_id: UUID,
         viewer_role: Optional[str],
         locale: str = "id",
     ) -> Dict[str, Any]:

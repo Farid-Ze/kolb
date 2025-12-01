@@ -62,7 +62,7 @@ def create_study(
 
     study_repo = ResearchStudyRepository(db)
     try:
-        study = study_repo.create(**payload.model_dump())
+        study = study_repo.create_sync(**payload.model_dump())
         db.commit()
         db.refresh(study)
         return study
@@ -88,7 +88,7 @@ def list_studies(
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
 
     study_repo = ResearchStudyRepository(db)
-    return study_repo.list(skip, limit, q)
+    return study_repo.list_sync(skip, limit, q)
 
 
 from app.utils.ids import decode_public_id
@@ -103,7 +103,7 @@ def get_study(
     
     internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
-    study = study_repo.get(internal_id)
+    study = study_repo.get_sync(internal_id)
     if not study:
         raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
     return study
@@ -121,7 +121,7 @@ def update_study(
     internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
     try:
-        study = study_repo.get(internal_id)
+        study = study_repo.get_sync(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
         data = payload.model_dump(exclude_unset=True)
@@ -156,17 +156,17 @@ def delete_study(
     reliability_repo = ReliabilityRepository(db)
     validity_repo = ValidityRepository(db)
     try:
-        study = study_repo.get(internal_id)
+        study = study_repo.get_sync(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        rel_count = reliability_repo.count_by_study(internal_id)
-        val_count = validity_repo.count_by_study(internal_id)
+        rel_count = reliability_repo.count_by_study_sync(internal_id)
+        val_count = validity_repo.count_by_study_sync(internal_id)
         if rel_count > 0 or val_count > 0:
             raise HTTPException(
                 status_code=409,
                 detail=ResearchMessages.REMOVE_EVIDENCE_FIRST,
             )
-        study_repo.delete(study)
+        study_repo.delete_sync(study)
         db.commit()
     except HTTPException:
         db.rollback()
@@ -196,10 +196,10 @@ def add_reliability(
     study_repo = ResearchStudyRepository(db)
     reliability_repo = ReliabilityRepository(db)
     try:
-        study = study_repo.get(internal_id)
+        study = study_repo.get_sync(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        row = reliability_repo.add(internal_id, **payload.model_dump())
+        row = reliability_repo.add_sync(internal_id, **payload.model_dump())
         db.commit()
         db.refresh(row)
         return {"id": row.id, "metric_name": row.metric_name, "value": row.value}
@@ -231,10 +231,10 @@ def add_validity(
     study_repo = ResearchStudyRepository(db)
     validity_repo = ValidityRepository(db)
     try:
-        study = study_repo.get(internal_id)
+        study = study_repo.get_sync(internal_id)
         if not study:
             raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        row = validity_repo.add(internal_id, **payload.model_dump())
+        row = validity_repo.add_sync(internal_id, **payload.model_dump())
         db.commit()
         db.refresh(row)
         return {"id": row.id, "evidence_type": row.evidence_type}
@@ -263,7 +263,7 @@ def list_reliability(
     
     internal_id = decode_public_id(study_id)
     repo = ReliabilityRepository(db)
-    rows = repo.list_by_study(internal_id)
+    rows = repo.list_by_study_sync(internal_id)
     return [
         ReliabilityOut.model_validate(r)
         for r in rows
@@ -280,7 +280,7 @@ def list_validity(
     
     internal_id = decode_public_id(study_id)
     repo = ValidityRepository(db)
-    rows = repo.list_by_study(internal_id)
+    rows = repo.list_by_study_sync(internal_id)
     return [
         ValidityOut.model_validate(r)
         for r in rows
@@ -298,7 +298,7 @@ def get_study_data(
 
     internal_id = decode_public_id(study_id)
     study_repo = ResearchStudyRepository(db)
-    study = study_repo.get(internal_id)
+    study = study_repo.get_sync(internal_id)
     if not study:
         raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
     

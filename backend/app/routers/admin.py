@@ -113,7 +113,7 @@ def import_norms(
         # Or use nested transaction if needed.
         # But here we can just use the session.
         for scale_name, raw_score, percentile in rows:
-            _, created = norm_repo.upsert(
+            _, created = norm_repo.upsert_sync(
                 norm_group,
                 nv,
                 scale_name,
@@ -123,7 +123,7 @@ def import_norms(
             if created:
                 inserted += 1
         
-        audit_repo.log(
+        audit_repo.log_sync(
             actor=current_user.email,
             action=f"norm_import:{norm_group}:{nv}",
             payload_hash=batch_hash,
@@ -382,5 +382,5 @@ async def revoke_grant(
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_GRANT_MANAGEMENT_ONLY)
     from app.services.grant_service import GrantService
     service = GrantService(db)
-    await service.revoke_grant(payload.grant_id, reason=payload.reason)
+    await service.revoke_grant(str(payload.grant_id), reason=payload.reason)
     return {"status": "success"}

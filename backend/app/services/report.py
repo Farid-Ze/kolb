@@ -290,7 +290,7 @@ import uuid
 def build_report(db: Session, session_id: uuid.UUID, viewer_role: Optional[str] = None) -> dict:
     # Eager load all required relations to avoid N+1 and reduce roundtrips
     session_repo = SessionRepository(db)
-    s = session_repo.get_with_details(session_id)
+    s = session_repo.get_with_details_sync(session_id)
     if not s:
         raise ValueError(ReportMessages.SESSION_NOT_FOUND)
 

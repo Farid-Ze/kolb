@@ -1,27 +1,39 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, Union, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import set_committed_value
 
+from app.db.repositories.base import Repository
 from app.models.klsi.enums import EducationLevel, Gender
 from app.models.klsi.user import User
 
 
-from sqlalchemy.orm.attributes import set_committed_value
-
-class UserRepository:
-    """Repository abstraction for user persistence and lookups (Async)."""
-
-    def __init__(self, db: AsyncSession) -> None:
-        self.db = db
+class UserRepository(Repository[Union[AsyncSession, Session]]):
+    """Repository abstraction for user persistence and lookups."""
 
     async def get(self, user_id: int) -> Optional[User]:
-        result = await self.db.execute(select(User).filter(User.id == user_id))
+        db = cast(AsyncSession, self.db)
+        result = await db.execute(select(User).filter(User.id == user_id))
+        return result.scalars().first()
+
+    def get_sync(self, user_id: int) -> Optional[User]:
+        """Get user by ID - Sync version."""
+        db = cast(Session, self.db)
+        result = db.execute(select(User).filter(User.id == user_id))
         return result.scalars().first()
 
     async def get_by_email(self, email: str) -> Optional[User]:
-        result = await self.db.execute(select(User).filter(User.email == email))
+        db = cast(AsyncSession, self.db)
+        result = await db.execute(select(User).filter(User.email == email))
+        return result.scalars().first()
+
+    def get_by_email_sync(self, email: str) -> Optional[User]:
+        """Get user by email - Sync version."""
+        db = cast(Session, self.db)
+        result = db.execute(select(User).filter(User.email == email))
         return result.scalars().first()
 
     async def create(
@@ -40,6 +52,7 @@ class UserRepository:
         country: str | None = None,
         occupation: str | None = None,
     ) -> User:
+        db = cast(AsyncSession, self.db)
         user = User(
             full_name=full_name,
             email=email,
@@ -54,9 +67,9 @@ class UserRepository:
             country=country,
             occupation=occupation,
         )
-        self.db.add(user)
-        await self.db.flush()
-        await self.db.refresh(user)
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
         # Avoid lazy load error in Pydantic
         set_committed_value(user, "achievements", [])
         return user

@@ -28,13 +28,22 @@ class Settings(BaseSettings):
     # Strict validation ensures comma-separated strings are parsed into lists
     backend_cors_origins: List[str] = []
 
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_secret_key(cls, v: str, info: Any) -> str:
+        if info.data.get("environment") == "production" and v == "unsafe-secret-key-change-me":
+            raise ValueError("Production environment must set a secure JWT_SECRET_KEY")
+        return v
+
     @field_validator("backend_cors_origins", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
+        elif isinstance(v, list):
             return v
+        elif isinstance(v, str):
+            return [v]
         raise ValueError(v)
 
     # Feature Flags
@@ -46,6 +55,7 @@ class Settings(BaseSettings):
     # App Specific
     allowed_student_domain: str = "student.university.ac.id"
     runtime_components_enabled: bool = True
+    engine_authoring_items_enabled: bool = False
     registry_auto_discover_enabled: bool = True
     i18n_preload_enabled: bool = True
     
@@ -58,11 +68,21 @@ class Settings(BaseSettings):
     external_norms_enabled: bool = False
     external_norms_base_url: str = ""
     norm_percentile_cache_size: int = 8192
+    norms_preload_enabled: bool = True
+    norms_lazy_loader_enabled: bool = True
+    norms_lazy_loader_chunk_size: int = 100
+    norms_lazy_loader_cache_entries: int = 1024
+    norms_preload_row_threshold: int = 1000
+    norms_preload_max_entries: int = 10000
+    
+    # Audit
+    audit_salt: str = "change-me-in-production"
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
 
 

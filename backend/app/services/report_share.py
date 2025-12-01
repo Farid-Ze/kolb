@@ -40,7 +40,7 @@ class ReportShareService:
         expires_in_hours: int,
         note: str | None = None,
     ) -> tuple[ReportShareLink, str]:
-        session = self._sessions.get_by_id(session_id)
+        session = self._sessions.get_by_id_sync(session_id)
         if not session:
             raise ShareValidationError("Session tidak ditemukan")
         if session.user_id != owner.id:
@@ -48,7 +48,7 @@ class ReportShareService:
         if session.status != SessionStatus.completed:
             raise ShareValidationError("Laporan belum dapat dibagikan sebelum sesi selesai")
 
-        mediator = self._users.get_by_email(mediator_email)
+        mediator = self._users.get_by_email_sync(mediator_email)
         if not mediator or mediator.role != "MEDIATOR":
             raise ShareValidationError("Email mediator tidak valid atau belum terdaftar")
 
@@ -56,12 +56,12 @@ class ReportShareService:
         expires_at = datetime.now(timezone.utc) + expires_delta
 
         # Revoke previous active link for this mediator/session to prevent stale tokens
-        self._shares.revoke_existing(session_id=session_id, mediator_id=mediator.id)
+        self._shares.revoke_existing_sync(session_id=session_id, mediator_id=mediator.id)
 
         token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 
-        share = self._shares.create(
+        share = self._shares.create_sync(
             session_id=session_id,
             owner_id=owner.id,
             mediator_id=mediator.id,
@@ -80,7 +80,7 @@ class ReportShareService:
         viewer: User,
     ) -> ReportShareLink:
         token_hash = hashlib.sha256(share_token.encode("utf-8")).hexdigest()
-        share = self._shares.get_active_by_token(token_hash)
+        share = self._shares.get_active_by_token_sync(token_hash)
         if not share:
             raise ShareValidationError("Link berbagi tidak berlaku atau telah kedaluwarsa")
         if share.mediator_id != viewer.id:

@@ -158,7 +158,7 @@ def finalize_assessment(
     # so that any exception rolls back partial artifacts, while letting the outer
     # request/response life cycle control the final commit.
     with db.begin_nested():
-        session = session_repo.get_with_instrument(session_id)
+        session = session_repo.get_with_instrument_sync(session_id)
         if not session:
             raise ValueError(SessionErrorMessages.NOT_FOUND_WITH_ID.format(session_id=session_id))
 
@@ -238,7 +238,7 @@ def finalize_assessment(
             pipeline_tokens = _parse_pipeline_version(getattr(session, "pipeline_version", None))
             if pipeline_tokens and session.instrument_id:
                 pipeline_code, pipeline_version = pipeline_tokens
-                pipeline = pipeline_repo.get_by_code_version(
+                pipeline = pipeline_repo.get_by_code_version_sync(
                     session.instrument_id,
                     pipeline_code,
                     pipeline_version,
@@ -427,7 +427,7 @@ def finalize_assessment(
                     validation_result.anomalies.append("HIGH_W_UNIFORMITY")
             # Detect repeated LFI rank patterns (7+ or 6+ of 8 contexts identical)
             patterns = []
-            rows = session_repo.list_lfi_context_scores(session_id)
+            rows = session_repo.list_lfi_context_scores_sync(session_id)
             for r in rows:
                 patterns.append((r.CE_rank, r.RO_rank, r.AC_rank, r.AE_rank))
             if patterns:
@@ -442,7 +442,7 @@ def finalize_assessment(
             # and persist unique backups excluding primary style.
             try:
                 # Preload all style types once (avoid N+1 lookups)
-                all_styles = style_repo.list_learning_style_types()
+                all_styles = style_repo.list_learning_style_types_sync()
                 style_by_name = {s.style_name: s for s in all_styles}
                 primary_style_type_id = None
                 if "style" in ctx:
@@ -472,7 +472,7 @@ def finalize_assessment(
                     style_row = style_by_name.get(sname)
                     if not style_row:
                         continue
-                    style_repo.upsert_backup_style(
+                    style_repo.upsert_backup_style_sync(
                         session_id,
                         style_row.id,
                         frequency_count=int(count),

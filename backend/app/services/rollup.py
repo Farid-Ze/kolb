@@ -25,7 +25,7 @@ def compute_team_rollup(
     - Upsert into TeamAssessmentRollup (unique by team_id+date)
     """
     analytics_repo = TeamAnalyticsRepository(db)
-    rows = analytics_repo.fetch_completed_sessions(team_id, for_date)
+    rows = analytics_repo.fetch_completed_sessions_sync(team_id, for_date)
     total_sessions = len(rows)
     avg_lfi: Optional[float] = None
     if total_sessions:
@@ -50,7 +50,7 @@ def compute_team_rollup(
     if rdate is None:
         # As a last resort, fall back to today's date to ensure rollup key isn't null
         rdate = date.today()
-    roll = repo.upsert(team_id, rdate, total_sessions, avg_lfi, style_counts)
+    roll = repo.upsert_sync(team_id, rdate, total_sessions, avg_lfi, style_counts)
     return roll
 
 
@@ -60,7 +60,7 @@ STALE_SESSION_DAYS = 365  # mark sessions older than ~12 months as stale
 def get_team_rollup_snapshot(db: Session, team_id: int) -> Dict[str, Any]:
     """Get team rollup snapshot, using cache if available."""
     repo = TeamRepository(db)
-    team = repo.get(team_id)
+    team = repo.get_sync(team_id)
     if not team:
         raise ValueError("team_not_found")
     
@@ -73,11 +73,11 @@ def get_team_rollup_snapshot(db: Session, team_id: int) -> Dict[str, Any]:
 def compute_and_cache_team_snapshot(db: Session, team_id: int) -> Dict[str, Any]:
     analytics_repo = TeamAnalyticsRepository(db)
     team_repo = TeamRepository(db)
-    team = team_repo.get(team_id)
+    team = team_repo.get_sync(team_id)
     if not team:
         raise ValueError("team_not_found")
 
-    member_points = analytics_repo.fetch_latest_member_points(team_id)
+    member_points = analytics_repo.fetch_latest_member_points_sync(team_id)
 
     acce_values = []
     aero_values = []

@@ -9,7 +9,8 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 from sqlalchemy.pool import QueuePool, StaticPool, NullPool
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine, async_sessionmaker
+from typing import AsyncGenerator
 
 
 from app.core.config import settings
@@ -153,7 +154,12 @@ def _guard_session(session: Session, *, scope: str, blocked_methods: Iterable[st
 
 
 def _build_engine() -> Engine:
-    url: URL = make_url(settings.database_url)
+    # [Fix] Ensure sync engine uses sync driver
+    db_url = settings.database_url
+    if db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://")
+
+    url: URL = make_url(db_url)
     kwargs: dict[str, object] = {
         "echo": False,
         "future": True,
@@ -190,7 +196,7 @@ def _build_engine() -> Engine:
             }
         )
 
-    engine_instance = create_engine(settings.database_url, **kwargs)
+    engine_instance = create_engine(db_url, **kwargs)
     _set_engine_snapshot(engine_instance, kwargs)
     return engine_instance
 
@@ -263,13 +269,12 @@ SessionLocal: sessionmaker[Session] = sessionmaker(bind=engine, autoflush=False,
 database_gateway = DatabaseGateway(engine=engine, session_factory=SessionLocal)
 
 async_engine: AsyncEngine = _build_async_engine()
-AsyncSessionLocal = sessionmaker(
+AsyncSessionLocal = async_sessionmaker(
     bind=async_engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autoflush=False,
     autocommit=False,
-    future=True,
 )
 
 
@@ -278,7 +283,7 @@ def get_db():
         yield session
 
 
-async def get_async_db() -> Iterator[AsyncSession]:
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for getting an async database session.
     """

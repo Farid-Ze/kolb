@@ -126,7 +126,7 @@ def list_report_summaries(db: Session, *, user_id: int) -> list[dict[str, Any]]:
     """Fetch and serialize all completed sessions for the given user."""
 
     repo = SessionRepository(db)
-    sessions = repo.list_completed_for_user(user_id)
+    sessions = repo.list_completed_for_user_sync(user_id)
     session_map = {sess.id: sess for sess in sessions}
     summaries: list[dict[str, Any]] = []
     for sess in sessions:

@@ -97,7 +97,7 @@ class SessionDesign(CamelModel):
 class ReportPayloadBase(CamelModel):
     session_id: uuid.UUID
     generated_at: datetime | None = None
-    kind: str = Field(..., description="Discriminator for report type")
+    # kind is defined in subclasses for discriminated union
 
 
 class IndividualReportPayload(ReportPayloadBase):

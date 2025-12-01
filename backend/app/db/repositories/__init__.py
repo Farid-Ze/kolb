@@ -27,6 +27,7 @@ from app.db.repositories.pipeline import (
     PipelineRepository,
 )
 from app.db.repositories.styles import StyleRepository
+from app.db.repositories.grant import GrantRepository
 
 __all__ = [
     "NormativeConversionRepository",
@@ -51,4 +52,5 @@ __all__ = [
     "PipelineRepository",
     "StyleRepository",
     "AuditRepository",
+    "GrantRepository",
 ]

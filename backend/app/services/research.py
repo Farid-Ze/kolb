@@ -159,6 +159,7 @@ def build_study_dataset(
             },
             items=data_points,
             next_cursor=next_cursor,
+            prev_cursor=None,  # Added missing field
             size=filters.size,
             summary=summary,
             reliability_stats=reliability_stats,

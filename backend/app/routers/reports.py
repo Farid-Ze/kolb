@@ -39,7 +39,7 @@ async def get_report(
     
     # We use run_in_threadpool for blocking DB operations
     def _get_report_sync():
-        session = repo.get_by_id(session_id)
+        session = repo.get_by_id_sync(session_id)
 
         if not session:
             raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)

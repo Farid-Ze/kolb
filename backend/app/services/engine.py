@@ -21,7 +21,7 @@ from app.core.errors import (
     SessionNotFoundError,
 )
 from app.core.logging import get_logger
-from app.db.repositories.assessment import LFIContextRepository, UserResponseRepository
+from app.db.repositories.assessment import AssessmentItemRepository, LFIContextRepository, UserResponseRepository
 from app.db.repositories.sessions import SessionRepository
 from app.engine.runtime import runtime
 from app.models.klsi.assessment import AssessmentSessionDelta
@@ -84,7 +84,7 @@ def finalize_background_task(session_id: uuid.UUID, user_id: int) -> None:
     db = SessionLocal()
     try:
         user_repo = UserRepository(db)
-        user = user_repo.get(user_id)
+        user = user_repo.get_sync(user_id)
         if not user:
             logger.error(f"User {user_id} not found during background finalization")
             return
@@ -125,6 +125,7 @@ class EngineSessionService:
         self._sessions = SessionRepository(db)
         self._responses = UserResponseRepository(db)
         self._contexts = LFIContextRepository(db)
+        self._items = AssessmentItemRepository(db)
 
     def start_session(
         self,
@@ -155,9 +156,9 @@ class EngineSessionService:
         session = self._load_authorized_session(session_id, user)
         delivery = runtime.delivery_package(self.db, session_id, locale=locale)
         items = delivery.get("items", []) if isinstance(delivery, dict) else []
-        responses = self._responses.list_with_choices(session_id)
+        responses = self._responses.list_with_choices_sync(session_id)
         response_map = self._build_response_map(responses)
-        contexts = self._contexts.list_for_session(session_id)
+        contexts = self._contexts.list_for_session_sync(session_id)
         response_payload = self._order_responses(items, response_map)
         contexts_payload = self._build_context_payload(contexts)
         total_items = len(items)
@@ -223,7 +224,7 @@ class EngineSessionService:
     ) -> Dict[str, Any]:
         try:
             # [Architecture Fix] Use Repository for Pessimistic Locking
-            session = self._sessions.get_with_lock(session_id)
+            session = self._sessions.get_with_lock_sync(session_id)
             if not session:
                 raise SessionNotFoundError()
             
@@ -389,27 +390,7 @@ class EngineSessionService:
         self,
         session_id: uuid.UUID,
     ) -> list[tuple[UserResponse, int, LearningMode | None]]:
-        # Using existing complex join query which is fine to keep here 
-        # or move to repo if we want extreme purity. 
-        # For now, we leave complex join but fix the simpler ones.
-        raw_rows = (
-            self.db.query(
-                UserResponse,
-                ItemChoice.item_id,
-                ItemChoice.learning_mode,
-            )
-            .join(ItemChoice, ItemChoice.id == UserResponse.choice_id)
-            .join(AssessmentItem, AssessmentItem.id == ItemChoice.item_id)
-            .filter(
-                UserResponse.session_id == session_id,
-                AssessmentItem.item_type == ItemType.learning_style,
-            )
-            .all()
-        )
-        rows = [
-            (response, int(assessment_item_id), learning_mode)
-            for response, assessment_item_id, learning_mode in raw_rows
-        ]
+        rows = self._responses.get_native_responses_sync(session_id)
         if not rows:
             raise InvalidAssessmentData(ValidationMessages.ITEMS_INCOMPLETE)
         return rows
@@ -444,50 +425,16 @@ class EngineSessionService:
         return totals
 
     def _upsert_scale_score(self, session_id: uuid.UUID, totals: dict[str, int]) -> ScaleScore:
-        # Ideally move to ScaleScoreRepository, but it's a simple upsert.
-        scale = (
-            self.db.query(ScaleScore)
-            .filter(ScaleScore.session_id == session_id)
-            .one_or_none()
+        return self._sessions.upsert_scale_score_sync(
+            session_id,
+            totals["CE"],
+            totals["RO"],
+            totals["AC"],
+            totals["AE"],
         )
-        if scale is None:
-            scale = ScaleScore(
-                session_id=session_id,
-                CE_raw=totals["CE"],
-                RO_raw=totals["RO"],
-                AC_raw=totals["AC"],
-                AE_raw=totals["AE"],
-            )
-            self.db.add(scale)
-        else:
-            scale.CE_raw = totals["CE"]
-            scale.RO_raw = totals["RO"]
-            scale.AC_raw = totals["AC"]
-            scale.AE_raw = totals["AE"]
-        self.db.flush()
-        return scale
 
     def _reset_session_artifacts(self, session_id: uuid.UUID) -> None:
-        # Bulk delete - can be moved to a facade repo method `reset_session_results`
-        self.db.query(CombinationScore).filter(
-            CombinationScore.session_id == session_id
-        ).delete(synchronize_session=False)
-        self.db.query(UserLearningStyle).filter(
-            UserLearningStyle.session_id == session_id
-        ).delete(synchronize_session=False)
-        self.db.query(BackupLearningStyle).filter(
-            BackupLearningStyle.session_id == session_id
-        ).delete(synchronize_session=False)
-        self.db.query(PercentileScore).filter(
-            PercentileScore.session_id == session_id
-        ).delete(synchronize_session=False)
-        self.db.query(LearningFlexibilityIndex).filter(
-            LearningFlexibilityIndex.session_id == session_id
-        ).delete(synchronize_session=False)
-        self.db.query(AssessmentSessionDelta).filter(
-            AssessmentSessionDelta.session_id == session_id
-        ).delete(synchronize_session=False)
-        self.db.flush()
+        self._sessions.reset_artifacts_sync(session_id)
 
     def _apply_percentiles_native(
         self,
@@ -537,7 +484,7 @@ class EngineSessionService:
         session_id: uuid.UUID,
         user: "User",
     ) -> "AssessmentSession":
-        session = self._sessions.get_with_instrument(session_id)
+        session = self._sessions.get_with_instrument_sync(session_id)
         if not session:
             raise SessionNotFoundError()
             
@@ -547,14 +494,14 @@ class EngineSessionService:
     def _persist_batch_payload(self, session_id: uuid.UUID, payload: SessionSubmissionPayload) -> None:
         for item in payload.items:
             for r in item.ranks:
-                self._responses.record_response(
+                self._responses.record_response_sync(
                     session_id=session_id,
                     item_id=item.item_id,
                     choice_id=int(r.choice_id),
                     rank_value=int(r.rank),
                 )
         for ctx in payload.contexts:
-            self._contexts.record_context(
+            self._contexts.record_context_sync(
                 session_id=session_id,
                 context_name=ctx.context_name,
                 CE=ctx.CE,
@@ -747,7 +694,7 @@ class EngineSessionService:
         return payload
 
     def _persist_results_snapshot(self, session_id: uuid.UUID, result: Dict[str, Any]) -> Dict[str, Any]:
-        session = self._sessions.get_with_details(session_id)
+        session = self._sessions.get_with_details_sync(session_id)
         if not session:
             return {}
 
@@ -763,19 +710,20 @@ class EngineSessionService:
         if lfi_score is None:
             lfi_score = getattr(getattr(session, "lfi_index", None), "LFI_score", None)
 
-        session.results_json = {
+        results = {
             "kite_coordinates": kite_coordinates,
             "lfi_score": lfi_score,
             "percentiles": percentiles_payload,
             "blindspots": blindspots,
             "strengths": strengths,
         }
-        return session.results_json
+        session.results_json = results
+        return results
 
     def _update_user_team_caches(self, user_id: int) -> None:
         try:
             team_repo = TeamMemberRepository(self.db)
-            memberships = team_repo.list_by_user(user_id)
+            memberships = team_repo.list_by_user_sync(user_id)
             for membership in memberships:
                 compute_and_cache_team_snapshot(self.db, membership.team_id)
         except Exception as e:
@@ -851,7 +799,7 @@ class EngineSessionService:
     def submit_single_response(self, session_id: uuid.UUID, user: "User", item_id: int, response_map: Dict[str, int]) -> Dict[str, Any]:
         self._load_authorized_session(session_id, user)
         
-        choices = self.db.query(ItemChoice).filter(ItemChoice.item_id == item_id).all()
+        choices = self._items.get_choices_sync(item_id)
         if not choices:
             raise DomainError(f"Item {item_id} not found or has no choices")
 
@@ -889,10 +837,7 @@ class EngineSessionService:
     ) -> None:
         self._load_authorized_session(session_id, user)
         
-        item_response = self.db.query(AssessmentItemResponse).filter(
-            AssessmentItemResponse.session_id == session_id,
-            AssessmentItemResponse.item_id == item_id
-        ).first()
+        item_response = self._responses.get_response_sync(session_id, item_id)
 
         if item_response:
             if response_rank is not None:

@@ -35,7 +35,7 @@ def check_session_complete(db: Session, session_id: UUID) -> Dict[str, Any]:
     - ready_to_complete: bool (true if all items have exactly ranks 1..4 once)
     """
     session_repo = SessionRepository(db)
-    session = session_repo.get_by_id(session_id)
+    session = session_repo.get_by_id_sync(session_id)
     if not session:
         return {
             "session_exists": False,
@@ -51,12 +51,12 @@ def check_session_complete(db: Session, session_id: UUID) -> Dict[str, Any]:
 
     # Fetch learning_style item IDs
     item_repo = AssessmentItemRepository(db)
-    item_ids = item_repo.get_learning_item_ids()
+    item_ids = item_repo.get_learning_item_ids_sync()
 
     # Aggregate ranks per item with COUNT and COUNT DISTINCT via SQL
     # This reduces Python-side processing and roundtrips.
     response_repo = UserResponseRepository(db)
-    rank_rows = response_repo.aggregate_ranks_by_item(session_id)
+    rank_rows = response_repo.aggregate_ranks_by_item_sync(session_id)
     # Build maps from aggregated rows
     ranks_by_item: dict[int, set[int]] = defaultdict(set)
     any_dup_per_item: dict[int, bool] = defaultdict(bool)
@@ -66,7 +66,7 @@ def check_session_complete(db: Session, session_id: UUID) -> Dict[str, Any]:
             any_dup_per_item[aggregate.item_id] = True
 
     # Detect duplicate choices (defensive; should be prevented by constraint)
-    duplicate_choice_ids = response_repo.find_duplicate_choices(session_id)
+    duplicate_choice_ids = response_repo.find_duplicate_choices_sync(session_id)
 
     items_with_rank_conflict: List[int] = []
     items_with_missing_ranks: List[Dict[str, Any]] = []
@@ -150,7 +150,7 @@ def run_session_validations(db: Session, session_id: UUID) -> Dict[str, Any]:
 
     # LFI context validations
     context_repo = LFIContextRepository(db)
-    contexts = context_repo.list_for_session(session_id)
+    contexts = context_repo.list_for_session_sync(session_id)
     submitted_context_names = [ctx.context_name for ctx in contexts]
     allowed_contexts = set(CONTEXT_NAMES)
     unknown_context_names = sorted({name for name in submitted_context_names if name not in allowed_contexts})
@@ -235,7 +235,7 @@ def validate_full_submission_payload(db: Session, payload: SessionSubmissionPayl
     """Fail-fast validation for batch submissions before persistence."""
 
     item_repo = AssessmentItemRepository(db)
-    expected_ids = set(item_repo.get_learning_item_ids())
+    expected_ids = set(item_repo.get_learning_item_ids_sync())
     provided_ids = {entry.item_id for entry in payload.items}
 
     missing = expected_ids - provided_ids

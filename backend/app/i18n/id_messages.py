@@ -115,6 +115,7 @@ class AuthorizationMessages:
     MEDIATOR_METRICS_ONLY: str = "Hanya MEDIATOR yang boleh melihat metrics"
     MEDIATOR_PIPELINE_ACCESS_ONLY: str = "Hanya MEDIATOR yang boleh mengakses pipeline"
     MEDIATOR_PIPELINE_MUTATION_ONLY: str = "Hanya MEDIATOR yang boleh mengubah pipeline"
+    MEDIATOR_GRANT_MANAGEMENT_ONLY: str = "Hanya MEDIATOR yang boleh mengelola grant"
     MEDIATOR_ADMIN_ONLY: str = "Hanya MEDIATOR atau ADMIN yang diperbolehkan"
 
 

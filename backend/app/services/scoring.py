@@ -148,7 +148,7 @@ def _resolve_norm_groups(db: Session, session_id: UUID):  # legacy alias for tes
 
 def finalize_session(db: Session, session_id: UUID, *, skip_checks: bool = False) -> Dict[str, Any]:
     session_repo = SessionRepository(db)
-    session = session_repo.get_by_id(session_id)
+    session = session_repo.get_by_id_sync(session_id)
     if not session:
         raise SessionNotFoundError(SessionErrorMessages.NOT_FOUND)
     assessment_id = session.assessment_id or "KLSI"

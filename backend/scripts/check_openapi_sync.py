@@ -78,6 +78,23 @@ def generate_client(spec_path, output_dir):
     run_command(cmd, cwd=FRONTEND_DIR)
     print(f"Client generated at {output_dir}")
 
+def _compare_dircmp(dcmp):
+    """Recursive helper for directory comparison."""
+    if dcmp.left_only or dcmp.right_only or dcmp.diff_files or dcmp.funny_files:
+        return False
+    for sub_dcmp in dcmp.subdirs.values():
+        if not _compare_dircmp(sub_dcmp):
+            return False
+    return True
+
+def compare_directories(dir1, dir2):
+    """
+    Compare two directories recursively.
+    Returns True if they are identical, False otherwise.
+    """
+    dcmp = filecmp.dircmp(dir1, dir2)
+    return _compare_dircmp(dcmp)
+
 def main():
     print("Starting OpenAPI Sync Check...")
     

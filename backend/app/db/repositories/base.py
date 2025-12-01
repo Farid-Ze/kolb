@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Union
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
-TSession = TypeVar("TSession", bound=Session)
+TSession = TypeVar("TSession", bound=Union[Session, AsyncSession])
 
 
 @dataclass

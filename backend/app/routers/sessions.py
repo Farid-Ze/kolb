@@ -351,7 +351,7 @@ def finalize(
     return SessionOperationResult(ok=True, result={"status": "processing", "message": "Finalization queued"})
 
 @router.get("/{session_id}/validation", response_model=dict)
-def session_validation(
+async def session_validation(
     session_id: uuid.UUID, 
     db: Any = Depends(get_db), 
     viewer: Any | None = Depends(get_current_user_optional)
@@ -360,7 +360,7 @@ def session_validation(
     # Autentikasi opsional: jika token ada pastikan pemilik sesi atau mediator
             
     repo = SessionRepository(db)
-    sess = repo.get_by_id(session_id)
+    sess = await repo.get_by_id(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
     if viewer and viewer.role != 'MEDIATOR' and viewer.id != sess.user_id:
@@ -472,8 +472,16 @@ async def upsert_session_responses(
     # Get a sync session for the sync service function
     def _upsert_sync():
         # Manually create a sync session for the service call
-        with next(get_db()) as sync_db:
-            upsert_responses(sync_db, session_id, payload)
+        # [Correctness Fix] Use SessionLocal directly to ensure proper closure
+        from app.db.database import SessionLocal
+        db = SessionLocal()
+        try:
+            upsert_responses(db, session_id, payload)
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
     
     await run_in_threadpool(_upsert_sync)
     return Response(status_code=204)

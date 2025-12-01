@@ -47,7 +47,7 @@ def get_latest_completed_assessment_summary(db: Session, user_id: int) -> Option
     """
 
     repo = SessionRepository(db)
-    session = repo.get_latest_completed_for_user(user_id)
+    session = repo.get_latest_completed_for_user_sync(user_id)
     if not session:
         return None
 
@@ -127,7 +127,7 @@ def _serialize_percentiles(model: Optional["PercentileScore"]) -> Optional[dict[
 
 def get_latest_assessment_results(db: Session, user_id: int) -> Optional[Dict[str, Any]]:
     repo = SessionRepository(db)
-    session = repo.get_latest_completed_for_user(user_id)
+    session = repo.get_latest_completed_for_user_sync(user_id)
     if not session:
         return None
 

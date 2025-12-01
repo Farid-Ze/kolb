@@ -30,8 +30,9 @@ from app.schemas.team import (
     TeamRollupMemberOut,
 )
 from app.i18n.id_messages import AuthorizationMessages, TeamMessages
-from app.services.rollup import get_team_rollup_snapshot, compute_team_rollup
+from app.services.rollup import get_team_rollup_snapshot
 from app.services.security import get_current_user
+from app.services.team_service import TeamService
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 logger = get_logger("kolb.routers.teams", component="router")
@@ -52,24 +53,8 @@ def create_team(
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
-    
-    repo = TeamRepository(db)
-    try:
-        existing = repo.find_by_name(payload.name)
-        if existing:
-            raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
-        team = repo.create(payload.name, payload.kelas, payload.description)
-        db.commit()
-        db.refresh(team)
-        return team
-    except SQLAlchemyError:
-        db.rollback()
-        _log_db_failure(
-            "teams_create_failed",
-            user_id=current_user.id,
-            team_name=payload.name,
-        )
-        raise
+    service = TeamService(db)
+    return service.create_team(payload, current_user.id)
 
 
 @router.get("/", response_model=TeamListResponse)
@@ -81,14 +66,14 @@ def list_teams(
 ):
     repo = TeamRepository(db)
     skip = (page - 1) * size
-    items = repo.list(skip, size, q)
-    total = repo.count(q)
+    items = repo.list_sync(skip, size, q)
+    total = repo.count_sync(q)
     
     import math
     pages = math.ceil(total / size) if size > 0 else 0
     
     return TeamListResponse(
-        items=items,
+        items=[TeamOut.model_validate(item) for item in items],
         total=total,
         page=page,
         size=size,
@@ -99,7 +84,7 @@ def list_teams(
 @router.get("/{team_id}", response_model=TeamOut)
 def get_team(team_id: int, db: Any = Depends(get_db)):
     repo = TeamRepository(db)
-    team = repo.get(team_id)
+    team = repo.get_sync(team_id)
     if not team:
         raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
     return team
@@ -113,34 +98,8 @@ def update_team(
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
-    
-    repo = TeamRepository(db)
-    try:
-        team = repo.get(team_id)
-        if not team:
-            raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
-        if payload.name and payload.name != team.name:
-            existing = repo.find_by_name(payload.name)
-            if existing and existing.id != team_id:
-                raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
-            team.name = payload.name
-        if payload.kelas is not None:
-            team.kelas = payload.kelas
-        if payload.description is not None:
-            team.description = payload.description
-        db.flush()
-        db.commit()
-        db.refresh(team)
-        return team
-    except SQLAlchemyError:
-        db.rollback()
-        _log_db_failure(
-            "teams_update_failed",
-            team_id=team_id,
-            user_id=current_user.id,
-            updated_fields=list(payload.model_dump(exclude_unset=True).keys()),
-        )
-        raise
+    service = TeamService(db)
+    return service.update_team(team_id, payload, current_user.id)
 
 
 @router.delete("/{team_id}", response_model=dict)
@@ -150,39 +109,15 @@ def delete_team(
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
-    
-    team_repo = TeamRepository(db)
-    member_repo = TeamMemberRepository(db)
-    rollup_repo = TeamRollupRepository(db)
-    members_count: Optional[int] = None
-    rollup_count: Optional[int] = None
-    try:
-        team = team_repo.get(team_id)
-        if not team:
-            raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
-        members_count = member_repo.count_by_team(team_id)
-        rollup_count = rollup_repo.count_by_team(team_id)
-        if members_count > 0 or rollup_count > 0:
-            raise HTTPException(status_code=409, detail=TeamMessages.REMOVE_DEPENDENCIES_FIRST)
-        team_repo.delete(team)
-        db.commit()
-    except SQLAlchemyError:
-        db.rollback()
-        _log_db_failure(
-            "teams_delete_failed",
-            team_id=team_id,
-            user_id=current_user.id,
-            members_count=members_count,
-            rollup_count=rollup_count,
-        )
-        raise
+    service = TeamService(db)
+    service.delete_team(team_id, current_user.id)
     return {"ok": True}
 
 
 @router.get("/{team_id}/members", response_model=list[TeamMemberOut])
 def list_members(team_id: int, db: Any = Depends(get_db)):
     repo = TeamMemberRepository(db)
-    return repo.list_by_team(team_id)
+    return repo.list_by_team_sync(team_id)
 
 
 @router.post("/{team_id}/members", response_model=TeamMemberOut)
@@ -193,31 +128,8 @@ def add_member(
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
-    
-    repo = TeamMemberRepository(db)
-    user_repo = UserRepository(db)
-    try:
-        user = user_repo.get_by_email(payload.email)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-            
-        if repo.exists(team_id, user.id):
-            raise HTTPException(status_code=409, detail=TeamMessages.MEMBER_EXISTS)
-        tm = repo.add(team_id, user.id, payload.role_in_team)
-        db.commit()
-        db.refresh(tm)
-        return tm
-    except HTTPException:
-        raise
-    except SQLAlchemyError:
-        db.rollback()
-        _log_db_failure(
-            "teams_add_member_failed",
-            team_id=team_id,
-            user_id=current_user.id,
-            member_email=payload.email,
-        )
-        raise
+    service = TeamService(db)
+    return service.add_member(team_id, payload.email, payload.role_in_team, current_user.id)
 
 
 @router.delete("/{team_id}/members/{member_id}", response_model=dict)
@@ -228,30 +140,15 @@ def remove_member(
     current_user: Any = Depends(get_current_user),
 ):
     _require_mediator(current_user)
-    
-    repo = TeamMemberRepository(db)
-    try:
-        tm = repo.get(team_id, member_id)
-        if not tm:
-            raise HTTPException(status_code=404, detail=TeamMessages.MEMBER_NOT_FOUND)
-        repo.delete(tm)
-        db.commit()
-    except SQLAlchemyError:
-        db.rollback()
-        _log_db_failure(
-            "teams_remove_member_failed",
-            team_id=team_id,
-            user_id=current_user.id,
-            member_id=member_id,
-        )
-        raise
+    service = TeamService(db)
+    service.remove_member(team_id, member_id, current_user.id)
     return {"ok": True}
 
 
 @router.get("/{team_id}/rollups", response_model=list[TeamRollupOut])
 def list_rollups(team_id: int, db: Any = Depends(get_db)):
     repo = TeamRollupRepository(db)
-    return repo.list_by_team(team_id)
+    return repo.list_by_team_sync(team_id)
 
 
 @router.get("/{team_id}/rollup", response_model=TeamRollupDetail)
@@ -274,13 +171,13 @@ def get_rollup_members(
     
     # Check team existence
     team_repo = TeamRepository(db)
-    team = team_repo.get(team_id)
+    team = team_repo.get_sync(team_id)
     if not team:
         raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
 
     analytics_repo = TeamAnalyticsRepository(db)
     skip = (page - 1) * size
-    items, total = analytics_repo.fetch_paginated_member_points(team_id, skip=skip, limit=size)
+    items, total = analytics_repo.fetch_paginated_member_points_sync(team_id, skip=skip, limit=size)
     
     # Map dataclass to Pydantic model
     mapped_items = [
@@ -338,17 +235,6 @@ def run_rollup(
             d = date.fromisoformat(for_date)
         except ValueError:
             raise HTTPException(status_code=400, detail=TeamMessages.INVALID_DATE_FORMAT) from None
-    try:
-        roll = compute_team_rollup(db, team_id=team_id, for_date=d)
-        db.commit()
-        db.refresh(roll)
-        return roll
-    except SQLAlchemyError:
-        db.rollback()
-        _log_db_failure(
-            "teams_run_rollup_failed",
-            team_id=team_id,
-            user_id=current_user.id,
-            for_date=for_date,
-        )
-        raise
+    
+    service = TeamService(db)
+    return service.run_rollup(team_id, d, current_user.id)

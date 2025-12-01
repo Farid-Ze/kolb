@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Sequence, Tuple, Union, cast
 
 from sqlalchemy import select, text, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.db.repositories.base import Repository
 from app.models.klsi.norms import NormativeConversionTable
@@ -18,7 +19,7 @@ class NormativeConversionRow:
 
 
 @dataclass(slots=True, repr=True)
-class NormativeConversionRepository(Repository[AsyncSession]):
+class NormativeConversionRepository(Repository[Union[AsyncSession, Session]]):
     """Repository for normative conversion lookups."""
 
     def __post_init__(self) -> None:
@@ -31,6 +32,7 @@ class NormativeConversionRepository(Repository[AsyncSession]):
         scale_to_raws: Mapping[str, Iterable[int]],
     ) -> List[NormativeConversionRow]:
         """Retrieve all rows matching the group, versions, and scale/raw pairs."""
+        db = cast(AsyncSession, self.db)
         normalized_versions = list(dict.fromkeys(versions))
         if not normalized_versions:
             return []
@@ -57,7 +59,7 @@ class NormativeConversionRepository(Repository[AsyncSession]):
             .where(or_(*pair_conditions))
         )
         
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         results = result.scalars().all()
         
         return [
@@ -78,7 +80,8 @@ class NormativeConversionRepository(Repository[AsyncSession]):
         scale: str,
         raw: int,
     ) -> NormativeConversionRow | None:
-        result = await self.db.execute(
+        db = cast(AsyncSession, self.db)
+        result = await db.execute(
             text(
                 "SELECT percentile, norm_version, scale_name, raw_score, norm_group "
                 "FROM normative_conversion_table "
@@ -129,6 +132,7 @@ class NormativeConversionRepository(Repository[AsyncSession]):
         raw_score: int,
         percentile: float,
     ) -> Tuple[NormativeConversionTable, bool]:
+        db = cast(AsyncSession, self.db)
         stmt = (
             select(NormativeConversionTable)
             .where(NormativeConversionTable.norm_group == norm_group)
@@ -137,7 +141,7 @@ class NormativeConversionRepository(Repository[AsyncSession]):
             .where(NormativeConversionTable.raw_score == raw_score)
             .limit(1)
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         existing = result.scalar_one_or_none()
         if existing:
             existing.percentile = percentile
@@ -149,11 +153,45 @@ class NormativeConversionRepository(Repository[AsyncSession]):
             raw_score=raw_score,
             percentile=percentile,
         )
-        self.db.add(entity)
+        db.add(entity)
+        return entity, True
+
+    def upsert_sync(
+        self,
+        norm_group: str,
+        norm_version: str,
+        scale_name: str,
+        raw_score: int,
+        percentile: float,
+    ) -> Tuple[NormativeConversionTable, bool]:
+        """Upsert normative conversion entry - Sync version."""
+        db = cast(Session, self.db)
+        stmt = (
+            select(NormativeConversionTable)
+            .where(NormativeConversionTable.norm_group == norm_group)
+            .where(NormativeConversionTable.norm_version == norm_version)
+            .where(NormativeConversionTable.scale_name == scale_name)
+            .where(NormativeConversionTable.raw_score == raw_score)
+            .limit(1)
+        )
+        result = db.execute(stmt)
+        existing = result.scalar_one_or_none()
+        if existing:
+            existing.percentile = percentile
+            return existing, False
+        entity = NormativeConversionTable(
+            norm_group=norm_group,
+            norm_version=norm_version,
+            scale_name=scale_name,
+            raw_score=raw_score,
+            percentile=percentile,
+        )
+        db.add(entity)
         return entity, True
 
     async def fetch_all_entries(self) -> List[NormativeConversionRow]:
         """Return all normative conversion entries as lightweight rows."""
+        db = cast(AsyncSession, self.db)
         stmt = select(
             NormativeConversionTable.norm_group,
             NormativeConversionTable.norm_version,
@@ -161,7 +199,7 @@ class NormativeConversionRepository(Repository[AsyncSession]):
             NormativeConversionTable.raw_score,
             NormativeConversionTable.percentile,
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         rows = result.all()
         return [
             NormativeConversionRow(
@@ -184,7 +222,7 @@ class NormativeConversionRepository(Repository[AsyncSession]):
         limit: int = 100,
     ) -> List[NormativeConversionRow]:
         """Fetch an ordered chunk of rows for a norm group/version/scale."""
-
+        db = cast(AsyncSession, self.db)
         stmt = (
             select(
                 NormativeConversionTable.norm_group,
@@ -200,7 +238,139 @@ class NormativeConversionRepository(Repository[AsyncSession]):
             .offset(max(0, offset))
             .limit(max(1, limit))
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
+        rows = result.all()
+        return [
+            NormativeConversionRow(
+                norm_group=str(row[0]),
+                norm_version=str(row[1]) if row[1] is not None else None,
+                scale_name=str(row[2]),
+                raw_score=int(row[3]),
+                percentile=float(row[4]),
+            )
+            for row in rows
+        ]
+
+    def fetch_batch_sync(
+        self,
+        norm_group: str,
+        versions: Sequence[str],
+        scale_to_raws: Mapping[str, Iterable[int]],
+    ) -> List[NormativeConversionRow]:
+        """Retrieve all rows matching the group, versions, and scale/raw pairs - Sync version."""
+        db = cast(Session, self.db)
+        normalized_versions = list(dict.fromkeys(versions))
+        if not normalized_versions:
+            return []
+
+        # Build OR-conditions for (scale, raw_score) pairs
+        pair_conditions = []
+        for scale, raws in scale_to_raws.items():
+            unique_raws = sorted({int(r) for r in raws})
+            if unique_raws:
+                pair_conditions.append(
+                    and_(
+                        NormativeConversionTable.scale_name == scale,
+                        NormativeConversionTable.raw_score.in_(unique_raws)
+                    )
+                )
+        
+        if not pair_conditions:
+            return []
+
+        stmt = (
+            select(NormativeConversionTable)
+            .where(NormativeConversionTable.norm_group == norm_group)
+            .where(NormativeConversionTable.norm_version.in_(normalized_versions))
+            .where(or_(*pair_conditions))
+        )
+        
+        result = db.execute(stmt)
+        results = result.scalars().all()
+        
+        return [
+            NormativeConversionRow(
+                norm_group=row.norm_group,
+                norm_version=row.norm_version,
+                scale_name=row.scale_name,
+                raw_score=row.raw_score,
+                percentile=row.percentile,
+            )
+            for row in results
+        ]
+
+    def fetch_first_for_versions_sync(
+        self,
+        norm_group: str,
+        versions: Sequence[str],
+        scale: str,
+        raw: int,
+    ) -> Tuple[NormativeConversionRow, str] | None:
+        normalized_versions = list(dict.fromkeys(versions))
+        if not normalized_versions:
+            return None
+        rows = self.fetch_batch_sync(norm_group, normalized_versions, {scale: [raw]})
+        if not rows:
+            return None
+        for version in normalized_versions:
+            for entry in rows:
+                resolved_version = entry.norm_version or version
+                if resolved_version == version:
+                    return entry, resolved_version
+        entry = rows[0]
+        fallback_version = entry.norm_version or normalized_versions[0]
+        return entry, fallback_version
+
+    def fetch_scale_chunk_sync(
+        self,
+        norm_group: str,
+        version: str,
+        scale_name: str,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> List[NormativeConversionRow]:
+        """Fetch an ordered chunk of rows for a norm group/version/scale - Sync version."""
+        db = cast(Session, self.db)
+        stmt = (
+            select(
+                NormativeConversionTable.norm_group,
+                NormativeConversionTable.norm_version,
+                NormativeConversionTable.scale_name,
+                NormativeConversionTable.raw_score,
+                NormativeConversionTable.percentile,
+            )
+            .where(NormativeConversionTable.norm_group == norm_group)
+            .where(NormativeConversionTable.norm_version == version)
+            .where(NormativeConversionTable.scale_name == scale_name)
+            .order_by(NormativeConversionTable.raw_score.asc())
+            .offset(max(0, offset))
+            .limit(max(1, limit))
+        )
+        result = db.execute(stmt)
+        rows = result.all()
+        return [
+            NormativeConversionRow(
+                norm_group=str(row[0]),
+                norm_version=str(row[1]) if row[1] is not None else None,
+                scale_name=str(row[2]),
+                raw_score=int(row[3]),
+                percentile=float(row[4]),
+            )
+            for row in rows
+        ]
+
+    def fetch_all_entries_sync(self) -> List[NormativeConversionRow]:
+        """Return all normative conversion entries as lightweight rows - Sync version."""
+        db = cast(Session, self.db)
+        stmt = select(
+            NormativeConversionTable.norm_group,
+            NormativeConversionTable.norm_version,
+            NormativeConversionTable.scale_name,
+            NormativeConversionTable.raw_score,
+            NormativeConversionTable.percentile,
+        )
+        result = db.execute(stmt)
         rows = result.all()
         return [
             NormativeConversionRow(

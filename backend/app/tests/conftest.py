@@ -9,6 +9,7 @@ os.environ["RUN_STARTUP_SEED"] = "False"
 print("DEBUG: LOADING CONFTEST.PY")
 
 import pytest
+from typing import AsyncGenerator, Generator, Any
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 

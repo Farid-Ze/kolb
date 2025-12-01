@@ -148,6 +148,9 @@ def verify_refresh_token(token: str) -> str:
             "refresh_token_verification_failed",
             extra={"structured_data": {"error": str(e), "error_type": type(e).__name__}}
         )
+        # [Security Fix] Do not swallow the original error context if it's already a ValueError (e.g. expired)
+        if isinstance(e, ValueError):
+            raise e
         raise ValueError("Invalid refresh token") from e
 
 

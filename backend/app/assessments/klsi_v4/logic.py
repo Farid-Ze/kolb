@@ -309,7 +309,7 @@ def _age_to_band(user: User, reference_date: Optional[date]) -> Optional[str]:
 
 def resolve_norm_groups(db: Session, session_id: UUID) -> List[str]:
     session_repo = SessionRepository(db)
-    sess = session_repo.get_with_user(session_id)
+    sess = session_repo.get_with_user_sync(session_id)
     user: Optional[User] = sess.user if sess else None
     reference_date: Optional[date] = None
     if sess:
@@ -348,7 +348,7 @@ def compute_raw_scale_scores(db: Session, session_id: UUID) -> ScaleScore:
     with the normative tables in Appendix 1 (range 12–48).
     """
     response_repo = UserResponseRepository(db)
-    responses = response_repo.list_with_choices(session_id)
+    responses = response_repo.list_with_choices_sync(session_id)
     rank_stream = (
         (choice.learning_mode.value, response.rank_value)
         for response in responses
@@ -529,7 +529,7 @@ def assign_learning_style(db: Session, combo: CombinationScore) -> tuple[UserLea
     primary_name = determine_style_from_percentiles(acce_pct, aero_pct)
 
     style_repo = StyleRepository(db)
-    primary_type = style_repo.get_by_name(primary_name)
+    primary_type = style_repo.get_by_name_sync(primary_name)
     
     intensity_metrics = calculate_style_intensity(acc, aer)
     kite = {}
@@ -564,7 +564,7 @@ def _db_norm_lookup(
     if requested_version != DEFAULT_NORM_VERSION:
         candidates.append(DEFAULT_NORM_VERSION)
     repo = NormativeConversionRepository(db)
-    result = repo.fetch_first_for_versions(base_group, candidates, scale, int(raw))
+    result = repo.fetch_first_for_versions_sync(base_group, candidates, scale, int(raw))
     if result:
         entry, resolved_version = result
         return entry.percentile, resolved_version
@@ -574,7 +574,7 @@ def _db_norm_lookup(
 def compute_lfi(db: Session, session_id: UUID, norm_provider: NormProvider | None = None) -> LearningFlexibilityIndex:
     context_repo = LFIContextRepository(db)
     cfg = _cfg()
-    rows = context_repo.list_for_session(session_id)
+    rows = context_repo.list_for_session_sync(session_id)
     context_count = len(rows)
     if context_count != cfg.context_count:
         raise InvalidAssessmentData(
@@ -795,14 +795,14 @@ def compute_longitudinal_delta(
     intensity_metrics: StyleIntensityMetrics,
 ) -> Optional[AssessmentSessionDelta]:
     session_repo = SessionRepository(db)
-    session = session_repo.get_by_id(session_id)
+    session = session_repo.get_by_id_sync(session_id)
     if not session or not session.user_id:
         return None
     
     # Ensure assessment_version is a string (default to "4.0" if None)
     version = session.assessment_version or "4.0"
     
-    previous = session_repo.get_previous_completed_session(
+    previous = session_repo.get_previous_completed_session_sync(
         user_id=session.user_id,
         assessment_id=session.assessment_id,
         assessment_version=version,

@@ -6,7 +6,7 @@ from app.db.repositories.normative import NormativeConversionRow
 class NormConversionReader(Protocol):
     """Protocol describing read-only access to normative conversion data."""
 
-    def fetch_batch(
+    def fetch_batch_sync(
         self,
         norm_group: str,
         versions: Sequence[str],
@@ -14,7 +14,7 @@ class NormConversionReader(Protocol):
     ) -> list[NormativeConversionRow]:
         ...
 
-    def fetch_first_for_versions(
+    def fetch_first_for_versions_sync(
         self,
         norm_group: str,
         versions: Sequence[str],

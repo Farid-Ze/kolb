@@ -20,6 +20,9 @@ class SessionRepository(Protocol):
     def get_by_id(self, session_id: UUID) -> Any:
         ...
 
+    def get_by_id_sync(self, session_id: UUID) -> Any:
+        ...
+
 
 class RepositoryProvider(Protocol):
     """Protocol for repository providers produced by database factories."""
@@ -38,7 +41,7 @@ class RuntimeScheduler:
     def resolve_session(self, db: Session, session_id: UUID) -> Any:
         repo_provider = self.repo_provider_factory(db)
         repo = repo_provider.sessions
-        return repo.get_by_id(session_id)
+        return repo.get_by_id_sync(session_id)
 
 
 class RuntimeStateTracker:

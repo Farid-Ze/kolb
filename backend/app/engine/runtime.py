@@ -126,7 +126,7 @@ class EngineRuntime:
             session = self._scheduler.resolve_session(db, session_id)
         else:
             repo_provider = get_repository_provider(db)
-            session = repo_provider.sessions.get_by_id(session_id)
+            session = repo_provider.sessions.get_by_id_sync(session_id)
         if not session:
             logger.warning(
                 "session_not_found",
