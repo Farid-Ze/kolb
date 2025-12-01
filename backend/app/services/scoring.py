@@ -45,7 +45,7 @@ __all__ = [
     "compute_longitudinal_delta",
     "apply_percentiles",
     "finalize_session",
-    "finalize_session",
+    "finalize_session_async",
     "resolve_norm_groups",
     "_resolve_norm_groups",
 ]
@@ -180,3 +180,10 @@ def finalize_session(db: Session, session_id: UUID, *, skip_checks: bool = False
         "artifacts": artifacts,
         "validation": outcome.get("validation"),
     }
+
+
+async def finalize_session_async(db: Any, session_id: UUID, *, skip_checks: bool = False) -> Dict[str, Any]:
+    """Async wrapper for finalize_session using run_sync."""
+    if hasattr(db, "run_sync"):
+        return await db.run_sync(lambda s: finalize_session(s, session_id, skip_checks=skip_checks))
+    return finalize_session(db, session_id, skip_checks=skip_checks)

@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AssessmentItemResponsePayload } from '../models/AssessmentItemResponsePayload';
+import type { EngineSessionResponse } from '../models/EngineSessionResponse';
 import type { SessionAutosavePayload } from '../models/SessionAutosavePayload';
 import type { SessionListResponse } from '../models/SessionListResponse';
 import type { SessionOperationResult } from '../models/SessionOperationResult';
@@ -17,6 +18,8 @@ export class SessionsService {
     /**
      * List Sessions
      * List all assessment sessions for the current user.
+     *
+     * [Architecture Fix] Converted to async def to match async repository.
      * @param skip
      * @param limit
      * @returns SessionListResponse Successful Response
@@ -113,6 +116,27 @@ export class SessionsService {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/v1/sessions/{session_id}/items',
+            path: {
+                'session_id': sessionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Session State
+     * Get full session state including responses and progress.
+     * @param sessionId
+     * @returns EngineSessionResponse Successful Response
+     * @throws ApiError
+     */
+    public static getSessionStateApiV1SessionsSessionIdStateGet(
+        sessionId: string,
+    ): CancelablePromise<EngineSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/sessions/{session_id}/state',
             path: {
                 'session_id': sessionId,
             },
@@ -251,6 +275,9 @@ export class SessionsService {
     }
     /**
      * Upsert Session Responses
+     * Upsert session responses in batch (Async).
+     *
+     * [Architecture Fix] Converted to async def.
      * @param sessionId
      * @param requestBody
      * @returns void

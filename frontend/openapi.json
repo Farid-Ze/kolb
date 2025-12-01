@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "KLSI 4.0 API",
+    "title": "Zenotika Assessment Engine",
     "description": "Assessment engine and analytics API for KLSI 4.0",
     "version": "4.0.0"
   },
@@ -226,7 +226,7 @@
           "sessions"
         ],
         "summary": "List Sessions",
-        "description": "List all assessment sessions for the current user.",
+        "description": "List all assessment sessions for the current user.\n\n[Architecture Fix] Converted to async def to match async repository.",
         "operationId": "list_sessions_api_v1_sessions__get",
         "security": [
           {
@@ -384,7 +384,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Delivery Api V1 Sessions  Session Id  Delivery Get"
                 }
               }
@@ -454,13 +453,62 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/state": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Get Session State",
+        "description": "Get full session state including responses and progress.",
+        "operationId": "get_session_state_api_v1_sessions__session_id__state_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/submit-all-responses": {
       "post": {
         "tags": [
           "sessions"
         ],
         "summary": "Submit All Responses",
-        "description": "Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,\nfollowed by finalize. This reduces chattiness (22 calls → 1) and ensures atomicity.",
+        "description": "Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,\nfollowed by finalize. This reduces chattiness (22 calls \u2192 1) and ensures atomicity.",
         "operationId": "submit_all_responses_api_v1_sessions__session_id__submit_all_responses_post",
         "security": [
           {
@@ -667,7 +715,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Session Validation Api V1 Sessions  Session Id  Validation Get"
                 }
               }
@@ -751,6 +798,7 @@
           "sessions"
         ],
         "summary": "Upsert Session Responses",
+        "description": "Upsert session responses in batch (Async).\n\n[Architecture Fix] Converted to async def.",
         "operationId": "upsert_session_responses_api_v1_sessions__session_id__responses_patch",
         "security": [
           {
@@ -1162,34 +1210,116 @@
         }
       }
     },
-    "/api/v1/reports/self": {
-      "get": {
+    "/api/v1/admin/users/{user_id}/grant": {
+      "post": {
         "tags": [
-          "reports"
+          "admin"
         ],
-        "summary": "List Self Reports",
-        "operationId": "list_self_reports_api_v1_reports_self_get",
+        "summary": "Grant Credits",
+        "operationId": "grant_credits_api_v1_admin_users__user_id__grant_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantCreate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ReportSummaryPayload"
-                  },
-                  "type": "array",
-                  "title": "Response List Self Reports Api V1 Reports Self Get"
+                  "$ref": "#/components/schemas/GrantOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/revoke": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Revoke Grant",
+        "operationId": "revoke_grant_api_v1_admin_users__user_id__revoke_post",
         "security": [
           {
             "BearerAuth": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantRevoke"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/reports/{session_id}": {
@@ -1213,6 +1343,18 @@
               "type": "string",
               "format": "uuid",
               "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Guest-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "title": "X-Guest-Token",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -1692,7 +1834,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Delete Team Api V1 Teams  Team Id  Delete"
                 }
               }
@@ -1851,7 +1992,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Remove Member Api V1 Teams  Team Id  Members  Member Id  Delete"
                 }
               }
@@ -2401,7 +2541,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Delete Study Api V1 Research Studies  Study Id  Delete"
                 }
               }
@@ -2460,7 +2599,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Add Reliability Api V1 Research Studies  Study Id  Reliability Post"
                 }
               }
@@ -2568,7 +2706,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Add Validity Api V1 Research Studies  Study Id  Validity Post"
                 }
               }
@@ -3219,7 +3356,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get My Grants Api V1 Grants Me Get"
                 }
@@ -3336,8 +3472,8 @@
           },
           "responseRank": {
             "type": "integer",
-            "maximum": 4,
-            "minimum": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
             "title": "Responserank"
           },
           "responseLatencyMs": {
@@ -3447,7 +3583,6 @@
             "title": "Lfiscore"
           },
           "percentiles": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Percentiles"
           },
@@ -3553,7 +3688,7 @@
         "properties": {
           "itemId": {
             "type": "integer",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
             "title": "Itemid"
           },
           "ranks": {
@@ -3661,26 +3796,26 @@
           },
           "CE": {
             "type": "integer",
-            "maximum": 4,
-            "minimum": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
             "title": "Ce"
           },
           "RO": {
             "type": "integer",
-            "maximum": 4,
-            "minimum": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
             "title": "Ro"
           },
           "AC": {
             "type": "integer",
-            "maximum": 4,
-            "minimum": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
             "title": "Ac"
           },
           "AE": {
             "type": "integer",
-            "maximum": 4,
-            "minimum": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
             "title": "Ae"
           }
         },
@@ -3723,6 +3858,172 @@
         ],
         "title": "ContextRanksWrite",
         "description": "Raw ranking for a specific context scenario (Audit Point 1)."
+      },
+      "EngineSessionResponse": {
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Sessionid"
+          },
+          "instrumentCode": {
+            "type": "string",
+            "title": "Instrumentcode"
+          },
+          "instrumentVersion": {
+            "title": "Instrumentversion",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/SessionStatus"
+          },
+          "delivery": {
+            "title": "Delivery",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "responses": {
+            "items": {
+              "$ref": "#/components/schemas/ItemRank"
+            },
+            "type": "array",
+            "title": "Responses"
+          },
+          "contexts": {
+            "items": {
+              "$ref": "#/components/schemas/ContextRank"
+            },
+            "type": "array",
+            "title": "Contexts"
+          },
+          "totalItems": {
+            "type": "integer",
+            "title": "Totalitems"
+          },
+          "completedItems": {
+            "type": "integer",
+            "title": "Completeditems"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          },
+          "currentItemIndex": {
+            "type": "integer",
+            "title": "Currentitemindex"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessionId",
+          "instrumentCode",
+          "status",
+          "responses",
+          "contexts",
+          "totalItems",
+          "completedItems",
+          "progress",
+          "currentItemIndex"
+        ],
+        "title": "EngineSessionResponse"
+      },
+      "GrantCreate": {
+        "properties": {
+          "instrumentId": {
+            "type": "integer",
+            "title": "Instrumentid",
+            "default": 1
+          },
+          "credits": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Credits"
+          },
+          "expiryDate": {
+            "title": "Expirydate",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "credits"
+        ],
+        "title": "GrantCreate"
+      },
+      "GrantOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "userId": {
+            "type": "integer",
+            "title": "Userid"
+          },
+          "instrumentId": {
+            "type": "integer",
+            "title": "Instrumentid"
+          },
+          "creditsTotal": {
+            "type": "integer",
+            "title": "Creditstotal"
+          },
+          "creditsConsumed": {
+            "type": "integer",
+            "title": "Creditsconsumed"
+          },
+          "expiryDate": {
+            "title": "Expirydate",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isActive": {
+            "type": "boolean",
+            "title": "Isactive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "instrumentId",
+          "creditsTotal",
+          "creditsConsumed",
+          "isActive"
+        ],
+        "title": "GrantOut"
+      },
+      "GrantRevoke": {
+        "properties": {
+          "grantId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Grantid"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "grantId"
+        ],
+        "title": "GrantRevoke"
       },
       "GuideOpenEvent": {
         "properties": {
@@ -3786,27 +4087,26 @@
           },
           "kind": {
             "type": "string",
+            "enum": [
+              "individual"
+            ],
             "const": "individual",
             "title": "Kind",
             "default": "individual"
           },
           "raw": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Raw"
           },
           "percentiles": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Percentiles"
           },
           "style": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Style"
           },
           "lfi": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Lfi"
           },
@@ -3899,8 +4199,8 @@
           },
           "rank": {
             "type": "integer",
-            "maximum": 4,
-            "minimum": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
             "title": "Rank",
             "description": "Rank assigned (1=Least like me, 4=Most like me)"
           }
@@ -3916,7 +4216,7 @@
         "properties": {
           "itemId": {
             "type": "integer",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
             "title": "Itemid"
           },
           "ranks": {
@@ -4196,7 +4496,6 @@
             "title": "Type"
           },
           "payload": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Payload"
           },
@@ -4217,7 +4516,8 @@
       "ReplayEventBatch": {
         "properties": {
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "events": {
@@ -4235,123 +4535,6 @@
         ],
         "title": "ReplayEventBatch",
         "description": "Batch of replay events."
-      },
-      "ReportDialecticSummary": {
-        "properties": {
-          "acce": {
-            "title": "Acce",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "aero": {
-            "title": "Aero",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "intensity": {
-            "title": "Intensity",
-            "type": [
-              "integer",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportDialecticSummary"
-      },
-      "ReportFlexibilitySummary": {
-        "properties": {
-          "lfiScore": {
-            "title": "Lfiscore",
-            "description": "LFI Score (Precision: 4 decimal places)",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "percentile": {
-            "title": "Percentile",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "level": {
-            "title": "Level",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "levelLabel": {
-            "title": "Levellabel",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportFlexibilitySummary"
-      },
-      "ReportLongitudinalSummary": {
-        "properties": {
-          "previousSessionId": {
-            "title": "Previoussessionid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "previousSessionDate": {
-            "title": "Previoussessiondate",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "timeElapsedDays": {
-            "title": "Timeelapseddays",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "deltaAcce": {
-            "title": "Deltaacce",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "deltaAero": {
-            "title": "Deltaaero",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "deltaLfi": {
-            "title": "Deltalfi",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "deltaIntensity": {
-            "title": "Deltaintensity",
-            "type": [
-              "integer",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportLongitudinalSummary"
       },
       "ReportShareContext": {
         "properties": {
@@ -4424,8 +4607,8 @@
           },
           "expiresInHours": {
             "type": "integer",
-            "maximum": 336,
-            "minimum": 1,
+            "maximum": 336.0,
+            "minimum": 1.0,
             "title": "Expiresinhours",
             "description": "Durasi link berlaku dalam jam (maks 14 hari)",
             "default": 72
@@ -4495,111 +4678,6 @@
           "note"
         ],
         "title": "ReportShareOut"
-      },
-      "ReportStyleSummary": {
-        "properties": {
-          "styleCode": {
-            "title": "Stylecode",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "styleName": {
-            "title": "Stylename",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "description": {
-            "title": "Description",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "quadrant": {
-            "title": "Quadrant",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportStyleSummary"
-      },
-      "ReportSummaryPayload": {
-        "properties": {
-          "sessionId": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Sessionid"
-          },
-          "generatedAt": {
-            "title": "Generatedat",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "learningStyle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportStyleSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "nineStyle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportStyleSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "flexibility": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportFlexibilitySummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "dialectic": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportDialecticSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "longitudinal": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportLongitudinalSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId"
-        ],
-        "title": "ReportSummaryPayload"
       },
       "ResearchStudyCreate": {
         "properties": {
@@ -4672,7 +4750,7 @@
           },
           "size": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Size",
             "description": "Number of items per page"
           },
@@ -4685,7 +4763,6 @@
             "title": "Studytitle"
           },
           "filtersApplied": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Filtersapplied"
           },
@@ -4733,25 +4810,25 @@
           },
           "total": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Total",
             "description": "Total count of all items across all pages"
           },
           "page": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Page",
             "description": "Current page number (1-indexed)"
           },
           "size": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Size",
             "description": "Number of items per page"
           },
           "pages": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Pages",
             "description": "Total number of pages"
           },
@@ -4764,7 +4841,6 @@
             "title": "Studytitle"
           },
           "filtersApplied": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Filtersapplied"
           },
@@ -4898,7 +4974,8 @@
         "type": "string",
         "enum": [
           "MAHASISWA",
-          "MEDIATOR"
+          "MEDIATOR",
+          "USER"
         ],
         "title": "Role"
       },
@@ -4999,64 +5076,64 @@
         "properties": {
           "ce": {
             "type": "integer",
-            "maximum": 48,
-            "minimum": 12,
+            "maximum": 48.0,
+            "minimum": 12.0,
             "title": "Ce",
             "description": "Concrete Experience raw score (12-48)"
           },
           "ro": {
             "type": "integer",
-            "maximum": 48,
-            "minimum": 12,
+            "maximum": 48.0,
+            "minimum": 12.0,
             "title": "Ro",
             "description": "Reflective Observation raw score (12-48)"
           },
           "ac": {
             "type": "integer",
-            "maximum": 48,
-            "minimum": 12,
+            "maximum": 48.0,
+            "minimum": 12.0,
             "title": "Ac",
             "description": "Abstract Conceptualization raw score (12-48)"
           },
           "ae": {
             "type": "integer",
-            "maximum": 48,
-            "minimum": 12,
+            "maximum": 48.0,
+            "minimum": 12.0,
             "title": "Ae",
             "description": "Active Experimentation raw score (12-48)"
           },
           "acce": {
             "type": "integer",
-            "maximum": 36,
-            "minimum": -36,
+            "maximum": 36.0,
+            "minimum": -36.0,
             "title": "Acce",
             "description": "AC-CE dialectic score (-36 to +36)"
           },
           "aero": {
             "type": "integer",
-            "maximum": 36,
-            "minimum": -36,
+            "maximum": 36.0,
+            "minimum": -36.0,
             "title": "Aero",
             "description": "AE-RO dialectic score (-36 to +36)"
           },
           "accAssm": {
             "type": "integer",
-            "maximum": 72,
-            "minimum": -72,
+            "maximum": 72.0,
+            "minimum": -72.0,
             "title": "Accassm",
             "description": "Accommodating-Assimilating dimension (AC+RO) - (AE+CE)"
           },
           "accomMinusAssim": {
             "type": "integer",
-            "maximum": 72,
-            "minimum": -72,
+            "maximum": 72.0,
+            "minimum": -72.0,
             "title": "Accomminusassim",
             "description": "Inverse of acc_assm"
           },
           "convDiv": {
             "type": "integer",
-            "maximum": 72,
-            "minimum": -72,
+            "maximum": 72.0,
+            "minimum": -72.0,
             "title": "Convdiv",
             "description": "Converging-Diverging dimension (AC+AE) - (CE+RO). Positive = Converging, Negative = Diverging."
           }
@@ -5518,14 +5595,14 @@
           },
           "page": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Page",
             "default": 1
           },
           "size": {
             "type": "integer",
-            "maximum": 1000,
-            "minimum": 1,
+            "maximum": 1000.0,
+            "minimum": 1.0,
             "title": "Size",
             "default": 50
           },
@@ -5701,25 +5778,25 @@
           },
           "total": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Total",
             "description": "Total count of all items across all pages"
           },
           "page": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Page",
             "description": "Current page number (1-indexed)"
           },
           "size": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Size",
             "description": "Number of items per page"
           },
           "pages": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Pages",
             "description": "Total number of pages"
           }
@@ -5765,25 +5842,25 @@
           },
           "total": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Total",
             "description": "Total count of all items across all pages"
           },
           "page": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Page",
             "description": "Current page number (1-indexed)"
           },
           "size": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Size",
             "description": "Number of items per page"
           },
           "pages": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Pages",
             "description": "Total number of pages"
           }
@@ -5876,6 +5953,9 @@
           },
           "kind": {
             "type": "string",
+            "enum": [
+              "team"
+            ],
             "const": "team",
             "title": "Kind",
             "default": "team"
@@ -6215,7 +6295,6 @@
             "description": "Client-side timestamp in milliseconds"
           },
           "payload": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Payload",
             "description": "Event-specific data"
@@ -6581,7 +6660,6 @@
           },
           "dataPoints": {
             "items": {
-              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",

@@ -9,7 +9,7 @@ import type { VisualizationConfig } from './VisualizationConfig';
 export type IndividualReportPayload = {
     sessionId: string;
     generatedAt?: string | null;
-    kind?: string;
+    kind?: IndividualReportPayload.kind;
     raw: Record<string, any>;
     percentiles: Record<string, any>;
     style: Record<string, any>;
@@ -24,4 +24,9 @@ export type IndividualReportPayload = {
     shareContext?: (ReportShareContext | null);
     responsibleUseNotice?: string | null;
 };
+export namespace IndividualReportPayload {
+    export enum kind {
+        INDIVIDUAL = 'individual',
+    }
+}
 

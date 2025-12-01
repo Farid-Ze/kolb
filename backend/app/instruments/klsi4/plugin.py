@@ -1,8 +1,10 @@
-from typing import Dict, List, Sequence
+from typing import Dict, List, Sequence, Union, cast
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import select, delete
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.engine.interfaces import (
@@ -68,28 +70,36 @@ class KLSI4Plugin(
             expected_contexts=8,
         )
 
-    def fetch_items(self, db: Session, session_id: UUID) -> Sequence[ItemDTO]:
-        self._ensure_session(db, session_id)
+    async def fetch_items(self, db: Union[Session, AsyncSession], session_id: UUID) -> Sequence[ItemDTO]:
+        await self._ensure_session(db, session_id)
         if settings.engine_authoring_items_enabled:
-            return self._fetch_items_from_authoring(db)
-        return self._fetch_items_from_legacy(db)
+            return await self._fetch_items_from_authoring(db)
+        return await self._fetch_items_from_legacy(db)
 
-    def validate_submit(self, db: Session, session_id: UUID, payload: Dict[str, object]) -> None:
-        self._ensure_session(db, session_id)
+    async def validate_submit(self, db: Union[Session, AsyncSession], session_id: UUID, payload: Dict[str, object]) -> None:
+        await self._ensure_session(db, session_id)
         kind = payload.get("kind")
         match kind:
             case "item":
-                self._submit_item(db, session_id, payload)
+                await self._submit_item(db, session_id, payload)
             case "context":
-                self._submit_context(db, session_id, payload)
+                await self._submit_context(db, session_id, payload)
             case _:
                 raise HTTPException(status_code=400, detail=KLSI4Messages.UNKNOWN_PAYLOAD_KIND)
 
-    def finalize(self, db: Session, session_id: UUID, *, skip_checks: bool = False) -> Dict[str, object]:
-        session = self._ensure_session(db, session_id)
+    async def finalize(self, db: Union[Session, AsyncSession], session_id: UUID, *, skip_checks: bool = False) -> Dict[str, object]:
+        session = await self._ensure_session(db, session_id)
         if session.status != SessionStatus.completed:
             try:
-                result = finalize_session(db, session_id, skip_checks=skip_checks)
+                # TODO: Make finalize_session async
+                if isinstance(db, AsyncSession):
+                    # Temporary hack: we need finalize_session to be async
+                    # For now, we assume finalize_session is updated or we wrap it?
+                    # No, we must update finalize_session.
+                    from app.services.scoring import finalize_session_async
+                    result = await finalize_session_async(db, session_id, skip_checks=skip_checks)
+                else:
+                    result = finalize_session(db, session_id, skip_checks=skip_checks)
             except SessionNotFoundError as exc:
                 raise HTTPException(status_code=404, detail=str(exc)) from None
             except InvalidAssessmentData as exc:
@@ -99,15 +109,18 @@ class KLSI4Plugin(
             return result
         return {"ok": True}
 
-    def percentile(
-        self, db: Session, session_id: UUID, scale: str, raw: int | float
+    async def percentile(
+        self, db: Union[Session, AsyncSession], session_id: UUID, scale: str, raw: int | float
     ) -> tuple[float | None, str]:
-        self._ensure_session(db, session_id)
-        record = (
-            db.query(PercentileScore)
-            .filter(PercentileScore.session_id == session_id)
-            .first()
-        )
+        await self._ensure_session(db, session_id)
+        
+        stmt = select(PercentileScore).filter(PercentileScore.session_id == session_id)
+        if isinstance(db, AsyncSession):
+            result = await db.execute(stmt)
+            record = result.scalars().first()
+        else:
+            record = db.execute(stmt).scalars().first()
+
         if not record:
             return None, "NotComputed"
         field_map = {
@@ -122,22 +135,30 @@ class KLSI4Plugin(
             raise HTTPException(status_code=400, detail=KLSI4Messages.UNKNOWN_SCALE)
         return field_map[scale]
 
-    def build(self, db: Session, session_id: UUID, viewer_role: str | None = None) -> Dict[str, object]:
-        self._ensure_session(db, session_id)
+    async def build(self, db: Union[Session, AsyncSession], session_id: UUID, viewer_role: str | None = None) -> Dict[str, object]:
+        await self._ensure_session(db, session_id)
+        if isinstance(db, AsyncSession):
+            from app.services.report import build_report_async
+            return await build_report_async(db, session_id, viewer_role)
         return build_report(db, session_id, viewer_role)
 
     # ──────────────────────────────────────────────────────────────────────────
     # Internal helpers
     # ──────────────────────────────────────────────────────────────────────────
 
-    def _fetch_items_from_legacy(self, db: Session) -> Sequence[ItemDTO]:
-        items = (
-            db.query(AssessmentItem)
+    async def _fetch_items_from_legacy(self, db: Union[Session, AsyncSession]) -> Sequence[ItemDTO]:
+        stmt = (
+            select(AssessmentItem)
             .order_by(AssessmentItem.item_number.asc())
             .options(joinedload(AssessmentItem.choices))
-            .all()
         )
-        result: List[ItemDTO] = []
+        if isinstance(db, AsyncSession):
+            result = await db.execute(stmt)
+            items = result.unique().scalars().all()
+        else:
+            items = db.execute(stmt).unique().scalars().all()
+
+        result_dto: List[ItemDTO] = []
         for item in items:
             options = [
                 {
@@ -148,7 +169,7 @@ class KLSI4Plugin(
                 }
                 for choice in item.choices
             ]
-            result.append(
+            result_dto.append(
                 ItemDTO(
                     id=item.id,
                     number=item.item_number,
@@ -158,11 +179,11 @@ class KLSI4Plugin(
                     category=item.item_category,
                 )
             )
-        return result
+        return result_dto
 
-    def _fetch_items_from_authoring(self, db: Session) -> Sequence[ItemDTO]:
-        instrument = (
-            db.query(EngineInstrument)
+    async def _fetch_items_from_authoring(self, db: Union[Session, AsyncSession]) -> Sequence[ItemDTO]:
+        stmt = (
+            select(EngineInstrument)
             .filter(
                 EngineInstrument.code == self._ID.key,
                 EngineInstrument.version == self._ID.version,
@@ -173,8 +194,13 @@ class KLSI4Plugin(
                 .joinedload(EnginePage.items)
                 .joinedload(EngineItem.options)
             )
-            .first()
         )
+        if isinstance(db, AsyncSession):
+            result = await db.execute(stmt)
+            instrument = result.unique().scalars().first()
+        else:
+            instrument = db.execute(stmt).unique().scalars().first()
+
         if not instrument:
             raise HTTPException(status_code=404, detail=KLSI4Messages.AUTHORING_INSTRUMENT_MISSING)
 
@@ -221,13 +247,18 @@ class KLSI4Plugin(
                         )
                     )
         # Append LFI context items from legacy table so UI receives the full 12+8 catalog.
-        contexts = (
-            db.query(AssessmentItem)
+        stmt_contexts = (
+            select(AssessmentItem)
             .options(joinedload(AssessmentItem.choices))
             .filter(AssessmentItem.item_type == ItemType.learning_flex)
             .order_by(AssessmentItem.item_number.asc())
-            .all()
         )
+        if isinstance(db, AsyncSession):
+            result_contexts = await db.execute(stmt_contexts)
+            contexts = result_contexts.unique().scalars().all()
+        else:
+            contexts = db.execute(stmt_contexts).unique().scalars().all()
+
         for context_item in contexts:
             options = [
                 {
@@ -250,17 +281,19 @@ class KLSI4Plugin(
             )
         return payload
 
-    def _ensure_session(self, db: Session, session_id: UUID) -> AssessmentSession:
-        session = (
-            db.query(AssessmentSession)
-            .filter(AssessmentSession.id == session_id)
-            .first()
-        )
+    async def _ensure_session(self, db: Union[Session, AsyncSession], session_id: UUID) -> AssessmentSession:
+        stmt = select(AssessmentSession).filter(AssessmentSession.id == session_id)
+        if isinstance(db, AsyncSession):
+            result = await db.execute(stmt)
+            session = result.scalars().first()
+        else:
+            session = db.execute(stmt).scalars().first()
+            
         if not session:
             raise HTTPException(status_code=404, detail=KLSI4Messages.SESSION_NOT_FOUND)
         return session
 
-    def _submit_item(self, db: Session, session_id: UUID, payload: Dict[str, object]) -> None:
+    async def _submit_item(self, db: Union[Session, AsyncSession], session_id: UUID, payload: Dict[str, object]) -> None:
         item_id_raw = payload.get("item_id")
         ranks_raw = payload.get("ranks")
         if item_id_raw is None or ranks_raw is None:
@@ -281,17 +314,27 @@ class KLSI4Plugin(
             normalized[cid] = rval
         if set(normalized.values()) != {1, 2, 3, 4}:
             raise HTTPException(status_code=400, detail=KLSI4Messages.RANKS_MUST_BE_UNIQUE)
-        valid_choices = {
-            c.id
-            for c in db.query(ItemChoice).filter(ItemChoice.item_id == item_id_int).all()
-        }
+        
+        stmt = select(ItemChoice).filter(ItemChoice.item_id == item_id_int)
+        if isinstance(db, AsyncSession):
+            result = await db.execute(stmt)
+            choices = result.scalars().all()
+        else:
+            choices = db.execute(stmt).scalars().all()
+            
+        valid_choices = {c.id for c in choices}
         if valid_choices != set(normalized.keys()):
             raise HTTPException(status_code=400, detail=KLSI4Messages.CHOICES_MISMATCH)
         # Upsert semantics: allow re-submission; treat as overwrite not rejection.
-        db.query(UserResponse).filter(
+        stmt_del = delete(UserResponse).where(
             UserResponse.session_id == session_id,
             UserResponse.item_id == item_id_int,
-        ).delete(synchronize_session=False)
+        )
+        if isinstance(db, AsyncSession):
+            await db.execute(stmt_del)
+        else:
+            db.execute(stmt_del)
+            
         for cid, rank in normalized.items():
             db.add(
                 UserResponse(
@@ -301,9 +344,12 @@ class KLSI4Plugin(
                     rank_value=rank,
                 )
             )
-        db.commit()
+        if isinstance(db, AsyncSession):
+            await db.commit()
+        else:
+            db.commit()
 
-    def _submit_context(self, db: Session, session_id: UUID, payload: Dict[str, object]) -> None:
+    async def _submit_context(self, db: Union[Session, AsyncSession], session_id: UUID, payload: Dict[str, object]) -> None:
         context_name = payload.get("context_name")
         if not isinstance(context_name, str):
             raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_NAME_REQUIRED)
@@ -325,14 +371,17 @@ class KLSI4Plugin(
             raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_RANKS_NUMERIC) from None
         if set(ranks.values()) != {1, 2, 3, 4}:
             raise HTTPException(status_code=400, detail=KLSI4Messages.CONTEXT_RANKS_UNIQUE)
-        existing = (
-            db.query(LFIContextScore)
-            .filter(
-                LFIContextScore.session_id == session_id,
-                LFIContextScore.context_name == context_name,
-            )
-            .first()
+        
+        stmt = select(LFIContextScore).filter(
+            LFIContextScore.session_id == session_id,
+            LFIContextScore.context_name == context_name,
         )
+        if isinstance(db, AsyncSession):
+            result = await db.execute(stmt)
+            existing = result.scalars().first()
+        else:
+            existing = db.execute(stmt).scalars().first()
+
         overwrite = bool(payload.get("overwrite", False))
         if existing:
             if overwrite:
@@ -341,7 +390,10 @@ class KLSI4Plugin(
                 existing.RO_rank = ranks["RO"]
                 existing.AC_rank = ranks["AC"]
                 existing.AE_rank = ranks["AE"]
-                db.commit()
+                if isinstance(db, AsyncSession):
+                    await db.commit()
+                else:
+                    db.commit()
                 return
             # Maintain legacy behavior (reject duplicates) for default path/parity tests.
             raise HTTPException(
@@ -358,7 +410,10 @@ class KLSI4Plugin(
                 AE_rank=ranks["AE"],
             )
         )
-        db.commit()
+        if isinstance(db, AsyncSession):
+            await db.commit()
+        else:
+            db.commit()
 
 
 _plugin = KLSI4Plugin()

@@ -5,4 +5,5 @@
 export enum Role {
     MAHASISWA = 'MAHASISWA',
     MEDIATOR = 'MEDIATOR',
+    USER = 'USER',
 }

@@ -10,7 +10,6 @@ import {
   fetchSessionState,
   startSession,
   submitAllResponses,
-  submitSingleResponse,
 } from '../api'
 import type {
   TunnelItemDraft,
@@ -403,18 +402,6 @@ export function useTunnelSession() {
     },
   })
 
-  const singleResponseMutation = useMutation({
-    mutationFn: ({
-      sessionId: targetSessionId,
-      itemId,
-      responseMap,
-    }: {
-      sessionId: string
-      itemId: number
-      responseMap: Record<number, number>
-    }) => submitSingleResponse(targetSessionId, itemId, responseMap),
-  })
-
   const setOptionRank = useCallback(
     (itemId: number, choiceId: number, rank: number | null) => {
       markItemInteraction(itemId)
@@ -467,11 +454,10 @@ export function useTunnelSession() {
           // [FORENSIC AUDIT] Walking Skeleton Removed:
           // We no longer submit single items immediately.
           // Reliance is now on autosave (batch) and finalize (batch).
-          // singleResponseMutation.mutate({ sessionId, itemId, responseMap: newRanks })
         }
       }
     },
-    [markItemInteraction, learningItems, sessionId, singleResponseMutation, drafts, dispatch, sendItemChanged],
+    [markItemInteraction, learningItems, sessionId, drafts, dispatch, sendItemChanged],
   )
 
   const setContextRank = useCallback((contextName: string, mode: ModeCode, rank: number | null) => {

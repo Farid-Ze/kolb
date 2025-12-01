@@ -12,6 +12,7 @@ from app.assessments.klsi_v4.logic import (
 )
 from app.data.norms import APPENDIX_TABLES, lookup_lfi
 from app.core.metrics import timer, inc_counter, measure_time, count_calls
+from app.core.cache import sync_cache
 from app.db.repositories import NormativeConversionRepository, NormativeConversionRow
 from app.db.repositories.protocols import NormConversionReader
 
@@ -106,11 +107,21 @@ class CachedCompositeNormProvider:
                         by_scale.setdefault(sample.scale, []).append(int(sample.raw))
 
                     rows: List[NormativeConversionRow] = []
-                    query_executed = False
+                    
                     if by_scale:
-                        rows = self._norm_repo.fetch_batch_sync(base_group, versions, by_scale)
-                        query_executed = True
-                    if query_executed:
+                        # Use Redis-backed scale fetch
+                        # Iterate versions in REVERSE order (Default -> Req) so Req overwrites Default
+                        # in the consumer loop (which processes rows sequentially)
+                        for scale, raws in by_scale.items():
+                            for ver in reversed(versions):
+                                scale_map = self._get_or_fetch_scale(base_group, ver, scale)
+                                if scale_map:
+                                    for r in raws:
+                                        if r in scale_map:
+                                            rows.append(NormativeConversionRow(
+                                                base_group, ver, scale, r, scale_map[r]
+                                            ))
+                        
                         inc_counter("norms.cached.batch.query")
 
                     for entry in rows:
@@ -142,6 +153,20 @@ class CachedCompositeNormProvider:
     def prime(self, group_chain: List[str], required: Iterable[Tuple[str, int | float] | ScaleSample]) -> None:
         inc_counter("norms.cached.prime")
         self.percentile_many(group_chain or self.group_chain, required)
+
+    def _get_or_fetch_scale(self, group: str, version: str, scale: str) -> Dict[int, float]:
+        key = f"norms:{group}:{version}:{scale}"
+        cached = sync_cache.get(key)
+        if cached:
+            return {int(k): v for k, v in cached.items()}
+        
+        rows = self._norm_repo.fetch_scale_chunk_sync(group, version, scale, limit=1000)
+        data = {row.raw_score: row.percentile for row in rows}
+        
+        if data:
+            sync_cache.set(key, data, ttl=86400)
+        
+        return data
 
     # Internals ---------------------------------------------------------------
 

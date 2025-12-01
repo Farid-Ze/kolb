@@ -43,6 +43,11 @@ class RuntimeScheduler:
         repo = repo_provider.sessions
         return repo.get_by_id_sync(session_id)
 
+    async def resolve_session_async(self, db: Any, session_id: UUID) -> Any:
+        repo_provider = self.repo_provider_factory(db)
+        repo = repo_provider.sessions
+        return await repo.get_by_id(session_id)
+
 
 class RuntimeStateTracker:
     """Tracks elapsed wall clock time for runtime phases."""

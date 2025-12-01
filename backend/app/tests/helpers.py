@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from app.assessments.klsi_v4.definition import CONTEXT_NAMES
 from app.db.database import Base
@@ -27,6 +28,64 @@ def build_seeded_memory_db():
     seed_assessment_items(db)
     seed_engine_authoring(db)
     return db
+
+
+async def build_async_seeded_memory_db():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    db = AsyncSessionLocal()
+    
+    def _seed(sync_db):
+        seed_instruments(sync_db)
+        seed_learning_styles(sync_db)
+        seed_assessment_items(sync_db)
+        seed_engine_authoring(sync_db)
+        
+    await db.run_sync(_seed)
+    return db
+
+
+async def seed_complete_session_async(
+    db: AsyncSession,
+    *,
+    assessment_id: str = "KLSI",
+    assessment_version: str = "4.0",
+    user_email: str | None = None,
+    user_name: str = "Tester",
+    user: User | None = None,
+) -> AssessmentSession:
+    def _run(sync_db):
+        return seed_complete_session(
+            sync_db,
+            assessment_id=assessment_id,
+            assessment_version=assessment_version,
+            user_email=user_email,
+            user_name=user_name,
+            user=user,
+        )
+    # Note: seed_complete_session returns a session object attached to sync_db.
+    # We might need to merge it to async db or just return it (it will be detached).
+    # But run_sync runs in same transaction.
+    # However, the object returned by run_sync might be bound to the sync session.
+    # We should probably re-query it in async session or merge it.
+    
+    # Actually, let's just implement async version or use run_sync and merge.
+    session = await db.run_sync(_run)
+    # Re-attach to async session
+    # session = await db.merge(session) # merge is async in AsyncSession? No, merge is sync method on Session.
+    # AsyncSession.merge is not standard?
+    # AsyncSession has merge.
+    # But session from run_sync is from sync session.
+    # Let's just return the ID and fetch it.
+    
+    from sqlalchemy import select
+    stmt = select(AssessmentSession).filter(AssessmentSession.id == session.id)
+    res = await db.execute(stmt)
+    return res.scalar_one()
+
 
 
 def seed_complete_session(

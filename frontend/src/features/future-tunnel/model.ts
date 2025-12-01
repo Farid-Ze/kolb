@@ -5,8 +5,9 @@ export type TunnelPhase = 'idle' | 'loading' | 'in-progress' | 'submitting' | 'c
 
 // Extend generated ItemRank with telemetry fields
 export interface TunnelItemDraft extends Omit<ItemRank, 'ranks'> {
-  // Frontend uses number keys for ranks, backend defines Record<string, number>
-  // We keep number keys here for strictness during editing
+  // Frontend uses number keys for ranks (Record<choiceId, rank>) for O(1) lookup during drag-and-drop.
+  // Backend defines ranks as Array<ItemChoiceRank> for submission.
+  // We keep number keys here for strictness during editing and transform on submit.
   ranks: Record<number, number>
   responseLatencyMs: number
   blurEvents: number
@@ -20,12 +21,11 @@ export type TunnelContextDraft = {
 export type ContextDraftMap = Record<string, TunnelContextDraft>
 
 export interface TunnelState {
-  sessionId: number | null
+  sessionId: string | null
   phase: TunnelPhase
-  items: AssessmentItem[]
   drafts: Record<number, TunnelItemDraft>
   contextDrafts: ContextDraftMap
-  submissionResult: SessionOperationResult | null
+  submissionResult: SessionOperationResult['result'] | null
   submissionError: Error | null
   lastAutosaveAt: number | null
   restoredFromDraft: boolean

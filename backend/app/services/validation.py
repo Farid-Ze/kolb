@@ -1,8 +1,9 @@
 from collections import Counter, defaultdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assessments.klsi_v4.logic import CONTEXT_NAMES, validate_lfi_context_ranks
 from app.core.errors import InvalidAssessmentData
@@ -268,32 +269,199 @@ def validate_full_submission_payload(db: Session, payload: SessionSubmissionPayl
     ]
     validate_lfi_context_ranks(context_payload)
 
-    missing = expected_ids - provided_ids
-    if missing:
-        raise InvalidAssessmentData(
-            BatchPayloadMessages.MISSING_ITEMS,
-            detail={"missing_item_ids": sorted(missing)},
+
+async def check_session_complete_async(db: AsyncSession, session_id: UUID) -> Dict[str, Any]:
+    """Validate completeness & consistency of a session's ipsative rankings (Async)."""
+    session_repo = SessionRepository(db)
+    session = await session_repo.get_by_id(session_id)
+    if not session:
+        return {
+            "session_exists": False,
+            "status": None,
+            "total_items": 0,
+            "responded_items": 0,
+            "missing_item_ids": [],
+            "items_with_rank_conflict": [],
+            "items_with_missing_ranks": [],
+            "duplicate_choice_ids": [],
+            "ready_to_complete": False,
+        }
+
+    # Fetch learning_style item IDs
+    item_repo = AssessmentItemRepository(db)
+    item_ids = await item_repo.get_learning_item_ids()
+
+    # Aggregate ranks per item
+    response_repo = UserResponseRepository(db)
+    rank_rows = await response_repo.aggregate_ranks_by_item(session_id)
+    
+    ranks_by_item: dict[int, set[int]] = defaultdict(set)
+    any_dup_per_item: dict[int, bool] = defaultdict(bool)
+    for aggregate in rank_rows:
+        ranks_by_item[aggregate.item_id].add(aggregate.rank_value)
+        if aggregate.count > 1:
+            any_dup_per_item[aggregate.item_id] = True
+
+    duplicate_choice_ids = await response_repo.find_duplicate_choices(session_id)
+
+    items_with_rank_conflict: List[int] = []
+    items_with_missing_ranks: List[Dict[str, Any]] = []
+    missing_item_ids: List[int] = []
+    expected = {1, 2, 3, 4}
+    for iid in item_ids:
+        present = ranks_by_item.get(iid)
+        if not present:
+            missing_item_ids.append(iid)
+            continue
+        if any_dup_per_item.get(iid, False):
+            items_with_rank_conflict.append(iid)
+        if present != expected:
+            items_with_missing_ranks.append({
+                "item_id": iid,
+                "present": sorted(present),
+                "missing": sorted(list(expected - present)),
+            })
+
+    responded_items = len(ranks_by_item.keys())
+    ready_to_complete = not missing_item_ids and not items_with_rank_conflict and not items_with_missing_ranks
+
+    return {
+        "session_exists": True,
+        "status": session.status.value if hasattr(session.status, 'value') else str(session.status),
+        "total_items": len(item_ids),
+        "responded_items": responded_items,
+        "missing_item_ids": missing_item_ids,
+        "items_with_rank_conflict": items_with_rank_conflict,
+        "items_with_missing_ranks": items_with_missing_ranks,
+        "duplicate_choice_ids": duplicate_choice_ids,
+        "ready_to_complete": ready_to_complete,
+    }
+
+
+async def run_session_validations_async(db: AsyncSession, session_id: UUID) -> Dict[str, Any]:
+    """Aggregate validation checks for session readiness prior to finalization (Async)."""
+
+    issues: List[Dict[str, Any]] = []
+    core = await check_session_complete_async(db, session_id)
+    if not core.get("session_exists"):
+        return {
+            "ready": False,
+            "issues": [
+                {
+                    "code": "SESSION_NOT_FOUND",
+                    "message": SessionErrorMessages.NOT_FOUND,
+                    "fatal": True,
+                }
+            ],
+            "diagnostics": core,
+        }
+
+    if core.get("missing_item_ids"):
+        issues.append(
+            {
+                "code": "ITEMS_INCOMPLETE",
+                "message": ValidationMessages.ITEMS_INCOMPLETE,
+                "item_ids": core["missing_item_ids"],
+                "fatal": True,
+            }
+        )
+    if core.get("items_with_missing_ranks"):
+        issues.append(
+            {
+                "code": "ITEM_RANK_GAPS",
+                "message": ValidationMessages.ITEM_RANK_GAPS,
+                "details": core["items_with_missing_ranks"],
+                "fatal": True,
+            }
+        )
+    if core.get("items_with_rank_conflict"):
+        issues.append(
+            {
+                "code": "ITEM_RANK_CONFLICT",
+                "message": ValidationMessages.ITEM_RANK_CONFLICT,
+                "item_ids": core["items_with_rank_conflict"],
+                "fatal": True,
+            }
         )
 
-    extra = provided_ids - expected_ids
-    if extra:
-        raise InvalidAssessmentData(
-            BatchPayloadMessages.UNKNOWN_ITEMS,
-            detail={"unknown_item_ids": sorted(extra)},
-        )
-
+    # LFI context validations
+    context_repo = LFIContextRepository(db)
+    contexts = await context_repo.list_for_session(session_id)
+    submitted_context_names = [ctx.context_name for ctx in contexts]
     allowed_contexts = set(CONTEXT_NAMES)
-    provided_contexts = {ctx.context_name for ctx in payload.contexts}
-    unknown_contexts = provided_contexts - allowed_contexts
-    if unknown_contexts:
-        raise InvalidAssessmentData(
-            BatchPayloadMessages.UNKNOWN_CONTEXTS,
-            detail={"unknown_contexts": sorted(unknown_contexts)},
-        )
-
-    # Reuse core validator to ensure permutation semantics for ranks
-    context_payload = [
-        {"CE": ctx.CE, "RO": ctx.RO, "AC": ctx.AC, "AE": ctx.AE}
-        for ctx in payload.contexts
+    unknown_context_names = sorted({name for name in submitted_context_names if name not in allowed_contexts})
+    context_status = [
+        {
+            "name": context_name,
+            "present": context_name in submitted_context_names,
+        }
+        for context_name in CONTEXT_NAMES
     ]
-    validate_lfi_context_ranks(context_payload)
+    missing_contexts = [name for name in CONTEXT_NAMES if name not in submitted_context_names]
+    if len(contexts) != len(CONTEXT_NAMES):
+        issues.append(
+            {
+                "code": "LFI_CONTEXT_COUNT",
+                "message": ValidationMessages.LFI_CONTEXT_COUNT.format(expected=len(CONTEXT_NAMES)),
+                "found": len(contexts),
+                "fatal": True,
+            }
+        )
+    else:
+        unique_names = {ctx.context_name for ctx in contexts}
+        unknown = sorted(unique_names - allowed_contexts)
+        if unknown:
+            issues.append(
+                {
+                    "code": "LFI_CONTEXT_UNKNOWN",
+                    "message": ValidationMessages.LFI_CONTEXT_UNKNOWN,
+                    "contexts": unknown,
+                    "fatal": True,
+                }
+            )
+        if len(unique_names) != len(contexts):
+            issues.append(
+                {
+                    "code": "LFI_CONTEXT_DUPLICATE",
+                    "message": ValidationMessages.LFI_CONTEXT_DUPLICATE,
+                    "fatal": True,
+                }
+            )
+        try:
+            payload = [
+                {
+                    "CE": ctx.CE_rank,
+                    "RO": ctx.RO_rank,
+                    "AC": ctx.AC_rank,
+                    "AE": ctx.AE_rank,
+                }
+                for ctx in contexts
+            ]
+            validate_lfi_context_ranks(payload)
+        except ValueError as exc:
+            issues.append(
+                {
+                    "code": "LFI_CONTEXT_RANK_INVALID",
+                    "message": str(exc),
+                    "fatal": True,
+                }
+            )
+
+    ready = not issues
+    return {
+        "ready": ready,
+        "issues": issues,
+        "diagnostics": {
+            "items": core,
+            "context_count": len(contexts),
+            "contexts": {
+                "expected_total": len(CONTEXT_NAMES),
+                "submitted_total": len(contexts),
+                "submitted_names": submitted_context_names,
+                "status": context_status,
+                "missing_names": missing_contexts,
+                "unknown_names": unknown_context_names,
+                "duplicate_names": [name for name, count in Counter(submitted_context_names).items() if count > 1],
+            },
+        },
+    }

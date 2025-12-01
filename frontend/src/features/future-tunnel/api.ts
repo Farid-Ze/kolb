@@ -1,5 +1,4 @@
-import { apiClient } from '../../shared/api/client'
-import { GrantsService } from '../../shared/api/generated'
+import { GrantsService, SessionsService } from '../../shared/api/generated'
 import type {
   SessionStartResponse,
   SessionSubmissionPayload,
@@ -14,46 +13,35 @@ export async function getGrantSummary(): Promise<Record<string, any>> {
 }
 
 export async function startSession(instrumentCode = 'KLSI', instrumentVersion = '4.0'): Promise<SessionStartResponse> {
-  const { data } = await apiClient.post<SessionStartResponse>('/sessions/start', {
+  return SessionsService.startSessionApiV1SessionsStartPost({
     instrumentCode,
     instrumentVersion,
   })
-  return data
 }
 
 export async function fetchSessionItems(sessionId: string): Promise<AssessmentItem[]> {
-  const { data } = await apiClient.get<{ items: AssessmentItem[] }>(`/sessions/${sessionId}/delivery`)
-  return data.items
+  // The generated client returns Record<string, any> for getDelivery, but we know it contains items.
+  // We cast it to match the expected return type.
+  const data = await SessionsService.getDeliveryApiV1SessionsSessionIdDeliveryGet(sessionId)
+  return data.items as AssessmentItem[]
 }
 
 export async function submitAllResponses(sessionId: string, payload: SessionSubmissionPayload): Promise<SessionOperationResult> {
-  const { data } = await apiClient.post<SessionOperationResult>(`/sessions/${sessionId}/submit_all_responses`, payload)
-  return data
-}
-
-export async function submitSingleResponse(
-  sessionId: string,
-  itemId: number,
-  responseMap: Record<number, number>,
-): Promise<{ ok: boolean }> {
-  const { data } = await apiClient.post<{ ok: boolean }>(`/sessions/${sessionId}/response`, {
-    item_id: itemId,
-    response_map: responseMap,
-  })
-  return data
+  return SessionsService.submitAllResponsesApiV1SessionsSessionIdSubmitAllResponsesPost(sessionId, payload)
 }
 
 export async function finalizeSession(sessionId: string): Promise<SessionOperationResult> {
-  const { data } = await apiClient.post<SessionOperationResult>(`/sessions/${sessionId}/finalize`, {})
-  return data
+  // finalizeApiV1SessionsSessionIdFinalizePost is deprecated but still available.
+  // However, the new flow uses submitAllResponses which includes finalize.
+  // If we need explicit finalize, we can use updateSession with status='completed'.
+  return SessionsService.updateSessionApiV1SessionsSessionIdPatch(sessionId, { status: 'completed' })
 }
 
 export async function fetchSessionState(sessionId: string): Promise<EngineSessionResponse> {
-  const { data } = await apiClient.get<EngineSessionResponse>(`/sessions/${sessionId}/items`)
-  return data
+  // Use the new state endpoint which returns the full EngineSessionResponse
+  return SessionsService.getSessionStateApiV1SessionsSessionIdStateGet(sessionId)
 }
 
 export async function autosaveSession(sessionId: string, payload: SessionAutosavePayload): Promise<SessionOperationResult> {
-  const { data } = await apiClient.post<SessionOperationResult>(`/sessions/${sessionId}/autosave`, payload)
-  return data
+  return SessionsService.autosaveSessionApiV1SessionsSessionIdAutosavePost(sessionId, payload)
 }

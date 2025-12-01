@@ -2,9 +2,10 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 import logging
-from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TYPE_CHECKING, Union
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assessments.constants import (
     CONTEXT_COUNT_LFI,
@@ -48,7 +49,7 @@ from app.schemas.session import (
     SessionAutosavePayload,
     SessionSubmissionPayload,
 )
-from app.services.validation import run_session_validations, validate_full_submission_payload
+from app.services.validation import run_session_validations, validate_full_submission_payload, run_session_validations_async
 from app.i18n.id_messages import SessionErrorMessages, ValidationMessages, DomainErrorMessages
 from app.services.assessments import build_kite_coordinates, detect_blindspots, detect_strengths
 from app.services.scoring import (
@@ -64,6 +65,7 @@ from app.services.sphere_service import sphere_service
 from app.db.repositories import TeamMemberRepository
 from app.services.rollup import compute_and_cache_team_snapshot
 from app.services.provenance import _upsert_scale_provenance_sync
+from app.core.cache import cache
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
@@ -71,70 +73,73 @@ if TYPE_CHECKING:  # pragma: no cover
 
 logger = get_logger("kolb.services.engine", component="service")
 
-def finalize_background_task(session_id: uuid.UUID, user_id: int) -> None:
+async def finalize_background_task(session_id: uuid.UUID, user_id: int) -> None:
     """
     Background task to finalize a session.
     Creates its own DB session to ensure thread safety and persistence after request scope.
     """
-    from app.db.database import SessionLocal
+    from app.db.database import AsyncSessionLocal
     from app.models.klsi.user import User
     from app.db.repositories import UserRepository
+    from sqlalchemy import select
     
     logger.info(f"Starting background finalization for session {session_id}")
-    db = SessionLocal()
-    try:
-        user_repo = UserRepository(db)
-        user = user_repo.get_sync(user_id)
-        if not user:
-            logger.error(f"User {user_id} not found during background finalization")
-            return
+    async with AsyncSessionLocal() as db:
+        try:
+            stmt = select(User).filter(User.id == user_id)
+            res = await db.execute(stmt)
+            user = res.scalar_one_or_none()
+            
+            if not user:
+                logger.error(f"User {user_id} not found during background finalization")
+                return
 
-        service = EngineSessionService(db)
-        # Finalize the session logic
-        result = service.finalize_session(session_id, user)
-        
-        # [Correctness Fix] Synchronous Provenance Logging
-        if result and "_provenance_payload" in result:
-             prov_payload = result.pop("_provenance_payload")
-             try:
-                 _upsert_scale_provenance_sync(
-                     db, 
-                     prov_payload['session_id'], 
-                     prov_payload['raw_scores'], 
-                     prov_payload['percentile_map'], 
-                     prov_payload['provenance_map'], 
-                     prov_payload['truncations'], 
-                     prov_payload.get('algorithm_sha')
-                 )
-             except Exception as e:
-                 logger.error(f"Failed to log provenance in background task: {e}") 
+            service = EngineSessionService(db)
+            # Finalize the session logic
+            result = await service.finalize_session(session_id, user)
+            
+            # [Correctness Fix] Synchronous Provenance Logging
+            if result and "_provenance_payload" in result:
+                 prov_payload = result.pop("_provenance_payload")
+                 try:
+                     def _log_provenance(sync_db):
+                         _upsert_scale_provenance_sync(
+                             sync_db, 
+                             prov_payload['session_id'], 
+                             prov_payload['raw_scores'], 
+                             prov_payload['percentile_map'], 
+                             prov_payload['provenance_map'], 
+                             prov_payload['truncations'], 
+                             prov_payload.get('algorithm_sha')
+                         )
+                     await db.run_sync(_log_provenance)
+                 except Exception as e:
+                     logger.error(f"Failed to log provenance in background task: {e}") 
 
-        logger.info(f"Successfully finalized session {session_id}")
-        db.commit()
-    except Exception as e:
-        logger.exception(f"Failed to finalize session {session_id}: {e}")
-        db.rollback()
-    finally:
-        db.close()
+            logger.info(f"Successfully finalized session {session_id}")
+            await db.commit()
+        except Exception as e:
+            logger.exception(f"Failed to finalize session {session_id}: {e}")
+            await db.rollback()
 
 class EngineSessionService:
     """High-level orchestration helpers for engine session endpoints."""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self._sessions = SessionRepository(db)
         self._responses = UserResponseRepository(db)
         self._contexts = LFIContextRepository(db)
         self._items = AssessmentItemRepository(db)
 
-    def start_session(
+    async def start_session(
         self,
         user: Optional["User"],
         *,
         instrument_code: str,
         instrument_version: Optional[str] = None,
     ):
-        return runtime.start_session(
+        return await runtime.start_session(
             self.db,
             user,
             instrument_code=instrument_code,
@@ -142,23 +147,23 @@ class EngineSessionService:
             study_id=None,
         )
 
-    def delivery_package(self, session_id: uuid.UUID, user: "User", *, locale: str | None = None, lite: bool = False) -> Dict[str, Any]:
-        self._load_authorized_session(session_id, user)
-        return runtime.delivery_package(self.db, session_id, locale=locale, lite=lite)
+    async def delivery_package(self, session_id: uuid.UUID, user: "User", *, locale: str | None = None, lite: bool = False) -> Dict[str, Any]:
+        await self._ensure_authorized(session_id, user)
+        return await runtime.delivery_package(self.db, session_id, locale=locale, lite=lite)
 
-    def session_state(
+    async def session_state(
         self,
         session_id: uuid.UUID,
         user: "User",
         *,
         locale: str | None = None,
     ) -> Dict[str, Any]:
-        session = self._load_authorized_session(session_id, user)
-        delivery = runtime.delivery_package(self.db, session_id, locale=locale)
+        session = await self._load_authorized_session(session_id, user)
+        delivery = await runtime.delivery_package(self.db, session_id, locale=locale)
         items = delivery.get("items", []) if isinstance(delivery, dict) else []
-        responses = self._responses.list_with_choices_sync(session_id)
+        responses = await self._responses.list_with_choices(session_id)
         response_map = self._build_response_map(responses)
-        contexts = self._contexts.list_for_session_sync(session_id)
+        contexts = await self._contexts.list_for_session(session_id)
         response_payload = self._order_responses(items, response_map)
         contexts_payload = self._build_context_payload(contexts)
         total_items = len(items)
@@ -179,7 +184,7 @@ class EngineSessionService:
             "current_item_index": next_index,
         }
 
-    def autosave_responses(
+    async def autosave_responses(
         self,
         session_id: uuid.UUID,
         user: "User",
@@ -187,10 +192,10 @@ class EngineSessionService:
         *,
         locale: str | None = None,
     ) -> Dict[str, Any]:
-        self._load_authorized_session(session_id, user)
+        await self._ensure_authorized(session_id, user)
         if not payload.responses and not payload.contexts:
             return {"saved_count": 0}
-        delivery = runtime.delivery_package(self.db, session_id, locale=locale)
+        delivery = await runtime.delivery_package(self.db, session_id, locale=locale)
         items = delivery.get("items", []) if isinstance(delivery, dict) else []
         option_lookup = self._build_option_lookup(items)
         
@@ -198,7 +203,7 @@ class EngineSessionService:
         for entry in payload.responses:
             normalized = self._convert_autosave_ranks(entry, option_lookup)
             submission = LegacyItemSubmissionPayload(item_id=entry.item_id, ranks=normalized)
-            runtime.submit_payload(self.db, session_id, submission.runtime_payload())
+            await runtime.submit_payload(self.db, session_id, submission.runtime_payload())
             saved += 1
         
         for ctx in payload.contexts:
@@ -211,12 +216,12 @@ class EngineSessionService:
                 AE=ctx.AE,
                 overwrite=True
             )
-            runtime.submit_payload(self.db, session_id, submission.runtime_payload())
+            await runtime.submit_payload(self.db, session_id, submission.runtime_payload())
             saved += 1
 
         return {"saved_count": saved}
 
-    def submit_full_batch(
+    async def submit_full_batch(
         self,
         session_id: uuid.UUID,
         user: "User",
@@ -224,7 +229,7 @@ class EngineSessionService:
     ) -> Dict[str, Any]:
         try:
             # [Architecture Fix] Use Repository for Pessimistic Locking
-            session = self._sessions.get_with_lock_sync(session_id)
+            session = await self._sessions.get_with_lock(session_id)
             if not session:
                 raise SessionNotFoundError()
             
@@ -244,9 +249,9 @@ class EngineSessionService:
                 raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
 
             validate_full_submission_payload(self.db, payload)
-            self._persist_batch_payload(session_id, payload)
+            await self._persist_batch_payload(session_id, payload)
             
-            result = runtime.finalize_with_audit(
+            result = await runtime.finalize_with_audit(
                 self.db,
                 session_id,
                 actor_email=user.email if user.email else "guest",
@@ -254,7 +259,7 @@ class EngineSessionService:
                 build_payload=self._build_standard_audit_payload(user.email if user.email else "guest", session_id),
                 transactional=True,
             )
-            self.db.commit()
+            await self.db.commit()
             final_result = self._transform_finalize_result(result, override=result.get("override", False))
             
             if "percentiles" in result:
@@ -262,51 +267,51 @@ class EngineSessionService:
                 if provenance_payload:
                     final_result["_provenance_payload"] = provenance_payload
             
-            self._update_user_team_caches(user.id)
+            await self._update_user_team_caches(user.id)
             return final_result
         except DomainError:
-            self.db.rollback()
+            await self.db.rollback()
             raise
         except Exception as exc:
-            self.db.rollback()
+            await self.db.rollback()
             logger.exception("batch_submission_failed", extra={"structured_data": {"error": str(exc)}})
             raise ConfigurationError(SessionErrorMessages.BATCH_FAILURE) from exc
 
-    def submit_interaction(
+    async def submit_interaction(
         self,
         session_id: uuid.UUID,
         user: "User",
         payload: Dict[str, Any],
     ) -> None:
-        self._load_authorized_session(session_id, user)
-        runtime.submit_payload(self.db, session_id, payload)
+        await self._ensure_authorized(session_id, user)
+        await runtime.submit_payload(self.db, session_id, payload)
 
-    def finalize_session(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
-        session = self._load_authorized_session(session_id, user)
+    async def finalize_session(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
+        session = await self._load_authorized_session(session_id, user)
         if session.status == SessionStatus.completed:
             raise SessionFinalizedError(SessionErrorMessages.ALREADY_COMPLETED)
-        use_native = self._should_use_native_pipeline(session.id)
+        use_native = await self._should_use_native_pipeline(session.id)
         if use_native:
-            result = self._finalize_native_session(session)
+            result = await self._finalize_native_session(session)
         else:
-            result = runtime.finalize_with_audit(
+            result = await runtime.finalize_with_audit(
                 self.db,
                 session_id,
                 actor_email=user.email,
                 action="FINALIZE_SESSION_USER",
                 build_payload=self._build_standard_audit_payload(user.email, session_id),
             )
-        snapshot = self._persist_results_snapshot(session_id, result)
+        snapshot = await self._persist_results_snapshot(session_id, result)
         blindspots = snapshot.get("blindspots", [])
 
-        self._safe_assign_growth_challenges(user.id, blindspots)
-        self._safe_apply_gamification(user.id)
-        self._safe_create_sphere_event(user.id, session_id)
+        await self._safe_assign_growth_challenges(user.id, blindspots)
+        await self._safe_apply_gamification(user.id)
+        await self._safe_create_sphere_event(user.id, session_id)
 
         try:
-            self.db.commit()
+            await self.db.commit()
         except Exception:
-            self.db.rollback()
+            await self.db.rollback()
             raise
 
         final_result = self._transform_finalize_result(result, override=result.get("override", False))
@@ -318,10 +323,10 @@ class EngineSessionService:
         if provenance_payload:
             final_result["_provenance_payload"] = provenance_payload
                   
-        self._update_user_team_caches(user.id)
+        await self._update_user_team_caches(user.id)
         return final_result
 
-    def force_finalize(
+    async def force_finalize(
         self,
         session_id: uuid.UUID,
         mediator: "User",
@@ -331,9 +336,9 @@ class EngineSessionService:
         if mediator.role != "MEDIATOR":
             raise PermissionDeniedError(SessionErrorMessages.MEDIATOR_OVERRIDE_FORBIDDEN)
 
-        self._load_authorized_session(session_id, mediator)
+        await self._load_authorized_session(session_id, mediator)
 
-        result = runtime.finalize_with_audit(
+        result = await runtime.finalize_with_audit(
             self.db,
             session_id,
             actor_email=mediator.email,
@@ -346,54 +351,80 @@ class EngineSessionService:
         payload["override_reason"] = reason
         return payload
 
-    def build_report(self, session_id: uuid.UUID, viewer: "User") -> Dict[str, Any]:
-        self._load_authorized_session(session_id, viewer)
+    async def build_report(self, session_id: uuid.UUID, viewer: "User") -> Dict[str, Any]:
+        await self._load_authorized_session(session_id, viewer)
         viewer_role = "MEDIATOR" if viewer.role == "MEDIATOR" else None
-        return runtime.build_report(self.db, session_id, viewer_role)
+        return await runtime.build_report(self.db, session_id, viewer_role)
 
-    def _should_use_native_pipeline(self, session_id: uuid.UUID) -> bool:
+    async def _should_use_native_pipeline(self, session_id: uuid.UUID) -> bool:
         """Return True when assessment_item_responses + LFI contexts are complete."""
         # [Architecture Fix] Use Repository methods instead of direct query
-        response_count = self._responses.count_by_session(session_id)
+        # count_by_session is sync in repo, need to check if async exists or use sync wrapper?
+        # Wait, SessionRepository has async methods. UserResponseRepository has count_by_session (sync).
+        # I should add async count_by_session to UserResponseRepository or use run_sync?
+        # Or just use the sync method if it's fast? No, blocking.
+        # I'll assume I can add async method or use execute.
+        # For now, I'll use a direct query via execute since I have AsyncSession.
+        from sqlalchemy import select, func
+        from app.models.klsi.items import UserResponse
+        from app.models.klsi.learning import LFIContextScore
+        
+        stmt = select(func.count(UserResponse.id)).filter(UserResponse.session_id == session_id)
+        result = await self.db.execute(stmt)
+        response_count = result.scalar() or 0
+        
         if response_count < ITEM_COUNT_KLSI4 * len(LEARNING_MODES):
             return False
         
-        context_count = self._contexts.count_by_session(session_id)
+        stmt_ctx = select(func.count(LFIContextScore.id)).filter(LFIContextScore.session_id == session_id)
+        result_ctx = await self.db.execute(stmt_ctx)
+        context_count = result_ctx.scalar() or 0
+        
         return context_count >= CONTEXT_COUNT_LFI
 
-    def _finalize_native_session(self, session: "AssessmentSession") -> Dict[str, Any]:
-        rows = self._load_native_responses(session.id)
-        totals = self._summarize_forced_choice_rows(rows)
-        scale = self._upsert_scale_score(session.id, totals)
-        self._reset_session_artifacts(session.id)
-        combo = compute_combination_scores(self.db, scale)
-        style, intensity_metrics = logic_assign_learning_style(self.db, combo)
-        percentiles = self._apply_percentiles_native(session.id, scale, combo)
-        lfi = self._compute_lfi_native(session.id)
-        delta = self._compute_delta_native(session.id, combo, lfi, intensity_metrics)
-        session.status = SessionStatus.completed
-        session.end_time = datetime.now(timezone.utc)
-        session.pipeline_version = "native:v1"
-        self.db.flush()
-        result = {
-            "combination": combo,
-            "style": style,
-            "lfi": lfi,
-            "percentiles": percentiles,
-            "delta": delta,
-            "validation": {"ready": True, "issues": [], "diagnostics": {}},
-            "override": False,
-        }
-        return result
+    async def _finalize_native_session(self, session: "AssessmentSession") -> Dict[str, Any]:
+        def _run_logic(db: Session):
+            from app.db.repositories.assessment import UserResponseRepository
+            from app.db.repositories.sessions import SessionRepository
+            
+            responses_repo = UserResponseRepository(db)
+            sessions_repo = SessionRepository(db)
+            
+            rows = responses_repo.get_native_responses_sync(session.id)
+            if not rows:
+                raise InvalidAssessmentData(ValidationMessages.ITEMS_INCOMPLETE)
+            
+            totals = self._summarize_forced_choice_rows(rows)
+            
+            scale = sessions_repo.upsert_scale_score_sync(
+                session.id, totals["CE"], totals["RO"], totals["AC"], totals["AE"]
+            )
+            
+            sessions_repo.reset_artifacts_sync(session.id)
+            
+            combo = compute_combination_scores(db, scale)
+            style, intensity_metrics = logic_assign_learning_style(db, combo)
+            percentiles = apply_percentiles(db, scale, combo)
+            lfi = compute_lfi(db, session.id)
+            delta = compute_longitudinal_delta(db, session.id, combo, lfi, intensity_metrics)
+            
+            s = db.merge(session)
+            s.status = SessionStatus.completed
+            s.end_time = datetime.now(timezone.utc)
+            s.pipeline_version = "native:v1"
+            db.flush()
+            
+            return {
+                "combination": combo,
+                "style": style,
+                "lfi": lfi,
+                "percentiles": percentiles,
+                "delta": delta,
+                "validation": {"ready": True, "issues": [], "diagnostics": {}},
+                "override": False,
+            }
 
-    def _load_native_responses(
-        self,
-        session_id: uuid.UUID,
-    ) -> list[tuple[UserResponse, int, LearningMode | None]]:
-        rows = self._responses.get_native_responses_sync(session_id)
-        if not rows:
-            raise InvalidAssessmentData(ValidationMessages.ITEMS_INCOMPLETE)
-        return rows
+        return await self.db.run_sync(_run_logic)
 
     def _summarize_forced_choice_rows(
         self,
@@ -424,50 +455,12 @@ class EngineSessionService:
             raise InvalidAssessmentData(ValidationMessages.ITEM_RANK_GAPS)
         return totals
 
-    def _upsert_scale_score(self, session_id: uuid.UUID, totals: dict[str, int]) -> ScaleScore:
-        return self._sessions.upsert_scale_score_sync(
-            session_id,
-            totals["CE"],
-            totals["RO"],
-            totals["AC"],
-            totals["AE"],
-        )
+    async def ensure_access(self, session_id: uuid.UUID, user: "User") -> None:
+        await self._load_authorized_session(session_id, user)
 
-    def _reset_session_artifacts(self, session_id: uuid.UUID) -> None:
-        self._sessions.reset_artifacts_sync(session_id)
-
-    def _apply_percentiles_native(
-        self,
-        session_id: uuid.UUID,
-        scale: ScaleScore,
-        combo: CombinationScore,
-    ) -> PercentileScore:
-        return apply_percentiles(self.db, scale, combo)
-
-    def _compute_lfi_native(self, session_id: uuid.UUID) -> LearningFlexibilityIndex:
-        return compute_lfi(self.db, session_id)
-
-    def _compute_delta_native(
-        self,
-        session_id: uuid.UUID,
-        combo: CombinationScore,
-        lfi: LearningFlexibilityIndex,
-        intensity_metrics: Any,
-    ) -> AssessmentSessionDelta | None:
-        return compute_longitudinal_delta(
-            self.db,
-            session_id,
-            combo,
-            lfi,
-            intensity_metrics,
-        )
-
-    def ensure_access(self, session_id: uuid.UUID, user: "User") -> None:
-        self._load_authorized_session(session_id, user)
-
-    def validation_snapshot(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
-        self._load_authorized_session(session_id, user)
-        return run_session_validations(self.db, session_id)
+    async def validation_snapshot(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
+        await self._load_authorized_session(session_id, user)
+        return await run_session_validations_async(self.db, session_id)
 
     def _check_session_access(self, session: "AssessmentSession", user: "User") -> None:
         is_guest = getattr(user, "is_guest", False)
@@ -479,29 +472,76 @@ class EngineSessionService:
         if user.role != "MEDIATOR" and session.user_id != user.id:
             raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
 
-    def _load_authorized_session(
+    async def _ensure_authorized(self, session_id: uuid.UUID, user: "User") -> None:
+        """Lightweight access check using Redis cache if available."""
+        cache_key = f"session:{session_id}:state"
+        cached_state = await cache.get(cache_key)
+        
+        if cached_state:
+            owner_id = cached_state.get("user_id")
+            guest_token = cached_state.get("guest_token")
+            
+            is_guest = getattr(user, "is_guest", False)
+            if is_guest:
+                if not guest_token or guest_token != user.guest_token:
+                     raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
+                return
+
+            if user.role != "MEDIATOR" and owner_id != user.id:
+                raise PermissionDeniedError(DomainErrorMessages.PERMISSION_DENIED)
+            return
+
+        # Fallback to full DB load
+        await self._load_authorized_session(session_id, user)
+
+    async def _load_authorized_session(
         self,
         session_id: uuid.UUID,
         user: "User",
     ) -> "AssessmentSession":
-        session = self._sessions.get_with_instrument_sync(session_id)
+        from sqlalchemy import select
+        from sqlalchemy.orm import joinedload
+        
+        stmt = (
+            select(AssessmentSession)
+            .options(joinedload(AssessmentSession.instrument))
+            .filter(AssessmentSession.id == session_id)
+        )
+        result = await self.db.execute(stmt)
+        session = result.scalar_one_or_none()
+        
         if not session:
             raise SessionNotFoundError()
             
         self._check_session_access(session, user)
+        
+        # Populate Cache
+        try:
+            cache_key = f"session:{session_id}:state"
+            state = {
+                "user_id": session.user_id,
+                "status": session.status.value,
+                "guest_token": session.guest_token,
+                "assessment_id": session.assessment_id,
+                "assessment_version": session.assessment_version
+            }
+            await cache.set(cache_key, state, ttl=3600)
+        except Exception as e:
+            logger.warning(f"Failed to cache session state: {e}")
+
         return session
 
-    def _persist_batch_payload(self, session_id: uuid.UUID, payload: SessionSubmissionPayload) -> None:
+    async def _persist_batch_payload(self, session_id: uuid.UUID, payload: SessionSubmissionPayload) -> None:
         for item in payload.items:
             for r in item.ranks:
-                self._responses.record_response_sync(
+                await self._responses.record_response(
                     session_id=session_id,
                     item_id=item.item_id,
                     choice_id=int(r.choice_id),
                     rank_value=int(r.rank),
                 )
         for ctx in payload.contexts:
-            self._contexts.record_context_sync(
+            await self._contexts.record_context(
                 session_id=session_id,
                 context_name=ctx.context_name,
                 CE=ctx.CE,
@@ -509,7 +549,7 @@ class EngineSessionService:
                 AC=ctx.AC,
                 AE=ctx.AE,
             )
-        self.db.flush()
+        await self.db.flush()
 
     def _build_response_map(self, responses: Sequence["UserResponse"]) -> dict[int, dict[str, int]]:
         response_map: dict[int, dict[str, int]] = defaultdict(dict)
@@ -693,41 +733,49 @@ class EngineSessionService:
             payload["override_reason"] = override_reason
         return payload
 
-    def _persist_results_snapshot(self, session_id: uuid.UUID, result: Dict[str, Any]) -> Dict[str, Any]:
-        session = self._sessions.get_with_details_sync(session_id)
-        if not session:
-            return {}
+    async def _persist_results_snapshot(self, session_id: uuid.UUID, result: Dict[str, Any]) -> Dict[str, Any]:
+        def _run(db: Session):
+            from app.db.repositories.sessions import SessionRepository
+            repo = SessionRepository(db)
+            session = repo.get_with_details_sync(session_id)
+            if not session:
+                return {}
+            
+            kite_coordinates = build_kite_coordinates(session)
+            blindspots = detect_blindspots(kite_coordinates)
+            strengths = detect_strengths(kite_coordinates)
 
-        kite_coordinates = build_kite_coordinates(session)
-        blindspots = detect_blindspots(kite_coordinates)
-        strengths = detect_strengths(kite_coordinates)
+            percentiles_payload = self._percentiles_payload(
+                result.get("percentiles"), getattr(session, "percentile_score", None)
+            )
+            runtime_lfi = result.get("lfi")
+            lfi_score = getattr(runtime_lfi, "LFI_score", None)
+            if lfi_score is None:
+                lfi_score = getattr(getattr(session, "lfi_index", None), "LFI_score", None)
 
-        percentiles_payload = self._percentiles_payload(
-            result.get("percentiles"), getattr(session, "percentile_score", None)
-        )
-        runtime_lfi = result.get("lfi")
-        lfi_score = getattr(runtime_lfi, "LFI_score", None)
-        if lfi_score is None:
-            lfi_score = getattr(getattr(session, "lfi_index", None), "LFI_score", None)
+            results = {
+                "kite_coordinates": kite_coordinates,
+                "lfi_score": lfi_score,
+                "percentiles": percentiles_payload,
+                "blindspots": blindspots,
+                "strengths": strengths,
+            }
+            session.results_json = results
+            return results
 
-        results = {
-            "kite_coordinates": kite_coordinates,
-            "lfi_score": lfi_score,
-            "percentiles": percentiles_payload,
-            "blindspots": blindspots,
-            "strengths": strengths,
-        }
-        session.results_json = results
-        return results
+        return await self.db.run_sync(_run)
 
-    def _update_user_team_caches(self, user_id: int) -> None:
-        try:
-            team_repo = TeamMemberRepository(self.db)
-            memberships = team_repo.list_by_user_sync(user_id)
-            for membership in memberships:
-                compute_and_cache_team_snapshot(self.db, membership.team_id)
-        except Exception as e:
-            logger.error(f"Failed to update team cache for user {user_id}: {e}")
+    async def _update_user_team_caches(self, user_id: int) -> None:
+        def _run(db: Session):
+            try:
+                team_repo = TeamMemberRepository(db)
+                memberships = team_repo.list_by_user_sync(user_id)
+                for membership in memberships:
+                    compute_and_cache_team_snapshot(db, membership.team_id)
+            except Exception as e:
+                logger.error(f"Failed to update team cache for user {user_id}: {e}")
+        
+        await self.db.run_sync(_run)
 
     @staticmethod
     def _percentiles_payload(runtime_percentiles: Any, model_percentiles: Any) -> Optional[Dict[str, Any]]:
@@ -756,50 +804,60 @@ class EngineSessionService:
             "norm_version": getattr(source, "norm_version_used", None),
         }
 
-    def _safe_assign_growth_challenges(self, user_id: int, blindspots: list[str]) -> None:
-        deficiency_codes = [f"{dimension}_low" for dimension in blindspots]
-        if not deficiency_codes:
-            return
-        try:
-            challenge_service.assign_challenges_for_deficiencies(
-                self.db,
-                user_id,
-                deficiency_codes,
-            )
-        except Exception:
-            logger.exception(
-                "assign_growth_challenge_failed",
-                extra={"structured_data": {"user_id": user_id, "deficiencies": deficiency_codes}},
-            )
+    async def _safe_assign_growth_challenges(self, user_id: int, blindspots: list[str]) -> None:
+        def _run(db: Session):
+            deficiency_codes = [f"{dimension}_low" for dimension in blindspots]
+            if not deficiency_codes:
+                return
+            try:
+                challenge_service.assign_challenges_for_deficiencies(
+                    db,
+                    user_id,
+                    deficiency_codes,
+                )
+            except Exception:
+                logger.exception(
+                    "assign_growth_challenge_failed",
+                    extra={"structured_data": {"user_id": user_id, "deficiencies": deficiency_codes}},
+                )
+        await self.db.run_sync(_run)
 
-    def _safe_apply_gamification(self, user_id: int) -> None:
-        try:
-            gamification_service.award_badge(self.db, user_id, "the-seeker")
-            gamification_service.add_points(self.db, user_id, 100)
-        except Exception:
-            logger.exception(
-                "gamification_award_failed",
-                extra={"structured_data": {"user_id": user_id, "badge": "the-seeker"}},
-            )
+    async def _safe_apply_gamification(self, user_id: int) -> None:
+        def _run(db: Session):
+            try:
+                gamification_service.award_badge(db, user_id, "the-seeker")
+                gamification_service.add_points(db, user_id, 100)
+            except Exception:
+                logger.exception(
+                    "gamification_award_failed",
+                    extra={"structured_data": {"user_id": user_id, "badge": "the-seeker"}},
+                )
+        await self.db.run_sync(_run)
 
-    def _safe_create_sphere_event(self, user_id: int, session_id: uuid.UUID) -> None:
-        try:
-            sphere_service.create_node_for_event(
-                self.db, 
-                user_id, 
-                "assessment_completed", 
-                {"session_id": str(session_id)}
-            )
-        except Exception:
-            logger.exception(
-                "sphere_node_creation_failed",
-                extra={"structured_data": {"user_id": user_id, "session_id": session_id}},
-            )
+    async def _safe_create_sphere_event(self, user_id: int, session_id: uuid.UUID) -> None:
+        def _run(db: Session):
+            try:
+                sphere_service.create_node_for_event(
+                    db, 
+                    user_id, 
+                    "assessment_completed", 
+                    {"session_id": str(session_id)}
+                )
+            except Exception:
+                logger.exception(
+                    "sphere_node_creation_failed",
+                    extra={"structured_data": {"user_id": user_id, "session_id": session_id}},
+                )
+        await self.db.run_sync(_run)
 
-    def submit_single_response(self, session_id: uuid.UUID, user: "User", item_id: int, response_map: Dict[str, int]) -> Dict[str, Any]:
-        self._load_authorized_session(session_id, user)
+    async def submit_single_response(self, session_id: uuid.UUID, user: "User", item_id: int, response_map: Dict[str, int]) -> Dict[str, Any]:
+        await self._ensure_authorized(session_id, user)
         
-        choices = self._items.get_choices_sync(item_id)
+        from sqlalchemy import select
+        stmt = select(ItemChoice).filter(ItemChoice.item_id == item_id)
+        res = await self.db.execute(stmt)
+        choices = res.scalars().all()
+        
         if not choices:
             raise DomainError(f"Item {item_id} not found or has no choices")
 
@@ -818,14 +876,17 @@ class EngineSessionService:
             "ranks": ranks,
         }
 
-        runtime.submit_payload(self.db, session_id, runtime_payload)
+        await runtime.submit_payload(self.db, session_id, runtime_payload)
 
-        # Use repo count
-        responded_count = self._responses.count_by_session(session_id)
+        # Use async count
+        stmt_count = select(func.count(UserResponse.id)).filter(UserResponse.session_id == session_id)
+        res_count = await self.db.execute(stmt_count)
+        responded_count = res_count.scalar() or 0
+        
         progress = min(100.0, (responded_count / 12.0) * 100.0)
         return {"status": "synced", "progress": progress}
 
-    def record_telemetry(
+    async def record_telemetry(
         self,
         session_id: uuid.UUID,
         user: "User",
@@ -835,9 +896,15 @@ class EngineSessionService:
         blur_events: int | None = None,
         meta: dict[str, Any] | None = None,
     ) -> None:
-        self._load_authorized_session(session_id, user)
+        await self._ensure_authorized(session_id, user)
         
-        item_response = self._responses.get_response_sync(session_id, item_id)
+        from sqlalchemy import select
+        stmt = select(AssessmentItemResponse).filter(
+            AssessmentItemResponse.session_id == session_id,
+            AssessmentItemResponse.item_id == item_id,
+        )
+        res = await self.db.execute(stmt)
+        item_response = res.scalar_one_or_none()
 
         if item_response:
             if response_rank is not None:
@@ -852,4 +919,4 @@ class EngineSessionService:
                 telemetry_data["meta"] = meta
             item_response.telemetry = telemetry_data
             
-            self.db.commit()
+            await self.db.commit()

@@ -1,18 +1,18 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "KLSI 4.0 API",
+    "title": "Zenotika Assessment Engine",
     "description": "Assessment engine and analytics API for KLSI 4.0",
     "version": "4.0.0"
   },
   "paths": {
-    "/auth/register": {
+    "/api/v1/auth/register": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Register",
-        "operationId": "register_auth_register_post",
+        "operationId": "register_api_v1_auth_register_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -47,13 +47,13 @@
         }
       }
     },
-    "/auth/login": {
+    "/api/v1/auth/login": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Login",
-        "operationId": "login_auth_login_post",
+        "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -88,13 +88,13 @@
         }
       }
     },
-    "/auth/refresh": {
+    "/api/v1/auth/refresh": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Refresh Token Endpoint",
-        "operationId": "refresh_token_endpoint_auth_refresh_post",
+        "operationId": "refresh_token_endpoint_api_v1_auth_refresh_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -129,13 +129,13 @@
         }
       }
     },
-    "/users/me": {
+    "/api/v1/users/me": {
       "get": {
         "tags": [
           "users"
         ],
         "summary": "Get Me",
-        "operationId": "get_me_users_me_get",
+        "operationId": "get_me_api_v1_users_me_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -155,13 +155,13 @@
         ]
       }
     },
-    "/users/me/achievements": {
+    "/api/v1/users/me/achievements": {
       "get": {
         "tags": [
           "users"
         ],
         "summary": "List User Achievements",
-        "operationId": "list_user_achievements_users_me_achievements_get",
+        "operationId": "list_user_achievements_api_v1_users_me_achievements_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -172,7 +172,7 @@
                     "$ref": "#/components/schemas/UserAchievementOut"
                   },
                   "type": "array",
-                  "title": "Response List User Achievements Users Me Achievements Get"
+                  "title": "Response List User Achievements Api V1 Users Me Achievements Get"
                 }
               }
             }
@@ -185,14 +185,14 @@
         ]
       }
     },
-    "/assessments/latest": {
+    "/api/v1/assessments/latest": {
       "get": {
         "tags": [
           "assessments"
         ],
         "summary": "Get Latest Assessment",
         "description": "Get the latest completed assessment session for the current user.\n\nThis endpoint is strictly scoped to the authenticated user. It retrieves the most\nrecent session with status 'completed' and maps the internal ORM model to a\nfrontend-friendly DTO.\n\nReturns:\n    AssessmentSessionResponse: The latest completed session with results.\n    None: If the user has no completed sessions (returns 200 OK with null body).\n\nRaises:\n    HTTPException(401): If the user is not authenticated.",
-        "operationId": "get_latest_assessment_assessments_latest_get",
+        "operationId": "get_latest_assessment_api_v1_assessments_latest_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -207,7 +207,7 @@
                       "type": "null"
                     }
                   ],
-                  "title": "Response Get Latest Assessment Assessments Latest Get"
+                  "title": "Response Get Latest Assessment Api V1 Assessments Latest Get"
                 }
               }
             }
@@ -220,14 +220,124 @@
         ]
       }
     },
-    "/sessions/{session_id}/delivery": {
+    "/api/v1/sessions/": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "List Sessions",
+        "description": "List all assessment sessions for the current user.\n\n[Architecture Fix] Converted to async def to match async repository.",
+        "operationId": "list_sessions_api_v1_sessions__get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionListResponse"
+                  },
+                  "title": "Response List Sessions Api V1 Sessions  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/start": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Start Session",
+        "description": "Start a new assessment session.\n\nThis is the primary entry point for starting an assessment.\nEnforces Grant consumption (Phase 1: Semantic Pivot).",
+        "operationId": "start_session_api_v1_sessions_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/delivery": {
       "get": {
         "tags": [
           "sessions"
         ],
         "summary": "Get Delivery",
         "description": "Fetch full delivery package including items, manifest, and locale resources.\nThis is the primary endpoint for retrieving assessment content.\n\nArgs:\n    lite: If True, returns only manifest and structure (no item content).\n          Use for checking updates or lightweight sync.",
-        "operationId": "get_delivery_sessions__session_id__delivery_get",
+        "operationId": "get_delivery_api_v1_sessions__session_id__delivery_get",
         "security": [
           {
             "BearerAuth": []
@@ -274,7 +384,8 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Get Delivery Sessions  Session Id  Delivery Get"
+                  "additionalProperties": true,
+                  "title": "Response Get Delivery Api V1 Sessions  Session Id  Delivery Get"
                 }
               }
             }
@@ -292,14 +403,14 @@
         }
       }
     },
-    "/sessions/{session_id}/items": {
+    "/api/v1/sessions/{session_id}/items": {
       "get": {
         "tags": [
           "sessions"
         ],
         "summary": "Get Items",
         "description": "Fetch assessment items for a specific session.\n\nSecurity:\n- Requires authentication.\n- Enforces strict ownership: users can only access their own sessions.\n- Returns 403 Forbidden if accessing another user's session.",
-        "operationId": "get_items_sessions__session_id__items_get",
+        "operationId": "get_items_api_v1_sessions__session_id__items_get",
         "security": [
           {
             "BearerAuth": []
@@ -325,7 +436,7 @@
                 "schema": {
                   "type": "array",
                   "items": {},
-                  "title": "Response Get Items Sessions  Session Id  Items Get"
+                  "title": "Response Get Items Api V1 Sessions  Session Id  Items Get"
                 }
               }
             }
@@ -343,14 +454,14 @@
         }
       }
     },
-    "/sessions/{session_id}/submit-all-responses": {
+    "/api/v1/sessions/{session_id}/submit-all-responses": {
       "post": {
         "tags": [
           "sessions"
         ],
         "summary": "Submit All Responses",
         "description": "Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,\nfollowed by finalize. This reduces chattiness (22 calls \u2192 1) and ensures atomicity.",
-        "operationId": "submit_all_responses_sessions__session_id__submit_all_responses_post",
+        "operationId": "submit_all_responses_api_v1_sessions__session_id__submit_all_responses_post",
         "security": [
           {
             "BearerAuth": []
@@ -402,13 +513,87 @@
         }
       }
     },
-    "/sessions/{session_id}/finalize": {
+    "/api/v1/sessions/{session_id}": {
+      "patch": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Update Session",
+        "description": "Update session state.\n\n- Set status='completed' to finalize the session.",
+        "operationId": "update_session_api_v1_sessions__session_id__patch",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "description": "Unique key to prevent duplicate operations",
+              "title": "Idempotency-Key",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": "Unique key to prevent duplicate operations"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOperationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/finalize": {
       "post": {
         "tags": [
           "sessions"
         ],
         "summary": "Finalize",
-        "operationId": "finalize_sessions__session_id__finalize_post",
+        "operationId": "finalize_api_v1_sessions__session_id__finalize_post",
+        "deprecated": true,
         "security": [
           {
             "BearerAuth": []
@@ -450,14 +635,14 @@
         }
       }
     },
-    "/sessions/{session_id}/validation": {
+    "/api/v1/sessions/{session_id}/validation": {
       "get": {
         "tags": [
           "sessions"
         ],
         "summary": "Session Validation",
         "description": "Mengembalikan status kelengkapan sesi (item ipsatif & konteks LFI).",
-        "operationId": "session_validation_sessions__session_id__validation_get",
+        "operationId": "session_validation_api_v1_sessions__session_id__validation_get",
         "security": [
           {
             "BearerAuth": []
@@ -482,7 +667,8 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Session Validation Sessions  Session Id  Validation Get"
+                  "additionalProperties": true,
+                  "title": "Response Session Validation Api V1 Sessions  Session Id  Validation Get"
                 }
               }
             }
@@ -500,14 +686,14 @@
         }
       }
     },
-    "/sessions/{session_id}/autosave": {
+    "/api/v1/sessions/{session_id}/autosave": {
       "post": {
         "tags": [
           "sessions"
         ],
         "summary": "Autosave Session",
         "description": "Autosave partial progress (items and contexts).\n\nThis endpoint supports the \"Batch\" strategy by allowing periodic saves\nwithout triggering full submission logic.",
-        "operationId": "autosave_session_sessions__session_id__autosave_post",
+        "operationId": "autosave_session_api_v1_sessions__session_id__autosave_post",
         "security": [
           {
             "BearerAuth": []
@@ -559,13 +745,14 @@
         }
       }
     },
-    "/sessions/{session_id}/responses": {
+    "/api/v1/sessions/{session_id}/responses": {
       "patch": {
         "tags": [
           "sessions"
         ],
         "summary": "Upsert Session Responses",
-        "operationId": "upsert_session_responses_sessions__session_id__responses_patch",
+        "description": "Upsert session responses in batch (Async).\n\n[Architecture Fix] Converted to async def.",
+        "operationId": "upsert_session_responses_api_v1_sessions__session_id__responses_patch",
         "security": [
           {
             "BearerAuth": []
@@ -614,14 +801,14 @@
         }
       }
     },
-    "/admin/norms/cache-stats": {
+    "/api/v1/admin/norms/cache-stats": {
       "get": {
         "tags": [
           "admin"
         ],
         "summary": "Get Norm Cache Stats",
         "description": "Return in-process normative DB lookup cache statistics (Mediator only).",
-        "operationId": "get_norm_cache_stats_admin_norms_cache_stats_get",
+        "operationId": "get_norm_cache_stats_api_v1_admin_norms_cache_stats_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -639,14 +826,14 @@
         ]
       }
     },
-    "/admin/norms/external-cache-stats": {
+    "/api/v1/admin/norms/external-cache-stats": {
       "get": {
         "tags": [
           "admin"
         ],
         "summary": "Get External Norm Cache Stats",
         "description": "Statistik cache penyedia norma eksternal (Mediator only).\n\nMengembalikan hit/miss, ukuran cache, TTL, dan metrik jaringan dasar.",
-        "operationId": "get_external_norm_cache_stats_admin_norms_external_cache_stats_get",
+        "operationId": "get_external_norm_cache_stats_api_v1_admin_norms_external_cache_stats_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -664,14 +851,14 @@
         ]
       }
     },
-    "/admin/perf-metrics": {
+    "/api/v1/admin/perf-metrics": {
       "get": {
         "tags": [
           "admin"
         ],
         "summary": "Get Perf Metrics",
         "description": "Return lightweight performance metrics (Mediator only).\n\nIncludes timing counters and norm provider cache stats.\nUse `reset=true` to clear counters after reading.",
-        "operationId": "get_perf_metrics_admin_perf_metrics_get",
+        "operationId": "get_perf_metrics_api_v1_admin_perf_metrics_get",
         "security": [
           {
             "BearerAuth": []
@@ -711,13 +898,13 @@
         }
       }
     },
-    "/admin/instruments/{instrument_code}/pipelines": {
+    "/api/v1/admin/instruments/{instrument_code}/pipelines": {
       "get": {
         "tags": [
           "admin"
         ],
         "summary": "List Instrument Pipelines",
-        "operationId": "list_instrument_pipelines_admin_instruments__instrument_code__pipelines_get",
+        "operationId": "list_instrument_pipelines_api_v1_admin_instruments__instrument_code__pipelines_get",
         "security": [
           {
             "BearerAuth": []
@@ -768,13 +955,13 @@
         }
       }
     },
-    "/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/activate": {
+    "/api/v1/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/activate": {
       "post": {
         "tags": [
           "admin"
         ],
         "summary": "Activate Instrument Pipeline",
-        "operationId": "activate_instrument_pipeline_admin_instruments__instrument_code__pipelines__pipeline_id__activate_post",
+        "operationId": "activate_instrument_pipeline_api_v1_admin_instruments__instrument_code__pipelines__pipeline_id__activate_post",
         "security": [
           {
             "BearerAuth": []
@@ -834,13 +1021,13 @@
         }
       }
     },
-    "/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/clone": {
+    "/api/v1/admin/instruments/{instrument_code}/pipelines/{pipeline_id}/clone": {
       "post": {
         "tags": [
           "admin"
         ],
         "summary": "Clone Instrument Pipeline",
-        "operationId": "clone_instrument_pipeline_admin_instruments__instrument_code__pipelines__pipeline_id__clone_post",
+        "operationId": "clone_instrument_pipeline_api_v1_admin_instruments__instrument_code__pipelines__pipeline_id__clone_post",
         "security": [
           {
             "BearerAuth": []
@@ -910,13 +1097,13 @@
         }
       }
     },
-    "/admin/instruments/{instrument_code}/pipelines/{pipeline_id}": {
+    "/api/v1/admin/instruments/{instrument_code}/pipelines/{pipeline_id}": {
       "delete": {
         "tags": [
           "admin"
         ],
         "summary": "Delete Instrument Pipeline",
-        "operationId": "delete_instrument_pipeline_admin_instruments__instrument_code__pipelines__pipeline_id__delete",
+        "operationId": "delete_instrument_pipeline_api_v1_admin_instruments__instrument_code__pipelines__pipeline_id__delete",
         "security": [
           {
             "BearerAuth": []
@@ -976,43 +1163,13 @@
         }
       }
     },
-    "/reports/self": {
-      "get": {
+    "/api/v1/admin/users/{user_id}/grant": {
+      "post": {
         "tags": [
-          "reports"
+          "admin"
         ],
-        "summary": "List Self Reports",
-        "operationId": "list_self_reports_reports_self_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ReportSummaryPayload"
-                  },
-                  "type": "array",
-                  "title": "Response List Self Reports Reports Self Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/reports/{session_id}": {
-      "get": {
-        "tags": [
-          "reports"
-        ],
-        "summary": "Get Report",
-        "operationId": "get_report_reports__session_id__get",
+        "summary": "Grant Credits",
+        "operationId": "grant_credits_api_v1_admin_users__user_id__grant_post",
         "security": [
           {
             "BearerAuth": []
@@ -1020,31 +1177,32 @@
         ],
         "parameters": [
           {
-            "name": "session_id",
+            "name": "user_id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Session Id"
+              "type": "integer",
+              "title": "User Id"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantCreate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/IndividualReportPayload"
-                    },
-                    {
-                      "$ref": "#/components/schemas/TeamReportPayload"
-                    }
-                  ],
-                  "title": "Response Get Report Reports  Session Id  Get"
+                  "$ref": "#/components/schemas/GrantOut"
                 }
               }
             }
@@ -1062,13 +1220,136 @@
         }
       }
     },
-    "/reports/{session_id}/share": {
+    "/api/v1/admin/users/{user_id}/revoke": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Revoke Grant",
+        "operationId": "revoke_grant_api_v1_admin_users__user_id__revoke_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantRevoke"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{session_id}": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Get Report",
+        "operationId": "get_report_api_v1_reports__session_id__get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Guest-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "title": "X-Guest-Token",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/IndividualReportPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TeamReportPayload"
+                    }
+                  ],
+                  "title": "Response Get Report Api V1 Reports  Session Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{session_id}/share": {
       "post": {
         "tags": [
           "reports"
         ],
         "summary": "Create Report Share",
-        "operationId": "create_report_share_reports__session_id__share_post",
+        "operationId": "create_report_share_api_v1_reports__session_id__share_post",
         "security": [
           {
             "BearerAuth": []
@@ -1120,13 +1401,13 @@
         }
       }
     },
-    "/reports/shared/{share_token}": {
+    "/api/v1/reports/shared/{share_token}": {
       "get": {
         "tags": [
           "reports"
         ],
         "summary": "Get Shared Report",
-        "operationId": "get_shared_report_reports_shared__share_token__get",
+        "operationId": "get_shared_report_api_v1_reports_shared__share_token__get",
         "security": [
           {
             "BearerAuth": []
@@ -1157,7 +1438,7 @@
                       "$ref": "#/components/schemas/TeamReportPayload"
                     }
                   ],
-                  "title": "Response Get Shared Report Reports Shared  Share Token  Get"
+                  "title": "Response Get Shared Report Api V1 Reports Shared  Share Token  Get"
                 }
               }
             }
@@ -1175,13 +1456,13 @@
         }
       }
     },
-    "/results/latest": {
+    "/api/v1/results/latest": {
       "get": {
         "tags": [
           "results"
         ],
         "summary": "Get Latest Results",
-        "operationId": "get_latest_results_results_latest_get",
+        "operationId": "get_latest_results_api_v1_results_latest_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1201,14 +1482,14 @@
         ]
       }
     },
-    "/results/sessions/latest": {
+    "/api/v1/results/sessions/latest": {
       "get": {
         "tags": [
           "results"
         ],
         "summary": "Get Latest Results Alias",
         "description": "Alias endpoint to match Zenotika SSOT sitemap.\n\nProvides the same payload as /results/latest but under a sessions-oriented path.",
-        "operationId": "get_latest_results_alias_results_sessions_latest_get",
+        "operationId": "get_latest_results_alias_api_v1_results_sessions_latest_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1228,13 +1509,13 @@
         ]
       }
     },
-    "/score/raw": {
+    "/api/v1/score/raw": {
       "post": {
         "tags": [
           "score"
         ],
         "summary": "Score Raw",
-        "operationId": "score_raw_score_raw_post",
+        "operationId": "score_raw_api_v1_score_raw_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1269,13 +1550,13 @@
         }
       }
     },
-    "/teams/": {
+    "/api/v1/teams/": {
       "post": {
         "tags": [
           "teams"
         ],
         "summary": "Create Team",
-        "operationId": "create_team_teams__post",
+        "operationId": "create_team_api_v1_teams__post",
         "security": [
           {
             "BearerAuth": []
@@ -1319,7 +1600,7 @@
           "teams"
         ],
         "summary": "List Teams",
-        "operationId": "list_teams_teams__get",
+        "operationId": "list_teams_api_v1_teams__get",
         "parameters": [
           {
             "name": "page",
@@ -1381,13 +1662,13 @@
         }
       }
     },
-    "/teams/{team_id}": {
+    "/api/v1/teams/{team_id}": {
       "get": {
         "tags": [
           "teams"
         ],
         "summary": "Get Team",
-        "operationId": "get_team_teams__team_id__get",
+        "operationId": "get_team_api_v1_teams__team_id__get",
         "parameters": [
           {
             "name": "team_id",
@@ -1427,7 +1708,7 @@
           "teams"
         ],
         "summary": "Update Team",
-        "operationId": "update_team_teams__team_id__patch",
+        "operationId": "update_team_api_v1_teams__team_id__patch",
         "security": [
           {
             "BearerAuth": []
@@ -1482,7 +1763,7 @@
           "teams"
         ],
         "summary": "Delete Team",
-        "operationId": "delete_team_teams__team_id__delete",
+        "operationId": "delete_team_api_v1_teams__team_id__delete",
         "security": [
           {
             "BearerAuth": []
@@ -1506,7 +1787,8 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Delete Team Teams  Team Id  Delete"
+                  "additionalProperties": true,
+                  "title": "Response Delete Team Api V1 Teams  Team Id  Delete"
                 }
               }
             }
@@ -1524,13 +1806,13 @@
         }
       }
     },
-    "/teams/{team_id}/members": {
+    "/api/v1/teams/{team_id}/members": {
       "get": {
         "tags": [
           "teams"
         ],
         "summary": "List Members",
-        "operationId": "list_members_teams__team_id__members_get",
+        "operationId": "list_members_api_v1_teams__team_id__members_get",
         "parameters": [
           {
             "name": "team_id",
@@ -1552,7 +1834,7 @@
                   "items": {
                     "$ref": "#/components/schemas/TeamMemberOut"
                   },
-                  "title": "Response List Members Teams  Team Id  Members Get"
+                  "title": "Response List Members Api V1 Teams  Team Id  Members Get"
                 }
               }
             }
@@ -1574,7 +1856,7 @@
           "teams"
         ],
         "summary": "Add Member",
-        "operationId": "add_member_teams__team_id__members_post",
+        "operationId": "add_member_api_v1_teams__team_id__members_post",
         "security": [
           {
             "BearerAuth": []
@@ -1625,13 +1907,13 @@
         }
       }
     },
-    "/teams/{team_id}/members/{member_id}": {
+    "/api/v1/teams/{team_id}/members/{member_id}": {
       "delete": {
         "tags": [
           "teams"
         ],
         "summary": "Remove Member",
-        "operationId": "remove_member_teams__team_id__members__member_id__delete",
+        "operationId": "remove_member_api_v1_teams__team_id__members__member_id__delete",
         "security": [
           {
             "BearerAuth": []
@@ -1664,7 +1946,8 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Remove Member Teams  Team Id  Members  Member Id  Delete"
+                  "additionalProperties": true,
+                  "title": "Response Remove Member Api V1 Teams  Team Id  Members  Member Id  Delete"
                 }
               }
             }
@@ -1682,13 +1965,13 @@
         }
       }
     },
-    "/teams/{team_id}/rollups": {
+    "/api/v1/teams/{team_id}/rollups": {
       "get": {
         "tags": [
           "teams"
         ],
         "summary": "List Rollups",
-        "operationId": "list_rollups_teams__team_id__rollups_get",
+        "operationId": "list_rollups_api_v1_teams__team_id__rollups_get",
         "parameters": [
           {
             "name": "team_id",
@@ -1710,7 +1993,67 @@
                   "items": {
                     "$ref": "#/components/schemas/TeamRollupOut"
                   },
-                  "title": "Response List Rollups Teams  Team Id  Rollups Get"
+                  "title": "Response List Rollups Api V1 Teams  Team Id  Rollups Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "teams"
+        ],
+        "summary": "Create Rollup",
+        "description": "Create a new rollup snapshot for the team.",
+        "operationId": "create_rollup_api_v1_teams__team_id__rollups_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "for_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "YYYY-MM-DD optional date filter",
+              "title": "For Date",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": "YYYY-MM-DD optional date filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamRollupOut"
                 }
               }
             }
@@ -1728,13 +2071,13 @@
         }
       }
     },
-    "/teams/{team_id}/rollup": {
+    "/api/v1/teams/{team_id}/rollup": {
       "get": {
         "tags": [
           "teams"
         ],
         "summary": "Get Rollup",
-        "operationId": "get_rollup_teams__team_id__rollup_get",
+        "operationId": "get_rollup_api_v1_teams__team_id__rollup_get",
         "parameters": [
           {
             "name": "team_id",
@@ -1770,13 +2113,13 @@
         }
       }
     },
-    "/teams/{team_id}/analytics/members": {
+    "/api/v1/teams/{team_id}/analytics/members": {
       "get": {
         "tags": [
           "teams"
         ],
         "summary": "Get Rollup Members",
-        "operationId": "get_rollup_members_teams__team_id__analytics_members_get",
+        "operationId": "get_rollup_members_api_v1_teams__team_id__analytics_members_get",
         "security": [
           {
             "BearerAuth": []
@@ -1840,13 +2183,14 @@
         }
       }
     },
-    "/teams/{team_id}/rollup/run": {
+    "/api/v1/teams/{team_id}/rollup/run": {
       "post": {
         "tags": [
           "teams"
         ],
         "summary": "Run Rollup",
-        "operationId": "run_rollup_teams__team_id__rollup_run_post",
+        "operationId": "run_rollup_api_v1_teams__team_id__rollup_run_post",
+        "deprecated": true,
         "security": [
           {
             "BearerAuth": []
@@ -1901,13 +2245,13 @@
         }
       }
     },
-    "/research/studies": {
+    "/api/v1/research/studies": {
       "post": {
         "tags": [
           "research"
         ],
         "summary": "Create Study",
-        "operationId": "create_study_research_studies_post",
+        "operationId": "create_study_api_v1_research_studies_post",
         "security": [
           {
             "BearerAuth": []
@@ -1951,7 +2295,7 @@
           "research"
         ],
         "summary": "List Studies",
-        "operationId": "list_studies_research_studies_get",
+        "operationId": "list_studies_api_v1_research_studies_get",
         "security": [
           {
             "BearerAuth": []
@@ -2004,7 +2348,7 @@
                   "items": {
                     "$ref": "#/components/schemas/ResearchStudyOut"
                   },
-                  "title": "Response List Studies Research Studies Get"
+                  "title": "Response List Studies Api V1 Research Studies Get"
                 }
               }
             }
@@ -2022,13 +2366,13 @@
         }
       }
     },
-    "/research/studies/{study_id}": {
+    "/api/v1/research/studies/{study_id}": {
       "get": {
         "tags": [
           "research"
         ],
         "summary": "Get Study",
-        "operationId": "get_study_research_studies__study_id__get",
+        "operationId": "get_study_api_v1_research_studies__study_id__get",
         "security": [
           {
             "BearerAuth": []
@@ -2073,7 +2417,7 @@
           "research"
         ],
         "summary": "Update Study",
-        "operationId": "update_study_research_studies__study_id__patch",
+        "operationId": "update_study_api_v1_research_studies__study_id__patch",
         "security": [
           {
             "BearerAuth": []
@@ -2128,7 +2472,7 @@
           "research"
         ],
         "summary": "Delete Study",
-        "operationId": "delete_study_research_studies__study_id__delete",
+        "operationId": "delete_study_api_v1_research_studies__study_id__delete",
         "security": [
           {
             "BearerAuth": []
@@ -2152,7 +2496,8 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Delete Study Research Studies  Study Id  Delete"
+                  "additionalProperties": true,
+                  "title": "Response Delete Study Api V1 Research Studies  Study Id  Delete"
                 }
               }
             }
@@ -2170,13 +2515,13 @@
         }
       }
     },
-    "/research/studies/{study_id}/reliability": {
+    "/api/v1/research/studies/{study_id}/reliability": {
       "post": {
         "tags": [
           "research"
         ],
         "summary": "Add Reliability",
-        "operationId": "add_reliability_research_studies__study_id__reliability_post",
+        "operationId": "add_reliability_api_v1_research_studies__study_id__reliability_post",
         "security": [
           {
             "BearerAuth": []
@@ -2210,7 +2555,8 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Add Reliability Research Studies  Study Id  Reliability Post"
+                  "additionalProperties": true,
+                  "title": "Response Add Reliability Api V1 Research Studies  Study Id  Reliability Post"
                 }
               }
             }
@@ -2232,7 +2578,7 @@
           "research"
         ],
         "summary": "List Reliability",
-        "operationId": "list_reliability_research_studies__study_id__reliability_get",
+        "operationId": "list_reliability_api_v1_research_studies__study_id__reliability_get",
         "security": [
           {
             "BearerAuth": []
@@ -2257,9 +2603,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/ReliabilityOut"
                   },
-                  "title": "Response List Reliability Research Studies  Study Id  Reliability Get"
+                  "title": "Response List Reliability Api V1 Research Studies  Study Id  Reliability Get"
                 }
               }
             }
@@ -2277,13 +2623,13 @@
         }
       }
     },
-    "/research/studies/{study_id}/validity": {
+    "/api/v1/research/studies/{study_id}/validity": {
       "post": {
         "tags": [
           "research"
         ],
         "summary": "Add Validity",
-        "operationId": "add_validity_research_studies__study_id__validity_post",
+        "operationId": "add_validity_api_v1_research_studies__study_id__validity_post",
         "security": [
           {
             "BearerAuth": []
@@ -2317,7 +2663,8 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Add Validity Research Studies  Study Id  Validity Post"
+                  "additionalProperties": true,
+                  "title": "Response Add Validity Api V1 Research Studies  Study Id  Validity Post"
                 }
               }
             }
@@ -2339,7 +2686,7 @@
           "research"
         ],
         "summary": "List Validity",
-        "operationId": "list_validity_research_studies__study_id__validity_get",
+        "operationId": "list_validity_api_v1_research_studies__study_id__validity_get",
         "security": [
           {
             "BearerAuth": []
@@ -2364,9 +2711,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/ValidityOut"
                   },
-                  "title": "Response List Validity Research Studies  Study Id  Validity Get"
+                  "title": "Response List Validity Api V1 Research Studies  Study Id  Validity Get"
                 }
               }
             }
@@ -2384,16 +2731,18 @@
         }
       }
     },
-    "/research/studies/{study_id}/data": {
-      "post": {
+    "/api/v1/research/studies/{study_id}/data": {
+      "get": {
         "tags": [
           "research"
         ],
         "summary": "Get Study Data",
-        "operationId": "get_study_data_research_studies__study_id__data_post",
+        "operationId": "get_study_data_api_v1_research_studies__study_id__data_get",
         "security": [
           {
-            "BearerAuth": []
+            "BearerAuth": [
+              "research:read"
+            ]
           }
         ],
         "parameters": [
@@ -2423,7 +2772,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResearchStudyDataOut"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ResearchStudyDataOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ResearchStudyDataCursorOut"
+                    }
+                  ],
+                  "title": "Response Get Study Data Api V1 Research Studies  Study Id  Data Get"
                 }
               }
             }
@@ -2441,14 +2798,14 @@
         }
       }
     },
-    "/telemetry/batch": {
+    "/api/v1/telemetry/batch": {
       "post": {
         "tags": [
           "telemetry"
         ],
         "summary": "Batch Telemetry",
         "description": "Accept batched telemetry events for async processing.\n\n**Scalability Benefits:**\n- Reduces request volume by 90%+ through client-side batching\n- Uses Beacon API for fire-and-forget delivery\n- Processes events asynchronously (non-blocking)\n- Handles up to 1000 events per batch\n\n**Usage:**\n```javascript\nconst batch = {\n  session_id: \"abc123\",\n  events: [\n    {type: \"mouse\", timestamp_ms: 1234567890, payload: {x: 100, y: 200}},\n    {type: \"scroll\", timestamp_ms: 1234567891, payload: {scrollY: 500}}\n  ]\n};\n\n// Using Beacon API (recommended)\nnavigator.sendBeacon('/telemetry/batch', JSON.stringify(batch));\n\n// Or fetch with keepalive\nfetch('/telemetry/batch', {\n  method: 'POST',\n  headers: {'Content-Type': 'application/json'},\n  body: JSON.stringify(batch),\n  keepalive: true\n});\n```\n\n**Returns:** 202 Accepted (processing in background)",
-        "operationId": "batch_telemetry_telemetry_batch_post",
+        "operationId": "batch_telemetry_api_v1_telemetry_batch_post",
         "parameters": [
           {
             "name": "Content-Length",
@@ -2493,14 +2850,14 @@
         }
       }
     },
-    "/telemetry/replay-events": {
+    "/api/v1/telemetry/replay-events": {
       "post": {
         "tags": [
           "telemetry"
         ],
         "summary": "Record Replay Events",
-        "description": "Record session replay events for debugging.\n\nStores events in a JSONL file for later playback/analysis.",
-        "operationId": "record_replay_events_telemetry_replay_events_post",
+        "description": "Record session replay events for debugging.\n\nLogs events to stdout for aggregation (Cloud-Native).",
+        "operationId": "record_replay_events_api_v1_telemetry_replay_events_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2533,24 +2890,155 @@
         }
       }
     },
-    "/sphere/nodes": {
-      "get": {
+    "/api/v1/telemetry/guide-open": {
+      "post": {
         "tags": [
-          "sphere"
+          "telemetry"
         ],
-        "summary": "List Nodes",
-        "operationId": "list_nodes_sphere_nodes_get",
+        "summary": "Record Guide Open",
+        "operationId": "record_guide_open_api_v1_telemetry_guide_open_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuideOpenEvent"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SphereNodeOut"
-                  },
-                  "type": "array",
-                  "title": "Response List Nodes Sphere Nodes Get"
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/page-view": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Record Page View",
+        "operationId": "record_page_view_api_v1_telemetry_page_view_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageViewEvent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/action": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Record Action",
+        "operationId": "record_action_api_v1_telemetry_action_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionEvent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/assessment": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Record Assessment Telemetry",
+        "operationId": "record_assessment_telemetry_api_v1_telemetry_assessment_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssessmentTelemetryEvent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2563,13 +3051,43 @@
         ]
       }
     },
-    "/sphere/reflections": {
+    "/api/v1/sphere/nodes": {
+      "get": {
+        "tags": [
+          "sphere"
+        ],
+        "summary": "List Nodes",
+        "operationId": "list_nodes_api_v1_sphere_nodes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SphereNodeOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Nodes Api V1 Sphere Nodes Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sphere/reflections": {
       "get": {
         "tags": [
           "sphere"
         ],
         "summary": "List Reflections",
-        "operationId": "list_reflections_sphere_reflections_get",
+        "operationId": "list_reflections_api_v1_sphere_reflections_get",
         "security": [
           {
             "BearerAuth": []
@@ -2603,7 +3121,7 @@
                   "items": {
                     "$ref": "#/components/schemas/ReflectionOut"
                   },
-                  "title": "Response List Reflections Sphere Reflections Get"
+                  "title": "Response List Reflections Api V1 Sphere Reflections Get"
                 }
               }
             }
@@ -2625,7 +3143,7 @@
           "sphere"
         ],
         "summary": "Create Reflection",
-        "operationId": "create_reflection_sphere_reflections_post",
+        "operationId": "create_reflection_api_v1_sphere_reflections_post",
         "security": [
           {
             "BearerAuth": []
@@ -2665,13 +3183,13 @@
         }
       }
     },
-    "/sphere/prompt": {
+    "/api/v1/sphere/prompt": {
       "get": {
         "tags": [
           "sphere"
         ],
         "summary": "Get Prompt",
-        "operationId": "get_prompt_sphere_prompt_get",
+        "operationId": "get_prompt_api_v1_sphere_prompt_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2682,7 +3200,7 @@
                     "type": "string"
                   },
                   "type": "object",
-                  "title": "Response Get Prompt Sphere Prompt Get"
+                  "title": "Response Get Prompt Api V1 Sphere Prompt Get"
                 }
               }
             }
@@ -2695,13 +3213,13 @@
         ]
       }
     },
-    "/challenges/user": {
+    "/api/v1/challenges/user": {
       "get": {
         "tags": [
           "challenges"
         ],
         "summary": "List User Challenges",
-        "operationId": "list_user_challenges_challenges_user_get",
+        "operationId": "list_user_challenges_api_v1_challenges_user_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2712,7 +3230,7 @@
                     "$ref": "#/components/schemas/UserChallengeOut"
                   },
                   "type": "array",
-                  "title": "Response List User Challenges Challenges User Get"
+                  "title": "Response List User Challenges Api V1 Challenges User Get"
                 }
               }
             }
@@ -2725,13 +3243,13 @@
         ]
       }
     },
-    "/challenges/user/{challenge_id}/complete": {
+    "/api/v1/challenges/user/{challenge_id}/complete": {
       "post": {
         "tags": [
           "challenges"
         ],
         "summary": "Complete User Challenge",
-        "operationId": "complete_user_challenge_challenges_user__challenge_id__complete_post",
+        "operationId": "complete_user_challenge_api_v1_challenges_user__challenge_id__complete_post",
         "security": [
           {
             "BearerAuth": []
@@ -2782,6 +3300,35 @@
         }
       }
     },
+    "/api/v1/grants/me": {
+      "get": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "Get My Grants",
+        "description": "Get summary of active grants for the current user.",
+        "operationId": "get_my_grants_api_v1_grants_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get My Grants Api V1 Grants Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -2802,6 +3349,80 @@
   },
   "components": {
     "schemas": {
+      "ActionEvent": {
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "action_target": {
+            "type": "string",
+            "title": "Action Target"
+          },
+          "action_value": {
+            "title": "Action Value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "title": "Metadata",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "consent": {
+            "type": "boolean",
+            "title": "Consent"
+          },
+          "actor_role": {
+            "title": "Actor Role",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_type",
+          "action_target",
+          "consent"
+        ],
+        "title": "ActionEvent"
+      },
+      "AnalyticsData": {
+        "properties": {
+          "rawScores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Rawscores"
+          },
+          "percentiles": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Percentiles"
+          },
+          "normsVersion": {
+            "type": "string",
+            "title": "Normsversion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rawScores",
+          "percentiles",
+          "normsVersion"
+        ],
+        "title": "AnalyticsData",
+        "description": "Detailed analytics metrics."
+      },
       "AssessmentItemResponsePayload": {
         "properties": {
           "itemId": {
@@ -2921,6 +3542,7 @@
             "title": "Lfiscore"
           },
           "percentiles": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Percentiles"
           },
@@ -2974,6 +3596,53 @@
           "results"
         ],
         "title": "AssessmentSessionResponse"
+      },
+      "AssessmentTelemetryEvent": {
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Sessionid"
+          },
+          "itemId": {
+            "type": "integer",
+            "title": "Itemid"
+          },
+          "responseRank": {
+            "title": "Responserank",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "responseLatencyMs": {
+            "title": "Responselatencyms",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "blurEvents": {
+            "title": "Blurevents",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "meta": {
+            "title": "Meta",
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessionId",
+          "itemId"
+        ],
+        "title": "AssessmentTelemetryEvent"
       },
       "AutosaveItemRank": {
         "properties": {
@@ -3077,36 +3746,6 @@
         ],
         "title": "ClonePipelineRequest"
       },
-      "ContextItemRank": {
-        "properties": {
-          "contextId": {
-            "type": "integer",
-            "title": "Contextid",
-            "description": "ID of the context scenario (1-8)"
-          },
-          "ranks": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Ranks",
-            "description": "Map of choice_id to rank (1-4). Must be unique per context.",
-            "example": {
-              "101": 4,
-              "102": 3,
-              "103": 2,
-              "104": 1
-            }
-          }
-        },
-        "type": "object",
-        "required": [
-          "contextId",
-          "ranks"
-        ],
-        "title": "ContextItemRank",
-        "description": "Raw ranking for a specific context scenario (Audit Point 1)."
-      },
       "ContextRank": {
         "properties": {
           "contextName": {
@@ -3150,6 +3789,162 @@
         ],
         "title": "ContextRank"
       },
+      "ContextRanksWrite": {
+        "properties": {
+          "contextId": {
+            "type": "integer",
+            "title": "Contextid",
+            "description": "ID of the context scenario (1-8)"
+          },
+          "ranks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Ranks",
+            "description": "Map of choice_id to rank (1-4). Must be unique per context.",
+            "example": {
+              "101": 4,
+              "102": 3,
+              "103": 2,
+              "104": 1
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "contextId",
+          "ranks"
+        ],
+        "title": "ContextRanksWrite",
+        "description": "Raw ranking for a specific context scenario (Audit Point 1)."
+      },
+      "GrantCreate": {
+        "properties": {
+          "instrumentId": {
+            "type": "integer",
+            "title": "Instrumentid",
+            "default": 1
+          },
+          "credits": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Credits"
+          },
+          "expiryDate": {
+            "title": "Expirydate",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "credits"
+        ],
+        "title": "GrantCreate"
+      },
+      "GrantOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "userId": {
+            "type": "integer",
+            "title": "Userid"
+          },
+          "instrumentId": {
+            "type": "integer",
+            "title": "Instrumentid"
+          },
+          "creditsTotal": {
+            "type": "integer",
+            "title": "Creditstotal"
+          },
+          "creditsConsumed": {
+            "type": "integer",
+            "title": "Creditsconsumed"
+          },
+          "expiryDate": {
+            "title": "Expirydate",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isActive": {
+            "type": "boolean",
+            "title": "Isactive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "instrumentId",
+          "creditsTotal",
+          "creditsConsumed",
+          "isActive"
+        ],
+        "title": "GrantOut"
+      },
+      "GrantRevoke": {
+        "properties": {
+          "grantId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Grantid"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "grantId"
+        ],
+        "title": "GrantRevoke"
+      },
+      "GuideOpenEvent": {
+        "properties": {
+          "guide_id": {
+            "type": "string",
+            "title": "Guide Id"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "surface": {
+            "type": "string",
+            "title": "Surface"
+          },
+          "context": {
+            "type": "string",
+            "title": "Context"
+          },
+          "consent": {
+            "type": "boolean",
+            "title": "Consent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "guide_id",
+          "language",
+          "surface",
+          "context",
+          "consent"
+        ],
+        "title": "GuideOpenEvent"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3179,38 +3974,41 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "individual"
-            ],
             "const": "individual",
             "title": "Kind",
             "default": "individual"
           },
           "raw": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Raw"
           },
           "percentiles": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Percentiles"
           },
           "style": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Style"
           },
           "lfi": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Lfi"
           },
           "analytics": {
-            "type": "object",
-            "title": "Analytics"
+            "$ref": "#/components/schemas/AnalyticsData"
           },
           "visualization": {
-            "title": "Visualization",
-            "type": [
-              "object",
-              "null"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisualizationConfig"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "sessionDesigns": {
@@ -3221,10 +4019,13 @@
             ]
           },
           "learningSpace": {
-            "title": "Learningspace",
-            "type": [
-              "object",
-              "null"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LearningSpaceData"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "enhancedAnalytics": {
@@ -3352,6 +4153,37 @@
         ],
         "title": "KiteCoordinates"
       },
+      "LearningSpaceData": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "quadrant": {
+            "type": "string",
+            "title": "Quadrant"
+          },
+          "region": {
+            "title": "Region",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "quadrant"
+        ],
+        "title": "LearningSpaceData",
+        "description": "Coordinates and metadata for the Learning Space."
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -3369,6 +4201,41 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "PageViewEvent": {
+        "properties": {
+          "page_path": {
+            "type": "string",
+            "title": "Page Path"
+          },
+          "page_title": {
+            "type": "string",
+            "title": "Page Title"
+          },
+          "referrer": {
+            "title": "Referrer",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "consent": {
+            "type": "boolean",
+            "title": "Consent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_path",
+          "page_title",
+          "locale",
+          "consent"
+        ],
+        "title": "PageViewEvent"
       },
       "ReflectionCreate": {
         "properties": {
@@ -3479,6 +4346,37 @@
         ],
         "title": "ReliabilityCreate"
       },
+      "ReliabilityOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "metricName": {
+            "type": "string",
+            "title": "Metricname"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "Reliability coefficient (Precision: 4 decimal places)"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "metricName",
+          "value"
+        ],
+        "title": "ReliabilityOut"
+      },
       "ReplayEvent": {
         "properties": {
           "type": {
@@ -3486,6 +4384,7 @@
             "title": "Type"
           },
           "payload": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Payload"
           },
@@ -3524,122 +4423,6 @@
         ],
         "title": "ReplayEventBatch",
         "description": "Batch of replay events."
-      },
-      "ReportDialecticSummary": {
-        "properties": {
-          "acce": {
-            "title": "Acce",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "aero": {
-            "title": "Aero",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "intensity": {
-            "title": "Intensity",
-            "type": [
-              "integer",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportDialecticSummary"
-      },
-      "ReportFlexibilitySummary": {
-        "properties": {
-          "lfiScore": {
-            "title": "Lfiscore",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "percentile": {
-            "title": "Percentile",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "level": {
-            "title": "Level",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "levelLabel": {
-            "title": "Levellabel",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportFlexibilitySummary"
-      },
-      "ReportLongitudinalSummary": {
-        "properties": {
-          "previousSessionId": {
-            "title": "Previoussessionid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "previousSessionDate": {
-            "title": "Previoussessiondate",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "timeElapsedDays": {
-            "title": "Timeelapseddays",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "deltaAcce": {
-            "title": "Deltaacce",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "deltaAero": {
-            "title": "Deltaaero",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "deltaLfi": {
-            "title": "Deltalfi",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "deltaIntensity": {
-            "title": "Deltaintensity",
-            "type": [
-              "integer",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportLongitudinalSummary"
       },
       "ReportShareContext": {
         "properties": {
@@ -3739,7 +4522,8 @@
             "title": "Shareid"
           },
           "sessionId": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Sessionid"
           },
           "mediatorEmail": {
@@ -3782,111 +4566,6 @@
           "note"
         ],
         "title": "ReportShareOut"
-      },
-      "ReportStyleSummary": {
-        "properties": {
-          "styleCode": {
-            "title": "Stylecode",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "styleName": {
-            "title": "Stylename",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "description": {
-            "title": "Description",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "quadrant": {
-            "title": "Quadrant",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "type": "object",
-        "title": "ReportStyleSummary"
-      },
-      "ReportSummaryPayload": {
-        "properties": {
-          "sessionId": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Sessionid"
-          },
-          "generatedAt": {
-            "title": "Generatedat",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "learningStyle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportStyleSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "nineStyle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportStyleSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "flexibility": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportFlexibilitySummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "dialectic": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportDialecticSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "longitudinal": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReportLongitudinalSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "sessionId"
-        ],
-        "title": "ReportSummaryPayload"
       },
       "ResearchStudyCreate": {
         "properties": {
@@ -3931,6 +4610,83 @@
         ],
         "title": "ResearchStudyCreate"
       },
+      "ResearchStudyDataCursorOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StudyDataPoint"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "List of items for the current page"
+          },
+          "nextCursor": {
+            "title": "Nextcursor",
+            "description": "Cursor for the next page. Null if no more items.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prevCursor": {
+            "title": "Prevcursor",
+            "description": "Cursor for the previous page.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Size",
+            "description": "Number of items per page"
+          },
+          "studyPublicId": {
+            "type": "string",
+            "title": "Studypublicid"
+          },
+          "studyTitle": {
+            "type": "string",
+            "title": "Studytitle"
+          },
+          "filtersApplied": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Filtersapplied"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/StudyDataSummary"
+          },
+          "reliabilityStats": {
+            "title": "Reliabilitystats",
+            "description": "Cronbach's Alpha per dimension",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "semStats": {
+            "title": "Semstats",
+            "description": "Standard Error of Measurement per dimension",
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "size",
+          "studyPublicId",
+          "studyTitle",
+          "filtersApplied",
+          "summary"
+        ],
+        "title": "ResearchStudyDataCursorOut",
+        "description": "Cursor-paginated research study data export with metadata."
+      },
       "ResearchStudyDataOut": {
         "properties": {
           "items": {
@@ -3974,11 +4730,28 @@
             "title": "Studytitle"
           },
           "filtersApplied": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Filtersapplied"
           },
           "summary": {
             "$ref": "#/components/schemas/StudyDataSummary"
+          },
+          "reliabilityStats": {
+            "title": "Reliabilitystats",
+            "description": "Cronbach's Alpha per dimension",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "semStats": {
+            "title": "Semstats",
+            "description": "Standard Error of Measurement per dimension",
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4091,7 +4864,8 @@
         "type": "string",
         "enum": [
           "MAHASISWA",
-          "MEDIATOR"
+          "MEDIATOR",
+          "USER"
         ],
         "title": "Role"
       },
@@ -4279,7 +5053,7 @@
           },
           "contexts": {
             "items": {
-              "$ref": "#/components/schemas/ContextItemRank"
+              "$ref": "#/components/schemas/ContextRanksWrite"
             },
             "type": "array",
             "title": "Contexts"
@@ -4370,6 +5144,81 @@
         "type": "object",
         "title": "SessionAutosavePayload"
       },
+      "SessionDesign": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "activities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Activities"
+          },
+          "durationMinutes": {
+            "title": "Durationminutes",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "activities"
+        ],
+        "title": "SessionDesign",
+        "description": "Recommended session design based on learning style."
+      },
+      "SessionListResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starttime"
+          },
+          "endTime": {
+            "title": "Endtime",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/SessionStatus"
+          },
+          "assessmentId": {
+            "type": "string",
+            "title": "Assessmentid"
+          },
+          "assessmentVersion": {
+            "type": "string",
+            "title": "Assessmentversion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "startTime",
+          "status",
+          "assessmentId",
+          "assessmentVersion"
+        ],
+        "title": "SessionListResponse"
+      },
       "SessionOperationResult": {
         "properties": {
           "ok": {
@@ -4388,6 +5237,36 @@
         "type": "object",
         "title": "SessionOperationResult"
       },
+      "SessionStartResponse": {
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Sessionid"
+          },
+          "guestToken": {
+            "title": "Guesttoken",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessionId"
+        ],
+        "title": "SessionStartResponse"
+      },
+      "SessionStatus": {
+        "type": "string",
+        "enum": [
+          "in_progress",
+          "completed",
+          "abandoned"
+        ],
+        "title": "SessionStatus"
+      },
       "SessionSubmissionPayload": {
         "properties": {
           "items": {
@@ -4401,7 +5280,7 @@
           },
           "contexts": {
             "items": {
-              "$ref": "#/components/schemas/ContextItemRank"
+              "$ref": "#/components/schemas/ContextRank"
             },
             "type": "array",
             "maxItems": 8,
@@ -4423,6 +5302,29 @@
           "contexts"
         ],
         "title": "SessionSubmissionPayload"
+      },
+      "SessionUpdate": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "title": "SessionUpdate"
       },
       "SphereNodeMeta": {
         "properties": {
@@ -4511,6 +5413,26 @@
         ],
         "title": "SphereNodeOut"
       },
+      "StartSessionRequest": {
+        "properties": {
+          "instrumentCode": {
+            "type": "string",
+            "title": "Instrumentcode"
+          },
+          "instrumentVersion": {
+            "title": "Instrumentversion",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrumentCode"
+        ],
+        "title": "StartSessionRequest"
+      },
       "StudyDataDateRange": {
         "properties": {
           "earliest": {
@@ -4561,13 +5483,6 @@
               "null"
             ]
           },
-          "userEmail": {
-            "title": "Useremail",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "page": {
             "type": "integer",
             "minimum": 1.0,
@@ -4580,6 +5495,14 @@
             "minimum": 1.0,
             "title": "Size",
             "default": 50
+          },
+          "cursor": {
+            "title": "Cursor",
+            "description": "Cursor for pagination (base64 encoded id/timestamp). Overrides page.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object",
@@ -4920,9 +5843,6 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "team"
-            ],
             "const": "team",
             "title": "Kind",
             "default": "team"
@@ -5262,6 +6182,7 @@
             "description": "Client-side timestamp in milliseconds"
           },
           "payload": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Payload",
             "description": "Event-specific data"
@@ -5410,7 +6331,7 @@
           "guestSessionId": {
             "title": "Guestsessionid",
             "type": [
-              "integer",
+              "string",
               "null"
             ]
           },
@@ -5449,16 +6370,25 @@
             "$ref": "#/components/schemas/Role"
           },
           "nim": {
-            "type": "string",
-            "title": "Nim"
+            "title": "Nim",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kelas": {
-            "type": "string",
-            "title": "Kelas"
+            "title": "Kelas",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "tahunMasuk": {
-            "type": "integer",
-            "title": "Tahunmasuk"
+            "title": "Tahunmasuk",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "avatarUrl": {
             "title": "Avatarurl",
@@ -5498,10 +6428,7 @@
           "id",
           "fullName",
           "email",
-          "role",
-          "nim",
-          "kelas",
-          "tahunMasuk"
+          "role"
         ],
         "title": "UserOut"
       },
@@ -5573,6 +6500,82 @@
           "evidenceType"
         ],
         "title": "ValidityCreate"
+      },
+      "ValidityOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "evidenceType": {
+            "type": "string",
+            "title": "Evidencetype"
+          },
+          "metricName": {
+            "title": "Metricname",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "title": "Value",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "description": {
+            "title": "Description",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "evidenceType"
+        ],
+        "title": "ValidityOut"
+      },
+      "VisualizationConfig": {
+        "properties": {
+          "chartType": {
+            "type": "string",
+            "title": "Charttype"
+          },
+          "dataPoints": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Datapoints"
+          },
+          "axes": {
+            "title": "Axes",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "annotations": {
+            "title": "Annotations",
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "chartType",
+          "dataPoints"
+        ],
+        "title": "VisualizationConfig",
+        "description": "Configuration for frontend visualizations."
       }
     },
     "securitySchemes": {
@@ -5580,7 +6583,18 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "JWT token obtained from /auth/login or /auth/register"
+        "description": "JWT token obtained from /auth/login or /auth/register",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "/api/v1/auth/token",
+            "scopes": {
+              "assessment:write": "Take assessments",
+              "report:read": "View reports",
+              "admin:all": "Full administrative access",
+              "research:read": "Access research data"
+            }
+          }
+        }
       }
     }
   },

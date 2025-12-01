@@ -3,6 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ClonePipelineRequest } from '../models/ClonePipelineRequest';
+import type { GrantCreate } from '../models/GrantCreate';
+import type { GrantOut } from '../models/GrantOut';
+import type { GrantRevoke } from '../models/GrantRevoke';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -165,6 +168,54 @@ export class AdminService {
             query: {
                 'instrument_version': instrumentVersion,
             },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Grant Credits
+     * @param userId
+     * @param requestBody
+     * @returns GrantOut Successful Response
+     * @throws ApiError
+     */
+    public static grantCreditsApiV1AdminUsersUserIdGrantPost(
+        userId: number,
+        requestBody: GrantCreate,
+    ): CancelablePromise<GrantOut> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/admin/users/{user_id}/grant',
+            path: {
+                'user_id': userId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Revoke Grant
+     * @param userId
+     * @param requestBody
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static revokeGrantApiV1AdminUsersUserIdRevokePost(
+        userId: number,
+        requestBody: GrantRevoke,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/admin/users/{user_id}/revoke',
+            path: {
+                'user_id': userId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: `Validation Error`,
             },

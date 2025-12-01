@@ -30,6 +30,7 @@ from app.schemas.session import (
     SessionUpdate,
     SessionStatus,
     SessionListResponse,
+    EngineSessionResponse,
 )
 from app.services.assessments import upsert_responses
 from app.core.config import settings
@@ -147,13 +148,11 @@ async def start_session(
         except InsufficientCreditsError as e:
             raise HTTPException(status_code=402, detail=e.message)
 
-    # 3. Start Session (Sync Engine in Threadpool)
-    # We use db_sync for the engine because runtime is synchronous
-    service = EngineSessionService(db_sync)
+    # 3. Start Session (Async Engine)
+    # We use db_async for the engine because EngineSessionService is now async
+    service = EngineSessionService(db_async)
     
-    # Wrap blocking call
-    session = await run_in_threadpool(
-        service.start_session,
+    session = await service.start_session(
         current_user,
         instrument_code=payload.instrument_code,
         instrument_version=payload.instrument_version,
@@ -162,11 +161,11 @@ async def start_session(
 
 
 @router.get("/{session_id}/delivery", response_model=dict)
-def get_delivery(
+async def get_delivery(
     session_id: uuid.UUID,
     locale: str | None = None,
     lite: bool = False,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -178,12 +177,12 @@ def get_delivery(
               Use for checking updates or lightweight sync.
     """
     service = EngineSessionService(db)
-    return service.delivery_package(session_id, current_user, locale=locale, lite=lite)
+    return await service.delivery_package(session_id, current_user, locale=locale, lite=lite)
 
 @router.get("/{session_id}/items", response_model=list)
-def get_items(
+async def get_items(
     session_id: uuid.UUID, 
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -195,7 +194,7 @@ def get_items(
     - Returns 403 Forbidden if accessing another user's session.
     """
     service = EngineSessionService(db)
-    delivery = service.delivery_package(session_id, current_user)
+    delivery = await service.delivery_package(session_id, current_user)
     items = delivery.get("items", [])
     return [
         {
@@ -209,14 +208,28 @@ def get_items(
         for item in items
     ]
 
+
+@router.get("/{session_id}/state", response_model=EngineSessionResponse)
+async def get_session_state(
+    session_id: uuid.UUID,
+    db: Any = Depends(get_async_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Get full session state including responses and progress.
+    """
+    service = EngineSessionService(db)
+    return await service.session_state(session_id, current_user)
+
+
 @router.post("/{session_id}/submit-item", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 @router.post("/{session_id}/submit_item", response_model=OperationStatus, deprecated=True, include_in_schema=False)
-def submit_item(
+async def submit_item(
     session_id: uuid.UUID, 
     item_id: int, 
     ranks: dict, 
     response: Response, 
-    db: Any = Depends(get_db), 
+    db: Any = Depends(get_async_db), 
     current_user: Any = Depends(get_current_user)
 ):
     # Optional runtime deprecation: return 410 Gone when DISABLE_LEGACY_SUBMISSION=1
@@ -236,12 +249,12 @@ def submit_item(
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     
     service = EngineSessionService(db)
-    service.submit_interaction(session_id, current_user, submission.runtime_payload())
+    await service.submit_interaction(session_id, current_user, submission.runtime_payload())
     return OperationStatus()
 
 @router.post("/{session_id}/submit-context", response_model=OperationStatus, deprecated=True, include_in_schema=False)
 @router.post("/{session_id}/submit_context", response_model=OperationStatus, deprecated=True, include_in_schema=False)
-def submit_context(
+async def submit_context(
     session_id: uuid.UUID,
     context_name: str,
     CE: int,
@@ -250,7 +263,7 @@ def submit_context(
     AE: int,
     response: Response,
     overwrite: bool = False,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user)
 ):
     if settings.disable_legacy_submission and settings.environment not in ("dev", "development", "test"):
@@ -276,17 +289,17 @@ def submit_context(
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     
     service = EngineSessionService(db)
-    service.submit_interaction(session_id, current_user, context_submission.runtime_payload())
+    await service.submit_interaction(session_id, current_user, context_submission.runtime_payload())
     return OperationStatus()
 
 
 @router.post("/{session_id}/submit-all-responses", response_model=SessionOperationResult)
 @router.post("/{session_id}/submit_all_responses", response_model=SessionOperationResult, include_in_schema=False)
-def submit_all_responses(
+async def submit_all_responses(
     session_id: uuid.UUID,
     payload: SessionSubmissionPayload,
     background_tasks: BackgroundTasks,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Batch submission of 12 learning-style items and 8 LFI contexts in a single transaction,
@@ -294,7 +307,7 @@ def submit_all_responses(
     """
     service = EngineSessionService(db)
     # Service handles validation, persistence, finalization, and error mapping (via DomainError)
-    result = service.submit_full_batch(session_id, current_user, payload)
+    result = await service.submit_full_batch(session_id, current_user, payload)
     
     if result and "_provenance_payload" in result:
         prov_payload = result.pop("_provenance_payload")
@@ -329,16 +342,18 @@ from app.services.engine import EngineSessionService, finalize_background_task
 from fastapi import status
 
 @router.post("/{session_id}/finalize", response_model=SessionOperationResult, deprecated=True)
-def finalize(
+async def finalize(
     session_id: uuid.UUID, 
     background_tasks: BackgroundTasks,
     response: Response,
-    db: Any = Depends(get_db), 
+    db: Any = Depends(get_async_db), 
     current_user: Any = Depends(get_current_user)
 ):
     # Explicit guard: require all 8 LFI contexts present before finalize,
     # even if engine validation would catch it. Gives clearer 400 with detail.
-    validation_snapshot = run_session_validations(db, session_id)
+    service = EngineSessionService(db)
+    validation_snapshot = await service.validation_snapshot(session_id, current_user)
+    
     if not validation_snapshot.get("ready", False):
         issues = validation_snapshot.get("issues", [])
         raise HTTPException(status_code=400, detail={"issues": issues, "diagnostics": validation_snapshot.get("diagnostics")})
@@ -368,10 +383,10 @@ async def session_validation(
     return run_session_validations(db, session_id)
 
 @router.post("/{session_id}/force_finalize", response_model=SessionOperationResult, include_in_schema=False)
-def force_finalize(
+async def force_finalize(
     session_id: uuid.UUID,
     request: ForceFinalizeRequest,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -408,15 +423,15 @@ def force_finalize(
     
     service = EngineSessionService(db)
     # Service handles permission check, logic, and payload transformation
-    result = service.force_finalize(session_id, current_user, reason=request.reason)
+    result = await service.force_finalize(session_id, current_user, reason=request.reason)
     return SessionOperationResult(result=result)
 
 
 @router.post("/{session_id}/response", response_model=SingleItemResponse, include_in_schema=False)
-def submit_single_response(
+async def submit_single_response(
     session_id: uuid.UUID,
     payload: SingleItemResponsePayload,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -424,17 +439,17 @@ def submit_single_response(
     Maps dimension codes (CE, RO, AC, AE) to choice IDs and submits to runtime.
     """
     service = EngineSessionService(db)
-    result = service.submit_single_response(
+    result = await service.submit_single_response(
         session_id, current_user, payload.item_id, payload.response_map
     )
     return SingleItemResponse(**result)
 
 
 @router.post("/{session_id}/autosave", response_model=SessionOperationResult)
-def autosave_session(
+async def autosave_session(
     session_id: uuid.UUID,
     payload: SessionAutosavePayload,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -444,7 +459,7 @@ def autosave_session(
     without triggering full submission logic.
     """
     service = EngineSessionService(db)
-    result = service.autosave_responses(session_id, current_user, payload)
+    result = await service.autosave_responses(session_id, current_user, payload)
     return SessionOperationResult(result=result)
 
 

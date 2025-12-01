@@ -5,6 +5,7 @@ from functools import wraps
 import hashlib
 
 from redis.asyncio import Redis, from_url
+from redis import Redis as SyncRedis, from_url as sync_from_url
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,46 @@ class RedisCache:
         if self._redis:
             await self._redis.close()
 
+class RedisCacheSync:
+    def __init__(self):
+        self._redis: Optional[SyncRedis] = None
+        if settings.cache_enabled:
+            try:
+                self._redis = sync_from_url(settings.redis_url, decode_responses=True)
+                logger.info(f"Sync Redis cache initialized at {settings.redis_url}")
+            except Exception as e:
+                logger.error(f"Failed to initialize Sync Redis: {e}")
+                self._redis = None
+
+    def get(self, key: str) -> Optional[Any]:
+        if not self._redis:
+            return None
+        try:
+            value = self._redis.get(key)
+            if value:
+                return json.loads(value)
+        except Exception as e:
+            logger.warning(f"Sync Redis get error for {key}: {e}")
+        return None
+
+    def set(self, key: str, value: Any, ttl: int = 300) -> None:
+        if not self._redis:
+            return
+        try:
+            self._redis.set(key, json.dumps(value), ex=ttl)
+        except Exception as e:
+            logger.warning(f"Sync Redis set error for {key}: {e}")
+
+    def delete(self, key: str) -> None:
+        if not self._redis:
+            return
+        try:
+            self._redis.delete(key)
+        except Exception as e:
+            logger.warning(f"Sync Redis delete error for {key}: {e}")
+
 cache = RedisCache()
+sync_cache = RedisCacheSync()
 
 def cached(ttl: int = 300, key_builder: Optional[Callable[..., str]] = None):
     """

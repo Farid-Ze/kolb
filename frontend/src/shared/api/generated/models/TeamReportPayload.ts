@@ -5,8 +5,13 @@
 export type TeamReportPayload = {
     sessionId: string;
     generatedAt?: string | null;
-    kind?: string;
+    kind?: TeamReportPayload.kind;
     teamId: number;
     analytics?: any | null;
 };
+export namespace TeamReportPayload {
+    export enum kind {
+        TEAM = 'team',
+    }
+}
 

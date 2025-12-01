@@ -41,7 +41,7 @@ export interface AssessmentResponseBatch {
 }
 
 export interface EngineSessionResponse {
-  sessionId: number
+  sessionId: string
   instrumentCode: string
   instrumentVersion?: string | null
   status: string

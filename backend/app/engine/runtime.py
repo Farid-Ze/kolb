@@ -3,10 +3,11 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from hashlib import sha256
 from time import perf_counter
-from typing import Any, Callable
+from typing import Any, Callable, Union
 from uuid import uuid4, UUID
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import (
@@ -41,7 +42,7 @@ from app.models.klsi.assessment import AssessmentSession
 from app.models.klsi.audit import AuditLog
 from app.models.klsi.enums import SessionStatus
 from app.models.klsi.user import User
-from app.services.validation import run_session_validations
+from app.services.validation import run_session_validations, run_session_validations_async
 
 logger = get_logger("kolb.engine.runtime", component="engine")
 
@@ -54,7 +55,7 @@ class FinalizeContext:
     compute/normalize/output phases easier to follow and test independently.
     """
 
-    db: Session
+    db: Union[Session, AsyncSession]
     session_id: UUID
     skip_validation: bool
     tracker: RuntimeStateTracker | None
@@ -121,12 +122,18 @@ class EngineRuntime:
         self._scheduler = scheduler or RuntimeScheduler(get_repository_provider)
         self._error_reporter = error_reporter or RuntimeErrorReporter(logger)
 
-    def _resolve_session(self, db: Session, session_id: UUID) -> AssessmentSession:
+    async def _resolve_session(self, db: Union[Session, AsyncSession], session_id: UUID) -> AssessmentSession:
         if self._components_enabled:
-            session = self._scheduler.resolve_session(db, session_id)
+            if isinstance(db, AsyncSession):
+                session = await self._scheduler.resolve_session_async(db, session_id)
+            else:
+                session = self._scheduler.resolve_session(db, session_id)
         else:
             repo_provider = get_repository_provider(db)
-            session = repo_provider.sessions.get_by_id_sync(session_id)
+            if isinstance(db, AsyncSession):
+                session = await repo_provider.sessions.get_by_id(session_id)
+            else:
+                session = repo_provider.sessions.get_by_id_sync(session_id)
         if not session:
             logger.warning(
                 "session_not_found",
@@ -195,7 +202,7 @@ class EngineRuntime:
         logger.warning(event, extra={"structured_data": structured})
         return structured
 
-    def _phase_ingest(
+    async def _phase_ingest(
         self,
         context: FinalizeContext,
         *,
@@ -203,7 +210,7 @@ class EngineRuntime:
         completed_event: str,
     ) -> AssessmentSession:
         try:
-            session = self._resolve_session(context.db, context.session_id)
+            session = await self._resolve_session(context.db, context.session_id)
         except SessionNotFoundError as exc:
             logger.warning(
                 missing_event,
@@ -230,14 +237,19 @@ class EngineRuntime:
             raise SessionFinalizedError()
         return session
 
-    def _phase_validate(
+    async def _phase_validate(
         self,
         context: FinalizeContext,
         session: AssessmentSession,
         *,
         failure_event: str,
     ) -> ValidationReport:
-        validation = ValidationReport.from_mapping(run_session_validations(context.db, session.id))
+        if isinstance(context.db, AsyncSession):
+            validation_data = await run_session_validations_async(context.db, session.id)
+        else:
+            validation_data = run_session_validations(context.db, session.id)
+            
+        validation = ValidationReport.from_mapping(validation_data)
         if not validation.ready and not context.skip_validation:
             logger.warning(
                 failure_event,
@@ -258,7 +270,7 @@ class EngineRuntime:
             )
         return validation
 
-    def _phase_compute(
+    async def _phase_compute(
         self,
         context: FinalizeContext,
         session: AssessmentSession,
@@ -291,24 +303,45 @@ class EngineRuntime:
 
         try:
             if transactional:
-                with context.db.begin_nested():
+                if isinstance(context.db, AsyncSession):
+                    async with context.db.begin_nested():
+                        # Scorer finalize is async now
+                        result = await scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                        _ensure_ok(result)
+                        session.status = SessionStatus.completed
+                        session.end_time = datetime.now(timezone.utc)
+                else:
+                    with context.db.begin_nested():
+                        result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                        _ensure_ok(result)
+                        session.status = SessionStatus.completed
+                        session.end_time = datetime.now(timezone.utc)
+            else:
+                if isinstance(context.db, AsyncSession):
+                    result = await scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                    _ensure_ok(result)
+                    session.status = SessionStatus.completed
+                    session.end_time = datetime.now(timezone.utc)
+                    await context.db.commit()
+                else:
                     result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
                     _ensure_ok(result)
                     session.status = SessionStatus.completed
                     session.end_time = datetime.now(timezone.utc)
-            else:
-                result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
-                _ensure_ok(result)
-                session.status = SessionStatus.completed
-                session.end_time = datetime.now(timezone.utc)
-                context.db.commit()
+                    context.db.commit()
         except DomainError:
             if not transactional:
-                context.db.rollback()
+                if isinstance(context.db, AsyncSession):
+                    await context.db.rollback()
+                else:
+                    context.db.rollback()
             raise
         except Exception as exc:  # pragma: no cover - defensive rollback
             if not transactional:
-                context.db.rollback()
+                if isinstance(context.db, AsyncSession):
+                    await context.db.rollback()
+                else:
+                    context.db.rollback()
             self._log_runtime_error(
                 event=runtime_error_event,
                 session_id=session.id,
@@ -350,7 +383,7 @@ class EngineRuntime:
         logger.info(log_event, extra={"structured_data": structured})
         return payload_dict
 
-    def _execute_finalize_pipeline(
+    async def _execute_finalize_pipeline(
         self,
         context: FinalizeContext,
         *,
@@ -363,17 +396,17 @@ class EngineRuntime:
         runtime_metadata: dict[str, Any] | None = None,
     ) -> FinalizeArtifacts:
         started = perf_counter()
-        session = self._phase_ingest(
+        session = await self._phase_ingest(
             context,
             missing_event=missing_event,
             completed_event=completed_event,
         )
-        validation = self._phase_validate(
+        validation = await self._phase_validate(
             context,
             session,
             failure_event=validation_event,
         )
-        scorer_result = self._phase_compute(
+        scorer_result = await self._phase_compute(
             context,
             session,
             transactional=transactional,
@@ -429,9 +462,9 @@ class EngineRuntime:
             )
             return None
 
-    def _write_audit_log(
+    async def _write_audit_log(
         self,
-        db: Session,
+        db: Union[Session, AsyncSession],
         *,
         payload_bytes: bytes | None,
         actor_email: str,
@@ -450,9 +483,15 @@ class EngineRuntime:
                     created_at=datetime.now(timezone.utc),
                 )
             )
-            db.commit()
+            if isinstance(db, AsyncSession):
+                await db.commit()
+            else:
+                db.commit()
         except Exception:
-            db.rollback()
+            if isinstance(db, AsyncSession):
+                await db.rollback()
+            else:
+                db.rollback()
             logger.warning(
                 "audit_write_failed",
                 extra={
@@ -470,9 +509,9 @@ class EngineRuntime:
             return InstrumentId(session.instrument.code, session.instrument.version)
         return InstrumentId(session.assessment_id, session.assessment_version or "")
 
-    def start_session(
+    async def start_session(
         self,
-        db: Session,
+        db: Union[Session, AsyncSession],
         user: User | None,
         instrument_code: str,
         instrument_version: str | None = None,
@@ -482,8 +521,12 @@ class EngineRuntime:
         with correlation_context(correlation_id):
             repo_provider = get_repository_provider(db)
             instrument_repo = repo_provider.instruments
-            # [Zenotika V4] Runtime is sync, use sync method
-            instrument = instrument_repo.get_by_code_sync(instrument_code, instrument_version)
+            
+            if isinstance(db, AsyncSession):
+                instrument = await instrument_repo.get_by_code(instrument_code, instrument_version)
+            else:
+                instrument = instrument_repo.get_by_code_sync(instrument_code, instrument_version)
+                
             if not instrument:
                 logger.warning(
                     "instrument_not_found",
@@ -539,12 +582,23 @@ class EngineRuntime:
             )
             started = perf_counter()
             try:
-                assign_pipeline_version(db, session, instrument.default_strategy_code)
+                if isinstance(db, AsyncSession):
+                    await db.run_sync(lambda s: assign_pipeline_version(s, session, instrument.default_strategy_code))
+                else:
+                    assign_pipeline_version(db, session, instrument.default_strategy_code)
+                
                 db.add(session)
-                db.commit()
-                db.refresh(session)
+                if isinstance(db, AsyncSession):
+                    await db.commit()
+                    await db.refresh(session)
+                else:
+                    db.commit()
+                    db.refresh(session)
             except Exception:
-                db.rollback()
+                if isinstance(db, AsyncSession):
+                    await db.rollback()
+                else:
+                    db.rollback()
                 logger.exception(
                     "start_session_failure",
                     extra={
@@ -573,15 +627,15 @@ class EngineRuntime:
             )
             return session
 
-    def delivery_package(self, db: Session, session_id: UUID, *, locale: str | None = None, lite: bool = False) -> dict:
-        session = self._resolve_session(db, session_id)
+    async def delivery_package(self, db: Union[Session, AsyncSession], session_id: UUID, *, locale: str | None = None, lite: bool = False) -> dict:
+        session = await self._resolve_session(db, session_id)
         inst_id = self._instrument_id(session)
         plugin = self._registry.plugin(inst_id)
         
         # Optimization: If lite=True, we might skip fetching items if the plugin supports it,
         # but for now we rely on compose_delivery_payload to filter.
         # Ideally, plugin.fetch_items should also support lite, but that requires plugin API change.
-        items = plugin.fetch_items(db, session_id)
+        items = await plugin.fetch_items(db, session_id)
         
         delivery = plugin.delivery()
         manifest = _cached_manifest(inst_id.key, inst_id.version)
@@ -598,17 +652,17 @@ class EngineRuntime:
             lite=lite,
         )
 
-    def submit_payload(self, db: Session, session_id: UUID, payload: dict) -> None:
-        session = self._resolve_session(db, session_id)
+    async def submit_payload(self, db: Union[Session, AsyncSession], session_id: UUID, payload: dict) -> None:
+        session = await self._resolve_session(db, session_id)
         plugin = self._registry.plugin(self._instrument_id(session))
-        plugin.validate_submit(db, session_id, payload)
+        await plugin.validate_submit(db, session_id, payload)
 
     @count_calls("engine.finalize.calls")
     @measure_time("engine.finalize", histogram=True)
     @timeit("engine.finalize")
-    def finalize(
+    async def finalize(
         self,
-        db: Session,
+        db: Union[Session, AsyncSession],
         session_id: UUID,
         *,
         skip_validation: bool = False,
@@ -623,7 +677,7 @@ class EngineRuntime:
                 tracker=tracker,
                 correlation_id=correlation_id,
             )
-            artifacts = self._execute_finalize_pipeline(
+            artifacts = await self._execute_finalize_pipeline(
                 context,
                 transactional=True,
                 missing_event="finalize_session_missing",
@@ -638,9 +692,9 @@ class EngineRuntime:
     @count_calls("engine.finalize_with_audit.calls")
     @measure_time("engine.finalize_with_audit", histogram=True)
     @timeit("engine.finalize_with_audit")
-    def finalize_with_audit(
+    async def finalize_with_audit(
         self,
-        db: Session,
+        db: Union[Session, AsyncSession],
         session_id: UUID,
         *,
         actor_email: str,
@@ -664,7 +718,7 @@ class EngineRuntime:
                 tracker=tracker,
                 correlation_id=correlation_id,
             )
-            artifacts = self._execute_finalize_pipeline(
+            artifacts = await self._execute_finalize_pipeline(
                 context,
                 transactional=transactional,
                 missing_event="finalize_audit_session_missing",
@@ -682,7 +736,7 @@ class EngineRuntime:
                 session_id=session_id,
                 correlation_id=correlation_id,
             )
-            self._write_audit_log(
+            await self._write_audit_log(
                 db,
                 payload_bytes=payload_bytes,
                 actor_email=actor_email,
@@ -699,16 +753,27 @@ class EngineRuntime:
             )
 
 
-    def build_report(self, db: Session, session_id: UUID, viewer_role: str | None) -> dict:
-        session = self._resolve_session(db, session_id)
+    async def build_report(self, db: Union[Session, AsyncSession], session_id: UUID, viewer_role: str | None) -> dict:
+        session = await self._resolve_session(db, session_id)
         builder = self._registry.report_builder(self._instrument_id(session))
-        return builder.build(db, session_id, viewer_role)
+        # Check if builder supports async
+        if hasattr(builder, "build") and callable(builder.build):
+             # We assume builder is updated to be async if db is AsyncSession
+             # But builder interface is sync.
+             # If we updated KLSI4Plugin, it is async.
+             # We need to await it.
+             if isinstance(db, AsyncSession):
+                 return await builder.build(db, session_id, viewer_role)
+             return builder.build(db, session_id, viewer_role)
+        return {}
 
-    def percentile(
-        self, db: Session, session_id: UUID, scale: str, raw: int | float
+    async def percentile(
+        self, db: Union[Session, AsyncSession], session_id: UUID, scale: str, raw: int | float
     ) -> tuple[float | None, str]:
-        session = self._resolve_session(db, session_id)
+        session = await self._resolve_session(db, session_id)
         provider = self._registry.norm_provider(self._instrument_id(session))
+        if isinstance(db, AsyncSession):
+            return await provider.percentile(db, session_id, scale, raw)
         return provider.percentile(db, session_id, scale, raw)
 
 

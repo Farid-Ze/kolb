@@ -5,37 +5,30 @@
 import type { IndividualReportPayload } from '../models/IndividualReportPayload';
 import type { ReportShareCreate } from '../models/ReportShareCreate';
 import type { ReportShareOut } from '../models/ReportShareOut';
-import type { ReportSummaryPayload } from '../models/ReportSummaryPayload';
 import type { TeamReportPayload } from '../models/TeamReportPayload';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class ReportsService {
     /**
-     * List Self Reports
-     * @returns ReportSummaryPayload Successful Response
-     * @throws ApiError
-     */
-    public static listSelfReportsApiV1ReportsSelfGet(): CancelablePromise<Array<ReportSummaryPayload>> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/reports/self',
-        });
-    }
-    /**
      * Get Report
      * @param sessionId
+     * @param xGuestToken
      * @returns any Successful Response
      * @throws ApiError
      */
     public static getReportApiV1ReportsSessionIdGet(
         sessionId: string,
+        xGuestToken?: string | null,
     ): CancelablePromise<(IndividualReportPayload | TeamReportPayload)> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/v1/reports/{session_id}',
             path: {
                 'session_id': sessionId,
+            },
+            headers: {
+                'X-Guest-Token': xGuestToken,
             },
             errors: {
                 422: `Validation Error`,

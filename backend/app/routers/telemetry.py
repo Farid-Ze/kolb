@@ -221,7 +221,7 @@ class ReplayEvent(BaseModel):
 
 class ReplayEventBatch(BaseModel):
     """Batch of replay events."""
-    sessionId: int
+    sessionId: uuid.UUID
     events: list[ReplayEvent]
 
 

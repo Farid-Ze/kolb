@@ -1,7 +1,7 @@
 import { useReducer, useRef, useCallback, useEffect } from 'react'
 import { LFI_CONTEXTS } from '../../../entities/session/constants'
 import type { SessionOperationResult } from '../../../entities/session/model'
-import type { TunnelContextDraft, TunnelItemDraft, TunnelPhase } from '../model'
+import type { TunnelContextDraft, TunnelItemDraft, TunnelPhase, TunnelState } from '../model'
 
 type ContextDraftMap = Record<string, TunnelContextDraft>
 
@@ -10,17 +10,6 @@ const buildInitialContextDrafts = (): ContextDraftMap =>
     acc[contextName] = { contextName, CE: null, RO: null, AC: null, AE: null }
     return acc
   }, {})
-
-export type TunnelState = {
-  sessionId: string | null
-  phase: TunnelPhase
-  drafts: Record<number, TunnelItemDraft>
-  contextDrafts: ContextDraftMap
-  submissionResult: SessionOperationResult['result'] | null
-  submissionError: Error | null
-  lastAutosaveAt: number | null
-  restoredFromDraft: boolean
-}
 
 export type TunnelAction =
   | { type: 'START_SESSION'; sessionId: string }
@@ -100,7 +89,7 @@ function tunnelReducer(state: TunnelState, action: TunnelAction): TunnelState {
   }
 }
 
-import { apiClient } from '../../../shared/api/client'
+import { TelemetryService } from '../../../shared/api/generated'
 
 const ACTION_LOG_BATCH_SIZE = 10
 const ACTION_LOG_INTERVAL = 10000
@@ -117,7 +106,7 @@ export function useTunnelState() {
     const events = [...actionBufferRef.current]
     actionBufferRef.current = []
 
-    apiClient.post('/telemetry/replay-events', {
+    TelemetryService.recordReplayEventsApiV1TelemetryReplayEventsPost({
       sessionId: sid,
       events
     }).catch((err: unknown) => console.warn('Failed to upload replay events', err))

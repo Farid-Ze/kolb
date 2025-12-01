@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from time import perf_counter
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator, Iterable
+from typing import TYPE_CHECKING, Iterator, Iterable, Union
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import make_url, URL
@@ -373,7 +373,7 @@ class AssessmentRepositoryGroup:
 class RepositoryProvider:
     """Factory for repository instances bound to a specific session."""
 
-    db: Session
+    db: Union[Session, AsyncSession]
 
     @property
     def sessions(self) -> "SessionRepository":
@@ -416,7 +416,7 @@ class RepositoryProvider:
         )
 
 
-def get_repository_provider(db: Session) -> RepositoryProvider:
+def get_repository_provider(db: Union[Session, AsyncSession]) -> RepositoryProvider:
     """Helper to bind repository provider to an existing session."""
 
     return RepositoryProvider(db)

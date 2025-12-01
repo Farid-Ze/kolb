@@ -7,7 +7,7 @@ import type { ReplayEvent } from './ReplayEvent';
  * Batch of replay events.
  */
 export type ReplayEventBatch = {
-    sessionId: number;
+    sessionId: string;
     events: Array<ReplayEvent>;
 };
 
