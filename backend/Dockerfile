@@ -1,76 +1,61 @@
-# Dockerfile for Python 3.11 (Standard/Stable)
-# Replaces Python 3.13t (Free-Threading) due to async compatibility issues
-
-# ==========================================
+# Multi-stage build for smaller image size and better security
 # Stage 1: Builder
-# ==========================================
-FROM python:3.11-slim-bookworm AS builder
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+FROM python:3.12-slim as builder
 
 WORKDIR /app
 
-# Install build dependencies
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
+# Install build dependencies (gcc, libpq-dev) needed for compiling wheels
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Production Runner
+FROM python:3.12-slim as runner
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust (needed for pydantic-core compilation if wheel missing)
-# RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-# ENV PATH="/root/.cargo/bin:${PATH}"
+# Copy virtual env from builder stage
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-# ==========================================
-# Stage 2: Runner
-# ==========================================
-FROM python:3.11-slim-bookworm AS runner
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
-
-WORKDIR /app
-
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
-    libpq5 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy installed python packages
-COPY --from=builder /install /usr/local
-
-# Copy application code
-COPY app ./app
-COPY alembic.ini ./alembic.ini
-COPY generate_openapi.py ./generate_openapi.py
-
-# Create a non-root user and group
+# Create non-root user for security (Protocol C.3)
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Change ownership of the application directory
+# Copy application code
+COPY . .
+
+# Change ownership to non-root user
 RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
 
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Expose port
 EXPOSE 8000
 
-# Run with gunicorn in production mode
-CMD ["gunicorn", "app.main:app", \
-    "-w", "4", \
-    "-k", "uvicorn.workers.UvicornWorker", \
-    "--bind", "0.0.0.0:8000", \
-    "--timeout", "60", \
-    "--access-logfile", "-", \
-    "--error-logfile", "-"]
+# Healthcheck for orchestration stability
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Production command using Gunicorn with Uvicorn workers
+# -w 4: 4 worker processes (adjust based on CPU cores)
+# -k uvicorn.workers.UvicornWorker: Asyncio worker class
+CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]

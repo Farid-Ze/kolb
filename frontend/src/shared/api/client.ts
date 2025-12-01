@@ -1,57 +1,68 @@
-import axios from 'axios';
-import { OpenAPI } from './generated/core/OpenAPI';
+import axios from 'axios'
+import { env } from '../../config/env'
 
-// Configure OpenAPI base URL
-// Default to localhost:8000 if not specified in environment variables
-OpenAPI.BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/v1';
+// [SECURITY NOTICE]
+// Tokens are currently stored in localStorage.
+// Risk: Vulnerable to XSS.
+// Mitigation: 
+// 1. Strict Content-Security-Policy (CSP) in index.html
+// 2. Input sanitization in React components
+// 3. Future Roadmap: Migrate to HttpOnly cookies for 'refresh_token'
+export const TOKEN_KEY = 'zenotika.auth.token'
+export const REFRESH_TOKEN_KEY = 'zenotika.auth.refreshToken'
 
-// Configure global axios defaults
-// This ensures that the generated services (which use the default axios instance)
-// pick up these configurations.
-axios.defaults.baseURL = OpenAPI.BASE;
+export const apiClient = axios.create({
+  baseURL: env.API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
 
-// Request interceptor for Auth Token
-axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY)
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token}`
   }
+  return config
+})
 
-  // Handle Guest Token for anonymous assessments
-  const guestToken = localStorage.getItem('guestToken');
-  if (guestToken) {
-    config.headers['X-Guest-Token'] = guestToken;
-  }
-
-  return config;
-});
-
-// Response interceptor for 401 and Errors
-axios.interceptors.response.use(
+apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config
 
-    // Handle 401 - Refresh Token Logic
-    // We avoid infinite loops by checking the _retry flag
+    // Handle 401 Unauthorized (Token Expiry)
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+      originalRequest._retry = true
 
-      // TODO: Implement robust refresh token flow
-      // For now, we'll just clear the token and redirect to login
-      // to prevent the app from getting stuck in a broken state.
-      localStorage.removeItem('accessToken');
+      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+      if (!refreshToken) {
+        // No refresh token, force logout
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(REFRESH_TOKEN_KEY)
+        window.location.href = '/auth/login'
+        return Promise.reject(error)
+      }
 
-      // Only redirect if we are not already on the login page
-      if (!window.location.pathname.includes('/login')) {
-        // window.location.href = '/login'; 
-        // Commented out to prevent hard redirects during dev/testing without router
+      try {
+        // Attempt refresh
+        const { data } = await axios.post(`${env.API_URL}/api/v1/auth/refresh`, {
+          refreshToken,
+        })
+
+        localStorage.setItem(TOKEN_KEY, data.access_token)
+        localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token)
+
+        originalRequest.headers.Authorization = `Bearer ${data.access_token}`
+        return apiClient(originalRequest)
+      } catch (refreshError) {
+        // Refresh failed, force logout
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(REFRESH_TOKEN_KEY)
+        window.location.href = '/auth/login'
+        return Promise.reject(refreshError)
       }
     }
-
-    return Promise.reject(error);
+    return Promise.reject(error)
   }
-);
-
-export { axios };
-export const apiClient = axios;
+)

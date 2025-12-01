@@ -5,7 +5,8 @@ import type {
   ContextRank as GenContextRank,
   SessionOperationResult as GenSessionOperationResult,
   SessionAutosavePayload as GenSessionAutosavePayload,
-  AutosaveItemRank as GenAutosaveItemRank
+  AutosaveItemRank as GenAutosaveItemRank,
+  AssessmentItemResponsePayload as GenAssessmentItemResponsePayload
 } from '../../shared/api/generated'
 
 export type SessionStartResponse = GenSessionStartResponse
@@ -31,11 +32,7 @@ export interface AssessmentItem {
   category?: string | null
 }
 
-export interface AssessmentItemResponsePayload {
-  itemId: number
-  responseRank: number
-  responseLatencyMs: number
-  blurEvents?: number | null
+export type AssessmentItemResponsePayload = GenAssessmentItemResponsePayload & {
   meta?: Record<string, unknown> | null
 }
 

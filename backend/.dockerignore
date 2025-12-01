@@ -68,7 +68,7 @@ docker-compose*.yml
 .dockerignore
 
 # Development scripts
-scripts/
+# scripts/
 manual_test.py
 debug_*.py
 

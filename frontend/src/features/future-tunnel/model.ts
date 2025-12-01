@@ -1,5 +1,5 @@
 import type { AssessmentItem, SessionOperationResult } from '../../entities/session/model'
-import type { ItemRank } from '../../shared/api/generated'
+import type { ItemRank, ContextRank } from '../../shared/api/generated'
 
 export type TunnelPhase = 'idle' | 'loading' | 'in-progress' | 'submitting' | 'completed'
 
@@ -13,12 +13,8 @@ export interface TunnelItemDraft extends Omit<ItemRank, 'ranks'> {
 }
 
 // Draft state allows nulls, whereas final ContextRank requires numbers
-export interface TunnelContextDraft {
-  contextName: string
-  CE: number | null
-  RO: number | null
-  AC: number | null
-  AE: number | null
+export type TunnelContextDraft = {
+  [K in keyof ContextRank]: ContextRank[K] | null
 }
 
 export type ContextDraftMap = Record<string, TunnelContextDraft>

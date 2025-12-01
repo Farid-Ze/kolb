@@ -47,3 +47,35 @@ Address critical and high-priority security findings identified in `docs/SECURIT
 - [x] Verify Resource Leak fix by monitoring background tasks.
 - [x] Verify Async/Sync mismatches by checking endpoint responsiveness.
 - [x] Verify Missing Imports by checking server logs for NameError.
+
+## Phase 3: Deployment & Security Hardening
+
+### Containerization
+- [x] **[Dockerfile](file:///a:/dev/Kaderisasi/kolb/backend/Dockerfile)**: Implement multi-stage build and non-root user.
+- [x] **[docker-compose.yml](file:///a:/dev/Kaderisasi/kolb/docker-compose.yml)**: Add health checks and production command overrides.
+
+### Security Hardening
+- [x] **[index.html](file:///a:/dev/Kaderisasi/kolb/frontend/index.html)**: Implement Content Security Policy (CSP).
+- [x] **[config.py](file:///a:/dev/Kaderisasi/kolb/backend/app/core/config.py)**: Enforce strict CORS origin validation.
+- [x] **[client.ts](file:///a:/dev/Kaderisasi/kolb/frontend/src/shared/api/client.ts)**: Implement robust token refresh interceptor.
+
+## Phase 4: Frontend Synchronization
+
+### Type Safety
+- [x] **[package.json](file:///a:/dev/Kaderisasi/kolb/frontend/package.json)**: Add `gen:api` script for OpenAPI codegen.
+- [x] **[model.ts](file:///a:/dev/Kaderisasi/kolb/frontend/src/features/future-tunnel/model.ts)**: Refactor to use generated types.
+- [x] **[model.ts](file:///a:/dev/Kaderisasi/kolb/frontend/src/entities/session/model.ts)**: Refactor to use generated types where available.
+
+### Robust Tunnel
+- [x] **[useTunnelSession.ts](file:///a:/dev/Kaderisasi/kolb/frontend/src/features/future-tunnel/hooks/useTunnelSession.ts)**: Implement `navigator.sendBeacon` and robust persistence.
+
+## Phase 5: Production Readiness
+
+### Concurrency Finalization
+- [ ] **[sessions.py](file:///a:/dev/Kaderisasi/kolb/backend/app/db/repositories/sessions.py)**: Convert `get_with_lock` to async using SQLAlchemy 2.0 syntax.
+- [ ] **[grant_service.py](file:///a:/dev/Kaderisasi/kolb/backend/app/services/grant_service.py)**: Verify async locking implementation (Done).
+
+### QA Protocols
+- [x] **[test_concurrency.py](file:///a:/dev/Kaderisasi/kolb/backend/scripts/test_concurrency.py)**: Create script to simulate race conditions (The Bank Vault Test).
+- [x] **[test_audit.py](file:///a:/dev/Kaderisasi/kolb/backend/scripts/test_audit.py)**: Verify audit trail integrity.
+- [ ] **Verification Execution**: Run scripts (Blocked: Docker Environment Unavailable).

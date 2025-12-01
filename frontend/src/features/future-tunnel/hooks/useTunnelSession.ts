@@ -253,6 +253,30 @@ export function useTunnelSession() {
     }
   }, [ensureItemMetrics])
 
+  // [Phase 4] Robust Tunnel: Send telemetry on unload
+  useEffect(() => {
+    const handleUnload = () => {
+      if (activeItemIdRef.current && sessionId) {
+        const metrics = ensureItemMetrics(activeItemIdRef.current)
+        const latency = clampLatency(Date.now() - metrics.startedAt)
+
+        sendTelemetry({
+          itemId: activeItemIdRef.current,
+          responseLatencyMs: latency,
+          blurEvents: metrics.blurEvents,
+          meta: {
+            event: 'unload_snapshot'
+          }
+        })
+      }
+    }
+
+    window.addEventListener('beforeunload', handleUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload)
+    }
+  }, [sessionId, sendTelemetry, ensureItemMetrics])
+
   const startMutation = useMutation({
     mutationFn: () => startSession(),
     onMutate: () => dispatch({ type: 'SET_PHASE', phase: 'loading' }),

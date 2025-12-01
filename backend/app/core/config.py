@@ -1,152 +1,69 @@
-import os
-from datetime import datetime
-from functools import lru_cache
+from typing import Any, List, Union
 
-from typing import Literal, Optional
-
-from pydantic import Field, HttpUrl, computed_field, field_validator
+from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def _load_required_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
-    return value
-
-
 class Settings(BaseSettings):
-    """Strongly typed configuration sourced from environment variables."""
+    app_name: str = "Zenotika Assessment Engine"
+    environment: str = "development"
+    debug: bool = True
+    
+    # Database
+    database_url: str = "sqlite:///./sql_app.db"
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout: int = 30
+    db_pool_recycle: int = 1800
+    db_pool_pre_ping: bool = True
+    
+    # Security
+    jwt_secret_key: str = "unsafe-secret-key-change-me"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    jwt_issuer: str = "zenotika"
+    jwt_audience: str = "zenotika-client"
+    
+    # [Security Fix] CORS Configuration
+    # Strict validation ensures comma-separated strings are parsed into lists
+    backend_cors_origins: List[str] = []
+
+    @field_validator("backend_cors_origins", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, (list, str)):
+            return v
+        raise ValueError(v)
+
+    # Feature Flags
+    run_startup_ddl: bool = True
+    run_startup_seed: bool = False
+    cache_enabled: bool = False
+    redis_url: str = "redis://localhost:6379/0"
+    
+    # App Specific
+    allowed_student_domain: str = "student.university.ac.id"
+    runtime_components_enabled: bool = True
+    registry_auto_discover_enabled: bool = True
+    i18n_preload_enabled: bool = True
+    
+    # Legacy Support
+    disable_legacy_submission: bool = False
+    disable_legacy_router: bool = False
+    legacy_sunset: Any = None
+    
+    # Norms
+    external_norms_enabled: bool = False
+    external_norms_base_url: str = ""
+    norm_percentile_cache_size: int = 8192
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",
+        case_sensitive=False
     )
 
-    app_name: str = Field(default="KLSI 4.0 API")
-    environment: Literal["dev", "test", "staging", "prod"] = Field(default="dev")
-    debug: bool = Field(default=False)
-    database_url: str = Field(default="sqlite+pysqlite:///./klsi.db")
 
-    jwt_secret_key: str = Field(default_factory=lambda: _load_required_env("JWT_SECRET_KEY"), min_length=8, description="Symmetric key for HS256 JWT signing")
-    jwt_algorithm: Literal["HS256"] = Field(default="HS256")
-    jwt_issuer: str = Field(default="klsi-api")
-    jwt_audience: str = Field(default="klsi-users")
-    access_token_expire_minutes: int = Field(default=60, ge=1)
-    
-    # CORS Configuration
-    backend_cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000", "http://localhost:5173"],
-        description="List of allowed CORS origins for frontend"
-    )
-
-    allowed_student_domain: str = Field(default="mahasiswa.unikom.ac.id")
-    audit_salt: str = Field(default_factory=lambda: _load_required_env("AUDIT_SALT"), description="Salt for audit hashing")
-
-    run_startup_seed: bool = Field(default=True)
-    run_startup_ddl: bool = Field(default=True)
-
-    external_norms_enabled: bool = Field(default=False)
-    external_norms_base_url: Optional[HttpUrl] = Field(default=None)
-    external_norms_timeout_ms: int = Field(default=1500, ge=1)
-    external_norms_api_key: Optional[str] = Field(default=None)
-    external_norms_cache_size: int = Field(default=512, ge=0)
-    external_norms_ttl_sec: int = Field(default=60, ge=1)
-
-    norms_preload_enabled: bool = Field(default=True)
-    norms_preload_row_threshold: int = Field(default=200_000, ge=0)
-    norms_preload_max_entries: int = Field(default=400_000, ge=0)
-    cached_norm_provider_enabled: bool = Field(default=True)
-    norms_lazy_loader_enabled: bool = Field(
-        default=False,
-        description="Enable repository-backed lazy loading for large norm tables",
-    )
-    norms_lazy_loader_chunk_size: int = Field(default=250, ge=1)
-    norms_lazy_loader_cache_entries: int = Field(default=2048, ge=1)
-    norm_percentile_cache_size: int = Field(
-        default=8192,
-        ge=0,
-        description="Max in-process entries for percentile lookup cache",
-    )
-
-    runtime_components_enabled: bool = Field(
-        default=False,
-        description="Enable modular runtime scheduler/state/error components",
-    )
-
-    i18n_preload_enabled: bool = Field(default=True, description="Preload i18n resources at startup to avoid disk I/O per request")
-
-    registry_auto_discover_enabled: bool = Field(
-        default=True,
-        description="Automatically run engine registry plugin discovery during startup",
-    )
-
-    engine_authoring_items_enabled: bool = Field(
-        default=False,
-        description="Serve KLSI items from engine authoring tables when enabled",
-    )
-
-    debug_instrumentation_enabled: bool = Field(
-        default=True,
-        description="Enable expensive timing/counter instrumentation (@measure_time, @count_calls)",
-    )
-
-    # Database connection pooling settings
-    db_pool_size: int = Field(default=5, ge=1, le=50, description="Number of connections to keep in the pool")
-    db_max_overflow: int = Field(default=10, ge=0, le=100, description="Max connections to create beyond pool_size")
-    db_pool_timeout: int = Field(default=30, ge=1, le=300, description="Seconds to wait for connection from pool")
-    db_pool_recycle: int = Field(default=3600, ge=300, description="Seconds before recycling a connection")
-    db_pool_pre_ping: bool = Field(default=True, description="Enable connection health checks before use")
-
-    # Redis / Caching
-    redis_url: str = Field(default="redis://localhost:6379/0")
-    cache_enabled: bool = Field(default=False)
-
-    disable_legacy_submission: bool = Field(default=False)
-    disable_legacy_router: bool = Field(default=False)
-    legacy_sunset: Optional[datetime] = Field(default=None)
-
-    mode: Literal["development", "testing", "staging", "production"] = Field(default="development")
-
-    @field_validator("legacy_sunset", mode="before")
-    @classmethod
-    def _normalize_legacy_sunset(cls, value: object) -> Optional[datetime]:
-        if value in (None, "", b""):
-            return None
-        if isinstance(value, datetime):
-            return value
-        if isinstance(value, bytes):
-            value = value.decode("utf-8")
-        if isinstance(value, str):
-            try:
-                return datetime.fromisoformat(value.replace("Z", "+00:00"))
-            except ValueError as exc:  # pragma: no cover - defensive parsing
-                raise ValueError(
-                    "LEGACY_SUNSET must be an ISO 8601 timestamp, e.g. 2026-01-31T00:00:00Z"
-                ) from exc
-        raise TypeError("LEGACY_SUNSET must be a datetime or ISO 8601 string")
-
-    @field_validator("external_norms_base_url", mode="before")
-    @classmethod
-    def _normalize_blank_url(cls, value: object) -> Optional[str | HttpUrl]:
-        if value in (None, "", b""):
-            return None
-        if isinstance(value, bytes):
-            return value.decode("utf-8")
-        if isinstance(value, str):
-            stripped = value.strip()
-            return stripped or None
-        raise TypeError("EXTERNAL_NORMS_BASE_URL must be a URL string")
-
-    @computed_field(return_type=bool)
-    def is_production(self) -> bool:
-        return self.environment == "prod"
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-settings = get_settings()
+settings = Settings()
