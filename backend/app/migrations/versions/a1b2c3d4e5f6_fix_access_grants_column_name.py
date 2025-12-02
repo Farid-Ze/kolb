@@ -17,7 +17,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.alter_column('access_grants', 'credits_used', new_column_name='credits_consumed')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = [c['name'] for c in inspector.get_columns('access_grants')]
+    
+    if 'credits_used' in columns and 'credits_consumed' not in columns:
+        with op.batch_alter_table('access_grants', schema=None) as batch_op:
+            batch_op.alter_column('credits_used', new_column_name='credits_consumed')
+    elif 'credits_consumed' in columns:
+        pass # Already correct
+
 
 
 def downgrade() -> None:

@@ -6,8 +6,8 @@ import type { LoginRequest } from '../../features/auth/model'
 import { ApiError, OpenAPI, type UserOut } from '../../shared/api/generated'
 import { useAuthTokenMetadata } from '../../shared/hooks/useAuthToken'
 import { AuthContext, type AuthContextValue } from './AuthContext'
+import { TOKEN_KEY } from '../../shared/api/client'
 
-const STORAGE_KEY = 'zenotika_token'
 const TIMELOCK_THRESHOLD_MS = 5 * 60 * 1000
 
 interface AuthProviderProps {
@@ -16,7 +16,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setTokenState] = useState<string | null>(() => {
-    const t = localStorage.getItem(STORAGE_KEY)
+    const t = localStorage.getItem(TOKEN_KEY)
     if (t) OpenAPI.TOKEN = t
     return t
   })
@@ -25,8 +25,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(interval)
+    // const interval = setInterval(() => setNow(Date.now()), 1000)
+    // return () => clearInterval(interval)
   }, [])
 
   const { expiresAt, role: tokenRole } = useAuthTokenMetadata(token)
@@ -37,10 +37,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const setToken = useCallback((value: string | null) => {
     setTokenState(value)
     if (value) {
-      localStorage.setItem(STORAGE_KEY, value)
+      localStorage.setItem(TOKEN_KEY, value)
       OpenAPI.TOKEN = value
     } else {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(TOKEN_KEY)
       OpenAPI.TOKEN = undefined
     }
   }, [])
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY) {
+      if (event.key === TOKEN_KEY) {
         setTokenState(event.newValue)
       }
     }

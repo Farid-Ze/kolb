@@ -71,6 +71,7 @@ class GrantService:
             grant = result.scalar_one_or_none()
 
             if not grant:
+                logger.warning(f"DEBUG: No grant found for user {user_id} instrument {instrument_id}")
                 raise InsufficientCreditsError(detail=f"User {user_id} has no credits for instrument {instrument_id}")
 
             # 2. Atomic Update with Version Check (credits_consumed)

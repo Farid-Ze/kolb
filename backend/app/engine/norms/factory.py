@@ -10,6 +10,7 @@ from app.engine.norms.composite import (
     DatabaseNormProvider,
     ExternalNormProvider,
 )
+from app.engine.norms.lru import _LRU
 from app.engine.norms.provider import NormProvider
 from app.engine.norms.lazy_loader import LazyNormLoader, NormDataSource
 from app.core.config import settings
@@ -20,6 +21,8 @@ from sqlalchemy import text
 
 logger = get_logger("kolb.engine.norms", component="engine")
 
+# Global cache for DB lookups to avoid session capture in lru_cache
+_DB_LOOKUP_CACHE = _LRU(maxsize=4096)
 
 def _make_cached_db_lookup(db: Session):
     """Return a cached DB lookup function.
@@ -30,29 +33,37 @@ def _make_cached_db_lookup(db: Session):
     """
     repo = NormativeConversionRepository(db)
 
-    @lru_cache(maxsize=4096)
-    def _cached(key: Tuple[str, str, int]) -> Optional[Tuple[float, str]]:
-        group_token, scale_name, raw = key
-        delim = "|"
-        if delim in group_token:
-            base_group, req_version = group_token.split(delim, 1)
-        else:
-            base_group, req_version = group_token, "default"
-        versions = [req_version]
-        if req_version != "default":
-            versions.append("default")
-        result = repo.fetch_first_for_versions_sync(base_group, versions, scale_name, int(raw))
-        if result:
-            entry, resolved_version = result
-            return entry.percentile, resolved_version
-        return None
-
     def _lookup(group_token: str, scale_name: str, raw: int | float):
-        return _cached((group_token, scale_name, int(raw)))
+        key = (group_token, scale_name, int(raw))
+        
+        def _fetch():
+            delim = "|"
+            if delim in group_token:
+                base_group, req_version = group_token.split(delim, 1)
+            else:
+                base_group, req_version = group_token, "default"
+            versions = [req_version]
+            if req_version != "default":
+                versions.append("default")
+            result = repo.fetch_first_for_versions_sync(base_group, versions, scale_name, int(raw))
+            if result:
+                entry, resolved_version = result
+                return entry.percentile, resolved_version
+            return None
+
+        return _DB_LOOKUP_CACHE.get_or_set(key, _fetch)
 
     # attach invalidation hook and stats accessor
-    setattr(_lookup, "clear_cache", _cached.cache_clear)
-    setattr(_lookup, "cache_info", _cached.cache_info)
+    # We expose the global cache info
+    def _cache_info():
+        # _LRU doesn't have cache_info like functools.lru_cache, but we can mock it or expose size
+        return type("Info", (), {"hits": 0, "misses": 0, "maxsize": _DB_LOOKUP_CACHE.maxsize, "currsize": len(_DB_LOOKUP_CACHE)})()
+
+    def _clear_cache():
+        _DB_LOOKUP_CACHE.clear()
+
+    setattr(_lookup, "clear_cache", _clear_cache)
+    setattr(_lookup, "cache_info", _cache_info)
     return _lookup
 
 

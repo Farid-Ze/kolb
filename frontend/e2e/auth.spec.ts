@@ -48,7 +48,10 @@ test.describe('Authentication Flow', () => {
     await expect(page).toHaveURL(/.*(\/|\/future\/dashboard)/)
     
     // Check if token is in local storage (optional, but good verification)
-    const token = await page.evaluate(() => localStorage.getItem('zenotika_token'))
-    expect(token).toBe('fake-jwt-token')
+    // Wait for token to be set
+    await expect(async () => {
+      const token = await page.evaluate(() => localStorage.getItem('zenotika.auth.token'))
+      expect(token).toBe('fake-jwt-token')
+    }).toPass({ timeout: 5000 })
   })
 })

@@ -191,11 +191,21 @@ class EngineSessionService:
         completed_items = sum(1 for ranks in response_map.values() if self._is_complete_response(ranks))
         progress = (completed_items / total_items) * 100 if total_items else 0.0
         next_index = self._next_incomplete_index(items, response_map)
+        
+        # Map DB status to API status
+        status_map = {
+            SessionStatus.started: "in_progress",
+            SessionStatus.in_progress: "in_progress",
+            SessionStatus.completed: "completed",
+            SessionStatus.abandoned: "abandoned",
+        }
+        api_status = status_map.get(session.status, "in_progress")
+
         return {
             "session_id": session.id,
             "instrument_code": session.assessment_id,
             "instrument_version": session.assessment_version,
-            "status": session.status.value,
+            "status": api_status,
             "delivery": delivery,
             "responses": response_payload,
             "contexts": contexts_payload,

@@ -35,6 +35,7 @@ const initialState: TunnelState = {
 }
 
 function tunnelReducer(state: TunnelState, action: TunnelAction): TunnelState {
+  console.log('[tunnelReducer] Action:', action.type)
   switch (action.type) {
     case 'START_SESSION':
       return {
@@ -130,6 +131,7 @@ export function useTunnelState() {
   }, [flushActions])
 
   const dispatch = useCallback((action: TunnelAction) => {
+    console.log('[useTunnelState] Dispatch:', action.type)
     baseDispatch(action)
 
     // Determine session ID (handle START_SESSION case where state.sessionId is null)

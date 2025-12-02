@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from hashlib import sha256
+import inspect
 from time import perf_counter
 from typing import Any, Callable, Union
 from uuid import uuid4, UUID
@@ -305,30 +306,42 @@ class EngineRuntime:
             if transactional:
                 if isinstance(context.db, AsyncSession):
                     async with context.db.begin_nested():
-                        # Scorer finalize is sync, run in sync context
-                        result = await context.db.run_sync(
-                            lambda s: scorer.finalize(s, session.id, skip_checks=context.skip_validation)
-                        )
+                        # Scorer finalize might be async
+                        res = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation) # type: ignore[arg-type]
+                        if inspect.isawaitable(res):
+                            result = await res # type: ignore[misc]
+                        else:
+                            result = res
                         _ensure_ok(result)
                         session.status = SessionStatus.completed
                         session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
                 else:
                     with context.db.begin_nested():
-                        result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                        res = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation) # type: ignore[arg-type]
+                        if inspect.isawaitable(res):
+                            result = await res # type: ignore[misc]
+                        else:
+                            result = res
                         _ensure_ok(result)
                         session.status = SessionStatus.completed
                         session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
             else:
                 if isinstance(context.db, AsyncSession):
-                    result = await context.db.run_sync(
-                        lambda s: scorer.finalize(s, session.id, skip_checks=context.skip_validation)
-                    )
+                    res = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation) # type: ignore[arg-type]
+                    if inspect.isawaitable(res):
+                        result = await res # type: ignore[misc]
+                    else:
+                        result = res
                     _ensure_ok(result)
                     session.status = SessionStatus.completed
                     session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
                     await context.db.commit()
                 else:
-                    result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                    res = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation) # type: ignore[arg-type]
+                    if inspect.isawaitable(res):
+                        result = await res # type: ignore[misc]
+                    else:
+                        result = res
                     _ensure_ok(result)
                     session.status = SessionStatus.completed
                     session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -647,10 +660,13 @@ class EngineRuntime:
         # Optimization: If lite=True, we might skip fetching items if the plugin supports it,
         # but for now we rely on compose_delivery_payload to filter.
         # Ideally, plugin.fetch_items should also support lite, but that requires plugin API change.
-        if isinstance(db, AsyncSession):
-            items = await db.run_sync(lambda s: plugin.fetch_items(s, session_id))
+        
+        # Handle both sync and async plugins
+        items_or_awaitable = plugin.fetch_items(db, session_id) # type: ignore[arg-type]
+        if inspect.isawaitable(items_or_awaitable):
+            items = await items_or_awaitable # type: ignore[misc]
         else:
-            items = plugin.fetch_items(db, session_id)
+            items = items_or_awaitable
         
         delivery = plugin.delivery()
         manifest = _cached_manifest(inst_id.key, inst_id.version)
@@ -670,10 +686,10 @@ class EngineRuntime:
     async def submit_payload(self, db: Union[Session, AsyncSession], session_id: UUID, payload: dict) -> None:
         session = await self._resolve_session(db, session_id)
         plugin = self._registry.plugin(self._instrument_id(session))
-        if isinstance(db, AsyncSession):
-            await db.run_sync(lambda s: plugin.validate_submit(s, session_id, payload))
-        else:
-            plugin.validate_submit(db, session_id, payload)
+        
+        res = plugin.validate_submit(db, session_id, payload) # type: ignore[arg-type]
+        if inspect.isawaitable(res):
+            await res # type: ignore[misc]
 
     @count_calls("engine.finalize.calls")
     @measure_time("engine.finalize", histogram=True)
@@ -776,13 +792,10 @@ class EngineRuntime:
         builder = self._registry.report_builder(self._instrument_id(session))
         # Check if builder supports async
         if hasattr(builder, "build") and callable(builder.build):
-             # We assume builder is updated to be async if db is AsyncSession
-             # But builder interface is sync.
-             # If we updated KLSI4Plugin, it is async.
-             # We need to await it.
-             if isinstance(db, AsyncSession):
-                 return await db.run_sync(lambda s: builder.build(s, session_id, viewer_role))
-             return builder.build(db, session_id, viewer_role)
+             res = builder.build(db, session_id, viewer_role) # type: ignore[arg-type]
+             if inspect.isawaitable(res):
+                 return await res # type: ignore[misc]
+             return res
         return {}
 
     async def percentile(
@@ -790,9 +803,11 @@ class EngineRuntime:
     ) -> tuple[float | None, str]:
         session = await self._resolve_session(db, session_id)
         provider = self._registry.norm_provider(self._instrument_id(session))
-        if isinstance(db, AsyncSession):
-            return await db.run_sync(lambda s: provider.percentile(s, session_id, scale, raw))
-        return provider.percentile(db, session_id, scale, raw)
+        
+        res = provider.percentile(db, session_id, scale, raw) # type: ignore[arg-type]
+        if inspect.isawaitable(res):
+            return await res # type: ignore[misc]
+        return res
 
 
 runtime = EngineRuntime()

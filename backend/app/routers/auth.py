@@ -78,6 +78,25 @@ async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
     try:
         await db.commit()
         await db.refresh(user)
+
+        # [Dev/Test] Auto-grant credits for KLSI4
+        if settings.environment in ("development", "test"):
+            try:
+                from app.services.grant_service import GrantService
+                from app.db.database import get_repository_provider
+                
+                repo_provider = get_repository_provider(db)
+                instrument = await repo_provider.instruments.get_by_code("KLSI4")
+                if instrument:
+                    grant_service = GrantService(db)
+                    # Grant 5 credits
+                    logger.warning(f"DEBUG: Auto-granting 5 credits for user {user.id} instrument {instrument.id}")
+                    await grant_service.grant_credits(user.id, instrument.id, 5)
+                    await db.commit()
+                    logger.warning(f"DEBUG: Auto-grant committed for user {user.id}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-grant credits: {e}")
+
     except Exception:
         await db.rollback()
         _log_db_failure(

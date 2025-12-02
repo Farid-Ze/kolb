@@ -30,8 +30,8 @@ def upgrade() -> None:
         )
 
     # Force clean state
-    op.execute("DROP TABLE IF EXISTS scoring_pipeline_nodes CASCADE")
-    op.execute("DROP TABLE IF EXISTS scoring_pipelines CASCADE")
+    op.execute("DROP TABLE IF EXISTS scoring_pipeline_nodes")
+    op.execute("DROP TABLE IF EXISTS scoring_pipelines")
 
     op.create_table(
         "scoring_pipelines",

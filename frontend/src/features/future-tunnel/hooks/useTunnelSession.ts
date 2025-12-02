@@ -298,6 +298,7 @@ export function useTunnelSession() {
     queryFn: () => fetchSessionItems(sessionId as string),
     enabled: Boolean(sessionId),
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   const sessionStateQuery = useQuery({
@@ -305,6 +306,7 @@ export function useTunnelSession() {
     queryFn: () => fetchSessionState(sessionId as string),
     enabled: Boolean(sessionId),
     staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   const autosaveMutation = useMutation({

@@ -157,6 +157,11 @@ class TestVulnerabilityScanning:
         """
         import subprocess
         import json
+        import shutil
+        
+        if not shutil.which("safety"):
+            pytest.skip("Safety tool not installed")
+            return
         
         # Run safety check
         try:

@@ -38,7 +38,8 @@ def _upgrade_store_products(bind) -> None:
             sa.Column("slug", sa.String(length=100), nullable=True),
         )
         op.execute(text("UPDATE store_products SET slug = 'product-' || id WHERE slug IS NULL"))
-        op.alter_column("store_products", "slug", nullable=False, existing_type=sa.String(length=100))
+        with op.batch_alter_table("store_products") as batch_op:
+            batch_op.alter_column("slug", nullable=False, existing_type=sa.String(length=100))
         columns.add("slug")
 
     if "slug" in columns and "ix_store_products_slug" not in indexes:
@@ -55,13 +56,13 @@ def _upgrade_store_products(bind) -> None:
             sa.Column("base_price", sa.Integer(), nullable=False, server_default="0"),
         )
         op.execute(text("UPDATE store_products SET base_price = COALESCE(price_points, 0)"))
-        op.alter_column(
-            "store_products",
-            "base_price",
-            server_default=None,
-            existing_type=sa.Integer(),
-            nullable=False,
-        )
+        with op.batch_alter_table("store_products") as batch_op:
+            batch_op.alter_column(
+                "base_price",
+                server_default=None,
+                existing_type=sa.Integer(),
+                nullable=False,
+            )
         columns.add("base_price")
 
     if "price_points" in columns:
@@ -82,7 +83,7 @@ def _recreate_store_orders(bind) -> None:
         return
 
     # Force clean state for new table
-    op.execute("DROP TABLE IF EXISTS store_orders_new CASCADE")
+    op.execute("DROP TABLE IF EXISTS store_orders_new")
 
     op.create_table(
         "store_orders_new",

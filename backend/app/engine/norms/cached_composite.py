@@ -1,11 +1,13 @@
 from collections import OrderedDict
 from typing import Dict, Iterable, List, Tuple
+from threading import Lock
 
 from sqlalchemy.orm import Session
 
 from app.engine.constants import ALL_SCALE_CODES
 from app.engine.norms.composite import AppendixNormProvider
 from app.engine.norms.value_objects import PercentileResult, ScaleSample
+from app.engine.norms.lru import _LRU
 from app.assessments.klsi_v4.logic import (
     DEFAULT_NORM_VERSION,
     _split_norm_group_token,
@@ -15,25 +17,6 @@ from app.core.metrics import timer, inc_counter, measure_time, count_calls
 from app.core.cache import sync_cache
 from app.db.repositories import NormativeConversionRepository, NormativeConversionRow
 from app.db.repositories.protocols import NormConversionReader
-
-
-class _LRU(OrderedDict):
-    def __init__(self, maxsize: int = 4096):
-        super().__init__()
-        self.maxsize = maxsize
-
-    def get_or_set(self, key, factory):
-        try:
-            value = self.pop(key)
-            self[key] = value
-            return value
-        except KeyError:
-            value = factory()
-            self[key] = value
-            if len(self) > self.maxsize:
-                self.popitem(last=False)
-            return value
-
 
 
 # Global cache shared across instances (per process)

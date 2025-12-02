@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade() -> None:
     # 0. Drop old table if exists (from previous init migration)
-    op.execute("DROP TABLE IF EXISTS access_grants CASCADE")
+    op.execute("DROP TABLE IF EXISTS access_grants")
 
     # 1. Create access_grants table
     op.create_table('access_grants',
@@ -41,7 +41,11 @@ def upgrade() -> None:
     # 2. Migrate Data from Store Orders
     # Assumption: All current store products map to Instrument ID 1 (KLSI)
     # Only migrate 'paid' or 'completed' orders.
-    op.execute("""
+    
+    # SQLite compatible UUID generation
+    uuid_gen = "(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))"
+    
+    op.execute(f"""
         INSERT INTO access_grants (
             id, 
             grantee_id, 
@@ -53,14 +57,14 @@ def upgrade() -> None:
             updated_at
         )
         SELECT 
-            gen_random_uuid(),
+            {uuid_gen},
             so.user_id,
             1, -- Default to KLSI
             soi.quantity,
             0, -- Initial used count
             so.id,
             so.created_at,
-            NOW()
+            CURRENT_TIMESTAMP
         FROM store_orders so
         JOIN store_order_items soi ON so.id = soi.order_id
         WHERE so.payment_status IN ('paid', 'completed', 'settlement')

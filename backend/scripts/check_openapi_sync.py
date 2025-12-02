@@ -12,7 +12,7 @@ REPO_ROOT = BACKEND_DIR.parent
 FRONTEND_DIR = REPO_ROOT / "frontend"
 GENERATED_TYPES_DIR = FRONTEND_DIR / "src" / "shared" / "api" / "generated"
 
-def run_command(command, cwd=None, env=None):
+def run_command(command, cwd=None, env=None, shell=False):
     """Run a shell command and return its output."""
     try:
         result = subprocess.run(
@@ -23,7 +23,7 @@ def run_command(command, cwd=None, env=None):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            shell=True
+            shell=shell
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
@@ -41,7 +41,7 @@ def generate_openapi_spec(output_path):
     
     scripts_dir = BACKEND_DIR / "scripts"
     # Use sys.executable to ensure we use the same python interpreter
-    run_command(f'"{sys.executable}" dump_openapi.py', cwd=scripts_dir, env=env)
+    run_command([sys.executable, "dump_openapi.py"], cwd=scripts_dir, env=env)
     
     src = scripts_dir / "openapi.json"
     if not src.exists():
@@ -74,8 +74,8 @@ def generate_client(spec_path, output_dir):
     # Use npx.cmd for Windows explicitly if possible, or just npx with shell=True
     npx = "npx.cmd" if os.name == "nt" else "npx"
     
-    cmd = f'{npx} openapi-typescript-codegen --input "{rel_spec}" --output "{rel_output}" --client axios'
-    run_command(cmd, cwd=FRONTEND_DIR)
+    cmd = [npx, "openapi-typescript-codegen", "--input", str(rel_spec), "--output", str(rel_output), "--client", "axios"]
+    run_command(cmd, cwd=FRONTEND_DIR, shell=False)
     print(f"Client generated at {output_dir}")
 
 def _compare_dircmp(dcmp):

@@ -21,13 +21,10 @@ from fastapi.concurrency import run_in_threadpool
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
-def report_key_builder(session_id: uuid.UUID, *args, **kwargs) -> str:
-    # We can't easily access current_user here to make key unique per user, 
-    # but build_report results are user-agnostic (unless viewer_role changes data).
-    # Ideally, we include viewer role in cache key.
-    # For now, let's keep it simple or remove caching if it poses security risk.
-    # Given the risk of caching unauthorized data, we will depend on service layer caching.
-    return f"report:{session_id}"
+def report_key_builder(session_id: uuid.UUID, viewer=None, *args, **kwargs) -> str:
+    viewer_part = f"user:{viewer.id}" if getattr(viewer, "id", None) else f"guest:{getattr(viewer, 'guest_token', 'anon')}"
+    role_part = getattr(viewer, "role", "anon")
+    return f"report:{session_id}:viewer:{viewer_part}:role:{role_part}"
 
 @router.get("/self", response_model=list[ReportSummaryPayload])
 async def get_my_reports(
