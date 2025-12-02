@@ -2,22 +2,19 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { AnalyticsData } from './AnalyticsData';
-import type { LearningSpaceData } from './LearningSpaceData';
 import type { ReportShareContext } from './ReportShareContext';
-import type { VisualizationConfig } from './VisualizationConfig';
 export type IndividualReportPayload = {
     sessionId: string;
     generatedAt?: string | null;
     kind?: IndividualReportPayload.kind;
     raw: Record<string, any>;
-    percentiles: Record<string, any>;
-    style: Record<string, any>;
-    lfi: Record<string, any>;
-    analytics: AnalyticsData;
-    visualization?: (VisualizationConfig | null);
+    percentiles?: any | null;
+    style?: any | null;
+    lfi?: any | null;
+    analytics?: any | null;
+    visualization?: any | null;
     sessionDesigns?: any[] | null;
-    learningSpace?: (LearningSpaceData | null);
+    learningSpace?: any | null;
     enhancedAnalytics?: any | null;
     notes?: any | null;
     owner?: any | null;

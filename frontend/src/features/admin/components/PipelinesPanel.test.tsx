@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { validatePercentileOrder } from './PipelinesPanel'
+import { validatePercentileOrder } from './utils'
 
 const makeCsvFile = (content: string) => ({
   text: () => Promise.resolve(content),

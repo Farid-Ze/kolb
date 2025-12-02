@@ -51,7 +51,8 @@ describe('AuthProvider time-lock enforcement', () => {
   it('logs out immediately when token is already inside the time-lock window', async () => {
     const now = new Date('2025-01-01T00:00:00Z')
     vi.setSystemTime(now)
-    const expSeconds = Math.floor((now.getTime() + 30 * 60 * 1000) / 1000)
+    // 4 minutes from now (inside 5 min window)
+    const expSeconds = Math.floor((now.getTime() + 4 * 60 * 1000) / 1000)
     localStorage.setItem(STORAGE_KEY, buildToken({ exp: expSeconds }))
 
     await act(async () => {
@@ -85,7 +86,8 @@ describe('AuthProvider time-lock enforcement', () => {
     await act(async () => {})
     expect(screen.getByTestId('auth-state')).toHaveTextContent('true')
 
-    const msUntilLock = (2 * 60 - 45) * 60 * 1000
+    // Threshold is 5 minutes. So we wait (2 hours - 5 minutes)
+    const msUntilLock = (2 * 60 - 5) * 60 * 1000
     await act(async () => {
       vi.advanceTimersByTime(msUntilLock + 1000)
     })

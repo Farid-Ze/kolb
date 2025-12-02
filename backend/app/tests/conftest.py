@@ -110,14 +110,14 @@ def db_setup():
             from datetime import datetime, timezone
             
             # Use raw SQL to avoid ORM mapper configuration issues during check
-            if db.execute(text("SELECT 1 FROM instruments WHERE code = 'KLSI' AND version = '4.0'")).scalar():
+            if db.execute(text("SELECT 1 FROM instruments WHERE code = 'KLSI4' AND version = '4.0'")).scalar():
                 f.write("DEBUG: Instrument already exists\n")
                 return
 
             now = datetime.now(timezone.utc)
             try:
                 instrument = Instrument(
-                    code="KLSI",
+                    code="KLSI4",
                     name="Kolb Learning Style Inventory",
                     version="4.0",
                     default_strategy_code="KLSI4.0",

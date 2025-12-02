@@ -27,6 +27,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/kolb
       - SECRET_KEY=changethis-in-production
       - BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+      - RUN_STARTUP_SEED=true
     ports:
       - "8000:8000"
     depends_on:

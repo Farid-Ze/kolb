@@ -30,7 +30,7 @@ def _new_session(db) -> AssessmentSession:
     db.flush()
     sess = AssessmentSession(
         user_id=user.id,
-        assessment_id="KLSI",
+        assessment_id="KLSI4",
         assessment_version="4.0",
         status=SessionStatus.started,
     )
@@ -58,7 +58,7 @@ def test_finalize_is_atomic_on_failure():
             finalize_assessment(
                 db,
                 sess.id,
-                assessment_id="KLSI",
+                assessment_id="KLSI4",
                 assessment_version="4.0",
                 salt="test",
                 skip_checks=True,  # Skip completeness checks to hit the strategy fast

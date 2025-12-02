@@ -8,7 +8,6 @@ export function AssessmentRunner() {
     const navigate = useNavigate();
     const { items, isLoading, saveResponse, isSaving } = useAssessmentSession(sessionId);
     const [currentIndex, setCurrentIndex] = useState(0);
-    // const [responses, setResponses] = useState<Record<number, any>>({}); // Unused for now
 
     const currentItem = items?.[currentIndex];
     const { recordTelemetry } = useAssessmentTelemetry(sessionId, currentItem?.id);
@@ -41,12 +40,13 @@ export function AssessmentRunner() {
         setCurrentIndex(prev => Math.max(0, prev - 1));
     };
 
-    const handleResponse = (value: any) => {
+    const handleResponse = (value: { rank: number }) => {
         // setResponses(prev => ({ ...prev, [currentItem.id]: value }));
         saveResponse({
-            item_id: currentItem.id,
-            response_data: value
-        } as any);
+            itemId: currentItem.id,
+            responseRank: value.rank,
+            responseLatencyMs: 0,
+        });
 
         recordTelemetry(1);
     };

@@ -22,3 +22,14 @@ class NormConversionReader(Protocol):
         raw: int,
     ) -> tuple[NormativeConversionRow, str] | None:
         ...
+
+    def fetch_scale_chunk_sync(
+        self,
+        norm_group: str,
+        version: str,
+        scale_name: str,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[NormativeConversionRow]:
+        ...

@@ -27,13 +27,14 @@ class AssessmentSession(Base):
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship(back_populates="sessions")
     guest_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
-    start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.started)
     assessment_id: Mapped[str] = mapped_column(String(40), default="KLSI")
     assessment_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     instrument_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     pipeline_version: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    is_finalized: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # Audit Note: This JSON column contains unstructured assessment results.
     # Future Work: Normalize into dedicated tables (e.g., AssessmentScores) for SQL analytics.
@@ -63,10 +64,6 @@ class AssessmentSession(Base):
     strategy_code: str | None = None
     days_since_last_session: int | None = None
 
-    @property
-    def is_finalized(self) -> bool:
-        return self.status == SessionStatus.completed
-
 
 class AssessmentSessionDelta(Base):
     __tablename__ = "assessment_session_deltas"
@@ -78,7 +75,7 @@ class AssessmentSessionDelta(Base):
     delta_aero: Mapped[Optional[int]] = mapped_column(Integer)
     delta_lfi: Mapped[Optional[float]] = mapped_column(Float)
     delta_intensity: Mapped[Optional[int]] = mapped_column(Integer)
-    computed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    computed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     session: Mapped[AssessmentSession] = relationship(back_populates="delta")
 

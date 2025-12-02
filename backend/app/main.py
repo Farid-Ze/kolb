@@ -4,7 +4,7 @@ import importlib
 from pathlib import Path
 from typing import Any, Callable
 
-from fastapi import APIRouter, Depends, FastAPI, Response
+from fastapi import APIRouter, Depends, FastAPI, Response, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from sqlalchemy import text
@@ -211,20 +211,49 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown: nothing
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+print("DEBUG: Creating FastAPI app instance")
+app = FastAPI(title="DEBUG APP", lifespan=lifespan)
 app.openapi = custom_openapi
 register_exception_handlers(app)
 
+import sys
+
 # [Zenotika V4] Security: CORS Configuration
 # Explicitly allow frontend origin to prevent unauthorized cross-origin requests
-if settings.backend_cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.backend_cors_origins],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+logger.info(f"DEBUG: Enabling CORS for origins: {settings.backend_cors_origins}")
+# Force explicit list for debugging
+origins = ["http://localhost:5174", "http://localhost:5173"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    # allow_origin_regex='.*', # Try this if specific origins fail
+)
+
+@app.get("/crash-route")
+def crash_route():
+    raise RuntimeError("CRASH ROUTE HIT")
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.warning(f"DEBUG: Request: {request.method} {request.url}")
+    logger.warning(f"DEBUG: Headers: {request.headers}")
+    if "crash" in str(request.url):
+        raise RuntimeError("CRASH TEST MIDDLEWARE RUNNING")
+    response = await call_next(request)
+    logger.warning(f"DEBUG: Response status: {response.status_code}")
+    return response
+
+@app.options("/api/v1/auth/register")
+async def options_register():
+    return Response(status_code=200, headers={
+        "Access-Control-Allow-Origin": "http://localhost:5174",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+    })
 
 # Register routers at import time so tests see routes without requiring startup
 # Create v1 router
@@ -248,6 +277,23 @@ api_v1_router.include_router(challenges_router)
 api_v1_router.include_router(grants_router)
 
 app.include_router(api_v1_router)
+
+# [Legacy/Test Support] Mount routers at root for backward compatibility/tests
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(assessments_router)
+app.include_router(sessions_router)
+app.include_router(engine_router, include_in_schema=False)
+app.include_router(admin_router)
+app.include_router(reports_router)
+app.include_router(results_router)
+app.include_router(score_router)
+app.include_router(teams_router)
+app.include_router(research_router)
+app.include_router(telemetry_router)
+app.include_router(sphere_router)
+app.include_router(challenges_router)
+app.include_router(grants_router)
 
 if GUIDES_STATIC_DIR.exists():
     app.mount(
@@ -340,3 +386,6 @@ def root():
 def favicon():
     """Empty favicon to prevent 404 noise in logs."""
     return Response(status_code=204)
+
+# Trigger reload
+# Force reload for E2E fix

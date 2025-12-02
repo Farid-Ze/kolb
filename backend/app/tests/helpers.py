@@ -1,3 +1,4 @@
+from typing import cast
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -35,8 +36,8 @@ async def build_async_seeded_memory_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-    db = AsyncSessionLocal()
+    AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False) # type: ignore
+    db: AsyncSession = cast(AsyncSession, AsyncSessionLocal())
     
     def _seed(sync_db):
         seed_instruments(sync_db)
@@ -51,7 +52,7 @@ async def build_async_seeded_memory_db():
 async def seed_complete_session_async(
     db: AsyncSession,
     *,
-    assessment_id: str = "KLSI",
+    assessment_id: str = "KLSI4",
     assessment_version: str = "4.0",
     user_email: str | None = None,
     user_name: str = "Tester",
@@ -91,7 +92,7 @@ async def seed_complete_session_async(
 def seed_complete_session(
     db,
     *,
-    assessment_id: str = "KLSI",
+    assessment_id: str = "KLSI4",
     assessment_version: str = "4.0",
     user_email: str | None = None,
     user_name: str = "Tester",

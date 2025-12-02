@@ -1,6 +1,8 @@
 from typing import Any, Optional
+import uuid
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.formatting import distance_to_percent
 from app.data.session_designs import recommend_for_primary
@@ -643,3 +645,7 @@ def build_report(db: Session, session_id: uuid.UUID, viewer_role: Optional[str] 
         "owner": owner_block,
         "share_context": None,
     }
+
+
+async def build_report_async(db: AsyncSession, session_id: uuid.UUID, viewer_role: Optional[str] = None) -> dict:
+    return await db.run_sync(lambda s: build_report(s, session_id, viewer_role))

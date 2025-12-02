@@ -5,6 +5,7 @@ import type { AssessmentItemResponsePayload } from '@/shared/api/generated';
 import { toast } from 'sonner';
 
 // Simple debounce implementation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function simpleDebounce<T extends (...args: any[]) => any>(func: T, wait: number) {
     let timeout: NodeJS.Timeout;
     return (...args: Parameters<T>) => {

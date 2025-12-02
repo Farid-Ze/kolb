@@ -85,9 +85,10 @@ export function FutureTunnelExperience() {
     try {
       await finalize()
       setStatusMessage('Session finalized. Head to the dashboard or store to see new rewards!')
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
-      const detail = err?.response?.data?.detail
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (err as any)?.response?.data?.detail
       if (detail) {
         if (typeof detail === 'string') {
           setStatusMessage(detail)

@@ -38,14 +38,15 @@ class RecorderProvider:
     def __init__(self, session):
         self.session = session
         self.calls: list[UUID] = []
-        self.sessions = SimpleNamespace(get_by_id=self._get)
+        self.sessions = SimpleNamespace(get_by_id=self._get, get_by_id_sync=self._get)
 
     def _get(self, session_id: UUID):
         self.calls.append(session_id)
         return self.session
 
 
-def test_resolve_session_uses_scheduler_when_components_enabled(monkeypatch):
+@pytest.mark.asyncio
+async def test_resolve_session_uses_scheduler_when_components_enabled(monkeypatch):
     sid = uuid4()
     dummy_session = DummySession(sid)
     scheduler = RecorderScheduler(dummy_session)
@@ -55,7 +56,7 @@ def test_resolve_session_uses_scheduler_when_components_enabled(monkeypatch):
 
     monkeypatch.setattr("app.engine.runtime.get_repository_provider", _fail_provider)
     runtime = EngineRuntime(components_enabled=True, scheduler=scheduler)
-    resolved = runtime._resolve_session(cast(Session, DummyDB()), sid)
+    resolved = await runtime._resolve_session(cast(Session, DummyDB()), sid)
     assert resolved is dummy_session
     assert len(scheduler.calls) == 1
     called_db, called_id = scheduler.calls[0]
@@ -63,7 +64,8 @@ def test_resolve_session_uses_scheduler_when_components_enabled(monkeypatch):
     assert called_id == sid
 
 
-def test_resolve_session_uses_repository_when_components_disabled(monkeypatch):
+@pytest.mark.asyncio
+async def test_resolve_session_uses_repository_when_components_disabled(monkeypatch):
     sid = uuid4()
     dummy_session = DummySession(sid)
     provider = RecorderProvider(dummy_session)
@@ -74,20 +76,22 @@ def test_resolve_session_uses_repository_when_components_disabled(monkeypatch):
 
     monkeypatch.setattr("app.engine.runtime.get_repository_provider", lambda db: provider)
     runtime = EngineRuntime(components_enabled=False, scheduler=NeverScheduler(dummy_session))
-    resolved = runtime._resolve_session(cast(Session, DummyDB()), sid)
+    resolved = await runtime._resolve_session(cast(Session, DummyDB()), sid)
     assert resolved is dummy_session
     assert provider.calls == [sid]
 
 
-def test_resolve_session_raises_when_not_found(monkeypatch):
+@pytest.mark.asyncio
+async def test_resolve_session_raises_when_not_found(monkeypatch):
     provider = RecorderProvider(None)
     monkeypatch.setattr("app.engine.runtime.get_repository_provider", lambda db: provider)
     runtime = EngineRuntime(components_enabled=False, scheduler=RecorderScheduler(None))
     with pytest.raises(SessionNotFoundError):
-        runtime._resolve_session(cast(Session, DummyDB()), uuid4())
+        await runtime._resolve_session(cast(Session, DummyDB()), uuid4())
 
 
-def test_phase_validate_always_runs_session_validations(monkeypatch):
+@pytest.mark.asyncio
+async def test_phase_validate_always_runs_session_validations(monkeypatch):
     captured: dict[str, tuple[object, UUID]] = {}
 
     def _fake_validations(db, session_id):
@@ -105,7 +109,7 @@ def test_phase_validate_always_runs_session_validations(monkeypatch):
         correlation_id="cid-11",
     )
     session = DummySession(sid)
-    report = runtime._phase_validate(
+    report = await runtime._phase_validate(
         context,
         cast(AssessmentSession, session),
         failure_event="validation_failed",

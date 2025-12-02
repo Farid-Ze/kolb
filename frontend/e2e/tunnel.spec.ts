@@ -3,18 +3,31 @@ import { expect, test } from '@playwright/test'
 test.describe('Future Tunnel Assessment', () => {
   test.beforeEach(async ({ page }) => {
     // Mock Auth
-    await page.route(/.*\/users\/me/, async (route) => {
+    await page.route('http://localhost:8000/api/v1/users/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          id: 1,
+          id: '123',
           email: 'test@example.com',
-          fullName: 'Test User',
-          role: 'MAHASISWA',
+          full_name: 'Test User',
+          is_active: true,
+          is_superuser: false,
         }),
-      })
-    })
+      });
+    });
+
+    // Mock Login (if needed, though we set token manually)
+    await page.route('http://localhost:8000/api/v1/auth/access-token', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'fake-jwt-token',
+          token_type: 'bearer',
+        }),
+      });
+    });
 
     // Set token
     await page.addInitScript(() => {
@@ -24,19 +37,38 @@ test.describe('Future Tunnel Assessment', () => {
 
   test('should complete a session', async ({ page }) => {
     // Mock Start Session
-    await page.route('**/engine/sessions/start', async (route) => {
+    await page.route('http://localhost:8000/api/v1/sessions/start', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          sessionId: 123,
-          status: 'active',
+          sessionId: '123',
+          guestToken: null,
         }),
-      })
-    })
+      });
+    });
 
-    // Mock Fetch Items
-    await page.route('**/engine/sessions/123/delivery', async (route) => {
+    // Mock Get Session State
+    await page.route(/.*\/api\/v1\/sessions\/123\/state/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sessionId: '123',
+          instrumentCode: 'KLSI4',
+          status: 'in_progress',
+          totalItems: 12,
+          completedItems: 0,
+          progress: 0,
+          currentItemIndex: 0,
+          responses: [],
+          contexts: [],
+        }),
+      });
+    });
+
+    // Mock Get Delivery (Questions)
+    await page.route(/.*\/api\/v1\/sessions\/123\/delivery.*/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -48,38 +80,39 @@ test.describe('Future Tunnel Assessment', () => {
               type: 'Learning_Style',
               stem: 'When I learn...',
               options: [
-                { id: 101, label: 'I like to feel', code: 'CE' },
-                { id: 102, label: 'I like to watch', code: 'RO' },
-                { id: 103, label: 'I like to think', code: 'AC' },
-                { id: 104, label: 'I like to do', code: 'AE' },
+                { id: 101, label: 'I like to deal with my feelings', code: 'CE' },
+                { id: 102, label: 'I like to think about ideas', code: 'AC' },
+                { id: 103, label: 'I like to be doing things', code: 'AE' },
+                { id: 104, label: 'I like to watch and listen', code: 'RO' },
               ],
             },
-          ]
+          ],
         }),
-      })
-    })
+      });
+    });
 
-    // Mock Submit Response (Autosave)
-    await page.route('**/engine/sessions/123/submit_all', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ status: 'success' }),
-      })
-    })
-
-    // Mock Finalize
-    await page.route('**/engine/sessions/123/finalize', async (route) => {
+    // Mock Submit Responses
+    await page.route(/.*\/api\/v1\/sessions\/123\/submit-all-responses/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          session_id: 123,
-          status: 'completed',
-          kite_coordinates: { CE: 30, RO: 20, AC: 25, AE: 25 },
+          success: true,
+          message: 'Session completed',
         }),
-      })
-    })
+      });
+    });
+
+    // Mock Get Session (Final)
+    await page.route(/.*\/api\/v1\/sessions\/123$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+        }),
+      });
+    });
 
     await page.goto('/future/tunnel')
 
@@ -104,6 +137,6 @@ test.describe('Future Tunnel Assessment', () => {
     
     // Let's just verify the start flow for now as drag-and-drop testing can be complex without seeing the DOM.
     // I'll check for the presence of the item text.
-    await expect(page.getByText('I like to feel')).toBeVisible()
+    await expect(page.getByText('I like to deal with my feelings')).toBeVisible()
   })
 })

@@ -195,12 +195,12 @@ def seed_instruments_v2(db: Session) -> None:
     #     return
     
     # Use raw SQL to avoid ORM mapper configuration issues during check
-    if db.execute(text("SELECT 1 FROM instruments WHERE code = 'KLSI' AND version = '4.0'")).scalar():
+    if db.execute(text("SELECT 1 FROM instruments WHERE code = 'KLSI4' AND version = '4.0'")).scalar():
         return
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     instrument = Instrument(
-        code="KLSI",
+        code="KLSI4",
         name="Kolb Learning Style Inventory",
         version="4.0",
         default_strategy_code="KLSI4.0",
@@ -486,7 +486,7 @@ def seed_engine_authoring(db: Session) -> None:
 
     existing = (
         db.query(EngineInstrument)
-        .filter(EngineInstrument.code == "KLSI", EngineInstrument.version == "4.0")
+        .filter(EngineInstrument.code == "KLSI4", EngineInstrument.version == "4.0")
         .options(
             joinedload(EngineInstrument.forms)
             .joinedload(EngineForm.pages)
@@ -506,7 +506,7 @@ def seed_engine_authoring(db: Session) -> None:
         db.flush()
 
     instrument = EngineInstrument(
-        code="KLSI",
+        code="KLSI4",
         version="4.0",
         name="KLSI 4.0",
         status=InstrumentStatus.active,

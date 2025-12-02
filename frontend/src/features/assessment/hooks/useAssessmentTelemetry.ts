@@ -1,8 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { TelemetryService } from '@/shared/api/generated';
+import type { AssessmentTelemetryEvent } from '@/shared/api/generated';
 
 export function useAssessmentTelemetry(sessionId?: string, itemId?: number) {
-    const startTimeRef = useRef<number>(Date.now());
+    const startTimeRef = useRef<number>(0);
     const blurCountRef = useRef<number>(0);
 
     useEffect(() => {
@@ -44,8 +45,10 @@ export function useAssessmentTelemetry(sessionId?: string, itemId?: number) {
         }
     }, [sessionId, itemId]);
 
-    const sendTelemetry = useCallback((payload: any) => {
+    const sendTelemetry = useCallback((payload: Record<string, unknown>) => {
         if (!sessionId) return;
+
+        const meta = (typeof payload.meta === 'object' && payload.meta) ? payload.meta : {};
 
         const fullPayload = {
             sessionId,
@@ -54,9 +57,9 @@ export function useAssessmentTelemetry(sessionId?: string, itemId?: number) {
             meta: {
                 userAgent: navigator.userAgent,
                 screenResolution: `${window.screen.width}x${window.screen.height}`,
-                ...payload.meta
+                ...meta
             }
-        };
+        } as unknown as AssessmentTelemetryEvent;
 
         const blob = new Blob([JSON.stringify(fullPayload)], { type: 'application/json' });
 

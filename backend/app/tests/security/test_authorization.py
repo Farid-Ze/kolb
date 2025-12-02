@@ -58,8 +58,8 @@ class TestIDORVulnerabilities:
         from app.models.klsi.instrument import Instrument
         
         # Get instrument ID
-        instrument = db.query(Instrument).filter(Instrument.code == 'KLSI').first()
-        assert instrument is not None, "Instrument KLSI not found"
+        instrument = db.query(Instrument).filter(Instrument.code == 'KLSI4').first()
+        assert instrument is not None, "Instrument KLSI4 not found"
         
         grant = AccessGrant(
             id=uuid.uuid4(),
@@ -91,7 +91,7 @@ class TestIDORVulnerabilities:
         response = client.post(
             "/api/v1/sessions/start",
             headers=user_b["headers"],
-            json={"instrument_code": "KLSI"}
+            json={"instrument_code": "KLSI4"}
         )
         assert response.status_code == 200, f"Start session failed: {response.text}"
         user_b_session_id = response.json()["sessionId"]

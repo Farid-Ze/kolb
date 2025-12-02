@@ -19,7 +19,7 @@ export type TunnelAction =
   | { type: 'HYDRATE'; sessionId: string; drafts?: Record<number, TunnelItemDraft>; contextDrafts?: ContextDraftMap }
   | { type: 'RESET' }
   | { type: 'SET_SUBMISSION_RESULT'; result: SessionOperationResult['result'] }
-  | { type: 'SET_SUBMISSION_ERROR'; error: Error }
+  | { type: 'SET_SUBMISSION_ERROR'; error: Error | null }
   | { type: 'SET_AUTOSAVE_SUCCESS' }
   | { type: 'ACKNOWLEDGE_RESTORED' }
 
@@ -90,13 +90,14 @@ function tunnelReducer(state: TunnelState, action: TunnelAction): TunnelState {
 }
 
 import { TelemetryService } from '../../../shared/api/generated'
+import type { ReplayEvent } from '../../../shared/api/generated'
 
 const ACTION_LOG_BATCH_SIZE = 10
 const ACTION_LOG_INTERVAL = 10000
 
 export function useTunnelState() {
   const [state, baseDispatch] = useReducer(tunnelReducer, initialState)
-  const actionBufferRef = useRef<any[]>([])
+  const actionBufferRef = useRef<ReplayEvent[]>([])
 
   // Helper to flush logs
   const flushActions = useCallback((overrideSessionId?: string) => {

@@ -12,7 +12,7 @@
 export interface TelemetryEvent {
     type: string
     timestamp_ms: number
-    payload: Record<string, any>
+    payload: Record<string, unknown>
 }
 
 export interface TelemetryBatch {
@@ -64,7 +64,7 @@ export class TelemetryBatcher {
      * telemetry.track('time_on_page', { durationMs: 30000 });
      * ```
      */
-    track(type: string, payload: Record<string, any>) {
+    track(type: string, payload: Record<string, unknown>) {
         // Apply sampling (reduce frequency for high-volume events)
         if (Math.random() > this.samplingRate) {
             return

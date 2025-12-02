@@ -1,5 +1,6 @@
 """Tests for runtime modular components."""
 
+import pytest
 from types import SimpleNamespace
 from typing import Any, Dict, List, Tuple, cast
 from uuid import UUID, uuid4
@@ -38,13 +39,14 @@ class StubReporter(RuntimeErrorReporter):
         self.calls.append(kwargs)
 
 
-def test_resolve_session_uses_scheduler_when_components_enabled():
+@pytest.mark.asyncio
+async def test_resolve_session_uses_scheduler_when_components_enabled():
     fake_session = SimpleNamespace(id=123)
     scheduler = StubScheduler(fake_session)
     runtime = EngineRuntime(components_enabled=True, scheduler=scheduler)
 
     sid = uuid4()
-    result = runtime._resolve_session(cast(Session, None), sid)
+    result = await runtime._resolve_session(cast(Session, None), sid)
 
     assert result is fake_session
     assert scheduler.calls == [(None, sid)]

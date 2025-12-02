@@ -68,4 +68,61 @@ export class AuthService {
             },
         });
     }
+    /**
+     * Register
+     * @param requestBody
+     * @returns UserOut Successful Response
+     * @throws ApiError
+     */
+    public static registerAuthRegisterPost(
+        requestBody: UserCreate,
+    ): CancelablePromise<UserOut> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/auth/register',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Login
+     * @param requestBody
+     * @returns Token Successful Response
+     * @throws ApiError
+     */
+    public static loginAuthLoginPost(
+        requestBody: LoginRequest,
+    ): CancelablePromise<Token> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/auth/login',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Refresh Token Endpoint
+     * @param requestBody
+     * @returns Token Successful Response
+     * @throws ApiError
+     */
+    public static refreshTokenEndpointAuthRefreshPost(
+        requestBody: RefreshRequest,
+    ): CancelablePromise<Token> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/auth/refresh',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
 }

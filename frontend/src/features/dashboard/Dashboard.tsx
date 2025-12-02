@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { SessionsService } from '@/shared/api/generated';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/button';
-import { useAuth } from '@/features/auth/context';
+import { useAuth } from '@/features/auth/useAuth';
 
 export function Dashboard() {
     const { user } = useAuth();

@@ -243,7 +243,7 @@ class KLSIReportComposer:
         return {
             "session_id": session_id,
             "user_id": session.user_id if session else None,
-            "assessment": "KLSI",
+            "assessment": "KLSI4",
             "version": "4.0",
         }
 
@@ -259,7 +259,7 @@ class KLSIAssessmentDefinition:
     steps: List[ScoringStep]
 
     def __init__(self) -> None:
-        self.id = "KLSI"
+        self.id = "KLSI4"
         self.version = "4.0"
         self.item_count = 12
         self.context_count = len(CONTEXT_NAMES)

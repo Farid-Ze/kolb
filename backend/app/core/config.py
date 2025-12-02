@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     
     # [Security Fix] CORS Configuration
     # Strict validation ensures comma-separated strings are parsed into lists
-    backend_cors_origins: List[str] = []
+    backend_cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174"]
 
     @field_validator("jwt_secret_key")
     @classmethod
@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # Norms
     external_norms_enabled: bool = False
     external_norms_base_url: str = ""
+    external_norms_api_key: str = ""
+    external_norms_timeout_ms: int = 1500
+    external_norms_ttl_sec: int = 300
+    external_norms_cache_size: int = 100
     norm_percentile_cache_size: int = 8192
     norms_preload_enabled: bool = True
     norms_lazy_loader_enabled: bool = True
@@ -87,3 +91,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+print(f"DEBUG: Loaded settings.backend_cors_origins: {settings.backend_cors_origins}")

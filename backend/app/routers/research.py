@@ -287,7 +287,7 @@ def list_validity(
     ]
 
 
-@router.get("/studies/{study_id}/data", response_model=ResearchStudyDataOut | ResearchStudyDataCursorOut)
+@router.post("/studies/{study_id}/data", response_model=ResearchStudyDataOut | ResearchStudyDataCursorOut)
 def get_study_data(
     study_id: str,
     filters: StudyDataFilter,

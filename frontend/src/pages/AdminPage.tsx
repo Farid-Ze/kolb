@@ -9,6 +9,7 @@ import { TeamsPanel } from '../features/admin/components/TeamsPanel'
 export function AdminPage() {
   const { token, isMediator, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<'teams' | 'research' | 'pipelines'>('teams')
+  const tabs = ['teams', 'research', 'pipelines'] as const
 
   if (!token && !isLoading) {
     return <Navigate to="/login" replace />
@@ -29,10 +30,10 @@ export function AdminPage() {
 
       <div className="border-b border-[var(--zen-border)]">
         <nav className="-mb-px flex space-x-8">
-          {['teams', 'research', 'pipelines'].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => setActiveTab(tab)}
               className={`border-b-2 py-4 px-1 text-sm font-medium ${
                 activeTab === tab
                   ? 'border-[var(--zen-accent)] text-[var(--zen-accent)]'

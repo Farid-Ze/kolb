@@ -43,4 +43,39 @@ export class ChallengesService {
             },
         });
     }
+    /**
+     * List User Challenges
+     * @returns UserChallengeOut Successful Response
+     * @throws ApiError
+     */
+    public static listUserChallengesChallengesUserGet(): CancelablePromise<Array<UserChallengeOut>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/challenges/user',
+        });
+    }
+    /**
+     * Complete User Challenge
+     * @param challengeId
+     * @param requestBody
+     * @returns UserChallengeOut Successful Response
+     * @throws ApiError
+     */
+    public static completeUserChallengeChallengesUserChallengeIdCompletePost(
+        challengeId: number,
+        requestBody: ChallengeCompletionPayload,
+    ): CancelablePromise<UserChallengeOut> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/challenges/user/{challenge_id}/complete',
+            path: {
+                'challenge_id': challengeId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
 }

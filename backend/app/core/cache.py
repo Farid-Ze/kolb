@@ -70,7 +70,7 @@ class RedisCacheSync:
             return None
         try:
             value = self._redis.get(key)
-            if value:
+            if value and isinstance(value, (str, bytes, bytearray)):
                 return json.loads(value)
         except Exception as e:
             logger.warning(f"Sync Redis get error for {key}: {e}")

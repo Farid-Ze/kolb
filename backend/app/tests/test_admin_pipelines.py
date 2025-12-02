@@ -23,14 +23,14 @@ def _auth_header(user: User) -> Dict[str, str]:
 
 
 def test_pipelines_requires_auth(client):
-    response = client.get("/admin/instruments/KLSI/pipelines")
+    response = client.get("/admin/instruments/KLSI4/pipelines")
     assert response.status_code == 401
 
 
 def test_pipelines_requires_mediator_role(client):
     user = _create_user("MAHASISWA", "student@example.com")
     response = client.get(
-        "/admin/instruments/KLSI/pipelines",
+        "/admin/instruments/KLSI4/pipelines",
         headers=_auth_header(user),
     )
     assert response.status_code == 403
@@ -39,12 +39,12 @@ def test_pipelines_requires_mediator_role(client):
 def test_pipelines_returns_pipeline_graph(client):
     mediator = _create_user("MEDIATOR", "mediator@example.com")
     response = client.get(
-        "/admin/instruments/KLSI/pipelines",
+        "/admin/instruments/KLSI4/pipelines",
         headers=_auth_header(mediator),
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["instrument"]["code"] == "KLSI"
+    assert payload["instrument"]["code"] == "KLSI4"
     assert payload["pipelines"]
     default_pipeline = payload["pipelines"][0]
     assert default_pipeline["version"] == "v1"
@@ -58,14 +58,14 @@ def test_pipelines_returns_pipeline_graph(client):
 def test_activate_pipeline_requires_mediator(client):
     mediator = _create_user("MEDIATOR", "mediator-activate@example.com")
     response = client.post(
-        "/admin/instruments/KLSI/pipelines/999/activate",
+        "/admin/instruments/KLSI4/pipelines/999/activate",
         headers=_auth_header(mediator),
     )
     assert response.status_code == 404
 
     mahasiswa = _create_user("MAHASISWA", "student-activate@example.com")
     response = client.post(
-        "/admin/instruments/KLSI/pipelines/1/activate",
+        "/admin/instruments/KLSI4/pipelines/1/activate",
         headers=_auth_header(mahasiswa),
     )
     assert response.status_code == 403
@@ -106,7 +106,7 @@ def test_activate_pipeline_switches_active(client):
     variant_id = clone_payload["pipeline"]["id"]
 
     response = client.post(
-        f"/admin/instruments/KLSI/pipelines/{variant_id}/activate",
+        f"/admin/instruments/KLSI4/pipelines/{variant_id}/activate",
         headers=_auth_header(mediator),
     )
     assert response.status_code == 200

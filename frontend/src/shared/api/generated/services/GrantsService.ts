@@ -18,4 +18,16 @@ export class GrantsService {
             url: '/api/v1/grants/me',
         });
     }
+    /**
+     * Get My Grants
+     * Get summary of active grants for the current user.
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static getMyGrantsGrantsMeGet(): CancelablePromise<Record<string, any>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/grants/me',
+        });
+    }
 }

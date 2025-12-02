@@ -1,4 +1,5 @@
 import uuid
+import pytest
 
 from app.core.config import settings
 from app.instruments.klsi4.plugin import KLSI4Plugin
@@ -22,14 +23,15 @@ def _create_session(db) -> AssessmentSession:
     return session
 
 
-def test_fetch_items_matches_legacy_payload(monkeypatch, session):
+@pytest.mark.asyncio
+async def test_fetch_items_matches_legacy_payload(monkeypatch, session):
     plugin = KLSI4Plugin()
     assessment_session = _create_session(session)
 
     monkeypatch.setattr(settings, "engine_authoring_items_enabled", False)
-    legacy_payload = plugin.fetch_items(session, assessment_session.id)
+    legacy_payload = await plugin.fetch_items(session, assessment_session.id)
 
     monkeypatch.setattr(settings, "engine_authoring_items_enabled", True)
-    authoring_payload = plugin.fetch_items(session, assessment_session.id)
+    authoring_payload = await plugin.fetch_items(session, assessment_session.id)
 
     assert authoring_payload == legacy_payload

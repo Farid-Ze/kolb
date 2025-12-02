@@ -1,5 +1,5 @@
 instrument:
-  code: KLSI
+  code: KLSI4
   version: "4.0"
   name: "Kolb Learning Style Inventory 4.0"
   description: "Kolb Learning Style Inventory engine manifest"

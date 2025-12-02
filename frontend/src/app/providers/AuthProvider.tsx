@@ -3,19 +3,23 @@ import type { ReactNode } from 'react'
 
 import { fetchCurrentUser, login as loginApi } from '../../features/auth/api'
 import type { LoginRequest } from '../../features/auth/model'
-import type { UserOut } from '../../shared/api/generated'
+import { ApiError, OpenAPI, type UserOut } from '../../shared/api/generated'
 import { useAuthTokenMetadata } from '../../shared/hooks/useAuthToken'
 import { AuthContext, type AuthContextValue } from './AuthContext'
 
 const STORAGE_KEY = 'zenotika_token'
-const TIMELOCK_THRESHOLD_MS = 45 * 60 * 1000
+const TIMELOCK_THRESHOLD_MS = 5 * 60 * 1000
 
 interface AuthProviderProps {
   children: ReactNode
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [token, setTokenState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY))
+  const [token, setTokenState] = useState<string | null>(() => {
+    const t = localStorage.getItem(STORAGE_KEY)
+    if (t) OpenAPI.TOKEN = t
+    return t
+  })
   const [user, setUser] = useState<UserOut | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [now, setNow] = useState(Date.now())
@@ -34,8 +38,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setTokenState(value)
     if (value) {
       localStorage.setItem(STORAGE_KEY, value)
+      OpenAPI.TOKEN = value
     } else {
       localStorage.removeItem(STORAGE_KEY)
+      OpenAPI.TOKEN = undefined
     }
   }, [])
 
@@ -73,7 +79,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       .catch((error) => {
         console.error('Failed to fetch profile', error)
         if (!cancelled) {
-          logout()
+          if (error instanceof ApiError && error.status === 401) {
+            logout()
+          }
         }
       })
       .finally(() => {

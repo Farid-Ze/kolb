@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TYPE_CHECK
 
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 
 from app.assessments.constants import (
     CONTEXT_COUNT_LFI,
@@ -49,7 +50,7 @@ from app.schemas.session import (
     SessionAutosavePayload,
     SessionSubmissionPayload,
 )
-from app.services.validation import run_session_validations, validate_full_submission_payload, run_session_validations_async
+from app.services.validation import run_session_validations, validate_full_submission_payload, run_session_validations_async, validate_full_submission_payload_async
 from app.i18n.id_messages import SessionErrorMessages, ValidationMessages, DomainErrorMessages
 from app.services.assessments import build_kite_coordinates, detect_blindspots, detect_strengths
 from app.services.scoring import (
@@ -66,6 +67,9 @@ from app.db.repositories import TeamMemberRepository
 from app.services.rollup import compute_and_cache_team_snapshot
 from app.services.provenance import _upsert_scale_provenance_sync
 from app.core.cache import cache
+from app.services.grant_service import GrantService
+from app.core.errors import InsufficientCreditsError, InstrumentNotFoundError
+from app.db.database import get_repository_provider
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.klsi.user import User
@@ -139,6 +143,23 @@ class EngineSessionService:
         instrument_code: str,
         instrument_version: Optional[str] = None,
     ):
+        # 1. Check Grant
+        if user:
+             repo_provider = get_repository_provider(self.db)
+             if isinstance(self.db, AsyncSession):
+                 instrument = await repo_provider.instruments.get_by_code(instrument_code, instrument_version)
+             else:
+                 instrument = repo_provider.instruments.get_by_code_sync(instrument_code, instrument_version)
+             
+             if not instrument:
+                 raise InstrumentNotFoundError()
+             
+             grant_service = GrantService(self.db)
+             try:
+                 await grant_service.redeem_credit(user.id, instrument.id)
+             except InsufficientCreditsError:
+                 raise PermissionDeniedError("Kuota akses tidak mencukupi")
+
         return await runtime.start_session(
             self.db,
             user,
@@ -248,7 +269,7 @@ class EngineSessionService:
             if (now - start_time).total_seconds() < MIN_DURATION_SECONDS:
                 raise InvalidAssessmentData(ValidationMessages.SUBMISSION_TOO_FAST)
 
-            validate_full_submission_payload(self.db, payload)
+            await validate_full_submission_payload_async(self.db, payload)
             await self._persist_batch_payload(session_id, payload)
             
             result = await runtime.finalize_with_audit(
@@ -287,9 +308,16 @@ class EngineSessionService:
         await runtime.submit_payload(self.db, session_id, payload)
 
     async def finalize_session(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
-        session = await self._load_authorized_session(session_id, user)
+        # [Fix] Use pessimistic lock to prevent double-finalization
+        session = await self._sessions.get_with_lock(session_id)
+        if not session:
+            raise SessionNotFoundError()
+            
+        self._check_session_access(session, user)
+
         if session.status == SessionStatus.completed:
             raise SessionFinalizedError(SessionErrorMessages.ALREADY_COMPLETED)
+            
         use_native = await self._should_use_native_pipeline(session.id)
         if use_native:
             result = await self._finalize_native_session(session)
@@ -410,6 +438,7 @@ class EngineSessionService:
             
             s = db.merge(session)
             s.status = SessionStatus.completed
+            s.is_finalized = True
             s.end_time = datetime.now(timezone.utc)
             s.pipeline_version = "native:v1"
             db.flush()

@@ -65,9 +65,9 @@ export async function updateStudy(studyId: number, payload: ResearchStudyUpdate)
   return data
 }
 
-export async function fetchStudyData(studyId: number): Promise<any> {
+export async function fetchStudyData(studyId: number): Promise<unknown> {
   // TODO: Define ResearchStudyDataOut if available
-  const { data } = await apiClient.get<any>(`/research/studies/${studyId}/data`)
+  const { data } = await apiClient.get<unknown>(`/research/studies/${studyId}/data`)
   return data
 }
 

@@ -27,7 +27,7 @@ const MODE_CODES = ['AC', 'CE', 'AE', 'RO'] as const
 
 type ModeCode = typeof MODE_CODES[number]
 
-const isContextComplete = (draft?: any) => {
+const isContextComplete = (draft?: TunnelContextDraft) => {
   if (!draft) {
     return false
   }
@@ -115,7 +115,7 @@ export function useTunnelSession() {
   const hydrationRef = useRef(false)
   const storageHydratedRef = useRef(false)
 
-  const { sendTelemetry, sendItemChanged } = useAssessmentTelemetry(sessionId ?? undefined) as any
+  const { sendTelemetry, sendItemChanged } = useAssessmentTelemetry(sessionId ?? undefined)
 
   const acknowledgeRestoredDraft = useCallback(() => {
     dispatch({ type: 'ACKNOWLEDGE_RESTORED' })
@@ -340,7 +340,7 @@ export function useTunnelSession() {
       // Map ItemChoiceRank[] to Record<number, number>
       const mapped: Record<number, number> = {};
       if (Array.isArray(response.ranks)) {
-        response.ranks.forEach((r: any) => {
+        response.ranks.forEach((r) => {
           mapped[r.choiceId] = r.rank;
         });
       }
@@ -600,7 +600,7 @@ export function useTunnelSession() {
       throw new Error('Complete all items and contexts before finalizing.')
     }
     dispatch({ type: 'SET_PHASE', phase: 'submitting' })
-    dispatch({ type: 'SET_SUBMISSION_ERROR', error: null as any }) // Reset error
+    dispatch({ type: 'SET_SUBMISSION_ERROR', error: null }) // Reset error
     const payload = buildSubmissionPayload()
     try {
       const response = await submitMutation.mutateAsync({ sessionId, payload })

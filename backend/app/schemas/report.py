@@ -103,13 +103,13 @@ class ReportPayloadBase(CamelModel):
 class IndividualReportPayload(ReportPayloadBase):
     kind: Literal["individual"] = "individual"
     raw: Mapping[str, Any]
-    percentiles: Mapping[str, Any]
-    style: Mapping[str, Any]
-    lfi: Mapping[str, Any]
-    analytics: AnalyticsData  # Strict
-    visualization: VisualizationConfig | None = None  # Strict
-    session_designs: List[SessionDesign] | None = None  # Strict
-    learning_space: LearningSpaceData | None = None  # Strict
+    percentiles: Mapping[str, Any] | None = None
+    style: Mapping[str, Any] | None = None
+    lfi: Mapping[str, Any] | None = None
+    analytics: Mapping[str, Any] | None = None
+    visualization: Mapping[str, Any] | None = None
+    session_designs: List[Mapping[str, Any]] | None = None
+    learning_space: Mapping[str, Any] | None = None
     enhanced_analytics: Mapping[str, Any] | None = None
     notes: Mapping[str, Any] | None = None
     owner: Mapping[str, Any] | None = None

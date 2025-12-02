@@ -15,10 +15,11 @@ if TYPE_CHECKING:
 
 from app.core.logging import get_logger
 from app.core.metrics import inc_counter
-from app.db.database import get_db
+from app.db.database import get_db, get_async_db
 from app.services.security import get_current_user
 from app.services.engine import EngineSessionService
 from app.core.errors import SessionNotFoundError, PermissionDeniedError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 logger = get_logger("kolb.telemetry")
@@ -327,14 +328,14 @@ def record_action(event: ActionEvent):
 
 
 @router.post("/assessment", status_code=202)
-def record_assessment_telemetry(
+async def record_assessment_telemetry(
     event: AssessmentTelemetryEvent,
-    db: Any = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: Any = Depends(get_current_user)
 ):
     service = EngineSessionService(db)
     try:
-        service.record_telemetry(
+        await service.record_telemetry(
             session_id=event.session_id,
             user=current_user,
             item_id=event.item_id,

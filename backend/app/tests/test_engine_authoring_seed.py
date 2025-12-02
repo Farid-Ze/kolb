@@ -36,7 +36,7 @@ def test_seed_engine_authoring_populates_forced_choice_items(session: Session):
 
     instrument = (
         session.query(EngineInstrument)
-        .filter(EngineInstrument.code == "KLSI", EngineInstrument.version == "4.0")
+        .filter(EngineInstrument.code == "KLSI4", EngineInstrument.version == "4.0")
         .first()
     )
     assert instrument is not None

@@ -32,4 +32,29 @@ export class ResultsService {
             url: '/api/v1/results/sessions/latest',
         });
     }
+    /**
+     * Get Latest Results
+     * @returns AssessmentResultsResponse Successful Response
+     * @throws ApiError
+     */
+    public static getLatestResultsResultsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/results/latest',
+        });
+    }
+    /**
+     * Get Latest Results Alias
+     * Alias endpoint to match Zenotika SSOT sitemap.
+     *
+     * Provides the same payload as /results/latest but under a sessions-oriented path.
+     * @returns AssessmentResultsResponse Successful Response
+     * @throws ApiError
+     */
+    public static getLatestResultsAliasResultsSessionsLatestGet(): CancelablePromise<AssessmentResultsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/results/sessions/latest',
+        });
+    }
 }

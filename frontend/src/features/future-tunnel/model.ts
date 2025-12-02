@@ -1,4 +1,4 @@
-import type { AssessmentItem, SessionOperationResult } from '../../entities/session/model'
+import type { SessionOperationResult } from '../../entities/session/model'
 import type { ItemRank, ContextRank } from '../../shared/api/generated'
 
 export type TunnelPhase = 'idle' | 'loading' | 'in-progress' | 'submitting' | 'completed'

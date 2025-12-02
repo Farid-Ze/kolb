@@ -21,7 +21,7 @@ def _instrument_or_404(
     instrument_version: Optional[str],
 ) -> Instrument:
     instrument_repo = InstrumentRepository(db)
-    instrument = instrument_repo.get_by_code(instrument_code, instrument_version)
+    instrument = instrument_repo.get_by_code_sync(instrument_code, instrument_version)
     if not instrument:
         raise HTTPException(status_code=404, detail=PipelineMessages.INSTRUMENT_NOT_FOUND)
     return instrument
@@ -42,7 +42,7 @@ def list_pipelines(
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
     pipeline_repo = PipelineRepository(db)
-    pipelines = pipeline_repo.list_with_nodes(instrument.id)
+    pipelines = pipeline_repo.list_with_nodes_sync(instrument.id)
 
     payload = [
         {
@@ -90,12 +90,12 @@ def activate_pipeline(
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
     pipeline_repo = PipelineRepository(db)
-    pipeline = pipeline_repo.get(pipeline_id, instrument.id)
+    pipeline = pipeline_repo.get_sync(pipeline_id, instrument.id)
     if not pipeline:
         raise HTTPException(status_code=404, detail=PipelineMessages.PIPELINE_NOT_FOUND)
 
     try:
-        pipeline_repo.deactivate_all_except(instrument.id, pipeline.id)
+        pipeline_repo.deactivate_all_except_sync(instrument.id, pipeline.id)
         pipeline.is_active = True
         db.commit()
         db.refresh(pipeline)
@@ -137,16 +137,16 @@ def clone_pipeline(
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
     pipeline_repo = PipelineRepository(db)
-    source = pipeline_repo.get(pipeline_id, instrument.id, with_nodes=True)
+    source = pipeline_repo.get_sync(pipeline_id, instrument.id, with_nodes=True)
     if not source:
         raise HTTPException(status_code=404, detail=PipelineMessages.PIPELINE_NOT_FOUND)
 
     candidate_code = new_pipeline_code or source.pipeline_code
-    if pipeline_repo.exists_version(instrument.id, candidate_code, new_version):
+    if pipeline_repo.exists_version_sync(instrument.id, candidate_code, new_version):
         raise HTTPException(status_code=409, detail=PipelineMessages.VERSION_EXISTS)
 
     try:
-        cloned = pipeline_repo.clone(
+        cloned = pipeline_repo.clone_sync(
             source,
             instrument_id=instrument.id,
             pipeline_code=candidate_code,
@@ -197,14 +197,14 @@ def delete_pipeline(
     instrument = _instrument_or_404(db, instrument_code, instrument_version)
 
     pipeline_repo = PipelineRepository(db)
-    pipeline = pipeline_repo.get(pipeline_id, instrument.id)
+    pipeline = pipeline_repo.get_sync(pipeline_id, instrument.id)
     if not pipeline:
         raise HTTPException(status_code=404, detail=PipelineMessages.PIPELINE_NOT_FOUND)
     if pipeline.is_active:
         raise HTTPException(status_code=409, detail=PipelineMessages.CANNOT_DELETE_ACTIVE)
 
     try:
-        pipeline_repo.delete(pipeline)
+        pipeline_repo.delete_sync(pipeline)
         db.commit()
     except Exception:
         db.rollback()

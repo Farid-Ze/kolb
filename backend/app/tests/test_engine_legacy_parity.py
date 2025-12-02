@@ -14,7 +14,7 @@ from app.models.klsi.instrument import Instrument
 from app.models.klsi.assessment import AssessmentSession
 from app.routers.sessions import router as legacy_sessions_router
 from app.services.security import create_access_token
-from app.services.grant_service import GrantService
+from app.models.klsi.grant import AccessGrant
 
 
 def _ensure_legacy_sessions_router() -> None:
@@ -36,9 +36,15 @@ def _create_user(role: str = "MAHASISWA") -> tuple[User, str]:
         db.refresh(user)
         
         # Allocate grant for KLSI 4.0
-        instrument = db.query(Instrument).filter(Instrument.code == "KLSI", Instrument.version == "4.0").first()
+        instrument = db.query(Instrument).filter(Instrument.code == "KLSI4", Instrument.version == "4.0").first()
         if instrument:
-             GrantService.allocate_credits(db, user.id, instrument.id, grantee_id=user.id, credits=1)
+             grant = AccessGrant(
+                 grantee_id=user.id,
+                 instrument_id=instrument.id,
+                 credits_total=1,
+                 credits_consumed=0
+             )
+             db.add(grant)
              db.commit()
              
         token = create_access_token(subject=str(user.id))
@@ -122,7 +128,7 @@ def _build_batch_payload(item_patterns: list[dict[str, int]], context_patterns: 
 def _legacy_submit_all(client, payload):
     _, token = _create_user()
     headers = {"Authorization": f"Bearer {token}"}
-    r_start = client.post("/sessions/start", json={"instrument_code": "KLSI"}, headers=headers)
+    r_start = client.post("/sessions/start", json={"instrument_code": "KLSI4"}, headers=headers)
     assert r_start.status_code == 200, r_start.text
     session_id_str = r_start.json()["sessionId"]
     session_id = UUID(session_id_str)
@@ -148,7 +154,7 @@ def _engine_submit_all(client, payload):
     headers = {"Authorization": f"Bearer {token}"}
     r_start = client.post(
         "/engine/sessions/start",
-        json={"instrument_code": "KLSI"},
+        json={"instrument_code": "KLSI4"},
         headers=headers,
     )
     assert r_start.status_code == 200, r_start.text

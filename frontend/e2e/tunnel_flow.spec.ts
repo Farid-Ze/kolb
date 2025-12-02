@@ -1,23 +1,61 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Tunnel Assessment Flow', () => {
-  test('should complete a full assessment session', async ({ page }) => {
-    // 1. Register a new user
+  test('should complete a full assessment session', async ({ page, request }) => {
+    page.on('console', msg => console.log(`BROWSER LOG: ${msg.text()}`));
+    page.on('pageerror', exception => console.log(`BROWSER ERROR: ${exception}`));
+    page.on('requestfailed', request => console.log(`REQUEST FAILED: ${request.url()} ${request.failure()?.errorText}`));
+
+    // Check main.tsx availability
+    try {
+      const mainRes = await request.get('http://localhost:5174/src/main.tsx');
+      console.log(`main.tsx status: ${mainRes.status()}`);
+      console.log(`main.tsx Content-Type: ${mainRes.headers()['content-type']}`);
+      console.log(`main.tsx body start: ${(await mainRes.text()).substring(0, 200)}`);
+    } catch (e) {
+      console.log('Failed to fetch main.tsx directly:', e);
+    }
+    
+    // 1. Go to Landing Page first
+    console.log('Navigating to /');
+    await page.goto('/');
+    // console.log('Page content at /:', await page.content());
+
+    // 2. Register a new user
     const randomId = Math.random().toString(36).substring(7);
-    const email = `tunnel_test_${randomId}@example.com`;
+    const email = `tunnel_test_${randomId}@student.university.ac.id`;
     const password = 'password123';
+    // Generate a random 8-digit NIM to avoid unique constraint violations
+    const randomNim = Math.floor(10000000 + Math.random() * 90000000).toString();
 
     await test.step('Register', async () => {
+      console.log('Navigating to /auth');
       await page.goto('/auth');
+      
+      console.log('Checking for Access Zenotika text');
+      try {
+        await expect(page.getByText('Access Zenotika')).toBeVisible({ timeout: 10000 });
+      } catch (e) {
+        console.log('Page content at /auth:', await page.content());
+        throw e;
+      }
+
+      console.log('Clicking Register tab');
       await page.getByRole('button', { name: 'Register' }).click();
+      
+      console.log('Filling form');
       await page.getByLabel('Full Name').fill('Tunnel Tester');
       await page.getByLabel('Email').fill(email);
       await page.getByLabel('Password').fill(password);
-      await page.getByLabel('NIM').fill('12345678');
+      await page.getByLabel('NIM').fill(randomNim);
       await page.getByLabel('Class (IF-XX)').fill('IF-01');
       await page.getByLabel('Enrollment Year').fill('2023');
+      
+      console.log('Submitting');
       await page.getByRole('button', { name: 'Create Account' }).click();
-      await expect(page).toHaveURL(/\/future\/dashboard/);
+      
+      console.log('Waiting for dashboard');
+      await expect(page).toHaveURL(/\/future\/dashboard/, { timeout: 15000 });
     });
 
     // 2. Start Session
@@ -25,7 +63,17 @@ test.describe('Tunnel Assessment Flow', () => {
       await page.goto('/future/tunnel');
       await expect(page.getByText('Start a session to unlock')).toBeVisible();
       await page.getByRole('button', { name: 'Start Session' }).click();
-      await expect(page.getByText('Forced-choice items')).toBeVisible();
+      
+      // Wait a bit for potential error
+      await page.waitForTimeout(1000);
+      
+      // Check for error message
+      const errorMsg = await page.locator('.text-rose-300').textContent().catch(() => null);
+      if (errorMsg) {
+        console.log('Start Session Error:', errorMsg);
+      }
+
+      await expect(page.getByText('Forced-choice items', { exact: true })).toBeVisible();
       await expect(page.getByText('Item #1')).toBeVisible();
     });
 
@@ -45,21 +93,12 @@ test.describe('Tunnel Assessment Flow', () => {
       await selects.nth(3).selectOption('4');
 
       // Verify progress bar updated (optional, but good check)
-      // The text "1/12 items ranked" should appear (assuming 12 items)
-      // Or just "1/"
       await expect(page.getByText(/1\/\d+ items ranked/)).toBeVisible();
     });
 
     // 4. Verify Contexts Section exists
     await test.step('Verify Contexts', async () => {
       await expect(page.getByText('Learning Flexibility contexts')).toBeVisible();
-      // We won't fill all of them in this smoke test unless we mock the backend to have fewer items
-      // But we can check if the first context card is there.
-      // Context names are usually "Evaluating", "Leading", etc.
-      // Let's just check for a card with a select.
-      const contextCards = page.locator('article').filter({ hasText: /Context/i }); // Or just look for the section
-      // Actually AssessmentContextCard doesn't have "Context" text explicitly in the code I saw?
-      // Let's check AssessmentContextCard.tsx
     });
     
     // 5. Check Finalize Button State

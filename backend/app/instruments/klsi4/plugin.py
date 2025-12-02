@@ -57,7 +57,7 @@ class KLSI4Plugin(
     EngineNormProvider,
     EngineReportBuilder,
 ):
-    _ID = InstrumentId("KLSI", "4.0")
+    _ID = InstrumentId("KLSI4", "4.0")
 
     def id(self) -> InstrumentId:
         return self._ID

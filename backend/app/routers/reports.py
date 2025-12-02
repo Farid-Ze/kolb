@@ -29,6 +29,13 @@ def report_key_builder(session_id: uuid.UUID, *args, **kwargs) -> str:
     # Given the risk of caching unauthorized data, we will depend on service layer caching.
     return f"report:{session_id}"
 
+@router.get("/self", response_model=list[ReportSummaryPayload])
+async def get_my_reports(
+    db: Any = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    return await run_in_threadpool(list_report_summaries, db, user_id=current_user.id)
+
 @router.get("/{session_id}", response_model=ReportPayload)
 async def get_report(
     session_id: uuid.UUID,

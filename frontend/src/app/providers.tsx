@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Toaster } from 'sonner';
-import { AuthProvider } from '@/features/auth/context';
+import { AuthProvider } from './providers/AuthProvider';
+import { ThemeProvider } from './providers/ThemeProvider';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -15,10 +16,12 @@ const queryClient = new QueryClient({
 export function AppProviders({ children }: { children: ReactNode }) {
     return (
         <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-                {children}
-                <Toaster position="top-center" richColors />
-            </AuthProvider>
+            <ThemeProvider>
+                <AuthProvider>
+                    {children}
+                    <Toaster position="top-center" richColors />
+                </AuthProvider>
+            </ThemeProvider>
         </QueryClientProvider>
     );
 }

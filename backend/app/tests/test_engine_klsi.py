@@ -8,7 +8,7 @@ from app.models.klsi.user import User
 from app.services.scoring import CONTEXT_NAMES
 from app.services.security import create_access_token
 from app.models.klsi.instrument import Instrument
-from app.services.grant_service import GrantService
+from app.models.klsi.grant import AccessGrant
 
 
 def _create_user() -> tuple[User, str]:
@@ -20,9 +20,15 @@ def _create_user() -> tuple[User, str]:
         db.refresh(user)
         
         # Allocate grant for KLSI 4.0
-        instrument = db.query(Instrument).filter(Instrument.code == "KLSI", Instrument.version == "4.0").first()
+        instrument = db.query(Instrument).filter(Instrument.code == "KLSI4", Instrument.version == "4.0").first()
         if instrument:
-             GrantService.allocate_credits(db, user.id, instrument.id, grantee_id=user.id, credits=1)
+             grant = AccessGrant(
+                 grantee_id=user.id,
+                 instrument_id=instrument.id,
+                 credits_total=1,
+                 credits_consumed=0
+             )
+             db.add(grant)
              db.commit()
              
         token = create_access_token(subject=str(user.id))
@@ -48,7 +54,7 @@ def test_engine_klsi_end_to_end(client):
     # Start session via engine runtime
     r_start = client.post(
         "/engine/sessions/start",
-        json={"instrument_code": "KLSI"},
+        json={"instrument_code": "KLSI4"},
         headers=headers,
     )
     assert r_start.status_code == 200, r_start.text
@@ -63,7 +69,7 @@ def test_engine_klsi_end_to_end(client):
     context_items = [item for item in items if item.get("type") == "Learning_Flexibility"]
     manifest = delivery.get("manifest")
     assert manifest is not None
-    assert manifest["code"] == "KLSI"
+    assert manifest["code"] == "KLSI4"
     assert manifest["delivery"]["expected_contexts"] == 8
     locales = manifest["resources"]["locales"]
     assert any(locale["code"] == "id" for locale in locales)
@@ -153,7 +159,7 @@ def test_engine_klsi_mediator_report_enhanced(client):
 
     r_start = client.post(
         "/engine/sessions/start",
-        json={"instrument_code": "KLSI"},
+        json={"instrument_code": "KLSI4"},
         headers=headers,
     )
     session_id = r_start.json()["sessionId"]
@@ -200,7 +206,7 @@ def test_engine_force_finalize_by_mediator(client):
 
     r_start = client.post(
         "/engine/sessions/start",
-        json={"instrument_code": "KLSI"},
+        json={"instrument_code": "KLSI4"},
         headers=headers,
     )
     session_id = r_start.json()["sessionId"]
@@ -259,7 +265,7 @@ def test_engine_finalize_requires_lfi_contexts(client):
 
     r_start = client.post(
         "/engine/sessions/start",
-        json={"instrument_code": "KLSI"},
+        json={"instrument_code": "KLSI4"},
         headers=headers,
     )
     assert r_start.status_code == 200, r_start.text
@@ -281,7 +287,7 @@ def test_engine_finalize_requires_lfi_contexts(client):
 
     r_finalize = client.post(f"/engine/sessions/{session_id}/finalize", headers=headers)
     assert r_finalize.status_code == 400
-    payload = r_finalize.json()["detail"]
+    payload = r_finalize.json()
     issue_codes = {issue["code"] for issue in payload["issues"]}
     assert "LFI_CONTEXT_COUNT" in issue_codes
     assert payload["diagnostics"]["items"]["ready_to_complete"] is True

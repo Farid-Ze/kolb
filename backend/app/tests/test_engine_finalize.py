@@ -92,11 +92,11 @@ def test_finalize_delegates_to_registered_strategy():
         pipeline_repo = PipelineRepository(db)
         instrument = (
             db.query(Instrument)
-            .filter(Instrument.code == "KLSI", Instrument.version == "4.0")
+            .filter(Instrument.code == "KLSI4", Instrument.version == "4.0")
             .first()
         )
         assert instrument is not None
-        pipelines = pipeline_repo.list_with_nodes(instrument.id)
+        pipelines = pipeline_repo.list_with_nodes_sync(instrument.id)
         assert pipelines, "Expected at least one pipeline for KLSI instrument"
 
         class TrackingStrategy(KLSI4Strategy):
@@ -200,7 +200,8 @@ def test_finalize_artifacts_match_between_strategy_and_manual_paths():
         db.close()
 
 
-def test_engine_runtime_finalize_with_audit_matches_manual_path_artifacts():
+@pytest.mark.asyncio
+async def test_engine_runtime_finalize_with_audit_matches_manual_path_artifacts():
     db = build_seeded_memory_db()
     runtime = EngineRuntime(components_enabled=False)
     original_strategy = strategy_registry._STRATEGIES.get("KLSI4.0")
@@ -220,7 +221,7 @@ def test_engine_runtime_finalize_with_audit_matches_manual_path_artifacts():
             captured_payloads.append(payload_dict)
             return json.dumps(payload_dict, default=str).encode("utf-8")
 
-        runtime_result = runtime.finalize_with_audit(
+        runtime_result = await runtime.finalize_with_audit(
             db,
             session_manual.id,
             actor_email="mediator@example.com",
@@ -334,7 +335,7 @@ def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
             nodes = []
 
         class DummyRepo(PipelineRepository):
-            def get_by_code_version(  # type: ignore[override]
+            def get_by_code_version_sync(  # type: ignore[override]
                 self,
                 instrument_id,
                 pipeline_code,
@@ -356,7 +357,8 @@ def test_finalize_sets_pipeline_warning_when_pipeline_has_no_nodes(monkeypatch):
         db.close()
 
 
-def test_runtime_start_session_sets_pipeline_version(monkeypatch):
+@pytest.mark.asyncio
+async def test_runtime_start_session_sets_pipeline_version(monkeypatch):
     db = build_seeded_memory_db()
     runtime = EngineRuntime()
     
@@ -415,7 +417,7 @@ def test_runtime_start_session_sets_pipeline_version(monkeypatch):
         db.add(user)
         db.flush()
 
-        session = runtime.start_session(db, user, "TEST_INST", "1.0")
+        session = await runtime.start_session(db, user, "TEST_INST", "1.0")
         assert session.pipeline_version == "TEST_INST:v1"
     finally:
         db.close()

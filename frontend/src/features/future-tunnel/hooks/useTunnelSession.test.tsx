@@ -1,12 +1,13 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { EngineSessionResponse, SessionStartResponse, SessionOperationResult, AssessmentItem } from '../../../entities/session/model'
 import { useTunnelSession } from './useTunnelSession'
 import * as api from '../api'
 
 // Mock constants to simplify completion logic
 vi.mock('../../../entities/session/constants', async (importOriginal) => {
-  const actual = await importOriginal<any>()
+  const actual = await importOriginal<typeof import('../../../entities/session/constants')>()
   return {
     ...actual,
     LFI_CONTEXTS: ['test-context'],
@@ -23,9 +24,24 @@ vi.mock('../../auth', () => ({
   }),
 }))
 
-vi.mock('../../telemetry', () => ({
-  useAssessmentTelemetry: () => vi.fn(),
+vi.mock('../../assessment/hooks/useAssessmentTelemetry', () => ({
+  useAssessmentTelemetry: () => ({
+    sendTelemetry: vi.fn(),
+    sendItemChanged: vi.fn(),
+    recordTelemetry: vi.fn(),
+  }),
 }))
+
+vi.mock('../../../shared/api/generated', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/api/generated')>()
+  return {
+    ...actual,
+    TelemetryService: {
+      recordAssessmentTelemetryApiV1TelemetryAssessmentPost: vi.fn().mockResolvedValue({}),
+      recordReplayEventsApiV1TelemetryReplayEventsPost: vi.fn().mockResolvedValue({}),
+    },
+  }
+})
 
 vi.mock('../api', () => ({
   startSession: vi.fn(),
@@ -56,7 +72,7 @@ describe('useTunnelSession', () => {
     localStorage.clear()
     // Default mock implementations to avoid "Query data cannot be undefined"
     vi.mocked(api.fetchSessionItems).mockResolvedValue([])
-    vi.mocked(api.fetchSessionState).mockResolvedValue({} as any)
+    vi.mocked(api.fetchSessionState).mockResolvedValue({} as unknown as EngineSessionResponse)
   })
 
   it('should initialize in idle state', () => {
@@ -71,7 +87,7 @@ describe('useTunnelSession', () => {
       sessionId: mockSessionId, 
       items: [],
       session_id: mockSessionId 
-    } as any)
+    } as unknown as SessionStartResponse)
 
     const { result } = renderHook(() => useTunnelSession(), { wrapper: createWrapper() })
 
@@ -85,8 +101,8 @@ describe('useTunnelSession', () => {
   })
 
   it('should hydrate from localStorage', () => {
-    const sessionId = 456
-    localStorage.setItem('zenotika.tunnel.sessionId', String(sessionId))
+    const sessionId = '456'
+    localStorage.setItem('zenotika.tunnel.sessionId', sessionId)
     
     const { result } = renderHook(() => useTunnelSession(), { wrapper: createWrapper() })
 
@@ -97,7 +113,7 @@ describe('useTunnelSession', () => {
 
   it('should update item ranks', async () => {
     const mockSessionId = 123
-    vi.mocked(api.startSession).mockResolvedValue({ sessionId: mockSessionId } as any)
+    vi.mocked(api.startSession).mockResolvedValue({ sessionId: mockSessionId } as unknown as SessionStartResponse)
     
     const { result } = renderHook(() => useTunnelSession(), { wrapper: createWrapper() })
 
@@ -122,16 +138,21 @@ describe('useTunnelSession', () => {
     const mockItem = { 
       id: 1, 
       type: 'Learning_Style',
-      options: [{ id: 10, code: 'A' }, { id: 11, code: 'B' }] 
+      options: [
+        { id: 10, code: 'AC' }, 
+        { id: 11, code: 'CE' },
+        { id: 12, code: 'AE' },
+        { id: 13, code: 'RO' }
+      ] 
     }
     
     vi.mocked(api.startSession).mockResolvedValue({ 
       sessionId: mockSessionId,
       items: [mockItem],
       session_id: mockSessionId
-    } as any)
+    } as unknown as SessionStartResponse)
     
-    vi.mocked(api.fetchSessionItems).mockResolvedValue([mockItem] as any)
+    vi.mocked(api.fetchSessionItems).mockResolvedValue([mockItem] as unknown as AssessmentItem[])
 
     vi.mocked(api.submitAllResponses).mockResolvedValue({ 
       success: true, 
@@ -142,7 +163,7 @@ describe('useTunnelSession', () => {
         AERO: 10,
         LFI: 0.5
       } 
-    } as any)
+    } as unknown as SessionOperationResult)
 
     const { result } = renderHook(() => useTunnelSession(), { wrapper: createWrapper() })
 
@@ -159,13 +180,25 @@ describe('useTunnelSession', () => {
     act(() => {
       result.current.setOptionRank(1, 11, 2)
     })
+    act(() => {
+      result.current.setOptionRank(1, 12, 3)
+    })
+    act(() => {
+      result.current.setOptionRank(1, 13, 4)
+    })
 
     // Complete Context
     act(() => {
-      result.current.setContextRank('test-context', 'A' as any, 1)
+      result.current.setContextRank('test-context', 'AC', 1)
     })
     act(() => {
-      result.current.setContextRank('test-context', 'B' as any, 2)
+      result.current.setContextRank('test-context', 'CE', 2)
+    })
+    act(() => {
+      result.current.setContextRank('test-context', 'AE', 3)
+    })
+    act(() => {
+      result.current.setContextRank('test-context', 'RO', 4)
     })
 
     await act(async () => {

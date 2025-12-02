@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -30,6 +30,7 @@ class UserAchievement(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     badge_id: Mapped[int] = mapped_column(ForeignKey("gamification_badges.id"))
     awarded_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    badge_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="achievements")
     badge: Mapped["GamificationBadge"] = relationship(back_populates="achievements")

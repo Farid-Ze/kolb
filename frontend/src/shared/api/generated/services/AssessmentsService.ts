@@ -30,4 +30,27 @@ export class AssessmentsService {
             url: '/api/v1/assessments/latest',
         });
     }
+    /**
+     * Get Latest Assessment
+     * Get the latest completed assessment session for the current user.
+     *
+     * This endpoint is strictly scoped to the authenticated user. It retrieves the most
+     * recent session with status 'completed' and maps the internal ORM model to a
+     * frontend-friendly DTO.
+     *
+     * Returns:
+     * AssessmentSessionResponse: The latest completed session with results.
+     * None: If the user has no completed sessions (returns 200 OK with null body).
+     *
+     * Raises:
+     * HTTPException(401): If the user is not authenticated.
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static getLatestAssessmentAssessmentsLatestGet(): CancelablePromise<(AssessmentSessionResponse | null)> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/assessments/latest',
+        });
+    }
 }

@@ -305,29 +305,33 @@ class EngineRuntime:
             if transactional:
                 if isinstance(context.db, AsyncSession):
                     async with context.db.begin_nested():
-                        # Scorer finalize is async now
-                        result = await scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                        # Scorer finalize is sync, run in sync context
+                        result = await context.db.run_sync(
+                            lambda s: scorer.finalize(s, session.id, skip_checks=context.skip_validation)
+                        )
                         _ensure_ok(result)
                         session.status = SessionStatus.completed
-                        session.end_time = datetime.now(timezone.utc)
+                        session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
                 else:
                     with context.db.begin_nested():
                         result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
                         _ensure_ok(result)
                         session.status = SessionStatus.completed
-                        session.end_time = datetime.now(timezone.utc)
+                        session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
             else:
                 if isinstance(context.db, AsyncSession):
-                    result = await scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
+                    result = await context.db.run_sync(
+                        lambda s: scorer.finalize(s, session.id, skip_checks=context.skip_validation)
+                    )
                     _ensure_ok(result)
                     session.status = SessionStatus.completed
-                    session.end_time = datetime.now(timezone.utc)
+                    session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
                     await context.db.commit()
                 else:
                     result = scorer.finalize(context.db, session.id, skip_checks=context.skip_validation)
                     _ensure_ok(result)
                     session.status = SessionStatus.completed
-                    session.end_time = datetime.now(timezone.utc)
+                    session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
                     context.db.commit()
         except DomainError:
             if not transactional:
@@ -480,7 +484,7 @@ class EngineRuntime:
                     actor=actor_email,
                     action=action,
                     payload_hash=sha256(payload_bytes).hexdigest(),
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 )
             )
             if isinstance(db, AsyncSession):
@@ -505,9 +509,11 @@ class EngineRuntime:
 
 
     def _instrument_id(self, session: AssessmentSession) -> InstrumentId:
+        if session.assessment_id:
+            return InstrumentId(session.assessment_id, session.assessment_version or "")
         if session.instrument:
             return InstrumentId(session.instrument.code, session.instrument.version)
-        return InstrumentId(session.assessment_id, session.assessment_version or "")
+        return InstrumentId(session.assessment_id or "", session.assessment_version or "")
 
     async def start_session(
         self,
@@ -541,6 +547,12 @@ class EngineRuntime:
                 raise InstrumentNotFoundError()
 
             inst_id = InstrumentId(instrument.code, instrument.version)
+            
+            # Capture values for logging in case of error (avoid lazy load after rollback)
+            log_instrument_code = instrument.code
+            log_instrument_version = instrument.version
+            log_user_id = user.id if user else None
+
             try:
                 self._registry.plugin(inst_id)
             except KeyError:
@@ -578,7 +590,7 @@ class EngineRuntime:
                 assessment_id=instrument.code,
                 assessment_version=instrument.version,
                 instrument_id=instrument.id,
-                start_time=datetime.now(timezone.utc),
+                start_time=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             started = perf_counter()
             try:
@@ -603,9 +615,9 @@ class EngineRuntime:
                     "start_session_failure",
                     extra={
                         "structured_data": {
-                            "instrument_code": instrument.code,
-                            "instrument_version": instrument.version,
-                            "user_id": user.id if user else None,
+                            "instrument_code": log_instrument_code,
+                            "instrument_version": log_instrument_version,
+                            "user_id": log_user_id,
                             "correlation_id": correlation_id,
                         }
                     },
@@ -635,7 +647,10 @@ class EngineRuntime:
         # Optimization: If lite=True, we might skip fetching items if the plugin supports it,
         # but for now we rely on compose_delivery_payload to filter.
         # Ideally, plugin.fetch_items should also support lite, but that requires plugin API change.
-        items = await plugin.fetch_items(db, session_id)
+        if isinstance(db, AsyncSession):
+            items = await db.run_sync(lambda s: plugin.fetch_items(s, session_id))
+        else:
+            items = plugin.fetch_items(db, session_id)
         
         delivery = plugin.delivery()
         manifest = _cached_manifest(inst_id.key, inst_id.version)
@@ -655,7 +670,10 @@ class EngineRuntime:
     async def submit_payload(self, db: Union[Session, AsyncSession], session_id: UUID, payload: dict) -> None:
         session = await self._resolve_session(db, session_id)
         plugin = self._registry.plugin(self._instrument_id(session))
-        await plugin.validate_submit(db, session_id, payload)
+        if isinstance(db, AsyncSession):
+            await db.run_sync(lambda s: plugin.validate_submit(s, session_id, payload))
+        else:
+            plugin.validate_submit(db, session_id, payload)
 
     @count_calls("engine.finalize.calls")
     @measure_time("engine.finalize", histogram=True)
@@ -763,7 +781,7 @@ class EngineRuntime:
              # If we updated KLSI4Plugin, it is async.
              # We need to await it.
              if isinstance(db, AsyncSession):
-                 return await builder.build(db, session_id, viewer_role)
+                 return await db.run_sync(lambda s: builder.build(s, session_id, viewer_role))
              return builder.build(db, session_id, viewer_role)
         return {}
 
@@ -773,7 +791,7 @@ class EngineRuntime:
         session = await self._resolve_session(db, session_id)
         provider = self._registry.norm_provider(self._instrument_id(session))
         if isinstance(db, AsyncSession):
-            return await provider.percentile(db, session_id, scale, raw)
+            return await db.run_sync(lambda s: provider.percentile(s, session_id, scale, raw))
         return provider.percentile(db, session_id, scale, raw)
 
 

@@ -27,4 +27,23 @@ export class ScoreService {
             },
         });
     }
+    /**
+     * Score Raw
+     * @param requestBody
+     * @returns ScorePreviewResponse Successful Response
+     * @throws ApiError
+     */
+    public static scoreRawScoreRawPost(
+        requestBody: ScorePreviewRequest,
+    ): CancelablePromise<ScorePreviewResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/score/raw',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
 }

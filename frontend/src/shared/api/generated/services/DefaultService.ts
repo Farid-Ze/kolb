@@ -7,6 +7,28 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class DefaultService {
     /**
+     * Crash Route
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static crashRouteCrashRouteGet(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/crash-route',
+        });
+    }
+    /**
+     * Options Register
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static optionsRegisterApiV1AuthRegisterOptions(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'OPTIONS',
+            url: '/api/v1/auth/register',
+        });
+    }
+    /**
      * Health
      * Enhanced health endpoint showing application status and metrics.
      *

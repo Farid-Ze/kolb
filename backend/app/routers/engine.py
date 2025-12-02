@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, Response
 
-from app.db.database import get_db
+from app.db.database import get_db, get_async_db
 from app.engine.authoring import (
     get_instrument_locale_resource,
     get_instrument_spec,
@@ -111,10 +111,10 @@ def get_instrument_locale_resource_endpoint(
 
 
 @router.post("/sessions/start", response_model=SessionStartResponse, deprecated=True)
-def start_engine_session(
+async def start_engine_session(
     payload: StartSessionRequest,
     response: Response,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     # [Facade Pattern] Deprecation: Use /sessions/start instead
@@ -124,7 +124,7 @@ def start_engine_session(
     inc_counter("deprecated.engine.sessions.start")
     
     service = EngineSessionService(db)
-    session = service.start_session(
+    session = await service.start_session(
         current_user,
         instrument_code=payload.instrument_code,
         instrument_version=payload.instrument_version,
@@ -133,33 +133,33 @@ def start_engine_session(
 
 
 @router.get("/sessions/{session_id}/delivery", response_model=dict)
-def get_delivery(
+async def get_delivery(
     session_id: uuid.UUID,
     locale: str | None = None,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     service = EngineSessionService(db)
-    return service.delivery_package(session_id, current_user, locale=locale)
+    return await service.delivery_package(session_id, current_user, locale=locale)
 
 
 @router.get("/sessions/{session_id}/items", response_model=EngineSessionResponse)
-def get_session_items(
+async def get_session_items(
     session_id: uuid.UUID,
     locale: str | None = None,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     service = EngineSessionService(db)
-    return service.session_state(session_id, current_user, locale=locale)
+    return await service.session_state(session_id, current_user, locale=locale)
 
 
 @router.post("/sessions/{session_id}/submit_all", response_model=SessionOperationResult, deprecated=True)
-def submit_all_responses(
+async def submit_all_responses(
     session_id: uuid.UUID,
     payload: SessionSubmissionPayload,
     response: Response,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Accept 12 learning-style items and 8 LFI contexts in a single request and finalize atomically (Sync).
@@ -173,23 +173,23 @@ def submit_all_responses(
     inc_counter("deprecated.engine.sessions.submit_all")
     
     service = EngineSessionService(db)
-    result = service.submit_full_batch(session_id, current_user, payload)
+    result = await service.submit_full_batch(session_id, current_user, payload)
     return SessionOperationResult(result=result)
 
 
 @router.post("/sessions/{session_id}/interactions", response_model=OperationStatus)
-def submit_interaction(
+async def submit_interaction(
     session_id: uuid.UUID,
     payload: SubmissionPayload,
     response: Response,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Backward-compatible single interaction submission (deprecated).
     Retained to support existing clients and tests; prefer submit_all.
     """
     service = EngineSessionService(db)
-    service.ensure_access(session_id, current_user)
+    await service.ensure_access(session_id, current_user)
     # Deprecation telemetry
     response.headers["Deprecation"] = "true"
     response.headers["Link"] = f"</engine/sessions/{session_id}/submit_all>; rel=successor-version"
@@ -198,7 +198,7 @@ def submit_interaction(
     if sunset_header:
         response.headers["Sunset"] = sunset_header
     inc_counter("deprecated.engine.interactions")
-    service.submit_interaction(session_id, current_user, payload.model_dump(exclude_unset=True))
+    await service.submit_interaction(session_id, current_user, payload.model_dump(exclude_unset=True))
     return OperationStatus()
 
 
@@ -228,10 +228,10 @@ def engine_metrics(
 
 
 @router.post("/sessions/{session_id}/finalize", response_model=SessionOperationResult, deprecated=True)
-def finalize_session(
+async def finalize_session(
     session_id: uuid.UUID,
     response: Response,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     # [Facade Pattern] Deprecation: Use /sessions/{session_id}/finalize instead
@@ -241,38 +241,38 @@ def finalize_session(
     inc_counter("deprecated.engine.sessions.finalize")
     
     service = EngineSessionService(db)
-    result = service.finalize_session(session_id, current_user)
+    result = await service.finalize_session(session_id, current_user)
     return SessionOperationResult(result=result)
 
 
 @router.get("/sessions/{session_id}/validation", response_model=dict)
-def validation_snapshot(
+async def validation_snapshot(
     session_id: uuid.UUID,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Expose run_session_validations snapshot via engine router."""
     service = EngineSessionService(db)
-    return service.validation_snapshot(session_id, current_user)
+    return await service.validation_snapshot(session_id, current_user)
 
 
 @router.get("/sessions/{session_id}/report", response_model=ReportPayload)
-def engine_report(
+async def engine_report(
     session_id: uuid.UUID,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     service = EngineSessionService(db)
-    report = service.build_report(session_id, current_user)
+    report = await service.build_report(session_id, current_user)
     return as_report_payload(report)
 
 
 @router.post("/sessions/{session_id}/force_finalize", response_model=SessionOperationResult, deprecated=True)
-def force_finalize_session(
+async def force_finalize_session(
     session_id: uuid.UUID,
     request: ForceFinalizeRequest,
     response: Response,
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -317,5 +317,5 @@ def force_finalize_session(
     )
     
     service = EngineSessionService(db)
-    result = service.force_finalize(session_id, current_user, reason=request.reason)
+    result = await service.force_finalize(session_id, current_user, reason=request.reason)
     return SessionOperationResult(result=result)

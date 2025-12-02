@@ -112,9 +112,8 @@ def _sunset_header_value() -> str | None:
 
 
 from app.services.grant_service import GrantService
-from app.models.klsi.instrument import Instrument
 from app.core.errors import InsufficientCreditsError
-from sqlalchemy import select
+from app.db.database import get_repository_provider
 
 @router.post("/start", response_model=SessionStartResponse)
 async def start_session(
@@ -132,9 +131,10 @@ async def start_session(
     from fastapi.concurrency import run_in_threadpool
 
     # 1. Lookup Instrument (Async)
-    stmt = select(Instrument).where(Instrument.code == payload.instrument_code)
-    result = await db_async.execute(stmt)
-    instrument = result.scalar_one_or_none()
+    print(f"DEBUG: start_session payload: {payload}", flush=True)
+    repo_provider = get_repository_provider(db_async)
+    instrument = await repo_provider.instruments.get_by_code(payload.instrument_code)
+    print(f"DEBUG: Instrument found: {instrument}", flush=True)
     
     if not instrument:
         raise HTTPException(status_code=404, detail=f"Instrument {payload.instrument_code} not found")
@@ -354,6 +354,11 @@ async def finalize(
     service = EngineSessionService(db)
     validation_snapshot = await service.validation_snapshot(session_id, current_user)
     
+    # Check if already completed
+    status_val = validation_snapshot.get("diagnostics", {}).get("items", {}).get("status")
+    if status_val == "completed":
+         raise HTTPException(status_code=409, detail=SessionErrorMessages.ALREADY_COMPLETED)
+
     if not validation_snapshot.get("ready", False):
         issues = validation_snapshot.get("issues", [])
         raise HTTPException(status_code=400, detail={"issues": issues, "diagnostics": validation_snapshot.get("diagnostics")})
