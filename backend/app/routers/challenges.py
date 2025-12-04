@@ -35,7 +35,6 @@ def complete_user_challenge(
             challenge_id,
             proof_url=payload.proof_url,
         )
-        db.commit()
         db.refresh(challenge)
         return challenge
     except (ChallengeNotFoundError, ChallengeAlreadyCompletedError) as exc:

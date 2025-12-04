@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     
     # [Security Fix] CORS Configuration
     # Strict validation ensures comma-separated strings are parsed into lists
-    backend_cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174"]
+    backend_cors_origins: List[str] = []
 
     @field_validator("jwt_secret_key")
     @classmethod
@@ -37,14 +37,17 @@ class Settings(BaseSettings):
 
     @field_validator("backend_cors_origins", mode="before")
     @classmethod
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+    def assemble_cors_origins(cls, v: Union[str, List[str]], info: Any) -> List[str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, list):
             return v
-        elif isinstance(v, str):
-            return [v]
-        raise ValueError(v)
+        
+        # [Security Fix] Insecure defaults only allowed in non-production
+        if info.data.get("environment") != "production":
+            return ["http://localhost:5173", "http://localhost:5174"]
+            
+        return []
 
     # Feature Flags
     run_startup_ddl: bool = True

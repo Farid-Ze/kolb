@@ -165,6 +165,14 @@ def _build_engine() -> Engine:
         "future": True,
     }
 
+    pool_settings = {
+        "pool_size": settings.db_pool_size,
+        "max_overflow": settings.db_max_overflow,
+        "pool_timeout": settings.db_pool_timeout,
+        "pool_recycle": settings.db_pool_recycle,
+        "pool_pre_ping": settings.db_pool_pre_ping,
+    }
+
     if url.get_backend_name() == "sqlite":
         connect_args: dict[str, object] = {"check_same_thread": False}
         database = url.database or ""
@@ -175,26 +183,10 @@ def _build_engine() -> Engine:
         if database in ("", None, ":memory:", "file::memory:"):
             kwargs["poolclass"] = StaticPool
         else:
-            kwargs.update(
-                {
-                    "poolclass": QueuePool,
-                    "pool_size": settings.db_pool_size,
-                    "max_overflow": settings.db_max_overflow,
-                    "pool_timeout": settings.db_pool_timeout,
-                    "pool_recycle": settings.db_pool_recycle,
-                    "pool_pre_ping": settings.db_pool_pre_ping,
-                }
-            )
+            kwargs["poolclass"] = QueuePool
+            kwargs.update(pool_settings)
     else:
-        kwargs.update(
-            {
-                "pool_size": settings.db_pool_size,
-                "max_overflow": settings.db_max_overflow,
-                "pool_timeout": settings.db_pool_timeout,
-                "pool_recycle": settings.db_pool_recycle,
-                "pool_pre_ping": settings.db_pool_pre_ping,
-            }
-        )
+        kwargs.update(pool_settings)
 
     engine_instance = create_engine(db_url, **kwargs)
     _set_engine_snapshot(engine_instance, kwargs)
@@ -258,10 +250,11 @@ def _build_async_engine() -> AsyncEngine:
     else:
         # [Zenotika V4] Fix: Restrict kwargs for async engine to avoid auth failures
         # Some pool parameters (pool_recycle, pool_timeout) cause OperationalError with psycopg async
-        async_kwargs = {
+        kwargs.update({
             "pool_pre_ping": settings.db_pool_pre_ping,
-        }
-        return create_async_engine(async_url_str, **async_kwargs)
+            "pool_size": settings.db_pool_size,
+            "max_overflow": settings.db_max_overflow,
+        })
 
     return create_async_engine(async_url_str, **kwargs)
 engine: Engine = _build_engine()

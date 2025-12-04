@@ -22,6 +22,13 @@ from app.db.repositories.protocols import NormConversionReader
 # Global cache shared across instances (per process)
 _GLOBAL_CACHE = _LRU(maxsize=8192)
 
+
+def reset_global_cache():
+    """Reset the global cache. Used in tests to prevent state leakage."""
+    global _GLOBAL_CACHE
+    _GLOBAL_CACHE = _LRU(maxsize=8192)
+
+
 class CachedCompositeNormProvider:
     """Hybrid DB+Appendix norm repository with LRU caching."""
 

@@ -101,7 +101,6 @@ def create_report_share(
             expires_in_hours=payload.expires_in_hours,
             note=payload.note,
         )
-        db.commit()
     except SharePermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except ShareValidationError as exc:
@@ -139,7 +138,6 @@ def get_shared_report(
             "expires_at": share.expires_at,
             "note": share.note,
         }
-        db.commit()
     except SharePermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except ShareValidationError as exc:

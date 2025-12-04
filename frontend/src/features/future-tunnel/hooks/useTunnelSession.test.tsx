@@ -24,7 +24,7 @@ vi.mock('../../auth', () => ({
   }),
 }))
 
-vi.mock('../../assessment/hooks/useAssessmentTelemetry', () => ({
+vi.mock('../../telemetry', () => ({
   useAssessmentTelemetry: () => ({
     sendTelemetry: vi.fn(),
     sendItemChanged: vi.fn(),

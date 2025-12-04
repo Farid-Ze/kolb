@@ -9,7 +9,7 @@ from app.schemas.base import CamelModel
 class AssessmentTelemetryPayload(CamelModel):
     """Payload capturing latency + blur telemetry for a forced-choice item."""
 
-    session_id: uuid.UUID = Field(..., description="Assessment session identifier", serialization_alias="sessionId", validation_alias="sessionId")
+    session_id: uuid.UUID = Field(..., description="Assessment session identifier")
     item_id: int = Field(gt=0, description="Assessment item identifier")
     response_rank: int = Field(ge=1, le=4, description="Rank assigned to the selected option")
     response_latency_ms: int = Field(ge=0, le=120000, description="Time spent on the item in milliseconds")
@@ -21,12 +21,12 @@ class TimeOnPageEvent(CamelModel):
     """Captures duration spent on a specific route."""
     page_path: str = Field(..., min_length=1, max_length=200)
     duration_ms: int = Field(..., ge=0, le=3600000, description="Duration in ms (max 1 hour)")
-    session_id: uuid.UUID | None = Field(None, serialization_alias="sessionId", validation_alias="sessionId")
+    session_id: uuid.UUID | None = None
 
 
 class ItemChangedEvent(CamelModel):
     """Captures when a user changes their answer (rank) for an item."""
-    session_id: uuid.UUID = Field(..., serialization_alias="sessionId", validation_alias="sessionId")
+    session_id: uuid.UUID
     item_id: int = Field(..., gt=0)
     from_rank: int | None = Field(None, ge=1, le=4)
     to_rank: int = Field(..., ge=1, le=4)
@@ -36,7 +36,7 @@ class ItemChangedEvent(CamelModel):
 
 class MouseMovementEvent(CamelModel):
     """Captures mouse coordinates. Should be throttled/sampled on client."""
-    session_id: uuid.UUID | None = Field(None, serialization_alias="sessionId", validation_alias="sessionId")
+    session_id: uuid.UUID | None = None
     page_path: str = Field(..., min_length=1, max_length=200)
     x: int = Field(..., ge=0)
     y: int = Field(..., ge=0)
@@ -54,6 +54,6 @@ class ReplayEvent(CamelModel):
 
 class ReplayEventBatch(CamelModel):
     """Batch of replay events for a session."""
-    session_id: uuid.UUID = Field(..., serialization_alias="sessionId", validation_alias="sessionId")
+    session_id: uuid.UUID
     events: list[ReplayEvent]
 

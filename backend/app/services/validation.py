@@ -61,7 +61,11 @@ def check_session_complete(db: Session, session_id: UUID) -> Dict[str, Any]:
     # Build maps from aggregated rows
     ranks_by_item: dict[int, set[int]] = defaultdict(set)
     any_dup_per_item: dict[int, bool] = defaultdict(bool)
+    items_with_invalid_ranks: set[int] = set()
+
     for aggregate in rank_rows:
+        if aggregate.rank_value not in {1, 2, 3, 4}:
+            items_with_invalid_ranks.add(aggregate.item_id)
         ranks_by_item[aggregate.item_id].add(aggregate.rank_value)
         if aggregate.count > 1:
             any_dup_per_item[aggregate.item_id] = True
@@ -88,7 +92,12 @@ def check_session_complete(db: Session, session_id: UUID) -> Dict[str, Any]:
             })
 
     responded_items = len(ranks_by_item.keys())
-    ready_to_complete = not missing_item_ids and not items_with_rank_conflict and not items_with_missing_ranks
+    ready_to_complete = (
+        not missing_item_ids 
+        and not items_with_rank_conflict 
+        and not items_with_missing_ranks
+        and not items_with_invalid_ranks
+    )
 
     return {
         "session_exists": True,
@@ -98,6 +107,7 @@ def check_session_complete(db: Session, session_id: UUID) -> Dict[str, Any]:
         "missing_item_ids": missing_item_ids,
         "items_with_rank_conflict": items_with_rank_conflict,
         "items_with_missing_ranks": items_with_missing_ranks,
+        "items_with_invalid_ranks": list(items_with_invalid_ranks),
         "duplicate_choice_ids": duplicate_choice_ids,
         "ready_to_complete": ready_to_complete,
     }
@@ -148,21 +158,30 @@ def run_session_validations(db: Session, session_id: UUID) -> Dict[str, Any]:
                 "fatal": True,
             }
         )
+    if core.get("items_with_invalid_ranks"):
+        issues.append(
+            {
+                "code": "ITEM_RANK_INVALID",
+                "message": "Items contain ranks outside the allowed range (1-4).",
+                "item_ids": core["items_with_invalid_ranks"],
+                "fatal": True,
+            }
+        )
 
     # LFI context validations
     context_repo = LFIContextRepository(db)
     contexts = context_repo.list_for_session_sync(session_id)
     submitted_context_names = [ctx.context_name for ctx in contexts]
     allowed_contexts = set(CONTEXT_NAMES)
-    unknown_context_names = sorted({name for name in submitted_context_names if name not in allowed_contexts})
+    unique_names = {ctx.context_name for ctx in contexts}
+    unknown_context_names = sorted(unique_names - allowed_contexts)
+    missing_contexts = [name for name in CONTEXT_NAMES if name not in submitted_context_names]
     context_status = [
-        {
-            "name": context_name,
-            "present": context_name in submitted_context_names,
-        }
+        {"name": context_name, "present": context_name in submitted_context_names}
         for context_name in CONTEXT_NAMES
     ]
-    missing_contexts = [name for name in CONTEXT_NAMES if name not in submitted_context_names]
+    
+    # Check context count
     if len(contexts) != len(CONTEXT_NAMES):
         issues.append(
             {
@@ -172,26 +191,30 @@ def run_session_validations(db: Session, session_id: UUID) -> Dict[str, Any]:
                 "fatal": True,
             }
         )
-    else:
-        unique_names = {ctx.context_name for ctx in contexts}
-        unknown = sorted(unique_names - allowed_contexts)
-        if unknown:
-            issues.append(
-                {
-                    "code": "LFI_CONTEXT_UNKNOWN",
-                    "message": ValidationMessages.LFI_CONTEXT_UNKNOWN,
-                    "contexts": unknown,
-                    "fatal": True,
-                }
-            )
-        if len(unique_names) != len(contexts):
-            issues.append(
-                {
-                    "code": "LFI_CONTEXT_DUPLICATE",
-                    "message": ValidationMessages.LFI_CONTEXT_DUPLICATE,
-                    "fatal": True,
-                }
-            )
+
+    # Check for unknown contexts
+    if unknown_context_names:
+        issues.append(
+            {
+                "code": "LFI_CONTEXT_UNKNOWN",
+                "message": ValidationMessages.LFI_CONTEXT_UNKNOWN,
+                "contexts": unknown_context_names,
+                "fatal": True,
+            }
+        )
+
+    # Check for duplicates
+    if len(unique_names) != len(contexts):
+        issues.append(
+            {
+                "code": "LFI_CONTEXT_DUPLICATE",
+                "message": ValidationMessages.LFI_CONTEXT_DUPLICATE,
+                "fatal": True,
+            }
+        )
+
+    # Validate ranks if contexts exist
+    if contexts:
         try:
             payload = [
                 {
@@ -335,7 +358,11 @@ async def check_session_complete_async(db: AsyncSession, session_id: UUID) -> Di
     
     ranks_by_item: dict[int, set[int]] = defaultdict(set)
     any_dup_per_item: dict[int, bool] = defaultdict(bool)
+    items_with_invalid_ranks: set[int] = set()
+
     for aggregate in rank_rows:
+        if aggregate.rank_value not in {1, 2, 3, 4}:
+            items_with_invalid_ranks.add(aggregate.item_id)
         ranks_by_item[aggregate.item_id].add(aggregate.rank_value)
         if aggregate.count > 1:
             any_dup_per_item[aggregate.item_id] = True
@@ -361,7 +388,12 @@ async def check_session_complete_async(db: AsyncSession, session_id: UUID) -> Di
             })
 
     responded_items = len(ranks_by_item.keys())
-    ready_to_complete = not missing_item_ids and not items_with_rank_conflict and not items_with_missing_ranks
+    ready_to_complete = (
+        not missing_item_ids 
+        and not items_with_rank_conflict 
+        and not items_with_missing_ranks
+        and not items_with_invalid_ranks
+    )
 
     return {
         "session_exists": True,
@@ -371,6 +403,7 @@ async def check_session_complete_async(db: AsyncSession, session_id: UUID) -> Di
         "missing_item_ids": missing_item_ids,
         "items_with_rank_conflict": items_with_rank_conflict,
         "items_with_missing_ranks": items_with_missing_ranks,
+        "items_with_invalid_ranks": list(items_with_invalid_ranks),
         "duplicate_choice_ids": duplicate_choice_ids,
         "ready_to_complete": ready_to_complete,
     }
@@ -421,21 +454,30 @@ async def run_session_validations_async(db: AsyncSession, session_id: UUID) -> D
                 "fatal": True,
             }
         )
+    if core.get("items_with_invalid_ranks"):
+        issues.append(
+            {
+                "code": "ITEM_RANK_INVALID",
+                "message": "Items contain ranks outside the allowed range (1-4).",
+                "item_ids": core["items_with_invalid_ranks"],
+                "fatal": True,
+            }
+        )
 
     # LFI context validations
     context_repo = LFIContextRepository(db)
     contexts = await context_repo.list_for_session(session_id)
     submitted_context_names = [ctx.context_name for ctx in contexts]
     allowed_contexts = set(CONTEXT_NAMES)
-    unknown_context_names = sorted({name for name in submitted_context_names if name not in allowed_contexts})
+    unique_names = {ctx.context_name for ctx in contexts}
+    unknown_context_names = sorted(unique_names - allowed_contexts)
+    missing_contexts = [name for name in CONTEXT_NAMES if name not in submitted_context_names]
     context_status = [
-        {
-            "name": context_name,
-            "present": context_name in submitted_context_names,
-        }
+        {"name": context_name, "present": context_name in submitted_context_names}
         for context_name in CONTEXT_NAMES
     ]
-    missing_contexts = [name for name in CONTEXT_NAMES if name not in submitted_context_names]
+    
+    # Check context count
     if len(contexts) != len(CONTEXT_NAMES):
         issues.append(
             {
@@ -445,26 +487,30 @@ async def run_session_validations_async(db: AsyncSession, session_id: UUID) -> D
                 "fatal": True,
             }
         )
-    else:
-        unique_names = {ctx.context_name for ctx in contexts}
-        unknown = sorted(unique_names - allowed_contexts)
-        if unknown:
-            issues.append(
-                {
-                    "code": "LFI_CONTEXT_UNKNOWN",
-                    "message": ValidationMessages.LFI_CONTEXT_UNKNOWN,
-                    "contexts": unknown,
-                    "fatal": True,
-                }
-            )
-        if len(unique_names) != len(contexts):
-            issues.append(
-                {
-                    "code": "LFI_CONTEXT_DUPLICATE",
-                    "message": ValidationMessages.LFI_CONTEXT_DUPLICATE,
-                    "fatal": True,
-                }
-            )
+
+    # Check for unknown contexts
+    if unknown_context_names:
+        issues.append(
+            {
+                "code": "LFI_CONTEXT_UNKNOWN",
+                "message": ValidationMessages.LFI_CONTEXT_UNKNOWN,
+                "contexts": unknown_context_names,
+                "fatal": True,
+            }
+        )
+
+    # Check for duplicates
+    if len(unique_names) != len(contexts):
+        issues.append(
+            {
+                "code": "LFI_CONTEXT_DUPLICATE",
+                "message": ValidationMessages.LFI_CONTEXT_DUPLICATE,
+                "fatal": True,
+            }
+        )
+
+    # Validate ranks if contexts exist
+    if contexts:
         try:
             payload = [
                 {

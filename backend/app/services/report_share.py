@@ -70,7 +70,7 @@ class ReportShareService:
             expires_at=expires_at,
             note=note,
         )
-        self.db.flush()
+        self.db.commit()
         return share, token
 
     def resolve_share(
@@ -89,5 +89,5 @@ class ReportShareService:
             raise SharePermissionError("Link ini hanya dapat dibuka oleh mediator terotorisasi")
 
         self._shares.mark_access(share)
-        self.db.flush()
+        self.db.commit()
         return share

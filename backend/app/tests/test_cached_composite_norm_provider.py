@@ -1,5 +1,6 @@
+import pytest
 from typing import Any, cast
-from app.engine.norms.cached_composite import CachedCompositeNormProvider
+from app.engine.norms.cached_composite import CachedCompositeNormProvider, reset_global_cache
 from app.engine.norms.factory import build_composite_norm_provider
 from app.engine.norms import factory as norms_factory
 from app.core.config import settings
@@ -8,6 +9,15 @@ from app.models.klsi.norms import NormativeConversionTable
 # NOTE: Uses existing session fixture (named 'session') provided by conftest.py
 # We focus on DB hit reduction: prime() performs at most one batch query per precedence
 # group and subsequent percentile() calls hit the in-process cache (zero extra DB executes).
+
+
+@pytest.fixture(autouse=True)
+def reset_caches():
+    """Reset global caches before each test to prevent state leakage."""
+    reset_global_cache()
+    norms_factory._reset_preloaded_norms()
+    yield
+    reset_global_cache()
 
 
 def _insert_norm_rows(db, group: str, version: str = "default"):

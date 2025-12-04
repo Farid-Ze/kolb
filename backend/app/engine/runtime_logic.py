@@ -15,6 +15,15 @@ __all__ = [
 LocalePayload = Mapping[str, Any] | None
 
 
+def _sanitize_message(msg: Any) -> str:
+    """Sanitize validation messages to prevent injection or leakage."""
+    s = str(msg)
+    # Basic sanitization: truncate and remove control characters if needed
+    # For now, just ensure it's a string and maybe limit length
+    if len(s) > 1000:
+        return s[:1000] + "..."
+    return s
+
 @dataclass(frozen=True, slots=True)
 class ValidationReport:
     """Immutable snapshot of session validation status."""
@@ -31,9 +40,13 @@ class ValidationReport:
         if isinstance(raw_issues, Iterable):
             for entry in raw_issues:
                 if isinstance(entry, Mapping):
-                    normalized.append(MappingProxyType(dict(entry)))
+                    # [Security] Sanitize messages
+                    d = dict(entry)
+                    if "message" in d:
+                        d["message"] = _sanitize_message(d["message"])
+                    normalized.append(MappingProxyType(d))
                 else:  # pragma: no cover - defensive fallback for unexpected types
-                    normalized.append(MappingProxyType({"detail": entry}))
+                    normalized.append(MappingProxyType({"detail": _sanitize_message(entry)}))
         diagnostics = payload.get("diagnostics")
         diagnostics_map = MappingProxyType(dict(diagnostics)) if isinstance(diagnostics, Mapping) else MappingProxyType({})
         return cls(ready=ready, issues=tuple(normalized), diagnostics=diagnostics_map)

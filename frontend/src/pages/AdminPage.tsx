@@ -1,25 +1,12 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
 
-import { useAuth } from '../features/auth/hooks/useAuth'
 import { PipelinesPanel } from '../features/admin/components/PipelinesPanel'
 import { ResearchPanel } from '../features/admin/components/ResearchPanel'
 import { TeamsPanel } from '../features/admin/components/TeamsPanel'
 
 export function AdminPage() {
-  const { token, isMediator, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<'teams' | 'research' | 'pipelines'>('teams')
   const tabs = ['teams', 'research', 'pipelines'] as const
-
-  if (!token && !isLoading) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (token && !isMediator) {
-    return <Navigate to="/" replace />
-  }
-
-  if (isLoading) return null
 
   return (
     <section className="space-y-6">

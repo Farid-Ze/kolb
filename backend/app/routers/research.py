@@ -59,22 +59,10 @@ def create_study(
     current_user: Any = Depends(get_current_user),
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
-
-    study_repo = ResearchStudyRepository(db)
-    try:
-        study = study_repo.create_sync(**payload.model_dump())
-        db.commit()
-        db.refresh(study)
-        return study
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "research_create_study_failed",
-            user=current_user,
-            operation="research_create_study",
-            title=payload.title,
-        )
-        raise
+    
+    from app.services.research_service import ResearchService
+    service = ResearchService(db)
+    return service.create_study(payload, current_user)
 
 
 @router.get("/studies", response_model=List[ResearchStudyOut])
@@ -118,29 +106,9 @@ def update_study(
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
     
-    internal_id = decode_public_id(study_id)
-    study_repo = ResearchStudyRepository(db)
-    try:
-        study = study_repo.get_sync(internal_id)
-        if not study:
-            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        data = payload.model_dump(exclude_unset=True)
-        for key, value in data.items():
-            setattr(study, key, value)
-        db.flush()
-        db.commit()
-        db.refresh(study)
-        return study
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "research_update_study_failed",
-            user=current_user,
-            operation="research_update_study",
-            study_id=internal_id,
-            payload_fields=list(payload.model_dump(exclude_unset=True).keys()),
-        )
-        raise
+    from app.services.research_service import ResearchService
+    service = ResearchService(db)
+    return service.update_study(study_id, payload, current_user)
 
 
 @router.delete("/studies/{study_id}", response_model=dict)
@@ -151,35 +119,9 @@ def delete_study(
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
     
-    internal_id = decode_public_id(study_id)
-    study_repo = ResearchStudyRepository(db)
-    reliability_repo = ReliabilityRepository(db)
-    validity_repo = ValidityRepository(db)
-    try:
-        study = study_repo.get_sync(internal_id)
-        if not study:
-            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        rel_count = reliability_repo.count_by_study_sync(internal_id)
-        val_count = validity_repo.count_by_study_sync(internal_id)
-        if rel_count > 0 or val_count > 0:
-            raise HTTPException(
-                status_code=409,
-                detail=ResearchMessages.REMOVE_EVIDENCE_FIRST,
-            )
-        study_repo.delete_sync(study)
-        db.commit()
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "research_delete_study_failed",
-            user=current_user,
-            operation="research_delete_study",
-            study_id=internal_id,
-        )
-        raise
+    from app.services.research_service import ResearchService
+    service = ResearchService(db)
+    service.delete_study(study_id, current_user)
     return {"ok": True}
 
 
@@ -192,30 +134,10 @@ def add_reliability(
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
     
-    internal_id = decode_public_id(study_id)
-    study_repo = ResearchStudyRepository(db)
-    reliability_repo = ReliabilityRepository(db)
-    try:
-        study = study_repo.get_sync(internal_id)
-        if not study:
-            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        row = reliability_repo.add_sync(internal_id, **payload.model_dump())
-        db.commit()
-        db.refresh(row)
-        return {"id": row.id, "metric_name": row.metric_name, "value": row.value}
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "research_add_reliability_failed",
-            user=current_user,
-            operation="research_add_reliability",
-            study_id=internal_id,
-            metric_name=payload.metric_name,
-        )
-        raise
+    from app.services.research_service import ResearchService
+    service = ResearchService(db)
+    row = service.add_reliability(study_id, payload, current_user)
+    return {"id": row.id, "metric_name": row.metric_name, "value": row.value}
 
 
 @router.post("/studies/{study_id}/validity", response_model=dict)
@@ -227,30 +149,10 @@ def add_validity(
 ):
     require_mediator(current_user, AuthorizationMessages.MEDIATOR_REQUIRED)
     
-    internal_id = decode_public_id(study_id)
-    study_repo = ResearchStudyRepository(db)
-    validity_repo = ValidityRepository(db)
-    try:
-        study = study_repo.get_sync(internal_id)
-        if not study:
-            raise HTTPException(status_code=404, detail=ResearchMessages.NOT_FOUND)
-        row = validity_repo.add_sync(internal_id, **payload.model_dump())
-        db.commit()
-        db.refresh(row)
-        return {"id": row.id, "evidence_type": row.evidence_type}
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception:
-        db.rollback()
-        _log_db_failure(
-            "research_add_validity_failed",
-            user=current_user,
-            operation="research_add_validity",
-            study_id=internal_id,
-            evidence_type=payload.evidence_type,
-        )
-        raise
+    from app.services.research_service import ResearchService
+    service = ResearchService(db)
+    row = service.add_validity(study_id, payload, current_user)
+    return {"id": row.id, "evidence_type": row.evidence_type}
 
 
 @router.get("/studies/{study_id}/reliability", response_model=list[ReliabilityOut])

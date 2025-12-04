@@ -238,10 +238,9 @@ def lookup_percentile(raw: int, table: Mapping[int, float]) -> float | None:
 
     Algorithm:
       1. Exact hit → return directly.
-      2. Compute insertion position with bisect.
-      3. If there is a lower neighbor (pos>0) → return its percentile.
-      4. Else if there is an upper neighbor → return its percentile.
-      5. Else (empty table) → None.
+      2. Explicit boundary checks (raw < min → 0.0, raw > max → 100.0).
+      3. Compute insertion position with bisect.
+      4. Return largest key < raw (nearest lower).
     Complexity: O(log n) per lookup after first sort (which is cached).
     """
     if raw in table:
@@ -249,6 +248,13 @@ def lookup_percentile(raw: int, table: Mapping[int, float]) -> float | None:
     keys = _sorted_keys(table)
     if not keys:
         return None
+    
+    # [Audit Fix] Explicit boundary handling for values outside normative range
+    if raw < keys[0]:
+        return 0.0
+    if raw > keys[-1]:
+        return 100.0
+
     pos = bisect_left(keys, raw)
     if pos > 0:
         return table[keys[pos - 1]]

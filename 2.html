@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenotika - The Zenosphere (HIFI)</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- TweenMax for smooth animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --citrix-blue: #0ea5e9;
+            --zenotika-purple: #a855f7;
+            --grid-line: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #e5e5e5;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+        .font-header { font-family: 'Oswald', sans-serif; }
+
+        /* UI Overlays */
+        .glass-panel {
+            background: rgba(10, 10, 12, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Tech Scanlines */
+        .scanlines {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        /* Loading Spinner */
+        .loader-ring {
+            border: 2px solid rgba(14, 165, 233, 0.1);
+            border-left-color: var(--citrix-blue);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Animations */
+        .slide-in-right { animation: slideInRight 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .fade-in { animation: fadeIn 0.8s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const Icon = ({ name, size = 18, className }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        };
+
+        // --- DATA LAYER (Based on seeds.py) ---
+        // 8 Contexts of Learning Flexibility
+        const LFI_CONTEXTS = [
+            { id: 1, name: "Influencing Others", ac: 20, ce: 10, ae: 60, ro: 10, flexibility: 85 },
+            { id: 2, name: "Establishing Goals", ac: 70, ce: 10, ae: 10, ro: 10, flexibility: 45 },
+            { id: 3, name: "Making Decisions", ac: 60, ce: 10, ae: 20, ro: 10, flexibility: 60 },
+            { id: 4, name: "Leading Teams", ac: 10, ce: 50, ae: 30, ro: 10, flexibility: 92 },
+            { id: 5, name: "Managing Conflict", ac: 10, ce: 60, ae: 10, ro: 20, flexibility: 88 },
+            { id: 6, name: "Analyzing Data", ac: 90, ce: 0, ae: 5, ro: 5, flexibility: 30 },
+            { id: 7, name: "Creating Vision", ac: 30, ce: 20, ae: 10, ro: 40, flexibility: 75 },
+            { id: 8, name: "Taking Action", ac: 10, ce: 10, ae: 80, ro: 0, flexibility: 50 }
+        ];
+
+        // --- 3D COMPONENT: THE SPHERE ---
+        const ZenosphereVisualizer = ({ activeContext, onNodeClick }) => {
+            const mountRef = useRef(null);
+            const sceneRef = useRef(null);
+            const nodesRef = useRef([]);
+            const linesRef = useRef(null);
+
+            useEffect(() => {
+                // Setup
+                const width = mountRef.current.clientWidth;
+                const height = mountRef.current.clientHeight;
+                
+                const scene = new THREE.Scene();
+                // Deep space fog
+                scene.fog = new THREE.FogExp2(0x050505, 0.02);
+                sceneRef.current = scene;
+
+                const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+                camera.position.z = 18;
+
+                const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                mountRef.current.appendChild(renderer.domElement);
+
+                // --- 1. The Core (Wireframe Sphere) ---
+                const coreGeo = new THREE.IcosahedronGeometry(6, 2);
+                const coreMat = new THREE.MeshBasicMaterial({ 
+                    color: 0x333333, 
+                    wireframe: true, 
+                    transparent: true, 
+                    opacity: 0.1 
+                });
+                const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+                scene.add(coreMesh);
+
+                // --- 2. The Nodes (LFI Contexts) ---
+                // Distribute 8 points roughly on a sphere
+                const nodeGroup = new THREE.Group();
+                const nodePositions = [];
+                
+                // Fibonacci sphere algorithm for even distribution
+                const phi = Math.PI * (3 - Math.sqrt(5)); 
+                LFI_CONTEXTS.forEach((ctx, i) => {
+                    const y = 1 - (i / (LFI_CONTEXTS.length - 1)) * 2;
+                    const radius = Math.sqrt(1 - y * y);
+                    const theta = phi * i;
+                    
+                    const x = Math.cos(theta) * radius;
+                    const z = Math.sin(theta) * radius;
+
+                    // Scale up to sphere radius (8 units)
+                    const vector = new THREE.Vector3(x * 8, y * 8, z * 8);
+                    nodePositions.push(vector);
+
+                    // Create Node Mesh
+                    const geometry = new THREE.SphereGeometry(0.3, 16, 16);
+                    // Color based on flexibility (Green=High, Orange=Low)
+                    const color = ctx.flexibility > 70 ? 0x0ea5e9 : (ctx.flexibility > 50 ? 0xa855f7 : 0xf97316);
+                    const material = new THREE.MeshBasicMaterial({ color: color });
+                    const sphere = new THREE.Mesh(geometry, material);
+                    
+                    sphere.position.copy(vector);
+                    sphere.userData = { id: ctx.id, originalPos: vector.clone() };
+                    
+                    // Glow effect (Sprite)
+                    const spriteMat = new THREE.SpriteMaterial({ 
+                        map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/sprites/spark1.png'), 
+                        color: color, 
+                        transparent: true, 
+                        opacity: 0.7, 
+                        blending: THREE.AdditiveBlending 
+                    });
+                    const sprite = new THREE.Sprite(spriteMat);
+                    sprite.scale.set(3, 3, 1);
+                    sphere.add(sprite);
+
+                    nodeGroup.add(sphere);
+                    nodesRef.current.push(sphere);
+                });
+                scene.add(nodeGroup);
+
+                // --- 3. Connections (Synapses) ---
+                const lineGeo = new THREE.BufferGeometry().setFromPoints(nodePositions);
+                // Connect all to center or nearest neighbors? Let's do nearest neighbors loop
+                const points = [];
+                for(let i=0; i<nodePositions.length; i++) {
+                    for(let j=i+1; j<nodePositions.length; j++) {
+                        if (nodePositions[i].distanceTo(nodePositions[j]) < 12) {
+                            points.push(nodePositions[i]);
+                            points.push(nodePositions[j]);
+                        }
+                    }
+                }
+                const connectionGeo = new THREE.BufferGeometry().setFromPoints(points);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05 });
+                const lines = new THREE.LineSegments(connectionGeo, lineMat);
+                linesRef.current = lines;
+                scene.add(lines);
+
+                // --- 4. Interactive Raycaster ---
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+
+                const onMouseMove = (event) => {
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    mouse.x = ((event.clientX - rect.left) / width) * 2 - 1;
+                    mouse.y = -((event.clientY - rect.top) / height) * 2 + 1;
+                };
+
+                const onClick = () => {
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(nodeGroup.children, false);
+                    if (intersects.length > 0) {
+                        const id = intersects[0].object.userData.id;
+                        onNodeClick(id);
+                    }
+                };
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('click', onClick);
+
+                // --- Animation Loop ---
+                let frameId;
+                const animate = () => {
+                    frameId = requestAnimationFrame(animate);
+                    
+                    // Idle Rotation
+                    nodeGroup.rotation.y += 0.001;
+                    lines.rotation.y += 0.001;
+                    coreMesh.rotation.y += 0.0005;
+                    coreMesh.rotation.x += 0.0005;
+
+                    // Pulse Effect
+                    const time = Date.now() * 0.001;
+                    nodesRef.current.forEach((node, i) => {
+                        const scale = 1 + Math.sin(time * 2 + i) * 0.1;
+                        node.scale.setScalar(scale);
+                    });
+
+                    // Interactive Highlight
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(nodeGroup.children);
+                    
+                    // Reset opacity
+                    nodesRef.current.forEach(n => {
+                        n.children[0].material.opacity = 0.5;
+                        n.scale.setScalar(1);
+                    });
+
+                    if (intersects.length > 0) {
+                        document.body.style.cursor = 'pointer';
+                        const target = intersects[0].object;
+                        target.children[0].material.opacity = 1; // Brighter glow
+                        target.scale.setScalar(1.5); // Pop effect
+                    } else {
+                        document.body.style.cursor = 'default';
+                    }
+
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                // Cleanup
+                return () => {
+                    cancelAnimationFrame(frameId);
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('click', onClick);
+                    if(mountRef.current) mountRef.current.innerHTML = '';
+                };
+            }, [onNodeClick]); // Re-run if handler changes
+
+            return <div ref={mountRef} className="absolute inset-0 z-0" />;
+        };
+
+        // --- UI COMPONENT: CONTEXT DETAIL PANEL ---
+        const ContextPanel = ({ context, onClose }) => {
+            if (!context) return null;
+
+            return (
+                <div className="absolute top-20 right-8 w-80 glass-panel rounded-xl p-6 slide-in-right z-20 border-l-4 border-l-blue-500">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 className="text-[10px] font-mono-tech text-gray-400 uppercase tracking-widest">CONTEXT {context.id}</h3>
+                            <h2 className="font-header text-2xl text-white uppercase">{context.name}</h2>
+                        </div>
+                        <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+                            <Icon name="x" size={20} />
+                        </button>
+                    </div>
+
+                    {/* LFI Score Radial (Simulated with text/bars for now) */}
+                    <div className="mb-6 relative">
+                         <div className="flex justify-between items-end mb-2">
+                             <span className="text-xs text-gray-400">Flexibility Score</span>
+                             <span className={`text-xl font-mono-tech font-bold ${context.flexibility > 80 ? 'text-blue-400' : 'text-orange-400'}`}>
+                                {context.flexibility}
+                             </span>
+                         </div>
+                         <div className="h-1.5 w-full bg-gray-700 rounded-full overflow-hidden">
+                             <div className="h-full bg-gradient-to-r from-blue-600 to-purple-600" style={{ width: `${context.flexibility}%` }}></div>
+                         </div>
+                    </div>
+
+                    {/* Mode Breakdown */}
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-mono-tech text-gray-500 mb-1">
+                            <span>AC</span><span>CE</span><span>AE</span><span>RO</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 h-20 items-end">
+                            {['ac', 'ce', 'ae', 'ro'].map(mode => (
+                                <div key={mode} className="w-full bg-gray-800 rounded-sm relative group h-full">
+                                    <div 
+                                        className="absolute bottom-0 left-0 w-full bg-gray-600 transition-all group-hover:bg-white" 
+                                        style={{ height: `${context[mode]}%` }}
+                                    ></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-white/10">
+                        <button className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 text-xs font-bold uppercase rounded transition-all flex items-center justify-center gap-2">
+                            <Icon name="book-open" size={14} /> View Reflection
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP SHELL ---
+        const App = () => {
+            const [selectedId, setSelectedId] = useState(null);
+            const [isAutoRotate, setIsAutoRotate] = useState(true);
+
+            const selectedContext = useMemo(() => 
+                LFI_CONTEXTS.find(c => c.id === selectedId), 
+            [selectedId]);
+
+            return (
+                <div className="w-screen h-screen overflow-hidden relative">
+                    <div className="absolute inset-0 scanlines z-50 opacity-20 pointer-events-none"></div>
+
+                    {/* 3D SCENE */}
+                    <ZenosphereVisualizer 
+                        onNodeClick={setSelectedId} 
+                        activeContext={selectedId}
+                    />
+
+                    {/* TOP NAVIGATION (Consistent) */}
+                    <nav className="absolute top-0 left-0 w-full h-16 flex items-center justify-between px-8 bg-gradient-to-b from-black/80 to-transparent z-20">
+                         <div className="flex items-center gap-4">
+                            <h1 className="font-header text-xl tracking-tight font-bold text-white">
+                                ZENOTIKA <span className="text-purple-500">/ ZENOSPHERE</span>
+                            </h1>
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-mono-tech text-gray-400">
+                                <div className="loader-ring w-3 h-3 border-[1px]"></div>
+                                LIVE NEURAL MAP
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <button className="text-xs font-bold text-gray-400 hover:text-white transition-colors">DASHBOARD</button>
+                            <span className="text-gray-700">|</span>
+                            <div className="w-8 h-8 rounded-full bg-gray-800 border border-white/20 flex items-center justify-center text-[10px]">RB</div>
+                        </div>
+                    </nav>
+
+                    {/* LEFT HUD: LEGEND */}
+                    <div className="absolute bottom-8 left-8 z-20 slide-in-right" style={{ animationDirection: 'reverse' }}>
+                         <div className="glass-panel p-4 rounded-lg">
+                             <h4 className="text-[10px] font-mono-tech text-gray-500 mb-3 uppercase tracking-widest">FLEXIBILITY INDEX</h4>
+                             <div className="space-y-2">
+                                 <div className="flex items-center gap-3">
+                                     <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></div>
+                                     <span className="text-xs text-gray-300">High (>80)</span>
+                                 </div>
+                                 <div className="flex items-center gap-3">
+                                     <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_10px_#a855f7]"></div>
+                                     <span className="text-xs text-gray-300">Moderate (50-80)</span>
+                                 </div>
+                                 <div className="flex items-center gap-3">
+                                     <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_10px_#f97316]"></div>
+                                     <span className="text-xs text-gray-300">Development (&lt;50)</span>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
+
+                    {/* BOTTOM CONTROLS */}
+                    <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex gap-4">
+                        <button 
+                            className={`p-3 rounded-full border transition-all ${isAutoRotate ? 'bg-blue-500/20 border-blue-500 text-blue-300' : 'bg-black/50 border-gray-700 text-gray-500'}`}
+                            onClick={() => setIsAutoRotate(!isAutoRotate)}
+                        >
+                            <Icon name="rotate-cw" size={20} />
+                        </button>
+                        <button className="p-3 rounded-full bg-black/50 border border-gray-700 text-gray-500 hover:text-white hover:border-white transition-all">
+                            <Icon name="maximize" size={20} />
+                        </button>
+                    </div>
+
+                    {/* RIGHT PANEL: CONTEXT DETAILS */}
+                    <ContextPanel 
+                        context={selectedContext} 
+                        onClose={() => setSelectedId(null)} 
+                    />
+
+                    {/* INTRO OVERLAY (Fade out) */}
+                    <div className="absolute inset-0 bg-black flex items-center justify-center z-50 pointer-events-none fade-in" style={{ animationDirection: 'reverse', animationDelay: '2s', animationFillMode: 'forwards' }}>
+                        <div className="text-center">
+                            <h1 className="font-header text-6xl text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 mb-2 tracking-tighter">ZENOSPHERE</h1>
+                            <p className="font-mono-tech text-xs text-gray-500 tracking-[0.5em]">INITIALIZING NEURAL TOPOLOGY...</p>
+                        </div>
+                    </div>
+
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

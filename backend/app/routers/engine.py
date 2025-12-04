@@ -46,15 +46,15 @@ router = APIRouter(prefix="/engine", tags=["engine"])
 
 
 @router.get("/sessions/", response_model=list[SessionListResponse])
-def list_sessions(
+async def list_sessions(
     skip: int = 0,
     limit: int = 100,
     current_user: Any = Depends(get_current_user),
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
 ):
     """List all assessment sessions for the current user."""
     repo = SessionRepository(db)
-    sessions = repo.get_by_user(current_user.id, skip=skip, limit=limit)
+    sessions = await repo.get_by_user(current_user.id, skip=skip, limit=limit)
     return sessions
 
 

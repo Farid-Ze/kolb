@@ -1,11 +1,11 @@
 from collections import OrderedDict
-from threading import Lock
+from threading import RLock
 
 class _LRU(OrderedDict):
     def __init__(self, maxsize: int = 4096):
         super().__init__()
         self.maxsize = maxsize
-        self._lock = Lock()
+        self._lock = RLock()  # Use RLock for reentrant locking
 
     def get_or_set(self, key, factory):
         with self._lock:

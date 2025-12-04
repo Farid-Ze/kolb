@@ -1,4 +1,4 @@
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, User } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Toaster } from 'sonner'
 
@@ -9,12 +9,11 @@ const links = [
   { to: '/', label: 'Home' },
   { to: '/future/dashboard', label: 'Future' },
   { to: '/sphere', label: 'Sphere' },
-  { to: '/store', label: 'Store' },
-  { to: '/admin', label: 'Admin' },
+  { to: '/admin', label: 'Admin', requireMediator: true },
 ]
 
 export function ShellLayout() {
-  const { isAuthenticated, logout, remainingMs } = useAuthContext()
+  const { isAuthenticated, isMediator, logout, remainingMs } = useAuthContext()
   const { theme, preference, setPreference, toggleTheme } = useTheme()
 
   const timeUntilLock = remainingMs ? Math.max(0, remainingMs - 45 * 60 * 1000) : 0
@@ -24,6 +23,12 @@ export function ShellLayout() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
+  // Filter links based on auth state and role
+  const visibleLinks = links.filter(link => {
+    if (link.requireMediator) return isMediator
+    return true
+  })
+
   return (
     <div className="min-h-screen bg-[var(--zen-bg)] text-[var(--zen-text)]">
       <Toaster position="top-center" richColors />
@@ -32,7 +37,7 @@ export function ShellLayout() {
           <span className="font-semibold tracking-wide text-[var(--zen-text)]">Zenotika</span>
           <div className="flex items-center gap-4 text-sm font-medium">
             <div className="flex gap-4">
-              {links.map((link) => (
+              {visibleLinks.map((link) => (
                 <NavLink
                   key={link.to}
                   to={link.to}
@@ -71,12 +76,26 @@ export function ShellLayout() {
               </button>
             </div>
             {isAuthenticated ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {timeUntilLock > 0 && (
                   <span className="text-xs font-mono text-[var(--zen-text-muted)]" title="Time remaining before session lock">
                     {formatTime(timeUntilLock)}
                   </span>
                 )}
+                <NavLink
+                  to="/me"
+                  className={({ isActive }) =>
+                    `flex items-center gap-1 rounded-md border px-3 py-1 transition ${
+                      isActive
+                        ? 'border-[color:var(--zen-accent)] text-[var(--zen-text)]'
+                        : 'border-[var(--zen-border)] text-[var(--zen-text)] hover:border-[color:var(--zen-accent)]'
+                    }`
+                  }
+                  title="Profile"
+                >
+                  <User size={16} />
+                  <span className="hidden sm:inline">Profile</span>
+                </NavLink>
                 <button
                   className="rounded-md border border-[var(--zen-border)] px-3 py-1 text-[var(--zen-text)] transition hover:border-[color:var(--zen-accent)]"
                   onClick={logout}

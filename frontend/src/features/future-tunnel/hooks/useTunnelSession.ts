@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useAuth } from '../../auth'
 import { useTunnelState } from './useTunnelState'
-import { useAssessmentTelemetry } from '../../assessment/hooks/useAssessmentTelemetry'
+import { useAssessmentTelemetry } from '../../telemetry'
 import {
   autosaveSession,
   fetchSessionItems,
@@ -22,48 +22,13 @@ import type {
   SessionSubmissionPayload,
 } from '../../../entities/session/model'
 import { LFI_CONTEXTS } from '../../../entities/session/constants'
-
-const MODE_CODES = ['AC', 'CE', 'AE', 'RO'] as const
-
-type ModeCode = typeof MODE_CODES[number]
-
-const isContextComplete = (draft?: TunnelContextDraft) => {
-  if (!draft) {
-    return false
-  }
-  const ranks = MODE_CODES.map((code) => draft[code] ?? 0)
-  if (ranks.some((rank) => rank === 0)) {
-    return false
-  }
-  return new Set(ranks).size === MODE_CODES.length
-}
-
-const isItemComplete = (draft?: TunnelItemDraft) => {
-  if (!draft) return false
-  // Assuming 4 options for forced choice
-  const ranks = Object.values(draft.ranks)
-  return ranks.length === 4 && new Set(ranks).size === 4
-}
-
-const deriveModeRanks = (item: AssessmentItem, draft?: TunnelItemDraft): Record<string, number> | null => {
-  if (!draft) {
-    return null
-  }
-  const ranks: Record<string, number> = {}
-  item.options.forEach((option) => {
-    const code = option.code?.toUpperCase()
-    if (!code) {
-      return
-    }
-    const rankValue = draft.ranks[option.id]
-    if (rankValue) {
-      ranks[code] = rankValue
-    }
-  })
-  return Object.keys(ranks).length === MODE_CODES.length ? ranks : null
-}
-
-
+import {
+  isContextComplete,
+  isItemComplete,
+  deriveModeRanks,
+  MODE_CODES,
+  type ModeCode,
+} from './useValidation'
 
 const SESSION_STORAGE_KEY = 'zenotika.tunnel.sessionId'
 const ITEM_DRAFTS_STORAGE_KEY = 'zenotika.tunnel.itemDrafts'

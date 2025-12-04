@@ -3,7 +3,7 @@ from typing import Optional, Union, cast
 
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload, Session
+from sqlalchemy.orm import joinedload, selectinload, Session, defer
 
 from app.db.repositories.base import Repository
 from app.models.klsi.assessment import AssessmentSession, AssessmentSessionDelta
@@ -28,16 +28,22 @@ class SessionRepository(Repository[Union[AsyncSession, Session]]):
 
     async def get_by_id(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         db = cast(AsyncSession, self.db)
+        # [Optimization] Defer loading of large JSON blob unless explicitly requested
         result = await db.execute(
-            select(AssessmentSession).filter(AssessmentSession.id == session_id)
+            select(AssessmentSession)
+            .options(defer(AssessmentSession.results_json))
+            .filter(AssessmentSession.id == session_id)
         )
         return result.scalars().first()
 
     def get_by_id_sync(self, session_id: uuid.UUID) -> Optional[AssessmentSession]:
         """Fetch session by ID - Sync version."""
         db = cast(Session, self.db)
+        # [Optimization] Defer loading of large JSON blob unless explicitly requested
         result = db.execute(
-            select(AssessmentSession).filter(AssessmentSession.id == session_id)
+            select(AssessmentSession)
+            .options(defer(AssessmentSession.results_json))
+            .filter(AssessmentSession.id == session_id)
         )
         return result.scalars().first()
 

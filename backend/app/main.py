@@ -36,7 +36,10 @@ from app.routers.grants import router as grants_router
 from app.engine.registry import engine_registry
 
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from app.routers.engine import router as engine_router
+from app.core.rate_limit import limiter
 
 
 configure_logging(environment=settings.environment)
@@ -213,6 +216,8 @@ async def lifespan(app: FastAPI):
 
 print("DEBUG: Creating FastAPI app instance")
 app = FastAPI(title="DEBUG APP", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.openapi = custom_openapi
 register_exception_handlers(app)
 

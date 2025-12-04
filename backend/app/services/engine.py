@@ -102,7 +102,7 @@ async def finalize_background_task(session_id: uuid.UUID, user_id: int) -> None:
             # Finalize the session logic
             result = await service.finalize_session(session_id, user)
             
-            # [Correctness Fix] Synchronous Provenance Logging
+            # Synchronous Provenance Logging
             if result and "_provenance_payload" in result:
                  prov_payload = result.pop("_provenance_payload")
                  try:
@@ -259,7 +259,7 @@ class EngineSessionService:
         payload: SessionSubmissionPayload,
     ) -> Dict[str, Any]:
         try:
-            # [Architecture Fix] Use Repository for Pessimistic Locking
+            # Use Repository for Pessimistic Locking
             session = await self._sessions.get_with_lock(session_id)
             if not session:
                 raise SessionNotFoundError()
@@ -318,7 +318,7 @@ class EngineSessionService:
         await runtime.submit_payload(self.db, session_id, payload)
 
     async def finalize_session(self, session_id: uuid.UUID, user: "User") -> Dict[str, Any]:
-        # [Fix] Use pessimistic lock to prevent double-finalization
+        # Use pessimistic lock to prevent double-finalization
         session = await self._sessions.get_with_lock(session_id)
         if not session:
             raise SessionNotFoundError()
@@ -396,7 +396,7 @@ class EngineSessionService:
 
     async def _should_use_native_pipeline(self, session_id: uuid.UUID) -> bool:
         """Return True when assessment_item_responses + LFI contexts are complete."""
-        # [Architecture Fix] Use Repository methods instead of direct query
+        # Use Repository methods instead of direct query
         # count_by_session is sync in repo, need to check if async exists or use sync wrapper?
         # Wait, SessionRepository has async methods. UserResponseRepository has count_by_session (sync).
         # I should add async count_by_session to UserResponseRepository or use run_sync?

@@ -22,23 +22,27 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 
 async def main():
     async with cast(AsyncSession, AsyncSessionLocal()) as db:
-        # 1. Create or get a test user
-        from sqlalchemy import select
-        result = await db.execute(select(User).filter(User.email == "debug_state@example.com"))
-        user = result.scalar_one_or_none()
-        if not user:
-            user = User(
-                email="debug_state@example.com",
-                full_name="Debug State",
-                password_hash="hashed_secret",
-                role="STUDENT",
-                # is_active=True
-            )
-            db.add(user)
-            await db.commit()
-            await db.refresh(user)
-        
-        print(f"User ID: {user.id}")
+        try:
+            # 1. Create or get a test user
+            from sqlalchemy import select
+            result = await db.execute(select(User).filter(User.email == "debug_state@example.com"))
+            user = result.scalar_one_or_none()
+            if not user:
+                user = User(
+                    email="debug_state@example.com",
+                    full_name="Debug State",
+                    password_hash="hashed_secret",
+                    role="STUDENT",
+                    # is_active=True
+                )
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
+            
+            print(f"User ID: {user.id}")
+        except Exception as e:
+            print(f"Failed to initialize user: {e}")
+            return
 
         # 2. Start a session
         service = EngineSessionService(db)

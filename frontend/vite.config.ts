@@ -10,6 +10,11 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  server: {
+    watch: {
+      ignored: ['**/dist/**', '**/coverage/**'],
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

@@ -1,10 +1,11 @@
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.db.database import get_async_db
 from app.db.repositories import UserRepository
 from app.schemas.auth import Role, Token, UserCreate, UserOut
@@ -29,7 +30,8 @@ def _log_db_failure(event: str, **structured: Any) -> None:
 
 
 @router.post("/register", response_model=UserOut)
-async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, payload: UserCreate, db: Any = Depends(get_async_db)):
     # domain restriction for mahasiswa accounts
     domain = payload.email.split("@")[-1].lower()
     if domain != settings.allowed_student_domain and payload.nim:
@@ -48,71 +50,18 @@ async def register(payload: UserCreate, db: Any = Depends(get_async_db)):
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_CLASS_FORMAT)
         if not payload.tahun_masuk or payload.tahun_masuk < 1990 or payload.tahun_masuk > 2100:
             raise HTTPException(status_code=400, detail=AuthMessages.INVALID_ENROLLMENT_YEAR)
-    user_repo = UserRepository(db)
-    existing = await user_repo.get_by_email(payload.email)
-    if existing:
-        raise HTTPException(status_code=400, detail=AuthMessages.EMAIL_ALREADY_REGISTERED)
     
-    user = await user_repo.create(
-        full_name=payload.full_name,
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-        role=calculated_role.value, # Use the calculated role, not payload.role
-        nim=payload.nim if calculated_role == Role.MAHASISWA else None,
-        kelas=payload.kelas if calculated_role == Role.MAHASISWA else None,
-        tahun_masuk=payload.tahun_masuk if calculated_role == Role.MAHASISWA else None,
-    )
-    
-    # [Zenotika V4] Lazy Registration Merge
-    if payload.guest_session_id and payload.guest_token:
-        from app.db.repositories import SessionRepository
-        session_repo = SessionRepository(db)
-        session = await session_repo.get_by_id(payload.guest_session_id)
-        
-        # Verify session exists, is anonymous, and token matches
-        if session and session.user_id is None and session.guest_token == payload.guest_token:
-            session.user_id = user.id
-            # Note: We don't retroactively update AuditLog actor (remains 'ANON' or similar)
-            # This preserves the history that it was taken anonymously.
-
-    try:
-        await db.commit()
-        await db.refresh(user)
-
-        # [Dev/Test] Auto-grant credits for KLSI4
-        if settings.environment in ("development", "test"):
-            try:
-                from app.services.grant_service import GrantService
-                from app.db.database import get_repository_provider
-                
-                repo_provider = get_repository_provider(db)
-                instrument = await repo_provider.instruments.get_by_code("KLSI4")
-                if instrument:
-                    grant_service = GrantService(db)
-                    # Grant 5 credits
-                    logger.warning(f"DEBUG: Auto-granting 5 credits for user {user.id} instrument {instrument.id}")
-                    await grant_service.grant_credits(user.id, instrument.id, 5)
-                    await db.commit()
-                    logger.warning(f"DEBUG: Auto-grant committed for user {user.id}")
-            except Exception as e:
-                logger.warning(f"Failed to auto-grant credits: {e}")
-
-    except Exception:
-        await db.rollback()
-        _log_db_failure(
-            "auth_register_commit_failed",
-            email=payload.email,
-            role=calculated_role.value,
-        )
-        raise
-    return user
+    from app.services.auth_service import AuthService
+    auth_service = AuthService(db)
+    return await auth_service.register_user(payload, calculated_role)
 
 class LoginRequest(CamelModel):
     email: str
     password: str
 
 @router.post("/login", response_model=Token)
-async def login(payload: LoginRequest, db: Any = Depends(get_async_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, payload: LoginRequest, db: Any = Depends(get_async_db)):
     user_repo = UserRepository(db)
     user = await user_repo.get_by_email(payload.email)
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):

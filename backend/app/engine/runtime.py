@@ -245,10 +245,19 @@ class EngineRuntime:
         *,
         failure_event: str,
     ) -> ValidationReport:
-        if isinstance(context.db, AsyncSession):
-            validation_data = await run_session_validations_async(context.db, session.id)
-        else:
-            validation_data = run_session_validations(context.db, session.id)
+        try:
+            if isinstance(context.db, AsyncSession):
+                validation_data = await run_session_validations_async(context.db, session.id)
+            else:
+                validation_data = run_session_validations(context.db, session.id)
+        except Exception as exc:
+            # [Validation Fix] Capture unexpected validation errors
+            logger.exception("validation_execution_failed", extra={"session_id": session.id})
+            validation_data = {
+                "ready": False,
+                "issues": [{"code": "VALIDATION_CRASH", "message": str(exc), "fatal": True}],
+                "diagnostics": {}
+            }
             
         validation = ValidationReport.from_mapping(validation_data)
         if not validation.ready and not context.skip_validation:
@@ -518,7 +527,8 @@ class EngineRuntime:
                     }
                 },
             )
-            # Non-fatal: keep result success even if audit write fails
+            # [Audit Fix] Re-raise to ensure atomicity (fail-safe)
+            raise
 
 
     def _instrument_id(self, session: AssessmentSession) -> InstrumentId:

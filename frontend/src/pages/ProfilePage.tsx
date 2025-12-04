@@ -4,7 +4,10 @@ import { useAuth } from '../features/auth/hooks/useAuth'
 export function ProfilePage() {
   const { user } = useAuth()
 
-  if (!user) return null
+  // User is guaranteed by ProtectedRoute, but handle edge case
+  if (!user) {
+    return <div className="py-10 text-center text-[var(--zen-text-muted)]">Loading profile...</div>
+  }
 
   return (
     <section className="space-y-8">

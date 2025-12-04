@@ -74,11 +74,41 @@ class PermissionDeniedError(DomainError):
 
 
 class NotFoundError(DomainError):
-    """Base class for missing domain resources."""
+    """Base class for missing domain resources.
+    
+    Provides diagnostic context for resource lookup failures:
+    - resource_type: The type of resource not found (e.g., 'session', 'instrument')
+    - resource_id: The identifier that was searched for
+    """
 
     error_code = "not_found"
     status_code = 404
     default_message = DomainErrorMessages.NOT_FOUND
+
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        detail: Any | None = None,
+        status_code: int | None = None,
+        resource_type: str | None = None,
+        resource_id: str | int | None = None,
+    ) -> None:
+        super().__init__(message, detail=detail, status_code=status_code)
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+        
+        # Build descriptive message with diagnostic context
+        context_parts = []
+        if resource_type:
+            context_parts.append(f"resource={resource_type}")
+        if resource_id is not None:
+            context_parts.append(f"id={resource_id}")
+        if detail:
+            context_parts.append(str(detail))
+        
+        if context_parts:
+            self.message = f"{self.message} [{', '.join(context_parts)}]"
 
 
 class SessionNotFoundError(NotFoundError):
@@ -96,11 +126,46 @@ class InstrumentNotFoundError(NotFoundError):
 
 
 class ConflictError(DomainError):
-    """Base class for domain conflicts."""
+    """Base class for domain conflicts.
+    
+    Provides diagnostic context for state conflicts:
+    - resource_type: The type of resource in conflict (e.g., 'session', 'team')
+    - resource_id: The identifier of the conflicting resource
+    - constraint: The violated constraint name or description
+    """
 
     error_code = "conflict"
     status_code = 409
     default_message = DomainErrorMessages.CONFLICT
+
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        detail: Any | None = None,
+        status_code: int | None = None,
+        resource_type: str | None = None,
+        resource_id: str | int | None = None,
+        constraint: str | None = None,
+    ) -> None:
+        super().__init__(message, detail=detail, status_code=status_code)
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+        self.constraint = constraint
+        
+        # Build descriptive message with diagnostic context
+        context_parts = []
+        if resource_type:
+            context_parts.append(f"resource={resource_type}")
+        if resource_id is not None:
+            context_parts.append(f"id={resource_id}")
+        if constraint:
+            context_parts.append(f"constraint={constraint}")
+        if detail:
+            context_parts.append(str(detail))
+        
+        if context_parts:
+            self.message = f"{self.message} [{', '.join(context_parts)}]"
 
 
 class SessionFinalizedError(ConflictError):
@@ -111,11 +176,46 @@ class SessionFinalizedError(ConflictError):
 
 
 class NormLookupError(DomainError):
-    """Raised when normative conversions cannot be resolved."""
+    """Raised when normative conversions cannot be resolved.
+    
+    Provides diagnostic context for debugging norm lookup failures:
+    - scale: The scale name (CE, RO, AC, AE, ACCE, AERO, LFI)
+    - raw_score: The raw score value that failed lookup
+    - norm_group: The normative group being queried (if applicable)
+    """
 
     error_code = "norm_lookup_failed"
     status_code = 422
     default_message = DomainErrorMessages.NOT_FOUND  # Norm not found
+
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        detail: Any | None = None,
+        status_code: int | None = None,
+        scale: str | None = None,
+        raw_score: int | float | None = None,
+        norm_group: str | None = None,
+    ) -> None:
+        super().__init__(message, detail=detail, status_code=status_code)
+        self.scale = scale
+        self.raw_score = raw_score
+        self.norm_group = norm_group
+        
+        # Build descriptive message with diagnostic context
+        context_parts = []
+        if scale:
+            context_parts.append(f"scale={scale}")
+        if raw_score is not None:
+            context_parts.append(f"raw_score={raw_score}")
+        if norm_group:
+            context_parts.append(f"norm_group={norm_group}")
+        if detail:
+            context_parts.append(str(detail))
+        
+        if context_parts:
+            self.message = f"{self.message} [{', '.join(context_parts)}]"
 
 
 class PipelineNotFoundError(NotFoundError):

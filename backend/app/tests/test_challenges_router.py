@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -35,7 +35,7 @@ def _seed_user_challenge(session: Session, user: User) -> UserChallenge:
         user_id=user.id,
         challenge_id=challenge.id,
         status=ChallengeStatus.active,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(tz=timezone.utc),
     )
     session.add(uc)
     session.commit()

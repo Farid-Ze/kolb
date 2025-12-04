@@ -15,19 +15,35 @@ T = TypeVar("T")
 class RedisCache:
     def __init__(self):
         self._redis: Optional[Redis] = None
+        self._initialized = False
+
+    async def _ensure_connection(self) -> Optional[Redis]:
+        """Lazy initialization of Redis connection."""
+        if self._initialized:
+            return self._redis
+        self._initialized = True
         if settings.cache_enabled:
             try:
-                self._redis = from_url(settings.redis_url, decode_responses=True)
+                self._redis = from_url(
+                    settings.redis_url,
+                    decode_responses=True,
+                    socket_connect_timeout=2,  # 2 second timeout
+                    socket_timeout=2,
+                )
+                # Test connection with ping
+                await self._redis.ping()
                 logger.info(f"Redis cache initialized at {settings.redis_url}")
             except Exception as e:
                 logger.error(f"Failed to initialize Redis: {e}")
                 self._redis = None
+        return self._redis
 
     async def get(self, key: str) -> Optional[Any]:
-        if not self._redis:
+        redis = await self._ensure_connection()
+        if not redis:
             return None
         try:
-            value = await self._redis.get(key)
+            value = await redis.get(key)
             if value:
                 return json.loads(value)
         except Exception as e:
@@ -35,18 +51,20 @@ class RedisCache:
         return None
 
     async def set(self, key: str, value: Any, ttl: int = 300) -> None:
-        if not self._redis:
+        redis = await self._ensure_connection()
+        if not redis:
             return
         try:
-            await self._redis.set(key, json.dumps(value), ex=ttl)
+            await redis.set(key, json.dumps(value), ex=ttl)
         except Exception as e:
             logger.warning(f"Redis set error for {key}: {e}")
 
     async def delete(self, key: str) -> None:
-        if not self._redis:
+        redis = await self._ensure_connection()
+        if not redis:
             return
         try:
-            await self._redis.delete(key)
+            await redis.delete(key)
         except Exception as e:
             logger.warning(f"Redis delete error for {key}: {e}")
             
@@ -57,19 +75,35 @@ class RedisCache:
 class RedisCacheSync:
     def __init__(self):
         self._redis: Optional[SyncRedis] = None
+        self._initialized = False
+
+    def _ensure_connection(self) -> Optional[SyncRedis]:
+        """Lazy initialization of Redis connection."""
+        if self._initialized:
+            return self._redis
+        self._initialized = True
         if settings.cache_enabled:
             try:
-                self._redis = sync_from_url(settings.redis_url, decode_responses=True)
+                self._redis = sync_from_url(
+                    settings.redis_url,
+                    decode_responses=True,
+                    socket_connect_timeout=2,  # 2 second timeout
+                    socket_timeout=2,
+                )
+                # Test connection with ping
+                self._redis.ping()
                 logger.info(f"Sync Redis cache initialized at {settings.redis_url}")
             except Exception as e:
                 logger.error(f"Failed to initialize Sync Redis: {e}")
                 self._redis = None
+        return self._redis
 
     def get(self, key: str) -> Optional[Any]:
-        if not self._redis:
+        redis = self._ensure_connection()
+        if not redis:
             return None
         try:
-            value = self._redis.get(key)
+            value = redis.get(key)
             if value and isinstance(value, (str, bytes, bytearray)):
                 return json.loads(value)
         except Exception as e:
@@ -77,18 +111,20 @@ class RedisCacheSync:
         return None
 
     def set(self, key: str, value: Any, ttl: int = 300) -> None:
-        if not self._redis:
+        redis = self._ensure_connection()
+        if not redis:
             return
         try:
-            self._redis.set(key, json.dumps(value), ex=ttl)
+            redis.set(key, json.dumps(value), ex=ttl)
         except Exception as e:
             logger.warning(f"Sync Redis set error for {key}: {e}")
 
     def delete(self, key: str) -> None:
-        if not self._redis:
+        redis = self._ensure_connection()
+        if not redis:
             return
         try:
-            self._redis.delete(key)
+            redis.delete(key)
         except Exception as e:
             logger.warning(f"Sync Redis delete error for {key}: {e}")
 
@@ -105,13 +141,20 @@ def cached(ttl: int = 300, key_builder: Optional[Callable[..., str]] = None):
             if not settings.cache_enabled:
                 return await func(*args, **kwargs)
             
-            if key_builder:
-                cache_key = key_builder(*args, **kwargs)
-            else:
-                # Default key generation: func_name:hash(args)
-                arg_str = f"{args}:{kwargs}"
-                arg_hash = hashlib.md5(arg_str.encode()).hexdigest()
-                cache_key = f"{func.__name__}:{arg_hash}"
+            try:
+                if key_builder:
+                    cache_key = key_builder(*args, **kwargs)
+                    if not isinstance(cache_key, str):
+                        logger.warning(f"key_builder for {func.__name__} returned non-string: {type(cache_key)}")
+                        return await func(*args, **kwargs)
+                else:
+                    # Default key generation: func_name:hash(args)
+                    arg_str = f"{args}:{kwargs}"
+                    arg_hash = hashlib.md5(arg_str.encode()).hexdigest()
+                    cache_key = f"{func.__name__}:{arg_hash}"
+            except Exception as e:
+                logger.warning(f"Failed to generate cache key for {func.__name__}: {e}")
+                return await func(*args, **kwargs)
             
             cached_value = await cache.get(cache_key)
             if cached_value is not None:
@@ -120,7 +163,12 @@ def cached(ttl: int = 300, key_builder: Optional[Callable[..., str]] = None):
             result = await func(*args, **kwargs)
             
             if result is not None:
-                await cache.set(cache_key, result, ttl)
+                try:
+                    await cache.set(cache_key, result, ttl)
+                except TypeError as e:
+                     logger.warning(f"Failed to cache result for {func.__name__} (serialization error): {e}")
+                except Exception as e:
+                     logger.warning(f"Failed to cache result for {func.__name__}: {e}")
                 
             return result
         return wrapper

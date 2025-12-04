@@ -47,13 +47,34 @@ class ContextRanksWrite(CamelModel):
 from app.schemas.session import ItemRank
 
 class ScorePreviewRequest(CamelModel):
+    """Request payload for score preview.
+    
+    Validation rules:
+    - Exactly 8 context entries required
+    - No duplicate context IDs allowed
+    - No duplicate item IDs allowed within items list
+    """
     items: List[ItemRank]
     contexts: List[ContextRanksWrite]
 
     @model_validator(mode="after")
-    def _validate_context_count(self) -> Self:
+    def _validate_payload(self) -> Self:
+        """Validate context count, context ID uniqueness, and item ID uniqueness."""
+        # Validate context count
         if len(self.contexts) != 8:
             raise ValueError(ValidationMessages.CONTEXT_COUNT_REQUIRED)
+        
+        # [Audit Fix] Check for duplicate context IDs
+        context_ids = [c.context_id for c in self.contexts]
+        if len(set(context_ids)) != len(context_ids):
+            raise ValueError("Duplicate context IDs found in request")
+        
+        # [Audit Fix] Check for duplicate item IDs in session payload
+        if self.items:
+            item_ids = [item.item_id for item in self.items]
+            if len(set(item_ids)) != len(item_ids):
+                raise ValueError(ValidationMessages.DUPLICATE_ITEM_IDS)
+            
         return self
 
 

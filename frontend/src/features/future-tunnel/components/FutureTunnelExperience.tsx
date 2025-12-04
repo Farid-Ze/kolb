@@ -18,7 +18,7 @@ type FinalizeSnapshot = {
 }
 
 export function FutureTunnelExperience() {
-  const { isAuthenticated, isTimeLocked } = useAuth()
+  const { isTimeLocked } = useAuth()
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const {
     sessionId,
@@ -105,19 +105,7 @@ export function FutureTunnelExperience() {
     }
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="space-y-4 text-center">
-        <p className="text-slate-400">Sign in to access the Future Tunnel experience.</p>
-        <Link
-          className="inline-flex items-center justify-center rounded-md border border-slate-700 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
-          to="/auth"
-        >
-          Go to Auth
-        </Link>
-      </div>
-    )
-  }
+  // Auth is guaranteed by ProtectedRoute in App.tsx
 
   return (
     <div className="space-y-8">

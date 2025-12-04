@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenotika - The Zenosphere (HIFI)</title>
+    
+    <!-- Fonts: Oswald (Headlines), Inter (UI), JetBrains Mono (Data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #080808; /* Lebih gelap untuk kontras tinggi */
+            --citrix-blue: #0ea5e9;
+            --zenotika-purple: #a855f7;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #e5e5e5;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            margin: 0;
+            cursor: none; /* Custom cursor handling */
+        }
+
+        .font-mono-tech { font-family: 'JetBrains Mono', monospace; letter-spacing: -0.05em; }
+        .font-header { font-family: 'Oswald', sans-serif; text-transform: uppercase; }
+
+        /* --- RED BULL / CITRIX STYLE ELEMENTS --- */
+        
+        /* 1. Technical Glass Panel */
+        .telemetry-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 2. Audio Visualizer Bars */
+        .audio-bar {
+            width: 2px;
+            background-color: white;
+            animation: equalizer 1s infinite ease-in-out;
+        }
+        @keyframes equalizer {
+            0%, 100% { height: 4px; }
+            50% { height: 16px; }
+        }
+        .bar-1 { animation-delay: 0s; }
+        .bar-2 { animation-delay: 0.1s; }
+        .bar-3 { animation-delay: 0.2s; }
+        .bar-4 { animation-delay: 0.3s; }
+
+        /* 3. Custom Cursor */
+        .cursor-dot,
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+        .cursor-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--citrix-blue);
+        }
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: width 0.2s, height 0.2s, background-color 0.2s;
+        }
+        body:hover .cursor-outline {
+            width: 30px;
+            height: 30px;
+        }
+
+        /* 4. Scanlines Overlay (Subtle TV effect) */
+        .scanlines {
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(255, 255, 255, 0.02) 0.5%,
+                transparent 1%
+            );
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* 5. Utility Classes */
+        .text-glow { text-shadow: 0 0 20px rgba(14, 165, 233, 0.5); }
+        .border-tech { border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        /* Animations */
+        .fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- CUSTOM CURSOR COMPONENT ---
+        const CustomCursor = () => {
+            const dotRef = useRef(null);
+            const outlineRef = useRef(null);
+
+            useEffect(() => {
+                const moveCursor = (e) => {
+                    if (dotRef.current && outlineRef.current) {
+                        // Direct movement for dot
+                        dotRef.current.style.left = `${e.clientX}px`;
+                        dotRef.current.style.top = `${e.clientY}px`;
+                        
+                        // Lagged movement for outline (using GSAP for smoothness)
+                        gsap.to(outlineRef.current, {
+                            x: e.clientX,
+                            y: e.clientY,
+                            duration: 0.15,
+                            ease: "power2.out"
+                        });
+                    }
+                };
+                window.addEventListener("mousemove", moveCursor);
+                return () => window.removeEventListener("mousemove", moveCursor);
+            }, []);
+
+            return (
+                <>
+                    <div ref={dotRef} className="cursor-dot"></div>
+                    <div ref={outlineRef} className="cursor-outline" style={{ left: 0, top: 0, transform: 'translate(-50%, -50%)' }}></div>
+                </>
+            );
+        };
+
+        const Icon = ({ name, size = 18, className }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        };
+
+        // --- DATA LAYER (Immutable) ---
+        const LFI_CONTEXTS = [
+            { id: 1, name: "Influencing Others", ac: 20, ce: 10, ae: 60, ro: 10, flexibility: 85 },
+            { id: 2, name: "Establishing Goals", ac: 70, ce: 10, ae: 10, ro: 10, flexibility: 45 },
+            { id: 3, name: "Making Decisions", ac: 60, ce: 10, ae: 20, ro: 10, flexibility: 60 },
+            { id: 4, name: "Leading Teams", ac: 10, ce: 50, ae: 30, ro: 10, flexibility: 92 },
+            { id: 5, name: "Managing Conflict", ac: 10, ce: 60, ae: 10, ro: 20, flexibility: 88 },
+            { id: 6, name: "Analyzing Data", ac: 90, ce: 0, ae: 5, ro: 5, flexibility: 30 },
+            { id: 7, name: "Creating Vision", ac: 30, ce: 20, ae: 10, ro: 40, flexibility: 75 },
+            { id: 8, name: "Taking Action", ac: 10, ce: 10, ae: 80, ro: 0, flexibility: 50 }
+        ];
+
+        // --- 3D COMPONENT: PARTICLE NEURAL SPHERE ---
+        const ZenosphereVisualizer = ({ onNodeClick }) => {
+            const mountRef = useRef(null);
+            
+            useEffect(() => {
+                const width = mountRef.current.clientWidth;
+                const height = mountRef.current.clientHeight;
+                const scene = new THREE.Scene();
+                // Atmosphere
+                scene.fog = new THREE.FogExp2(0x000000, 0.025);
+
+                const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
+                camera.position.z = 25;
+
+                const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                mountRef.current.appendChild(renderer.domElement);
+
+                // --- 1. Particle Cloud (The "Brain") ---
+                const particlesGeo = new THREE.BufferGeometry();
+                const particleCount = 2000;
+                const posArray = new Float32Array(particleCount * 3);
+
+                for(let i = 0; i < particleCount * 3; i++) {
+                    posArray[i] = (Math.random() - 0.5) * 20; // Spread
+                }
+                particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                const particlesMat = new THREE.PointsMaterial({
+                    size: 0.05,
+                    color: 0x0ea5e9, // Citrix Blue
+                    transparent: true,
+                    opacity: 0.6,
+                });
+                const particleMesh = new THREE.Points(particlesGeo, particlesMat);
+                scene.add(particleMesh);
+
+                // --- 2. The Nodes (Interactive Data Points) ---
+                const nodeGroup = new THREE.Group();
+                const phi = Math.PI * (3 - Math.sqrt(5)); 
+                
+                LFI_CONTEXTS.forEach((ctx, i) => {
+                    const y = 1 - (i / (LFI_CONTEXTS.length - 1)) * 2;
+                    const radius = Math.sqrt(1 - y * y);
+                    const theta = phi * i;
+                    const r = 8; // Sphere radius
+
+                    const x = Math.cos(theta) * radius;
+                    const z = Math.sin(theta) * radius;
+
+                    const vector = new THREE.Vector3(x * r, y * r, z * r);
+                    
+                    // Outer Ring
+                    const geometry = new THREE.RingGeometry(0.3, 0.35, 32);
+                    const material = new THREE.MeshBasicMaterial({ 
+                        color: 0xffffff, 
+                        side: THREE.DoubleSide, 
+                        transparent: true, 
+                        opacity: 0.5 
+                    });
+                    const ring = new THREE.Mesh(geometry, material);
+                    ring.position.copy(vector);
+                    ring.lookAt(0,0,0);
+                    
+                    // Inner Dot
+                    const dotGeo = new THREE.CircleGeometry(0.15, 32);
+                    const dotMat = new THREE.MeshBasicMaterial({ color: 0x0ea5e9 });
+                    const dot = new THREE.Mesh(dotGeo, dotMat);
+                    dot.position.copy(vector);
+                    dot.lookAt(0,0,0);
+                    
+                    // Click Hit Area (Invisible Sphere)
+                    const hitGeo = new THREE.SphereGeometry(1, 8, 8);
+                    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+                    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+                    hitMesh.position.copy(vector);
+                    hitMesh.userData = { id: ctx.id }; // Store ID
+
+                    nodeGroup.add(ring);
+                    nodeGroup.add(dot);
+                    nodeGroup.add(hitMesh);
+                    
+                    // Connections to center
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), vector]);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.1 });
+                    const line = new THREE.Line(lineGeo, lineMat);
+                    nodeGroup.add(line);
+                });
+                scene.add(nodeGroup);
+
+                // --- Interaction ---
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+
+                const onMouseMove = (event) => {
+                    mouse.x = (event.clientX / width) * 2 - 1;
+                    mouse.y = -(event.clientY / height) * 2 + 1;
+                    
+                    // Parallax effect on particles
+                    particleMesh.rotation.x = mouse.y * 0.1;
+                    particleMesh.rotation.y = mouse.x * 0.1;
+                };
+
+                const onClick = () => {
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(nodeGroup.children);
+                    if (intersects.length > 0) {
+                        const target = intersects.find(obj => obj.object.userData.id);
+                        if (target) onNodeClick(target.object.userData.id);
+                    }
+                };
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('click', onClick);
+
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    nodeGroup.rotation.y += 0.002;
+                    particleMesh.rotation.y -= 0.0005;
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                return () => {
+                    if(mountRef.current) mountRef.current.innerHTML = '';
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('click', onClick);
+                };
+            }, [onNodeClick]);
+
+            return <div ref={mountRef} className="absolute inset-0 z-0" />;
+        };
+
+        // --- UI: TELEMETRY DASHBOARD ---
+        const TelemetryPanel = ({ context, onClose }) => {
+            const panelRef = useRef(null);
+
+            useEffect(() => {
+                if (context) {
+                    gsap.fromTo(panelRef.current, 
+                        { x: 100, opacity: 0 },
+                        { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }
+                    );
+                }
+            }, [context]);
+
+            if (!context) return null;
+
+            return (
+                <div ref={panelRef} className="absolute top-0 right-0 h-full w-[400px] telemetry-panel z-20 p-12 flex flex-col justify-between">
+                    <div>
+                        {/* Header */}
+                        <div className="flex justify-between items-start mb-8 border-b border-white/10 pb-4">
+                            <div>
+                                <div className="text-[10px] font-mono-tech text-citrix-blue mb-1">DATA_POINT_0{context.id}</div>
+                                <h2 className="font-header text-4xl text-white leading-none">{context.name}</h2>
+                            </div>
+                            <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+                                <Icon name="x" size={24} />
+                            </button>
+                        </div>
+
+                        {/* Main Metric: Flexibility */}
+                        <div className="mb-10">
+                            <div className="flex justify-between items-end mb-2">
+                                <span className="font-header text-sm text-gray-400">FLEXIBILITY INDEX</span>
+                                <span className="font-mono-tech text-3xl font-bold text-white">{context.flexibility}</span>
+                            </div>
+                            <div className="w-full h-1 bg-gray-800">
+                                <div 
+                                    className="h-full bg-citrix-blue" 
+                                    style={{ width: `${context.flexibility}%`, transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                                ></div>
+                            </div>
+                        </div>
+
+                        {/* Data Grid: Modes */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {['ac', 'ce', 'ae', 'ro'].map((mode) => (
+                                <div key={mode} className="bg-black/30 p-3 border border-white/5">
+                                    <div className="flex justify-between mb-2">
+                                        <span className="font-mono-tech text-xs uppercase text-gray-500">{mode}</span>
+                                        <span className="font-mono-tech text-xs text-white">{context[mode]}%</span>
+                                    </div>
+                                    <div className="w-full h-[2px] bg-gray-800">
+                                        <div 
+                                            className={`h-full ${context[mode] > 50 ? 'bg-white' : 'bg-gray-600'}`} 
+                                            style={{ width: `${context[mode]}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Footer Action */}
+                    <div>
+                         <p className="font-mono-tech text-[10px] text-gray-500 mb-4 leading-relaxed">
+                            Analysis based on ipsative ranking data from Session 8X-992. 
+                            Values represent relative preference intensity in this specific context.
+                         </p>
+                        <button className="w-full py-4 bg-white hover:bg-gray-200 text-black font-header font-bold text-lg tracking-wider transition-colors flex items-center justify-center gap-2">
+                            FULL REPORT <Icon name="arrow-right" size={18} />
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- UI: NAV BAR ---
+        const NavBar = () => (
+            <nav className="absolute top-0 left-0 w-full h-20 px-8 flex items-center justify-between z-30 pointer-events-none">
+                {/* Left: Branding */}
+                <div className="flex items-center gap-4 pointer-events-auto">
+                    <div className="flex flex-col">
+                        <span className="font-header text-xl font-bold text-white tracking-tighter leading-none">ZENOTIKA</span>
+                        <span className="font-mono-tech text-[8px] text-gray-500 tracking-[0.2em] uppercase">Powered by Citrix</span>
+                    </div>
+                    <div className="h-8 w-[1px] bg-white/20"></div>
+                    <div className="font-header text-sm text-gray-400">THE ZENOSPHERE</div>
+                </div>
+
+                {/* Right: Controls & Visualizer */}
+                <div className="flex items-center gap-8 pointer-events-auto">
+                    <div className="flex items-center gap-1">
+                        <div className="audio-bar bar-1"></div>
+                        <div className="audio-bar bar-2"></div>
+                        <div className="audio-bar bar-3"></div>
+                        <div className="audio-bar bar-4"></div>
+                        <span className="ml-2 font-mono-tech text-[10px] font-bold text-white tracking-widest">LIVE AUDIO</span>
+                    </div>
+                    <button className="text-sm font-header text-white border-b border-transparent hover:border-citrix-blue transition-all">MENU</button>
+                </div>
+            </nav>
+        );
+
+        // --- MAIN APP ---
+        const App = () => {
+            const [selectedId, setSelectedId] = useState(null);
+            
+            const selectedContext = useMemo(() => 
+                LFI_CONTEXTS.find(c => c.id === selectedId), 
+            [selectedId]);
+
+            return (
+                <div className="w-screen h-screen relative bg-black selection:bg-citrix-blue selection:text-black">
+                    <CustomCursor />
+                    <div className="scanlines"></div>
+                    
+                    <NavBar />
+                    
+                    <ZenosphereVisualizer onNodeClick={setSelectedId} />
+                    
+                    <TelemetryPanel 
+                        context={selectedContext} 
+                        onClose={() => setSelectedId(null)} 
+                    />
+
+                    {/* Intro Overlay Text */}
+                    {!selectedId && (
+                        <div className="absolute bottom-12 left-12 pointer-events-none z-10 fade-in-up" style={{ animationDelay: '0.5s' }}>
+                            <h1 className="font-header text-6xl md:text-8xl text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-600 leading-none mb-4">
+                                QUANTIFY <br/> POTENTIAL
+                            </h1>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-[1px] bg-citrix-blue"></div>
+                                <p className="font-mono-tech text-xs text-citrix-blue tracking-widest">INTERACTIVE NEURAL MAP V2.0</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

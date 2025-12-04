@@ -11,7 +11,7 @@ from app.db.database import get_db, get_async_db
 from app.db.repositories import SessionRepository
 from app.engine.runtime import runtime
 from app.services.security import get_current_user, decode_access_token, get_current_user_optional
-from app.services.validation import run_session_validations
+from app.services.validation import run_session_validations, run_session_validations_async
 from app.schemas.base import CamelModel
 from app.services.provenance import log_provenance_background_task
 from app.schemas.session import (
@@ -316,13 +316,13 @@ async def submit_all_responses(
     return SessionOperationResult(result=result)
 
 @router.patch("/{session_id}", response_model=SessionOperationResult)
-def update_session(
+async def update_session(
     session_id: uuid.UUID,
     payload: SessionUpdate,
     background_tasks: BackgroundTasks,
     response: Response,
     idempotency_key: Optional[str] = Header(None, description="Unique key to prevent duplicate operations"),
-    db: Any = Depends(get_db),
+    db: Any = Depends(get_async_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -332,7 +332,7 @@ def update_session(
     """
     if payload.status == SessionStatus.COMPLETED:
         # Re-use finalize logic
-        return finalize(session_id, background_tasks, response, db, current_user)
+        return await finalize(session_id, background_tasks, response, db, current_user)
     
     # Future: Handle other updates (e.g. abandonment)
     return SessionOperationResult(ok=True)
@@ -373,7 +373,7 @@ async def finalize(
 @router.get("/{session_id}/validation", response_model=dict)
 async def session_validation(
     session_id: uuid.UUID, 
-    db: Any = Depends(get_db), 
+    db: Any = Depends(get_async_db), 
     viewer: Any | None = Depends(get_current_user_optional)
 ):
     """Mengembalikan status kelengkapan sesi (item ipsatif & konteks LFI)."""
@@ -385,7 +385,7 @@ async def session_validation(
         raise HTTPException(status_code=404, detail=SessionErrorMessages.NOT_FOUND)
     if viewer and viewer.role != 'MEDIATOR' and viewer.id != sess.user_id:
         raise HTTPException(status_code=403, detail=SessionErrorMessages.FORBIDDEN)
-    return run_session_validations(db, session_id)
+    return await run_session_validations_async(db, session_id)
 
 @router.post("/{session_id}/force_finalize", response_model=SessionOperationResult, include_in_schema=False)
 async def force_finalize(

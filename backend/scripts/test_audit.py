@@ -33,11 +33,15 @@ async def verify_audit_integrity():
         # For every grant usage (credits_consumed > 0), there should be an audit log
         # Note: This is a heuristic check.
         
-        # Get total credits consumed
-        result = await session.execute(
-            select(func.sum(AccessGrant.credits_consumed))
+        # [Optimization] Combine Grant queries
+        stmt = select(
+            func.sum(AccessGrant.credits_consumed),
+            func.count(AccessGrant.id).filter(AccessGrant.grantee_id == None)
         )
-        total_consumed = result.scalar() or 0
+        result = await session.execute(stmt)
+        row = result.first()
+        total_consumed = row[0] or 0
+        orphan_grants = row[1] or 0
         
         # Get count of redemption logs
         result = await session.execute(
@@ -61,11 +65,6 @@ async def verify_audit_integrity():
         logger.info(f"Total Assessment Sessions: {session_count}")
         
         # 3. Check for Orphan Data (Example: Grants with no user)
-        result = await session.execute(
-            select(func.count(AccessGrant.id)).where(AccessGrant.grantee_id == None)
-        )
-        orphan_grants = result.scalar() or 0
-        
         if orphan_grants == 0:
             logger.info("✅ Orphan Data Check: PASS (No grants without grantee)")
         else:

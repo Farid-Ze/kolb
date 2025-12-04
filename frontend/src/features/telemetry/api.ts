@@ -1,7 +1,7 @@
 import { apiClient } from '../../shared/api/client'
 
 export interface AssessmentTelemetryPayload {
-  sessionId: number
+  sessionId: string | number
   itemId: number
   responseRank: number
   responseLatencyMs: number

@@ -25,8 +25,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
-    // const interval = setInterval(() => setNow(Date.now()), 1000)
-    // return () => clearInterval(interval)
+    // Update now periodically for time-lock calculation
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
   }, [])
 
   const { expiresAt, role: tokenRole } = useAuthTokenMetadata(token)

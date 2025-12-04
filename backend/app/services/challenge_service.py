@@ -113,7 +113,7 @@ class ChallengeService:
             # Sphere creation is non-critical; failure should not block challenge completion.
             pass
 
-        db.flush()
+        db.commit()
         return challenge
 
 challenge_service = ChallengeService()

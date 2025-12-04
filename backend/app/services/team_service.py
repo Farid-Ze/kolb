@@ -1,5 +1,6 @@
 from typing import Any, Optional
 from datetime import date
+from contextlib import contextmanager
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
@@ -25,25 +26,32 @@ class TeamService:
         self.rollup_repo = TeamRollupRepository(db)
         self.user_repo = UserRepository(db)
 
-    def create_team(self, payload: TeamCreate, user_id: int) -> Any:
+    @contextmanager
+    def _transaction(self, log_event: str, **log_data):
+        """Context manager for handling database transactions with logging."""
         try:
+            yield
+            self.db.commit()
+        except SQLAlchemyError:
+            self.db.rollback()
+            logger.exception(log_event, extra={"structured_data": log_data})
+            raise
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def create_team(self, payload: TeamCreate, user_id: int) -> Any:
+        with self._transaction("teams_create_failed", user_id=user_id, team_name=payload.name):
             existing = self.team_repo.find_by_name_sync(payload.name)
             if existing:
                 raise HTTPException(status_code=409, detail=TeamMessages.NAME_EXISTS)
             team = self.team_repo.create_sync(payload.name, payload.kelas, payload.description)
-            self.db.commit()
-            self.db.refresh(team)
-            return team
-        except SQLAlchemyError:
-            self.db.rollback()
-            logger.exception(
-                "teams_create_failed",
-                extra={"structured_data": {"user_id": user_id, "team_name": payload.name}}
-            )
-            raise
+        
+        self.db.refresh(team)
+        return team
 
     def update_team(self, team_id: int, payload: TeamUpdate, user_id: int) -> Any:
-        try:
+        with self._transaction("teams_update_failed", team_id=team_id, user_id=user_id):
             team = self.team_repo.get_sync(team_id)
             if not team:
                 raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
@@ -60,21 +68,14 @@ class TeamService:
                 team.description = payload.description
             
             self.db.flush()
-            self.db.commit()
-            self.db.refresh(team)
-            return team
-        except SQLAlchemyError:
-            self.db.rollback()
-            logger.exception(
-                "teams_update_failed",
-                extra={"structured_data": {"team_id": team_id, "user_id": user_id}}
-            )
-            raise
+        
+        self.db.refresh(team)
+        return team
 
     def delete_team(self, team_id: int, user_id: int) -> None:
         members_count = None
         rollup_count = None
-        try:
+        with self._transaction("teams_delete_failed", team_id=team_id, user_id=user_id):
             team = self.team_repo.get_sync(team_id)
             if not team:
                 raise HTTPException(status_code=404, detail=TeamMessages.NOT_FOUND)
@@ -86,22 +87,9 @@ class TeamService:
                 raise HTTPException(status_code=409, detail=TeamMessages.REMOVE_DEPENDENCIES_FIRST)
             
             self.team_repo.delete_sync(team)
-            self.db.commit()
-        except SQLAlchemyError:
-            self.db.rollback()
-            logger.exception(
-                "teams_delete_failed",
-                extra={"structured_data": {
-                    "team_id": team_id, 
-                    "user_id": user_id,
-                    "members_count": members_count,
-                    "rollup_count": rollup_count
-                }}
-            )
-            raise
 
     def add_member(self, team_id: int, email: str, role_in_team: str, user_id: int) -> Any:
-        try:
+        with self._transaction("teams_add_member_failed", team_id=team_id, user_id=user_id, member_email=email):
             user = self.user_repo.get_by_email_sync(email)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
@@ -110,44 +98,20 @@ class TeamService:
                 raise HTTPException(status_code=409, detail=TeamMessages.MEMBER_EXISTS)
             
             tm = self.member_repo.add_sync(team_id, user.id, role_in_team)
-            self.db.commit()
-            self.db.refresh(tm)
-            return tm
-        except HTTPException:
-            raise
-        except SQLAlchemyError:
-            self.db.rollback()
-            logger.exception(
-                "teams_add_member_failed",
-                extra={"structured_data": {"team_id": team_id, "user_id": user_id, "member_email": email}}
-            )
-            raise
+        
+        self.db.refresh(tm)
+        return tm
 
     def remove_member(self, team_id: int, member_id: int, user_id: int) -> None:
-        try:
+        with self._transaction("teams_remove_member_failed", team_id=team_id, user_id=user_id, member_id=member_id):
             tm = self.member_repo.get_sync(team_id, member_id)
             if not tm:
                 raise HTTPException(status_code=404, detail=TeamMessages.MEMBER_NOT_FOUND)
             self.member_repo.delete_sync(tm)
-            self.db.commit()
-        except SQLAlchemyError:
-            self.db.rollback()
-            logger.exception(
-                "teams_remove_member_failed",
-                extra={"structured_data": {"team_id": team_id, "user_id": user_id, "member_id": member_id}}
-            )
-            raise
 
     def run_rollup(self, team_id: int, for_date: Optional[date], user_id: int) -> Any:
-        try:
+        with self._transaction("teams_run_rollup_failed", team_id=team_id, user_id=user_id, for_date=str(for_date) if for_date else None):
             roll = compute_team_rollup(self.db, team_id=team_id, for_date=for_date)
-            self.db.commit()
-            self.db.refresh(roll)
-            return roll
-        except SQLAlchemyError:
-            self.db.rollback()
-            logger.exception(
-                "teams_run_rollup_failed",
-                extra={"structured_data": {"team_id": team_id, "user_id": user_id, "for_date": str(for_date) if for_date else None}}
-            )
-            raise
+        
+        self.db.refresh(roll)
+        return roll
