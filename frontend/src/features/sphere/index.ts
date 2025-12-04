@@ -1,1 +1,0 @@
-// Sphere feature module placeholder.

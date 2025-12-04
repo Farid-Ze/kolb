@@ -22,11 +22,16 @@ interface TelemetryInput {
  */
 export function useAssessmentTelemetry(sessionId: string | number | null | undefined) {
   const { isAuthenticated } = useAuth()
-  const startTimeRef = useRef<number>(Date.now())
+  // Initialize to 0; actual start time is set in useEffect to avoid React purity violation
+  const startTimeRef = useRef<number>(0)
   const blurCountRef = useRef<number>(0)
+  const isInitializedRef = useRef<boolean>(false)
 
   useEffect(() => {
-    // Reset timer and blur count when session changes
+    // Set initial time on first mount, reset on session change
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true
+    }
     startTimeRef.current = Date.now()
     blurCountRef.current = 0
 

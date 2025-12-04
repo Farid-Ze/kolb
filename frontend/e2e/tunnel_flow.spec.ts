@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Tunnel Assessment Flow', () => {
   test.setTimeout(90000); // Increase timeout to 90s
 
-  test('should complete a full assessment session', async ({ page, request }) => {
+  test('should complete a full assessment session', async ({ page }) => {
     // 1. Go to Landing Page first
     await page.goto('/');
 

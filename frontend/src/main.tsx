@@ -8,6 +8,7 @@ import { OpenAPI } from './shared/api/generated'
 import { env } from './config/env'
 
 // Import pages and layouts
+import { ProtectedRoute } from './app/layout/ProtectedRoute'
 import { ShellLayout } from './app/layout/ShellLayout'
 import { TunnelLayout } from './app/layout/TunnelLayout'
 import { AdminPage } from './pages/AdminPage'
@@ -27,15 +28,35 @@ const router = createBrowserRouter(
     <>
       <Route element={<ShellLayout />}>
         <Route index element={<LandingPage />} />
-        <Route path="/future/dashboard" element={<FutureDashboardPage />} />
-        <Route path="/sphere" element={<SpherePage />} />
-        <Route path="/me" element={<ProfilePage />} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/future/dashboard" element={
+          <ProtectedRoute>
+            <FutureDashboardPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/sphere" element={
+          <ProtectedRoute>
+            <SpherePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/me" element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin" element={
+          <ProtectedRoute requireMediator>
+            <AdminPage />
+          </ProtectedRoute>
+        } />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/future/tunnel" element={<TunnelLayout />}>
-        <Route index element={<FutureTunnelPage />} />
+        <Route index element={
+          <ProtectedRoute>
+            <FutureTunnelPage />
+          </ProtectedRoute>
+        } />
       </Route>
     </>
   )
