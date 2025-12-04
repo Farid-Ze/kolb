@@ -26,15 +26,23 @@ export function LoginForm({ onSubmit }: LoginFormProps) {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-slate-600" htmlFor="email">
-          Email
+    <form className="space-y-5" onSubmit={handleSubmit}>
+      <div className="space-y-2">
+        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="email">
+          Email Address
         </label>
-        <Input autoComplete="email" id="email" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} />
+        <Input 
+          autoComplete="email" 
+          id="email" 
+          onChange={(event) => setEmail(event.target.value)} 
+          required 
+          type="email" 
+          value={email}
+          placeholder="you@example.com"
+        />
       </div>
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-slate-600" htmlFor="password">
+      <div className="space-y-2">
+        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="password">
           Password
         </label>
         <Input
@@ -44,9 +52,10 @@ export function LoginForm({ onSubmit }: LoginFormProps) {
           required
           type="password"
           value={password}
+          placeholder="••••••••"
         />
       </div>
-      <Button className="w-full" isLoading={isSubmitting} type="submit">
+      <Button className="w-full mt-6" isLoading={isSubmitting} type="submit">
         Sign In
       </Button>
     </form>

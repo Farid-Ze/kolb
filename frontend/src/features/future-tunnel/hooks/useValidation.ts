@@ -39,12 +39,3 @@ export const deriveModeRanks = (item: AssessmentItem, draft?: TunnelItemDraft): 
   })
   return Object.keys(ranks).length === MODE_CODES.length ? ranks : null
 }
-
-export function useValidation() {
-  return {
-    isContextComplete,
-    isItemComplete,
-    deriveModeRanks,
-    MODE_CODES,
-  }
-}

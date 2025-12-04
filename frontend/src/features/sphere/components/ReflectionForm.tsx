@@ -20,19 +20,19 @@ export function ReflectionForm({ onSubmit, isSubmitting }: ReflectionFormProps) 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-4">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--zen-text)]">Type</label>
+        <label className="font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]">Type</label>
         <div className="flex flex-wrap gap-2">
           {Object.values(ReflectionType).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setType(t)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                 type === t
-                  ? 'bg-[var(--zen-accent)] text-white'
-                  : 'bg-[var(--zen-bg)] text-[var(--zen-text-muted)] hover:bg-[var(--zen-border)]'
+                  ? 'bg-[var(--zen-accent)] text-white shadow-lg shadow-[var(--zen-accent)]/25'
+                  : 'border border-white/10 bg-white/5 text-[var(--zen-text-muted)] hover:border-[var(--zen-accent)]/50 hover:text-[var(--zen-text)]'
               }`}
             >
               {t}
@@ -42,9 +42,9 @@ export function ReflectionForm({ onSubmit, isSubmitting }: ReflectionFormProps) 
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--zen-text)]">Reflection</label>
+        <label className="font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]">Reflection</label>
         <textarea
-          className="w-full rounded-md border border-[var(--zen-border)] bg-[var(--zen-bg)] p-3 text-sm outline-none focus:border-[var(--zen-accent)]"
+          className="w-full rounded-lg border border-white/10 bg-[var(--zen-bg)] p-4 text-sm text-[var(--zen-text)] outline-none placeholder:text-[var(--zen-text-muted)] focus:border-[var(--zen-accent)] focus:ring-2 focus:ring-[var(--zen-accent)]/20 transition-all"
           placeholder="What's on your mind?"
           rows={3}
           value={content}

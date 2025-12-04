@@ -1,28 +1,59 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+/* ========================================
+   ZENOTIKA DESIGN SYSTEM
+   Kiblat: LandingPage - Dark, Futuristic, Premium
+   ======================================== */
 
 :root {
+  /* Dark theme as default - matching LandingPage */
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  --zen-bg: #f8fafc;
-  --zen-bg-elevated: #ffffff;
-  --zen-text: #0f172a;
-  --zen-text-muted: #475569;
-  --zen-border: rgba(15, 23, 42, 0.12);
-  --zen-accent: #10b981;
+  
+  /* Core colors - Dark futuristic palette */
+  --zen-bg: #000000;
+  --zen-bg-elevated: #0a0a0f;
+  --zen-bg-card: #111118;
+  --zen-bg-input: #0d0d12;
+  
+  /* Text colors */
+  --zen-text: #f8fafc;
+  --zen-text-muted: #64748b;
+  --zen-text-subtle: #475569;
+  
+  /* Accent - Blue from LandingPage */
+  --zen-accent: #3b82f6;
+  --zen-accent-hover: #60a5fa;
+  --zen-accent-muted: rgba(59, 130, 246, 0.15);
+  
+  /* Borders */
+  --zen-border: rgba(255, 255, 255, 0.08);
+  --zen-border-hover: rgba(255, 255, 255, 0.15);
+  
+  /* Status colors */
+  --zen-success: #22c55e;
+  --zen-error: #ef4444;
+  --zen-warning: #f59e0b;
+  
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.dark {
-  --zen-bg: #020617;
-  --zen-bg-elevated: #0f172a;
-  --zen-text: #f8fafc;
-  --zen-text-muted: #94a3b8;
-  --zen-border: rgba(226, 232, 240, 0.15);
-  --zen-accent: #34d399;
+/* Light theme override (optional) */
+.light {
+  --zen-bg: #fafafa;
+  --zen-bg-elevated: #ffffff;
+  --zen-bg-card: #ffffff;
+  --zen-bg-input: #f4f4f5;
+  --zen-text: #0f172a;
+  --zen-text-muted: #64748b;
+  --zen-text-subtle: #94a3b8;
+  --zen-border: rgba(0, 0, 0, 0.08);
+  --zen-border-hover: rgba(0, 0, 0, 0.15);
 }
 
 * {
@@ -39,6 +70,12 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Selection styling */
+::selection {
+  background-color: var(--zen-accent);
+  color: white;
 }
 
 /* [IMPLEMENTASI BARU] View Transitions API Setup (Sandhika Galih) */
@@ -87,4 +124,66 @@ a {
 
 .morph-title {
   view-transition-name: page-title;
+}
+
+/* ========================================
+   LANDING PAGE ANIMATIONS
+   ======================================== */
+
+/* Sound Bar Animation */
+.bar-1, .bar-2, .bar-3, .bar-4 {
+  animation: soundBar 0.8s ease-in-out infinite;
+}
+
+.bar-1 { height: 40%; animation-delay: 0s; }
+.bar-2 { height: 80%; animation-delay: 0.1s; }
+.bar-3 { height: 60%; animation-delay: 0.2s; }
+.bar-4 { height: 100%; animation-delay: 0.3s; }
+
+@keyframes soundBar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* Scroll Line Animation */
+@keyframes scroll-line {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-scroll-line {
+  animation: scroll-line 2s ease-in-out infinite;
+}
+
+/* Hero Text Entrance Animation */
+@keyframes heroFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-fade-up {
+  animation: heroFadeUp 1s ease-out forwards;
+}
+
+/* Staggered delay utilities */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+
+/* Glow Effect */
+@keyframes glow {
+  0%, 100% { opacity: 0.5; filter: blur(60px); }
+  50% { opacity: 0.8; filter: blur(80px); }
+}
+
+.animate-glow {
+  animation: glow 4s ease-in-out infinite;
 }

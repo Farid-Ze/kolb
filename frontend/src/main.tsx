@@ -21,7 +21,6 @@ import { ProfilePage } from './pages/ProfilePage'
 import { SpherePage } from './pages/SpherePage'
 
 OpenAPI.BASE = env.API_URL
-console.log('OpenAPI.BASE configured as:', OpenAPI.BASE)
 
 const router = createBrowserRouter(
   createRoutesFromElements(

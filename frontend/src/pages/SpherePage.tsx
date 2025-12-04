@@ -29,19 +29,19 @@ export function SpherePage() {
   return (
     <section className="space-y-8">
       <header>
-        <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Sphere / Past</p>
-        <h1 className="text-2xl font-semibold">Zenosphere</h1>
-        {prompt && <p className="mt-2 text-lg italic text-[var(--zen-accent)]">"{prompt}"</p>}
+        <p className="font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]">Sphere / Past</p>
+        <h1 className="mt-2 font-display text-3xl font-bold text-[var(--zen-text)]">Zenosphere</h1>
+        {prompt && <p className="mt-3 text-lg italic text-[var(--zen-accent)]">"{prompt}"</p>}
       </header>
 
       <div className="grid gap-8 md:grid-cols-2">
         <div className="flex flex-col items-center space-y-4">
           <div className="flex w-full items-center justify-between">
-            <h2 className="text-xl font-medium">Nodes ({nodes.length})</h2>
+            <h2 className="font-display text-xl font-medium text-[var(--zen-text)]">Nodes ({nodes.length})</h2>
             {selectedNode && (
               <button
                 onClick={() => setSelectedNode(null)}
-                className="text-xs text-[var(--zen-accent)] hover:underline"
+                className="text-xs text-[var(--zen-accent)] hover:underline transition-colors"
               >
                 Clear Selection
               </button>
@@ -51,8 +51,8 @@ export function SpherePage() {
           <SphereVisualization nodes={nodes} onNodeSelect={setSelectedNode} />
           
           {selectedNode && (
-            <div className="w-full rounded-lg border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-4">
-              <h3 className="font-medium">Node #{selectedNode.id}</h3>
+            <div className="w-full rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+              <h3 className="font-medium text-[var(--zen-text)]">Node #{selectedNode.id}</h3>
               <p className="text-sm text-[var(--zen-text-muted)]">Unlocked: {new Date(selectedNode.unlockDate).toLocaleDateString()}</p>
             </div>
           )}
@@ -60,7 +60,7 @@ export function SpherePage() {
 
         <div className="space-y-6">
           <div>
-            <h2 className="mb-4 text-xl font-medium">
+            <h2 className="mb-4 font-display text-xl font-medium text-[var(--zen-text)]">
               {selectedNode ? `Reflections for Node #${selectedNode.id}` : 'All Reflections'}
             </h2>
             <ReflectionForm onSubmit={handleCreateReflection} isSubmitting={isCreating} />

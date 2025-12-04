@@ -1,20 +1,17 @@
-import { Moon, Sun, User } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
-import { Toaster } from 'sonner'
+import { LogOut, User } from 'lucide-react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 
 import { useAuthContext } from '../providers/AuthContext'
-import { useTheme } from '../providers/ThemeContext'
 
 const links = [
-  { to: '/', label: 'Home' },
-  { to: '/future/dashboard', label: 'Future' },
+  { to: '/future/dashboard', label: 'Dashboard' },
+  { to: '/future/tunnel', label: 'Assessment' },
   { to: '/sphere', label: 'Sphere' },
   { to: '/admin', label: 'Admin', requireMediator: true },
 ]
 
 export function ShellLayout() {
   const { isAuthenticated, isMediator, logout, remainingMs } = useAuthContext()
-  const { theme, preference, setPreference, toggleTheme } = useTheme()
 
   const timeUntilLock = remainingMs ? Math.max(0, remainingMs - 45 * 60 * 1000) : 0
   const formatTime = (ms: number) => {
@@ -31,97 +28,83 @@ export function ShellLayout() {
 
   return (
     <div className="min-h-screen bg-[var(--zen-bg)] text-[var(--zen-text)]">
-      <Toaster position="top-center" richColors />
-      <header className="border-b border-[var(--zen-border)] bg-[var(--zen-bg-elevated)]">
-        <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <span className="font-semibold tracking-wide text-[var(--zen-text)]">Zenotika</span>
-          <div className="flex items-center gap-4 text-sm font-medium">
-            <div className="flex gap-4">
-              {visibleLinks.map((link) => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  className={({ isActive }) =>
-                    `transition-colors text-[var(--zen-text)] hover:opacity-100 ${
-                      isActive ? 'opacity-100' : 'opacity-70'
-                    }`
-                  }
-                >
-                  {link.label}
-                </NavLink>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="sr-only" htmlFor="theme-preference">
-                Theme preference
-              </label>
-              <select
-                id="theme-preference"
-                className="rounded-md border border-[var(--zen-border)] bg-transparent px-2 py-1 text-xs uppercase tracking-wide text-[var(--zen-text)]"
-                value={preference}
-                onChange={(event) => setPreference(event.target.value as typeof preference)}
+      {/* Header matching LandingPage style */}
+      <header className="relative z-10 w-full border-b border-[var(--zen-border)] bg-[var(--zen-bg)]/80 backdrop-blur-xl">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          {/* Logo - matching LandingPage */}
+          <Link to="/" className="group">
+            <h1 className="font-headline text-xl font-bold tracking-tighter text-white group-hover:text-[var(--zen-accent)] transition-colors">
+              ZENOTIKA<span className="text-[var(--zen-accent)]">™</span>
+            </h1>
+            <p className="font-ui text-[9px] uppercase tracking-[0.2em] text-[var(--zen-text-muted)]">
+              Innovation Partner
+            </p>
+          </Link>
+
+          {/* Navigation Links */}
+          <div className="hidden md:flex items-center gap-8">
+            {visibleLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) =>
+                  `font-ui text-xs uppercase tracking-widest transition-colors ${
+                    isActive 
+                      ? 'text-white' 
+                      : 'text-[var(--zen-text-muted)] hover:text-white'
+                  }`
+                }
               >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
-              </select>
-              <button
-                className="flex items-center gap-2 rounded-full border border-[var(--zen-border)] px-3 py-1 text-xs uppercase tracking-wide text-[var(--zen-text)] transition hover:border-[color:var(--zen-accent)]"
-                onClick={toggleTheme}
-                type="button"
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-                <span className="hidden sm:inline">{theme === 'dark' ? 'Dark' : 'Light'} mode</span>
-              </button>
-            </div>
+                {link.label}
+              </NavLink>
+            ))}
+          </div>
+
+          {/* Right Controls */}
+          <div className="flex items-center gap-4">
             {isAuthenticated ? (
-              <div className="flex items-center gap-3">
+              <>
                 {timeUntilLock > 0 && (
-                  <span className="text-xs font-mono text-[var(--zen-text-muted)]" title="Time remaining before session lock">
+                  <span className="font-mono text-xs text-[var(--zen-text-muted)]" title="Session time remaining">
                     {formatTime(timeUntilLock)}
                   </span>
                 )}
                 <NavLink
                   to="/me"
                   className={({ isActive }) =>
-                    `flex items-center gap-1 rounded-md border px-3 py-1 transition ${
+                    `flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
                       isActive
-                        ? 'border-[color:var(--zen-accent)] text-[var(--zen-text)]'
-                        : 'border-[var(--zen-border)] text-[var(--zen-text)] hover:border-[color:var(--zen-accent)]'
+                        ? 'border-[var(--zen-accent)] text-[var(--zen-accent)]'
+                        : 'border-[var(--zen-border)] text-[var(--zen-text-muted)] hover:border-[var(--zen-border-hover)] hover:text-white'
                     }`
                   }
-                  title="Profile"
                 >
-                  <User size={16} />
-                  <span className="hidden sm:inline">Profile</span>
+                  <User size={14} />
+                  <span className="hidden sm:inline font-ui text-xs uppercase tracking-wider">Profile</span>
                 </NavLink>
                 <button
-                  className="rounded-md border border-[var(--zen-border)] px-3 py-1 text-[var(--zen-text)] transition hover:border-[color:var(--zen-accent)]"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--zen-border)] text-[var(--zen-text-muted)] hover:border-red-500/50 hover:text-red-400 transition-all"
                   onClick={logout}
                   type="button"
                 >
-                  Logout
+                  <LogOut size={14} />
+                  <span className="hidden sm:inline font-ui text-xs uppercase tracking-wider">Logout</span>
                 </button>
-              </div>
+              </>
             ) : (
-              <NavLink
+              <Link
                 to="/auth"
-                className={({ isActive }) =>
-                  `rounded-md border px-3 py-1 transition ${
-                    isActive
-                      ? 'border-[color:var(--zen-accent)] text-[var(--zen-text)]'
-                      : 'border-[var(--zen-border)] text-[var(--zen-text)] hover:border-[color:var(--zen-accent)]'
-                  }`
-                }
+                className="px-5 py-2 rounded-full bg-[var(--zen-accent)] text-white font-ui text-xs uppercase tracking-wider hover:bg-[var(--zen-accent-hover)] transition-all"
               >
                 Sign In
-              </NavLink>
+              </Link>
             )}
           </div>
         </nav>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-10">
+
+      {/* Main Content */}
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <Outlet />
       </main>
     </div>

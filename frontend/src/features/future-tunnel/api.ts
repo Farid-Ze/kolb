@@ -1,5 +1,4 @@
-import { GrantsService, SessionsService } from '../../shared/api/generated'
-import { SessionStatus } from '../../shared/api/generated/models/SessionStatus'
+import { SessionsService } from '../../shared/api/generated'
 import type {
   SessionStartResponse,
   SessionSubmissionPayload,
@@ -8,10 +7,6 @@ import type {
   EngineSessionResponse,
   SessionAutosavePayload,
 } from '../../entities/session/model'
-
-export async function getGrantSummary(): Promise<Record<string, unknown>> {
-  return GrantsService.getMyGrantsApiV1GrantsMeGet()
-}
 
 export async function startSession(instrumentCode = 'KLSI4', instrumentVersion = '4.0'): Promise<SessionStartResponse> {
   return SessionsService.startSessionApiV1SessionsStartPost({
@@ -29,13 +24,6 @@ export async function fetchSessionItems(sessionId: string): Promise<AssessmentIt
 
 export async function submitAllResponses(sessionId: string, payload: SessionSubmissionPayload): Promise<SessionOperationResult> {
   return SessionsService.submitAllResponsesApiV1SessionsSessionIdSubmitAllResponsesPost(sessionId, payload)
-}
-
-export async function finalizeSession(sessionId: string): Promise<SessionOperationResult> {
-  // finalizeApiV1SessionsSessionIdFinalizePost is deprecated but still available.
-  // However, the new flow uses submitAllResponses which includes finalize.
-  // If we need explicit finalize, we can use updateSession with status='completed'.
-  return SessionsService.updateSessionApiV1SessionsSessionIdPatch(sessionId, { status: SessionStatus.COMPLETED })
 }
 
 export async function fetchSessionState(sessionId: string): Promise<EngineSessionResponse> {

@@ -48,9 +48,7 @@ vi.mock('../api', () => ({
   fetchSessionItems: vi.fn(),
   fetchSessionState: vi.fn(),
   submitAllResponses: vi.fn(),
-  submitSingleResponse: vi.fn(),
   autosaveSession: vi.fn(),
-  finalizeSession: vi.fn(),
 }))
 
 const createWrapper = () => {

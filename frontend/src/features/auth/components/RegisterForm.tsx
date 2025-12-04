@@ -55,26 +55,39 @@ export function RegisterForm({ onSubmit }: RegisterFormProps) {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form className="space-y-5" onSubmit={handleSubmit}>
       {validationError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {validationError}
         </div>
       )}
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[var(--zen-text-muted)]" htmlFor="fullName">
+      <div className="space-y-2">
+        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="fullName">
           Full Name
         </label>
-        <Input id="fullName" onChange={(event) => handleChange('fullName', event.target.value)} required value={form.fullName} />
+        <Input 
+          id="fullName" 
+          onChange={(event) => handleChange('fullName', event.target.value)} 
+          required 
+          value={form.fullName}
+          placeholder="John Doe"
+        />
       </div>
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[var(--zen-text-muted)]" htmlFor="email">
-          Email
+      <div className="space-y-2">
+        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="email">
+          Email Address
         </label>
-        <Input id="email" onChange={(event) => handleChange('email', event.target.value)} required type="email" value={form.email} />
+        <Input 
+          id="email" 
+          onChange={(event) => handleChange('email', event.target.value)} 
+          required 
+          type="email" 
+          value={form.email}
+          placeholder="you@example.com"
+        />
       </div>
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[var(--zen-text-muted)]" htmlFor="password">
+      <div className="space-y-2">
+        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="password">
           Password
         </label>
         <Input
@@ -83,24 +96,36 @@ export function RegisterForm({ onSubmit }: RegisterFormProps) {
           required
           type="password"
           value={form.password}
+          placeholder="••••••••"
         />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-[var(--zen-text-muted)]" htmlFor="nim">
+        <div className="space-y-2">
+          <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="nim">
             NIM
           </label>
-          <Input id="nim" maxLength={8} onChange={(event) => handleChange('nim', event.target.value)} value={form.nim ?? ''} />
+          <Input 
+            id="nim" 
+            maxLength={8} 
+            onChange={(event) => handleChange('nim', event.target.value)} 
+            value={form.nim ?? ''} 
+            placeholder="12345678"
+          />
         </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-[var(--zen-text-muted)]" htmlFor="kelas">
-            Class (IF-XX)
+        <div className="space-y-2">
+          <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="kelas">
+            Class
           </label>
-          <Input id="kelas" onChange={(event) => handleChange('kelas', event.target.value)} placeholder="IF-XX" value={form.kelas ?? ''} />
+          <Input 
+            id="kelas" 
+            onChange={(event) => handleChange('kelas', event.target.value)} 
+            placeholder="IF-XX" 
+            value={form.kelas ?? ''} 
+          />
         </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-[var(--zen-text-muted)]" htmlFor="tahunMasuk">
-            Enrollment Year
+        <div className="space-y-2">
+          <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="tahunMasuk">
+            Year
           </label>
           <Input
             id="tahunMasuk"
@@ -112,7 +137,7 @@ export function RegisterForm({ onSubmit }: RegisterFormProps) {
           />
         </div>
       </div>
-      <Button className="w-full" isLoading={isSubmitting} type="submit">
+      <Button className="w-full mt-6" isLoading={isSubmitting} type="submit">
         Create Account
       </Button>
     </form>

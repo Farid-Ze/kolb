@@ -18,11 +18,11 @@ export function PercentileSummary({ results }: PercentileSummaryProps) {
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6 shadow-sm">
+    <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wide text-[var(--zen-text-muted)]">Percentiles</p>
-          <h2 className="text-xl font-semibold text-[var(--zen-text)]">Norm Group Comparison</h2>
+          <p className="font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]">Percentiles</p>
+          <h2 className="font-display text-xl font-semibold text-[var(--zen-text)]">Norm Group Comparison</h2>
         </div>
       </div>
       <ul className="space-y-3">
