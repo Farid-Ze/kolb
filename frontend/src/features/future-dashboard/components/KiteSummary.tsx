@@ -1,6 +1,23 @@
+import { motion } from 'framer-motion'
 import type { AssessmentResults } from '../model'
 import { KiteChart } from './KiteChart'
 import { StrengthsBlindspots } from './StrengthsBlindspots'
+
+// Premium card animation variants
+const cardVariants = {
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 100,
+      damping: 15,
+      duration: 0.6,
+    },
+  },
+}
 
 interface KiteSummaryProps {
   results?: AssessmentResults
@@ -9,14 +26,27 @@ interface KiteSummaryProps {
 export function KiteSummary({ results }: KiteSummaryProps) {
   if (!results) {
     return (
-      <div className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+      <motion.div 
+        className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={cardVariants}
+      >
         <p className="text-sm text-[var(--zen-text-muted)]">No finalized session yet. Complete the future tunnel to unlock insights.</p>
-      </div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+    <motion.div 
+      className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-50px" }}
+      variants={cardVariants}
+      whileHover={{ scale: 1.01, transition: { type: 'spring', stiffness: 300, damping: 20 } }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]">Latest Session</p>
@@ -40,6 +70,6 @@ export function KiteSummary({ results }: KiteSummaryProps) {
           <StrengthsBlindspots results={results} />
         </section>
       </div>
-    </div>
+    </motion.div>
   )
 }

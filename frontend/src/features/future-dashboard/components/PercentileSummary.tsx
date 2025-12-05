@@ -1,3 +1,4 @@
+import { AnimatedPercentage } from '../../../shared/ui/AnimatedNumber'
 import type { AssessmentResults } from '../model'
 
 interface PercentileSummaryProps {
@@ -26,14 +27,20 @@ export function PercentileSummary({ results }: PercentileSummaryProps) {
         </div>
       </div>
       <ul className="space-y-3">
-        {entries.map(([dimension, value]) => (
+        {entries.map(([dimension, value], index) => (
           <li key={dimension}>
             <div className="flex items-center justify-between text-sm font-medium text-[var(--zen-text)]">
               <span>{dimension}</span>
-              <span>{value.toFixed(1)}%</span>
+              <AnimatedPercentage 
+                value={value} 
+                stiffness={60} 
+                damping={25} 
+                delay={index * 0.1}
+                format={(v) => v.toFixed(1)}
+              />
             </div>
             <div className="mt-1 h-2 rounded-full bg-[var(--zen-bg)]">
-              <div className="h-full rounded-full bg-[var(--zen-accent)]" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+              <div className="h-full rounded-full bg-[var(--zen-accent)] gpu-transition" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
             </div>
           </li>
         ))}

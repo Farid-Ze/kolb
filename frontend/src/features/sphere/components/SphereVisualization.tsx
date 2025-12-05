@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo, useCallback } from 'react'
 import type { SphereNode } from '../model'
 
 interface SphereVisualizationProps {
@@ -6,60 +6,104 @@ interface SphereVisualizationProps {
   onNodeSelect?: (node: SphereNode) => void
 }
 
-export function SphereVisualization({ nodes, onNodeSelect }: SphereVisualizationProps) {
-  // Determine bounds to normalize coordinates if needed
-  // For now, assuming coordinates are roughly in a -100 to 100 range or similar, 
-  // we'll map them to an SVG viewbox.
+const VIEW_BOX_SIZE = 400
+const CENTER = VIEW_BOX_SIZE / 2
+const SCALE = 2
 
-  const viewBoxSize = 400
-  const center = viewBoxSize / 2
-  const scale = 2 // Adjust scale factor as needed
+// Memoized node component to prevent unnecessary re-renders
+const SphereNodeItem = memo(function SphereNodeItem({ 
+  node, 
+  cx, 
+  cy, 
+  onSelect 
+}: { 
+  node: SphereNode
+  cx: number
+  cy: number
+  onSelect?: () => void 
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onSelect?.()
+    }
+  }
 
-  const renderedNodes = useMemo(() => {
-    return nodes.map((node) => {
-      // Simple projection: use X and Y directly, centered in SVG
-      const cx = center + node.posX * scale
-      const cy = center + node.posY * scale // Invert Y if needed for standard cartesian vs screen coords
-
-      return {
-        ...node,
-        cx,
-        cy,
-      }
-    })
-  }, [nodes, center, scale])
-
-  // Uses SVG for visualization (no WebGL/Three.js cleanup needed)
   return (
-    <div className="aspect-square w-full max-w-[500px] overflow-hidden rounded-full border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] shadow-inner">
-      <svg viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`} className="h-full w-full">
-        {/* Background Grid/Circles */}
-        <circle cx={center} cy={center} r={viewBoxSize * 0.1} fill="none" stroke="var(--zen-border)" strokeDasharray="4 4" />
-        <circle cx={center} cy={center} r={viewBoxSize * 0.3} fill="none" stroke="var(--zen-border)" strokeDasharray="4 4" />
+    <g 
+      onClick={onSelect} 
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`Select learning style node ${node.id}`}
+      className="cursor-pointer transition-opacity hover:opacity-80 focus:outline-none"
+    >
+      {/* Focus ring for accessibility */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={10}
+        fill="transparent"
+        stroke="transparent"
+        strokeWidth={2}
+        className="focus-within:stroke-blue-400"
+      />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={6}
+        fill="var(--zen-accent)"
+        stroke="var(--zen-bg)"
+        strokeWidth={2}
+      />
+      <text
+        x={cx}
+        y={cy + 15}
+        textAnchor="middle"
+        className="fill-[var(--zen-text-muted)] pointer-events-none"
+        style={{ fontSize: '10px', textTransform: 'uppercase' }}
+        aria-hidden="true"
+      >
+        {node.id}
+      </text>
+    </g>
+  )
+})
+
+export const SphereVisualization = memo(function SphereVisualization({ 
+  nodes, 
+  onNodeSelect 
+}: SphereVisualizationProps) {
+  const renderedNodes = useMemo(() => {
+    return nodes.map((node) => ({
+      ...node,
+      cx: CENTER + node.posX * SCALE,
+      cy: CENTER + node.posY * SCALE,
+    }))
+  }, [nodes])
+
+  const handleNodeSelect = useCallback((node: SphereNode) => {
+    onNodeSelect?.(node)
+  }, [onNodeSelect])
+
+  return (
+    <div className="aspect-square w-full max-w-[500px] overflow-hidden rounded-full border border-white/10 bg-white/5 shadow-inner">
+      <svg viewBox={`0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`} className="h-full w-full">
+        {/* Background Grid/Circles - static, no re-render needed */}
+        <circle cx={CENTER} cy={CENTER} r={VIEW_BOX_SIZE * 0.1} fill="none" stroke="rgba(255,255,255,0.1)" strokeDasharray="4 4" />
+        <circle cx={CENTER} cy={CENTER} r={VIEW_BOX_SIZE * 0.3} fill="none" stroke="rgba(255,255,255,0.1)" strokeDasharray="4 4" />
 
         {/* Nodes */}
         {renderedNodes.map((node) => (
-          <g key={node.id} onClick={() => onNodeSelect?.(node)} className="cursor-pointer transition-opacity hover:opacity-80">
-            <circle
-              cx={node.cx}
-              cy={node.cy}
-              r={6}
-              fill="var(--zen-accent)"
-              stroke="var(--zen-bg)"
-              strokeWidth={2}
-            />
-            <text
-              x={node.cx}
-              y={node.cy + 15}
-              textAnchor="middle"
-              className="fill-[var(--zen-text-muted)] text-[10px] uppercase"
-              style={{ fontSize: '10px' }}
-            >
-              {node.id}
-            </text>
-          </g>
+          <SphereNodeItem
+            key={node.id}
+            node={node}
+            cx={node.cx}
+            cy={node.cy}
+            onSelect={() => handleNodeSelect(node)}
+          />
         ))}
       </svg>
     </div>
   )
-}
+})

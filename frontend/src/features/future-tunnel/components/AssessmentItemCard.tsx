@@ -37,7 +37,8 @@ export const AssessmentItemCard = memo(function AssessmentItemCard({
               </div>
               <p className="text-[var(--zen-text-muted)]">{option.label}</p>
               <select
-                className="mt-2 w-full rounded-md border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] px-3 py-2 text-sm text-[var(--zen-text)] focus:border-[var(--zen-accent)] focus:outline-none"
+                aria-label={`Rank for option ${option.code ?? option.id}`}
+                className="mt-2 w-full rounded-md border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] px-3 py-2 text-sm text-[var(--zen-text)] focus:border-[var(--zen-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--zen-accent)]/50"
                 onBlur={onBlur}
                 onChange={(event) =>
                   onRankChange(item.id, option.id, event.target.value ? Number(event.target.value) : null)

@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -14,26 +15,36 @@ interface KiteChartProps {
   results: AssessmentResults
 }
 
-export function KiteChart({ results }: KiteChartProps) {
+// Memoized tooltip style to prevent recreation on each render
+const TOOLTIP_STYLE = {
+  backgroundColor: '#1e293b',
+  borderColor: '#334155',
+  color: '#f1f5f9',
+  borderRadius: '0.5rem',
+}
+
+const ITEM_STYLE = { color: '#f1f5f9' }
+
+export const KiteChart = memo(function KiteChart({ results }: KiteChartProps) {
   const coords = results.kiteCoordinates
-  if (!coords) {
+  
+  const data = useMemo(() => {
+    if (!coords) return null
+    return [
+      { subject: 'CE', A: coords.CE ?? 0, fullMark: 100 },
+      { subject: 'RO', A: coords.RO ?? 0, fullMark: 100 },
+      { subject: 'AC', A: coords.AC ?? 0, fullMark: 100 },
+      { subject: 'AE', A: coords.AE ?? 0, fullMark: 100 },
+    ]
+  }, [coords])
+
+  if (!data) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-800/30 text-slate-400">
+      <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/5 text-gray-400">
         No chart data available
       </div>
     )
   }
-
-  // Transform coordinates for Recharts Radar
-  // KLSI 4.0 Kite is typically 4 axes: CE (North), RO (East), AC (South), AE (West)
-  // But the backend might return them as N, E, S, W or specific labels.
-  // Let's assume standard KLSI axes.
-  const data = [
-    { subject: 'CE', A: coords.CE ?? 0, fullMark: 100 },
-    { subject: 'RO', A: coords.RO ?? 0, fullMark: 100 },
-    { subject: 'AC', A: coords.AC ?? 0, fullMark: 100 },
-    { subject: 'AE', A: coords.AE ?? 0, fullMark: 100 },
-  ]
 
   return (
     <div className="h-80 w-full">
@@ -44,22 +55,18 @@ export function KiteChart({ results }: KiteChartProps) {
           <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#475569" tick={false} />
           <Radar
             dataKey="A"
-            fill="var(--zen-primary)"
+            fill="#3B82F6"
             fillOpacity={0.4}
             name="Percentile"
-            stroke="var(--zen-primary)"
+            stroke="#3B82F6"
+            isAnimationActive={false}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: '#1e293b',
-              borderColor: '#334155',
-              color: '#f1f5f9',
-              borderRadius: '0.5rem',
-            }}
-            itemStyle={{ color: '#f1f5f9' }}
+            contentStyle={TOOLTIP_STYLE}
+            itemStyle={ITEM_STYLE}
           />
         </RadarChart>
       </ResponsiveContainer>
     </div>
   )
-}
+})

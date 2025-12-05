@@ -1,18 +1,18 @@
-// Pre-generate particle positions at module level to avoid impure function calls during render
-const PARTICLES = Array.from({ length: 50 }, (_, i) => ({
+// Reduced particles for better CPU performance (20 instead of 50)
+const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
   left: ((i * 17 + 7) % 100),
   top: ((i * 31 + 13) % 100),
   size: 1 + ((i * 3) % 3),
-  duration: 4 + ((i * 7) % 60) / 10,
+  duration: 6 + ((i * 7) % 60) / 10, // Slower animations = less CPU
   delay: ((i * 11) % 30) / 10,
   opacity: 0.2 + ((i * 13) % 40) / 100,
 }))
 
-// Tunnel rings with varying properties
-const TUNNEL_RINGS = Array.from({ length: 15 }, (_, i) => ({
-  size: (i + 1) * 7,
-  duration: 4 + i * 0.15,
-  delay: i * 0.08,
+// Reduced tunnel rings (8 instead of 15)
+const TUNNEL_RINGS = Array.from({ length: 8 }, (_, i) => ({
+  size: (i + 1) * 12,
+  duration: 5 + i * 0.2, // Slower = less CPU
+  delay: i * 0.15,
   opacity: 0.15 + (i % 3) * 0.05,
 }))
 
@@ -44,7 +44,7 @@ export function SpeedTunnel() {
           />
         </div>
 
-        {/* Perspective tunnel rings */}
+        {/* Perspective tunnel rings - GPU accelerated */}
         <div className="absolute inset-0 flex items-center justify-center">
           {TUNNEL_RINGS.map((ring, i) => (
             <div
@@ -55,14 +55,16 @@ export function SpeedTunnel() {
                 height: `${ring.size}%`,
                 opacity: ring.opacity,
                 animation: `tunnelExpand ${ring.duration}s linear infinite`,
-                animationDelay: `${ring.delay}s`
+                animationDelay: `${ring.delay}s`,
+                willChange: 'transform, opacity',
+                contain: 'strict'
               }}
             />
           ))}
         </div>
 
-        {/* Floating particles / stars */}
-        <div className="absolute inset-0">
+        {/* Floating particles / stars - GPU accelerated */}
+        <div className="absolute inset-0" style={{ contain: 'strict' }}>
           {PARTICLES.map((p, i) => (
             <div
               key={i}
@@ -74,24 +76,26 @@ export function SpeedTunnel() {
                 height: `${p.size}px`,
                 opacity: p.opacity,
                 animation: `starFloat ${p.duration}s ease-in-out infinite`,
-                animationDelay: `${p.delay}s`
+                animationDelay: `${p.delay}s`,
+                willChange: 'transform, opacity'
               }}
             />
           ))}
         </div>
 
-        {/* Speed lines */}
+        {/* Speed lines - reduced count */}
         <div className="absolute inset-0 overflow-hidden opacity-20">
-          {Array.from({ length: 8 }, (_, i) => (
+          {Array.from({ length: 4 }, (_, i) => (
             <div
               key={i}
               className="absolute h-[1px] bg-gradient-to-r from-transparent via-blue-400 to-transparent"
               style={{
-                top: `${10 + i * 12}%`,
+                top: `${15 + i * 20}%`,
                 left: '-100%',
                 right: '-100%',
-                animation: `speedLine ${2 + i * 0.3}s linear infinite`,
-                animationDelay: `${i * 0.2}s`
+                animation: `speedLine ${3 + i * 0.4}s linear infinite`,
+                animationDelay: `${i * 0.3}s`,
+                willChange: 'transform, opacity'
               }}
             />
           ))}

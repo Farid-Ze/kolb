@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { LoginForm, RegisterForm, useAuth } from '../features/auth'
 import type { LoginRequest, RegisterRequest } from '../features/auth'
 import { register as registerApi } from '../features/auth/api'
-import { SpeedTunnel } from '../shared/ui/SpeedTunnel'
 
 const tabs = [
   { key: 'login', label: 'Sign In' },
@@ -12,6 +12,17 @@ const tabs = [
 ] as const
 
 type TabKey = (typeof tabs)[number]['key']
+
+/**
+ * AWWWARDS-LEVEL AUTH PAGE
+ * 
+ * Design Principles:
+ * - Centered card with glass morphism
+ * - Subtle glow for depth
+ * - Premium micro-interactions on tabs
+ * - Clear visual hierarchy
+ * - Accessible form structure
+ */
 
 export function AuthPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('login')
@@ -47,87 +58,133 @@ export function AuthPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center selection:bg-blue-500 selection:text-white">
-      {/* Background */}
-      <SpeedTunnel />
-      
-      {/* Back to Home */}
-      <Link 
-        to="/" 
-        className="absolute top-6 left-6 z-20 group"
+    <div className="relative min-h-screen w-full flex items-center justify-center px-[8.33%]">
+      {/* Auth Card - Glass Morphism */}
+      <div 
+        className="relative z-10 w-full max-w-md animate-hero-fade-up opacity-0"
+        style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}
       >
-        <h1 className="font-headline text-xl font-bold tracking-tighter text-white group-hover:text-[var(--zen-accent)] transition-colors">
-          ZENOTIKA<span className="text-[var(--zen-accent)]">™</span>
-        </h1>
-        <p className="font-ui text-[9px] uppercase tracking-[0.2em] text-gray-400">
-          Innovation Partner
-        </p>
-      </Link>
-
-      {/* Auth Card */}
-      <div className="relative z-10 w-full max-w-md mx-4">
-        {/* Glow effect */}
-        <div className="absolute -inset-4 bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
+        {/* Ambient glow */}
+        <div 
+          className="absolute -inset-8 bg-blue-500/8 blur-[60px] rounded-full pointer-events-none" 
+          aria-hidden="true"
+        />
         
-        <div className="relative bg-[var(--zen-bg-card)]/90 backdrop-blur-xl border border-[var(--zen-border)] rounded-2xl p-8 shadow-2xl">
+        <div className="relative bg-[#0c0c14]/95 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-8 sm:p-10 shadow-2xl shadow-black/50">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h2 className="font-headline text-3xl font-bold text-white uppercase tracking-tight mb-2">
+          <header className="text-center mb-8">
+            <h2 className="font-headline text-2xl sm:text-3xl font-bold text-white uppercase tracking-[-0.02em] mb-2">
               Access Portal
             </h2>
-            <p className="font-ui text-sm text-[var(--zen-text-muted)]">
+            <p className="font-ui text-sm text-gray-500">
               Enter your credentials to continue
             </p>
-          </div>
+          </header>
 
-          {/* Tab Switcher */}
-          <div className="flex rounded-full border border-[var(--zen-border)] bg-[var(--zen-bg)]/50 p-1 mb-6">
+          {/* Tab Switcher - Premium pill design with animated indicator */}
+          <div 
+            className="flex rounded-full border border-white/[0.08] bg-black/30 p-1 mb-8"
+            role="tablist"
+            aria-label="Authentication type"
+          >
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                className={`flex-1 rounded-full px-4 py-2.5 font-ui text-xs uppercase tracking-wider transition-all ${
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                aria-controls={`${tab.key}-panel`}
+                id={`${tab.key}-tab`}
+                className={`relative flex-1 rounded-full px-4 py-2.5 font-ui text-[11px] uppercase tracking-[0.1em] font-semibold gpu-transition ${
                   activeTab === tab.key 
-                    ? 'bg-[var(--zen-accent)] text-white shadow-lg shadow-blue-500/25' 
-                    : 'text-[var(--zen-text-muted)] hover:text-white'
+                    ? 'text-white' 
+                    : 'text-gray-500 hover:text-white'
                 }`}
                 onClick={() => setActiveTab(tab.key)}
                 type="button"
               >
-                {tab.label}
+                {/* Animated sliding indicator */}
+                {activeTab === tab.key && (
+                  <motion.div
+                    layoutId="auth-tab-indicator"
+                    className="absolute inset-0 rounded-full bg-blue-600 shadow-lg shadow-blue-500/30"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Error/Success Messages */}
+          {/* Error/Success Messages - Accessible */}
           {error && (
-            <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div 
+              role="alert"
+              className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400 animate-hero-fade-up"
+              style={{ animationDuration: '0.3s' }}
+            >
               {error}
             </div>
           )}
           {success && (
-            <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
+            <div 
+              role="status"
+              className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400 animate-hero-fade-up"
+              style={{ animationDuration: '0.3s' }}
+            >
               {success}
             </div>
           )}
 
-          {/* Forms */}
-          {activeTab === 'login' ? (
-            <LoginForm onSubmit={handleLogin} />
-          ) : (
-            <RegisterForm onSubmit={handleRegister} />
-          )}
+          {/* Form Panels with smooth crossfade */}
+          <AnimatePresence mode="wait">
+            {activeTab === 'login' && (
+              <motion.div
+                key="login"
+                id="login-panel"
+                role="tabpanel"
+                aria-labelledby="login-tab"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] as const }}
+              >
+                <LoginForm onSubmit={handleLogin} />
+              </motion.div>
+            )}
+            
+            {activeTab === 'register' && (
+              <motion.div
+                key="register"
+                id="register-panel"
+                role="tabpanel"
+                aria-labelledby="register-tab"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] as const }}
+              >
+                <RegisterForm onSubmit={handleRegister} />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Loading indicator */}
+          {/* Loading State */}
           {isLoading && (
-            <p className="mt-4 text-center font-ui text-xs text-[var(--zen-text-muted)] uppercase tracking-wider">
-              Authenticating...
-            </p>
+            <div className="mt-6 flex items-center justify-center gap-2" aria-live="polite">
+              <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+              <span className="font-ui text-xs text-gray-500 uppercase tracking-wider">
+                Authenticating...
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Footer text */}
-        <p className="mt-6 text-center font-ui text-xs text-[var(--zen-text-muted)]">
-          By continuing, you agree to Zenotika's Terms of Service
+        {/* Footer - Terms */}
+        <p className="mt-8 text-center font-ui text-[11px] text-gray-600 leading-relaxed">
+          By continuing, you agree to Zenotika's{' '}
+          <a href="/terms" className="text-gray-400 hover:text-white gpu-transition underline underline-offset-2">
+            Terms of Service
+          </a>
         </p>
       </div>
     </div>

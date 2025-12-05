@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './providers/AuthProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
+import { SmoothScrollProvider } from '../shared/providers/SmoothScrollProvider';
+import { CustomCursor } from '../shared/ui/CustomCursor';
+import { usePreloader } from '../shared/ui/Preloader';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -14,11 +17,20 @@ const queryClient = new QueryClient({
 });
 
 export function AppProviders({ children }: { children: ReactNode }) {
+    const { isLoading, Preloader } = usePreloader(2500);
+
     return (
         <QueryClientProvider client={queryClient}>
+            {/* Premium preloader - first impression for Awwwards jury */}
+            {Preloader}
+            
             <ThemeProvider>
                 <AuthProvider>
-                    {children}
+                    <SmoothScrollProvider>
+                        <CustomCursor />
+                        {/* Gate content behind preloader for smooth reveal */}
+                        {!isLoading && children}
+                    </SmoothScrollProvider>
                     <Toaster position="top-center" richColors />
                 </AuthProvider>
             </ThemeProvider>

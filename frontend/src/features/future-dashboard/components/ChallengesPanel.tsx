@@ -48,12 +48,13 @@ export function ChallengesPanel({ challenges, isLoading, blindspots = [] }: Chal
               </div>
               {challenge.proofUrl && (
                 <a
-                  className="mt-2 inline-flex text-xs font-medium text-[var(--zen-accent)]"
+                  className="mt-2 inline-flex text-xs font-medium text-[var(--zen-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--zen-bg)] rounded-sm"
                   href={challenge.proofUrl}
                   rel="noreferrer"
                   target="_blank"
                 >
                   View proof
+                  <span className="sr-only"> (opens in new tab)</span>
                 </a>
               )}
             </li>

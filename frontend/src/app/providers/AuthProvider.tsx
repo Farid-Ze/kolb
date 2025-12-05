@@ -25,8 +25,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
-    // Update now periodically for time-lock calculation
-    const timer = setInterval(() => setNow(Date.now()), 1000)
+    // Update every 10s for time-lock - no need for per-second precision
+    const timer = setInterval(() => setNow(Date.now()), 10_000)
     return () => clearInterval(timer)
   }, [])
 

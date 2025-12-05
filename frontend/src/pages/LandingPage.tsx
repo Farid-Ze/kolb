@@ -1,120 +1,177 @@
-import { Link } from 'react-router-dom';
-import { SpeedTunnel } from '../shared/ui/SpeedTunnel';
-import { Icon } from '../shared/ui/Icon';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { MagneticCTA } from '../shared/ui/MagneticButton';
+
+/**
+ * AWWWARDS-LEVEL DESIGN IMPLEMENTATION
+ * Criteria: Design (40%) | Usability (30%) | Creativity (20%) | Content (10%)
+ * 
+ * DESIGN PRINCIPLES:
+ * - Golden Ratio Typography (1.618)
+ * - 8px Grid System
+ * - Precise letter-spacing for editorial feel
+ * - Spring physics for organic motion (Framer Motion)
+ * - Staggered reveals for cinematic feel
+ * 
+ * LAYOUT (Citrix Pattern):
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │  LOGO                              ||||  SOUND    • • •    │
+ * │                                                             │
+ * │  HOW DO YOU                                                 │
+ * │  QUANTIFY                                                   │
+ * │  HUMAN POTENTIAL?                                           │
+ * │                                                             │
+ * │  [LOGO] | [LOGO]   Description...     SCROLL TO EXPLORE ───→│
+ * │  INNOVATION PARTNER                                         │
+ * └─────────────────────────────────────────────────────────────┘
+ */
+
+// Spring physics for organic, premium feel (Studio Details / Patrick Heng style)
+const springTransition = {
+  type: 'spring' as const,
+  stiffness: 100,
+  damping: 12,
+};
+
+// Staggered hero lines
+const heroLineVariants = {
+  hidden: { opacity: 0, y: 60 },
+  visible: (delay: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      ...springTransition,
+      delay,
+    },
+  }),
+};
 
 export function LandingPage() {
+  const navigate = useNavigate();
+
   return (
-    <div className="relative w-full min-h-screen overflow-hidden flex flex-col justify-between selection:bg-blue-500 selection:text-white">
-      <SpeedTunnel />
-      
-      {/* TOP NAV - Responsive: Logo Left, Sound/Menu Right */}
-      <header className="relative z-10 w-full px-4 py-6 sm:px-6 md:px-8 lg:px-12 xl:px-16 flex justify-between items-start animate-hero-fade-up">
-        {/* Logo Area */}
-        <Link to="/" className="group">
-          <h1 className="font-headline text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold tracking-tighter text-white group-hover:text-blue-400 transition-colors">
-            ZENOTIKA<span className="text-blue-400">™</span>
-          </h1>
-          <p className="font-ui text-[8px] sm:text-[9px] md:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] text-gray-400 mt-0.5 sm:mt-1">
-            Innovation Partner
-          </p>
-        </Link>
-
-        {/* Right Controls */}
-        <div className="flex items-center gap-4 sm:gap-6 md:gap-8 lg:gap-10">
-          {/* Sound Toggle */}
-          <button type="button" className="flex items-center gap-2 sm:gap-3 cursor-pointer group">
-            <div className="flex items-end gap-[2px] sm:gap-[3px] h-3 sm:h-4">
-              <div className="w-[1.5px] sm:w-[2px] bg-white bar-1"></div>
-              <div className="w-[1.5px] sm:w-[2px] bg-white bar-2"></div>
-              <div className="w-[1.5px] sm:w-[2px] bg-white bar-3"></div>
-              <div className="w-[1.5px] sm:w-[2px] bg-white bar-4"></div>
-            </div>
-            <span className="font-ui text-[8px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest text-white group-hover:text-blue-400 transition-colors hidden sm:inline">
-              Sound
-            </span>
-          </button>
-
-          {/* Menu - Link to Auth */}
-          <Link to="/auth" className="flex gap-1 sm:gap-1.5 cursor-pointer group">
-            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-white rounded-full group-hover:bg-blue-400 transition-colors"></div>
-            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-white rounded-full opacity-50 group-hover:bg-blue-400 group-hover:opacity-100 transition-all"></div>
-            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-white rounded-full opacity-50 group-hover:bg-blue-400 group-hover:opacity-100 transition-all"></div>
-          </Link>
-        </div>
-      </header>
-
-      {/* MAIN HERO CONTENT - Responsive Centered Left */}
-      <main className="relative z-10 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 w-full max-w-full flex-1 flex items-center">
-        <div className="relative w-full max-w-7xl">
-          {/* The "Smoke" effect behind text (CSS Gradient) */}
-          <div className="absolute -left-10 sm:-left-20 -top-10 sm:-top-20 w-[300px] sm:w-[400px] md:w-[500px] lg:w-[600px] h-[150px] sm:h-[200px] md:h-[250px] lg:h-[300px] bg-blue-500/10 blur-[60px] sm:blur-[80px] md:blur-[100px] rounded-full pointer-events-none animate-glow"></div>
-
-          {/* Main Headline - Oswald Font, Uppercase, White - FULLY RESPONSIVE */}
-          <h2 className="font-headline text-[2.5rem] leading-[0.9] sm:text-[3.5rem] md:text-[4.5rem] lg:text-[5.5rem] xl:text-[6.5rem] 2xl:text-[7rem] text-white uppercase mb-4 sm:mb-6 md:mb-8 drop-shadow-2xl">
-            <span className="inline-block animate-hero-fade-up opacity-0" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
-              HOW DO YOU
-            </span>
-            <br />
-            <span className="inline-block animate-hero-fade-up opacity-0 text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-gray-400" style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}>
-              QUANTIFY
-            </span>
-            <br />
-            <span className="inline-block animate-hero-fade-up opacity-0" style={{ animationDelay: '0.6s', animationFillMode: 'forwards' }}>
-              HUMAN POTENTIAL?
-            </span>
-          </h2>
-
-          {/* CTA Button */}
-          <div className="animate-hero-fade-up opacity-0" style={{ animationDelay: '0.8s', animationFillMode: 'forwards' }}>
-            <Link 
-              to="/auth" 
-              className="inline-flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-ui text-sm uppercase tracking-wider rounded-full transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25"
+    <div className="relative w-full min-h-screen flex flex-col justify-between contain-layout">
+      {/* MAIN HERO - Editorial Typography with Spring Physics */}
+      <main className="relative z-10 px-[8.33%] w-full max-w-full flex-1 flex items-center pt-24 md:pt-0 contain-content">
+        <div className="relative w-full isolate-layer">
+          {/* 
+           * TYPOGRAPHY SYSTEM:
+           * - Oswald for headlines (geometric, impactful)
+           * - Line-height: 0.9 (tight, editorial)
+           * - Letter-spacing: -0.02em (refined)
+           * - Spring physics for organic motion
+           */}
+          <h2 
+            className="font-headline uppercase tracking-[-0.02em]"
+            style={{ 
+              fontSize: 'clamp(2.5rem, 8vw, 7.5rem)',
+              lineHeight: 0.9,
+            }}
+          >
+            {/* Line 1 - White with spring animation */}
+            <motion.span 
+              className="block text-white gpu-layer" 
+              variants={heroLineVariants}
+              initial="hidden"
+              animate="visible"
+              custom={0.1}
             >
-              Begin Assessment
-              <Icon name="arrow-right" size={16} />
-            </Link>
-          </div>
+              HOW DO YOU
+            </motion.span>
+            
+            {/* Line 2 - Gradient accent with spring animation */}
+            <motion.span 
+              className="block gpu-layer mt-1 sm:mt-2" 
+              variants={heroLineVariants}
+              initial="hidden"
+              animate="visible"
+              custom={0.25}
+              style={{ 
+                background: 'linear-gradient(90deg, #ffffff 0%, #93c5fd 50%, #6b7280 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              QUANTIFY
+            </motion.span>
+            
+            {/* Line 3 - White with spring animation */}
+            <motion.span 
+              className="block text-white gpu-layer mt-1 sm:mt-2" 
+              variants={heroLineVariants}
+              initial="hidden"
+              animate="visible"
+              custom={0.4}
+            >
+              HUMAN POTENTIAL?
+            </motion.span>
+          </h2>
         </div>
       </main>
 
-      {/* FOOTER AREA - Responsive Layout */}
-      <footer className="relative z-10 px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10 lg:px-12 lg:pb-12 xl:px-16 w-full animate-hero-fade-up opacity-0" style={{ animationDelay: '1s', animationFillMode: 'forwards' }}>
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 md:gap-8">
-          {/* Bottom Left: Context / Logos */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-4 sm:gap-6">
-              <div className="text-left sm:text-right sm:border-r border-gray-600 sm:pr-4 md:pr-6">
-                <div className="font-headline font-bold text-base sm:text-lg md:text-xl leading-none text-white">
+      {/* FOOTER - Citrix Pattern with Scroll-Triggered Animation */}
+      <motion.footer 
+        className="relative z-10 px-[8.33%] pb-[calc(100vh/12)] pt-8 w-full contain-paint" 
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ ...springTransition, delay: 0.1 }}
+      >
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
+          {/* Left: Partnership Block */}
+          <motion.div 
+            className="flex flex-col gap-4"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ ...springTransition, delay: 0.2 }}
+          >
+            {/* Logo Lockup - Vertical divider pattern */}
+            <div className="flex items-center gap-0">
+              {/* Logo 1 */}
+              <div className="pr-4 border-r border-gray-600">
+                <span className="font-headline font-bold text-base sm:text-lg text-white tracking-tight">
                   ZENOTIKA
-                </div>
+                </span>
               </div>
-              <div className="text-left">
-                <div className="font-headline font-bold text-base sm:text-lg md:text-xl leading-none text-blue-400">
+              {/* Logo 2 */}
+              <div className="pl-4">
+                <span className="font-headline font-bold text-base sm:text-lg text-blue-400 tracking-tight">
                   UNIKOM
-                </div>
+                </span>
               </div>
             </div>
             
-            {/* Descriptive Text */}
-            <div className="max-w-full sm:max-w-md md:max-w-lg">
-              <p className="font-ui text-xs sm:text-sm text-gray-300 leading-relaxed">
-                Zenotika is helping global leaders reimagine how they assess talent in the tunnel, the boardroom, and everywhere in between. This is how the future works.
-              </p>
-            </div>
-          </div>
-
-          {/* Bottom Right: Scroll to Explore */}
-          <Link to="/auth" className="flex items-center gap-3 sm:gap-4 group cursor-pointer">
-            <span className="font-ui text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] text-white group-hover:text-blue-400 transition-colors whitespace-nowrap">
-              Start Now
+            {/* Partnership Label */}
+            <span className="font-ui text-[9px] uppercase tracking-[0.25em] text-gray-500 -mt-1">
+              Innovation Partner
             </span>
-            <div className="relative w-12 sm:w-16 h-[1px] bg-gray-700 overflow-hidden">
-              <div className="absolute inset-0 bg-white animate-scroll-line"></div>
-            </div>
-            <Icon name="arrow-right" size={14} className="text-white group-hover:text-blue-400 transition-colors sm:w-4 sm:h-4" />
-          </Link>
+            
+            {/* Description - max 2 lines for scannability */}
+            <p className="font-ui text-[13px] sm:text-sm text-gray-400 leading-[1.6] max-w-md">
+              Zenotika is helping global leaders reimagine how they assess talent 
+              in the tunnel, the boardroom, and everywhere in between. 
+              <span className="text-white">This is how the future works.</span>
+            </p>
+          </motion.div>
+
+          {/* Right: SCROLL TO EXPLORE - Premium Magnetic CTA */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ ...springTransition, delay: 0.3 }}
+          >
+            <MagneticCTA 
+              label="Scroll to Explore" 
+              showArrow
+              onClick={() => navigate('/auth')}
+              aria-label="Scroll to explore and begin assessment"
+            />
+          </motion.div>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   );
 }

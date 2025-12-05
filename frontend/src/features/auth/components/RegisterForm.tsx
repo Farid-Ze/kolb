@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { Button } from '../../../shared/ui/Button'
-import { Input } from '../../../shared/ui/Input'
+import { FloatingInput } from '../../../shared/ui/Input'
 import type { RegisterRequest } from '../model'
 
 interface RegisterFormProps {
@@ -61,81 +61,50 @@ export function RegisterForm({ onSubmit }: RegisterFormProps) {
           {validationError}
         </div>
       )}
-      <div className="space-y-2">
-        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="fullName">
-          Full Name
-        </label>
-        <Input 
-          id="fullName" 
-          onChange={(event) => handleChange('fullName', event.target.value)} 
-          required 
-          value={form.fullName}
-          placeholder="John Doe"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="email">
-          Email Address
-        </label>
-        <Input 
-          id="email" 
-          onChange={(event) => handleChange('email', event.target.value)} 
-          required 
-          type="email" 
-          value={form.email}
-          placeholder="you@example.com"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="password">
-          Password
-        </label>
-        <Input
-          id="password"
-          onChange={(event) => handleChange('password', event.target.value)}
-          required
-          type="password"
-          value={form.password}
-          placeholder="••••••••"
-        />
-      </div>
+      <FloatingInput 
+        label="Full Name"
+        id="fullName" 
+        onChange={(event) => handleChange('fullName', event.target.value)} 
+        required 
+        value={form.fullName}
+      />
+      <FloatingInput 
+        label="Email Address"
+        id="email" 
+        onChange={(event) => handleChange('email', event.target.value)} 
+        required 
+        type="email" 
+        value={form.email}
+      />
+      <FloatingInput
+        label="Password"
+        id="password"
+        onChange={(event) => handleChange('password', event.target.value)}
+        required
+        type="password"
+        value={form.password}
+      />
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="nim">
-            NIM
-          </label>
-          <Input 
-            id="nim" 
-            maxLength={8} 
-            onChange={(event) => handleChange('nim', event.target.value)} 
-            value={form.nim ?? ''} 
-            placeholder="12345678"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="kelas">
-            Class
-          </label>
-          <Input 
-            id="kelas" 
-            onChange={(event) => handleChange('kelas', event.target.value)} 
-            placeholder="IF-XX" 
-            value={form.kelas ?? ''} 
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="block font-ui text-xs uppercase tracking-wider text-[var(--zen-text-muted)]" htmlFor="tahunMasuk">
-            Year
-          </label>
-          <Input
-            id="tahunMasuk"
-            min={1990}
-            max={2100}
-            onChange={(event) => handleChange('tahunMasuk', Number(event.target.value))}
-            type="number"
-            value={form.tahunMasuk ?? ''}
-          />
-        </div>
+        <FloatingInput 
+          label="NIM"
+          id="nim" 
+          maxLength={8} 
+          onChange={(event) => handleChange('nim', event.target.value)} 
+          value={form.nim ?? ''} 
+        />
+        <FloatingInput 
+          label="Class (IF-XX)"
+          id="kelas" 
+          onChange={(event) => handleChange('kelas', event.target.value)} 
+          value={form.kelas ?? ''} 
+        />
+        <FloatingInput
+          label="Year"
+          id="tahunMasuk"
+          type="number"
+          onChange={(event) => handleChange('tahunMasuk', Number(event.target.value))}
+          value={form.tahunMasuk ?? ''}
+        />
       </div>
       <Button className="w-full mt-6" isLoading={isSubmitting} type="submit">
         Create Account

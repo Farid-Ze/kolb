@@ -38,5 +38,6 @@ def complete_user_challenge(
         db.refresh(challenge)
         return challenge
     except (ChallengeNotFoundError, ChallengeAlreadyCompletedError) as exc:
-        db.rollback()
+        # [Architecture Fix] Service layer handles transaction rollback internally
+        # No need to rollback here - the service raises before any DB mutations on these errors
         raise HTTPException(status_code=exc.status_code, detail=str(exc))

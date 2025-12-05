@@ -1,11 +1,117 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo, useRef } from 'react'
 import { Link, useBlocker } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { Button } from '../../../shared/ui/Button'
 import { useAuth } from '../../auth'
 import { useTunnelSession } from '../hooks/useTunnelSession'
 import { AssessmentContextCard } from './AssessmentContextCard'
 import { AssessmentItemCard } from './AssessmentItemCard'
+
+/**
+ * AWWWARDS-LEVEL TUNNEL EXPERIENCE
+ * 
+ * Premium animations:
+ * - Staggered item entrance
+ * - Progress celebration at milestones
+ * - Smooth phase transitions
+ * - Completion celebration
+ */
+
+// Premium animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.1,
+    },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
+  },
+}
+
+const celebrationVariants = {
+  initial: { scale: 0.8, opacity: 0 },
+  animate: {
+    scale: 1,
+    opacity: 1,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 300,
+      damping: 20,
+    },
+  },
+  exit: { scale: 0.8, opacity: 0 },
+}
+
+// Progress celebration component
+const ProgressCelebration = memo(function ProgressCelebration({ 
+  percent 
+}: { 
+  percent: number 
+}) {
+  const [showCelebration, setShowCelebration] = useState(false)
+  const milestoneRef = useRef(0)
+
+  useEffect(() => {
+    const milestones = [25, 50, 75, 100]
+    const hitMilestone = milestones.find(m => percent >= m && m > milestoneRef.current)
+    
+    if (hitMilestone) {
+      milestoneRef.current = hitMilestone
+      setShowCelebration(true)
+      const timer = setTimeout(() => setShowCelebration(false), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [percent])
+
+  const milestone = milestoneRef.current
+
+  return (
+    <AnimatePresence>
+      {showCelebration && (
+        <motion.div
+          variants={celebrationVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+        >
+          <div className="text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }}
+              className="text-6xl mb-4"
+            >
+              {milestone === 100 ? '🎉' : milestone >= 75 ? '🔥' : milestone >= 50 ? '⚡' : '✨'}
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="font-headline text-2xl font-bold text-white"
+            >
+              {milestone === 100 ? 'Complete!' : `${milestone}% Done!`}
+            </motion.p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+})
 
 type FinalizeSnapshot = {
   ACCE?: number
@@ -107,181 +213,310 @@ export function FutureTunnelExperience() {
 
   // Auth is guaranteed by ProtectedRoute in App.tsx
 
+  // Combined progress for celebration
+  const overallProgress = Math.round((itemsProgressPercent + contextsProgressPercent) / 2)
+
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl border border-slate-800/40 bg-slate-900/60 p-6 text-left">
-        <p className="text-sm uppercase tracking-wide text-slate-400">Session</p>
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-slate-100">
-          <span>Phase: {phase}</span>
-          {sessionId && <span>Session ID: {sessionId}</span>}
-          {isTimeLocked && <span className="text-amber-300">Token TTL requires re-auth soon.</span>}
+      {/* Progress Celebration Overlay */}
+      <ProgressCelebration percent={overallProgress} />
+      
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 text-left"
+      >
+        <p className="font-ui text-xs uppercase tracking-[0.2em] text-gray-400">Session</p>
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-gray-100">
+          <span className="font-ui text-sm">Phase: <span className="text-white font-semibold">{phase}</span></span>
+          {sessionId && <span className="font-mono text-xs text-gray-500">ID: {sessionId.slice(0, 8)}...</span>}
+          {isTimeLocked && <span className="text-amber-400 text-sm">⚠️ Session expiring soon</span>}
           {sessionId && (
-            <span className="text-sm text-slate-300">
-              {isAutosaving ? 'Autosaving…' : lastAutosaveAt ? `Last autosave ${new Date(lastAutosaveAt).toLocaleTimeString()}` : 'Draft not yet saved'}
+            <span className="text-xs text-gray-500">
+              {isAutosaving ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  Saving...
+                </span>
+              ) : lastAutosaveAt ? (
+                `Saved ${new Date(lastAutosaveAt).toLocaleTimeString()}`
+              ) : (
+                'Not saved yet'
+              )}
             </span>
           )}
         </div>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-5 flex flex-wrap gap-3">
           <Button
             disabled={isLoading || Boolean(sessionId) || isTimeLocked}
             isLoading={isLoading}
             onClick={handleStart}
             type="button"
           >
-            {sessionId ? 'Session Active' : 'Start Session'}
+            {sessionId ? 'Session Active' : 'Begin Assessment'}
           </Button>
           {sessionId && (
             <Link
-              className="inline-flex items-center justify-center rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/[0.06] hover:border-white/20 transition-all duration-300"
               to="/future/dashboard"
             >
               View Dashboard
             </Link>
           )}
         </div>
-        {statusMessage && <p className="mt-3 text-sm text-slate-200">{statusMessage}</p>}
-        {error && <p className="mt-3 text-sm text-rose-300">{error.message}</p>}
-        {restoredFromDraft && (
-          <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-emerald-400/60 bg-emerald-50/10 p-4 text-sm text-emerald-100">
-            <div>
-              <p className="font-semibold text-emerald-200">Progress restored</p>
-              <p className="text-emerald-100/90">Draft ranks were recovered from your last session so you can resume without losing work.</p>
-            </div>
-            <button
-              className="rounded-md border border-emerald-300/70 px-3 py-1 text-xs uppercase tracking-wide text-emerald-100 hover:bg-emerald-300/10"
-              onClick={acknowledgeRestoredDraft}
-              type="button"
-            >
-              Dismiss
-            </button>
-          </div>
+        {statusMessage && (
+          <motion.p 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 text-sm text-gray-300 bg-white/[0.03] rounded-lg px-4 py-3"
+          >
+            {statusMessage}
+          </motion.p>
         )}
-      </section>
-
-      {sessionId ? (
-        <>
-          <section className="space-y-4">
-            <header className="flex flex-col gap-1">
-              <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Forced-choice items</p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)] w-full">
-                <span>
-                  {rankedItemsCount}/{totalItems} items ranked
-                </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--zen-bg-elevated)]">
-                  <div
-                    className="h-full bg-[var(--zen-primary)] transition-all duration-500"
-                    style={{ width: `${itemsProgressPercent}%` }}
-                  />
-                </div>
-                <span>{itemsProgressPercent}%</span>
-              </div>
-              <p className="text-[var(--zen-text-muted)]">Rank each option 1–4 with no duplicates per item.</p>
-            </header>
-            {isFetchingItems && <p className="text-[var(--zen-text-muted)]">Loading assessment items…</p>}
-            <div className="grid gap-4">
-              {items.map((item) => (
-                <AssessmentItemCard
-                  key={item.id}
-                  item={item}
-                  draftRanks={drafts[item.id]?.ranks}
-                  onRankChange={setOptionRank}
-                  onFocus={setActiveItem}
-                  onBlur={() => setActiveItem(null)}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <header className="flex flex-col gap-1">
-              <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Learning Flexibility contexts</p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--zen-text-muted)] w-full">
-                <span>
-                  {contextsCompleteCount}/{totalContexts} contexts ranked
-                </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--zen-bg-elevated)]">
-                  <div
-                    className="h-full bg-[var(--zen-primary)] transition-all duration-500"
-                    style={{ width: `${contextsProgressPercent}%` }}
-                  />
-                </div>
-                <span>{contextsProgressPercent}%</span>
-              </div>
-              <p className="text-[var(--zen-text-muted)]">Assign a unique rank (1–4) for each mode per context.</p>
-            </header>
-            <div className="grid gap-4 md:grid-cols-2">
-              {contextNames.map((contextName) => (
-                <AssessmentContextCard
-                  key={contextName}
-                  contextName={contextName}
-                  draft={contextDrafts[contextName]}
-                  onRankChange={setContextRank}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4 rounded-2xl border border-[var(--zen-border)] bg-[var(--zen-bg-elevated)] p-6">
-            <header className="flex flex-col gap-1 text-[var(--zen-text)]">
-              <p className="text-sm uppercase tracking-wide text-[var(--zen-text-muted)]">Finalize</p>
-              <p className="text-[var(--zen-text-muted)]">Both forced-choice items and contexts must be complete before submission.</p>
-            </header>
-            <div className="flex flex-wrap gap-6 text-sm text-[var(--zen-text-muted)]">
-              <span>Items complete: {rankedItemsCount}/{totalItems}</span>
-              <span>Contexts complete: {contextsCompleteCount}/{totalContexts}</span>
-            </div>
-            <Button
-              className="w-full"
-              disabled={!canSubmit}
-              isLoading={isSubmitting}
-              onClick={handleFinalize}
-              type="button"
+        {error && (
+          <motion.p 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3"
+          >
+            {error.message}
+          </motion.p>
+        )}
+        <AnimatePresence>
+          {restoredFromDraft && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100 overflow-hidden"
             >
-              Finalize session
-            </Button>
-            {submissionError && <p className="text-sm text-rose-400">{submissionError.message}</p>}
-          </section>
-
-          {finalizeSnapshot && (
-            <section className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-6 text-emerald-900">
-              <header>
-                <p className="text-sm uppercase tracking-wide text-emerald-700">Scoring snapshot</p>
-                <h3 className="text-2xl font-semibold">Results stored</h3>
-              </header>
-              <dl className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-emerald-700">ACCE</dt>
-                  <dd className="text-lg font-semibold">{finalizeSnapshot.ACCE ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-emerald-700">AERO</dt>
-                  <dd className="text-lg font-semibold">{finalizeSnapshot.AERO ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-emerald-700">LFI score</dt>
-                  <dd className="text-lg font-semibold">{finalizeSnapshot.LFI ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-emerald-700">Primary style</dt>
-                  <dd className="text-lg font-semibold">{finalizeSnapshot.style_primary_id ?? '—'}</dd>
-                </div>
-              </dl>
-              {validationIssues.length > 0 && (
-                <p className="text-sm text-emerald-800">
-                  Validation notes: {validationIssues.map((issue) => issue.code || 'issue').join(', ')}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-3 text-sm">
-                <Link className="text-emerald-900 underline" to="/future/dashboard">
-                  Review dashboard insights
-                </Link>
+              <div>
+                <p className="font-semibold text-emerald-300">✓ Progress Restored</p>
+                <p className="text-emerald-200/80 mt-1">Your previous work was recovered. Continue where you left off.</p>
               </div>
-            </section>
+              <button
+                className="rounded-full border border-emerald-400/40 px-4 py-1.5 text-xs uppercase tracking-wide text-emerald-200 hover:bg-emerald-400/10 transition-colors"
+                onClick={acknowledgeRestoredDraft}
+                type="button"
+              >
+                Dismiss
+              </button>
+            </motion.div>
           )}
-        </>
-      ) : (
-        <p className="text-center text-[var(--zen-text-muted)]">Start a session to unlock the forced-choice tunnel.</p>
-      )}
+        </AnimatePresence>
+      </motion.section>
+
+      <AnimatePresence mode="wait">
+        {sessionId ? (
+          <motion.div
+            key="session-active"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-8"
+          >
+            {/* Items Section */}
+            <section className="space-y-4">
+              <header className="flex flex-col gap-2">
+                <p className="font-ui text-xs uppercase tracking-[0.2em] text-gray-400">Forced-choice items</p>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 w-full">
+                  <span className="font-mono">
+                    {rankedItemsCount}/{totalItems}
+                  </span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${itemsProgressPercent}%` }}
+                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </div>
+                  <span className="font-mono font-semibold text-white">{itemsProgressPercent}%</span>
+                </div>
+                <p className="text-sm text-gray-500">Rank each option 1–4 with no duplicates per item.</p>
+              </header>
+              {isFetchingItems && (
+                <div className="flex items-center gap-3 text-gray-400 py-8">
+                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <span>Loading assessment items...</span>
+                </div>
+              )}
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="grid gap-4"
+              >
+                {items.map((item, index) => (
+                  <motion.div
+                    key={item.id}
+                    variants={itemVariants}
+                    custom={index}
+                  >
+                    <AssessmentItemCard
+                      item={item}
+                      draftRanks={drafts[item.id]?.ranks}
+                      onRankChange={setOptionRank}
+                      onFocus={setActiveItem}
+                      onBlur={() => setActiveItem(null)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </section>
+
+            {/* Contexts Section */}
+            <section className="space-y-4">
+              <header className="flex flex-col gap-2">
+                <p className="font-ui text-xs uppercase tracking-[0.2em] text-gray-400">Learning Flexibility Contexts</p>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 w-full">
+                  <span className="font-mono">
+                    {contextsCompleteCount}/{totalContexts}
+                  </span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${contextsProgressPercent}%` }}
+                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </div>
+                  <span className="font-mono font-semibold text-white">{contextsProgressPercent}%</span>
+                </div>
+                <p className="text-sm text-gray-500">Assign a unique rank (1–4) for each mode per context.</p>
+              </header>
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="grid gap-4 md:grid-cols-2"
+              >
+                {contextNames.map((contextName, index) => (
+                  <motion.div
+                    key={contextName}
+                    variants={itemVariants}
+                    custom={index}
+                  >
+                    <AssessmentContextCard
+                      contextName={contextName}
+                      draft={contextDrafts[contextName]}
+                      onRankChange={setContextRank}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </section>
+
+            {/* Finalize Section */}
+            <motion.section 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6"
+            >
+              <header className="flex flex-col gap-1">
+                <p className="font-ui text-xs uppercase tracking-[0.2em] text-gray-400">Finalize</p>
+                <p className="text-sm text-gray-500">Complete all items and contexts to submit your assessment.</p>
+              </header>
+              <div className="flex flex-wrap gap-6 text-sm text-gray-400">
+                <span className="flex items-center gap-2">
+                  {rankedItemsCount === totalItems ? (
+                    <span className="text-emerald-400">✓</span>
+                  ) : (
+                    <span className="text-gray-600">○</span>
+                  )}
+                  Items: {rankedItemsCount}/{totalItems}
+                </span>
+                <span className="flex items-center gap-2">
+                  {contextsCompleteCount === totalContexts ? (
+                    <span className="text-emerald-400">✓</span>
+                  ) : (
+                    <span className="text-gray-600">○</span>
+                  )}
+                  Contexts: {contextsCompleteCount}/{totalContexts}
+                </span>
+              </div>
+              <Button
+                className="w-full"
+                disabled={!canSubmit}
+                isLoading={isSubmitting}
+                onClick={handleFinalize}
+                type="button"
+              >
+                {canSubmit ? 'Complete & See Results' : 'Complete All Items First'}
+              </Button>
+              {submissionError && (
+                <motion.p 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3"
+                >
+                  {submissionError.message}
+                </motion.p>
+              )}
+            </motion.section>
+
+            {/* Results Section */}
+            <AnimatePresence>
+              {finalizeSnapshot && (
+                <motion.section 
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className="space-y-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-sm p-6"
+                >
+                  <header>
+                    <p className="font-ui text-xs uppercase tracking-[0.2em] text-emerald-400">🎉 Assessment Complete</p>
+                    <h3 className="font-headline text-2xl font-bold text-white mt-2">Your Results</h3>
+                  </header>
+                  <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'ACCE', value: finalizeSnapshot.ACCE },
+                      { label: 'AERO', value: finalizeSnapshot.AERO },
+                      { label: 'LFI Score', value: finalizeSnapshot.LFI },
+                      { label: 'Primary Style', value: finalizeSnapshot.style_primary_id },
+                    ].map((stat, i) => (
+                      <motion.div
+                        key={stat.label}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 + i * 0.1 }}
+                        className="rounded-xl bg-white/[0.05] p-4"
+                      >
+                        <dt className="font-ui text-xs uppercase tracking-[0.15em] text-emerald-400">{stat.label}</dt>
+                        <dd className="font-display text-2xl font-bold text-white mt-1">{stat.value ?? '—'}</dd>
+                      </motion.div>
+                    ))}
+                  </dl>
+                  {validationIssues.length > 0 && (
+                    <p className="text-sm text-emerald-300/70">
+                      Notes: {validationIssues.map((issue) => issue.code || 'issue').join(', ')}
+                    </p>
+                  )}
+                  <Link 
+                    className="inline-flex items-center gap-2 text-emerald-300 hover:text-emerald-200 transition-colors font-semibold"
+                    to="/future/dashboard"
+                  >
+                    View Full Dashboard Insights →
+                  </Link>
+                </motion.section>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="no-session"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-center py-16"
+          >
+            <p className="text-gray-500 text-lg">Begin an assessment to unlock your learning profile</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
