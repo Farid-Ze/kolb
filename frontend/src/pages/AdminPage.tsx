@@ -78,7 +78,7 @@ export function AdminPage() {
               {activeTab === tab.key && (
                 <motion.div
                   layoutId="admin-tab-indicator"
-                  className="absolute inset-0 rounded-full bg-blue-600 shadow-lg shadow-blue-500/30"
+                  className="absolute inset-0 rounded-full bg-indigo-600 shadow-lg shadow-indigo-500/30"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
@@ -100,7 +100,7 @@ export function AdminPage() {
       >
         {/* Ambient glow */}
         <div 
-          className="absolute -inset-4 bg-blue-500/5 blur-[60px] rounded-3xl pointer-events-none"
+          className="absolute -inset-4 bg-indigo-500/5 blur-[60px] rounded-3xl pointer-events-none"
           aria-hidden="true"
         />
         

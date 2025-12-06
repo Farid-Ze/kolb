@@ -41,7 +41,7 @@ export function ChallengesPanel({ challenges, isLoading, blindspots = [] }: Chal
                   <p className="text-xs text-[var(--zen-text-muted)]">Status: {challenge.status}</p>
                 </div>
                 {challenge.completedAt && (
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+                  <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-400">
                     Completed
                   </span>
                 )}

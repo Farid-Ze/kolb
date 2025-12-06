@@ -80,7 +80,7 @@ export const ProfilePage = memo(function ProfilePage() {
                 {user.fullName.charAt(0).toUpperCase()}
               </div>
               {/* Status indicator */}
-              <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-[var(--zen-bg)] bg-emerald-500 shadow-lg shadow-emerald-500/50" />
+              <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-[var(--zen-bg)] bg-cyan-500 shadow-lg shadow-cyan-500/50" />
             </div>
             <div className="flex-1">
               <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--zen-text)]">

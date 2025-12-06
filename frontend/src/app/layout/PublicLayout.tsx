@@ -79,11 +79,11 @@ export function PublicLayout() {
   const location = useLocation()
   
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#080810] text-white selection:bg-blue-500/80 selection:text-white isolate-layer">
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#080810] text-white selection:bg-indigo-500/80 selection:text-white isolate-layer">
       {/* Skip Link - WCAG Accessibility */}
       <a 
         href="#main-content" 
-        className="skip-link sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:bg-blue-500 focus:text-white focus:rounded focus:font-ui focus:text-sm focus:font-semibold"
+        className="skip-link sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:bg-indigo-500 focus:text-white focus:rounded focus:font-ui focus:text-sm focus:font-semibold"
       >
         Skip to main content
       </a>
@@ -102,7 +102,7 @@ export function PublicLayout() {
         {/* Logo - Primary Navigation with Spring Hover */}
         <Link 
           to="/" 
-          className="group inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080810] rounded-sm"
+          className="group inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080810] rounded-sm"
           aria-label="Zenotika - Go to homepage"
         >
           <motion.div
@@ -110,8 +110,8 @@ export function PublicLayout() {
             whileTap={{ scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           >
-            <h1 className="font-headline text-lg sm:text-xl md:text-2xl font-bold tracking-[-0.02em] text-white group-hover:text-blue-400 gpu-transition">
-              ZENOTIKA<span className="text-blue-400 group-hover:text-white gpu-transition">™</span>
+            <h1 className="font-headline text-lg sm:text-xl md:text-2xl font-bold tracking-[-0.02em] text-white group-hover:text-indigo-400 gpu-transition">
+              ZENOTIKA<span className="text-indigo-400 group-hover:text-white gpu-transition">™</span>
             </h1>
             <p className="font-ui text-[8px] sm:text-[9px] uppercase tracking-[0.2em] text-gray-500 mt-1 group-hover:text-gray-400 gpu-transition">
               Innovation Partner
@@ -124,17 +124,17 @@ export function PublicLayout() {
           {/* Sound Toggle */}
           <button 
             type="button" 
-            className="inline-flex items-center gap-3 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm p-1 -m-1"
+            className="inline-flex items-center gap-3 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-sm p-1 -m-1"
             aria-label="Toggle sound"
           >
             {/* Sound Bars - CSS-only animation */}
             <div className="inline-flex items-end gap-[3px] h-4 mr-1 hidden sm:inline-flex" aria-hidden="true">
-              <div className="w-[2px] bg-white group-hover:bg-blue-400 bar-1 gpu-transition rounded-full"></div>
-              <div className="w-[2px] bg-white group-hover:bg-blue-400 bar-2 gpu-transition rounded-full"></div>
-              <div className="w-[2px] bg-white group-hover:bg-blue-400 bar-3 gpu-transition rounded-full"></div>
-              <div className="w-[2px] bg-white group-hover:bg-blue-400 bar-4 gpu-transition rounded-full"></div>
+              <div className="w-[2px] bg-white group-hover:bg-indigo-400 bar-1 gpu-transition rounded-full"></div>
+              <div className="w-[2px] bg-white group-hover:bg-indigo-400 bar-2 gpu-transition rounded-full"></div>
+              <div className="w-[2px] bg-white group-hover:bg-indigo-400 bar-3 gpu-transition rounded-full"></div>
+              <div className="w-[2px] bg-white group-hover:bg-indigo-400 bar-4 gpu-transition rounded-full"></div>
             </div>
-            <span className="font-ui text-[10px] font-semibold uppercase tracking-[0.15em] text-white group-hover:text-blue-400 gpu-transition">
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-[0.15em] text-white group-hover:text-indigo-400 gpu-transition">
               Sound
             </span>
           </button>
@@ -142,14 +142,14 @@ export function PublicLayout() {
           {/* Menu Dots - Link to Auth (44×44 touch target) */}
           <Link 
             to="/auth" 
-            className="relative inline-flex items-center justify-center w-11 h-11 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm -m-2"
+            className="relative inline-flex items-center justify-center w-11 h-11 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-sm -m-2"
             aria-label="Open menu"
           >
             {/* Dots Container */}
             <div className="inline-flex gap-1" aria-hidden="true">
-              <div className="w-2 h-2 bg-white rounded-full group-hover:bg-blue-400 group-hover:scale-110 gpu-transition transform-gpu"></div>
-              <div className="w-2 h-2 bg-white/50 rounded-full group-hover:bg-blue-400 group-hover:opacity-100 group-hover:scale-110 gpu-transition transform-gpu transition-all delay-75"></div>
-              <div className="w-2 h-2 bg-white/50 rounded-full group-hover:bg-blue-400 group-hover:opacity-100 group-hover:scale-110 gpu-transition transform-gpu transition-all delay-100"></div>
+              <div className="w-2 h-2 bg-white rounded-full group-hover:bg-indigo-400 group-hover:scale-110 gpu-transition transform-gpu"></div>
+              <div className="w-2 h-2 bg-white/50 rounded-full group-hover:bg-indigo-400 group-hover:opacity-100 group-hover:scale-110 gpu-transition transform-gpu transition-all delay-75"></div>
+              <div className="w-2 h-2 bg-white/50 rounded-full group-hover:bg-indigo-400 group-hover:opacity-100 group-hover:scale-110 gpu-transition transform-gpu transition-all delay-100"></div>
             </div>
             
             {/* Hover Label */}

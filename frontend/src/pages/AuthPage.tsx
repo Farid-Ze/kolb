@@ -66,7 +66,7 @@ export function AuthPage() {
       >
         {/* Ambient glow */}
         <div 
-          className="absolute -inset-8 bg-blue-500/8 blur-[60px] rounded-full pointer-events-none" 
+          className="absolute -inset-8 bg-indigo-500/8 blur-[60px] rounded-full pointer-events-none" 
           aria-hidden="true"
         />
         
@@ -106,7 +106,7 @@ export function AuthPage() {
                 {activeTab === tab.key && (
                   <motion.div
                     layoutId="auth-tab-indicator"
-                    className="absolute inset-0 rounded-full bg-blue-600 shadow-lg shadow-blue-500/30"
+                    className="absolute inset-0 rounded-full bg-indigo-600 shadow-lg shadow-indigo-500/30"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
@@ -128,7 +128,7 @@ export function AuthPage() {
           {success && (
             <div 
               role="status"
-              className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400 animate-hero-fade-up"
+              className="mb-6 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-400 animate-hero-fade-up"
               style={{ animationDuration: '0.3s' }}
             >
               {success}
@@ -171,7 +171,7 @@ export function AuthPage() {
           {/* Loading State */}
           {isLoading && (
             <div className="mt-6 flex items-center justify-center gap-2" aria-live="polite">
-              <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
               <span className="font-ui text-xs text-gray-500 uppercase tracking-wider">
                 Authenticating...
               </span>

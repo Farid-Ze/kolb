@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ========================================
    ZENOTIKA DESIGN SYSTEM
@@ -12,30 +12,45 @@
   line-height: 1.5;
   font-weight: 400;
   
-  /* Core colors - Dark futuristic palette */
-  --zen-bg: #000000;
+  /* Core colors - Zenotika Design Paradigm */
+  --zen-bg: #0A0A0F; /* Deep Space */
   --zen-bg-elevated: #0a0a0f;
   --zen-bg-card: #111118;
   --zen-bg-input: #0d0d12;
+  --zen-bg-night: #1a1a2e; /* Night Indigo */
   
   /* Text colors - WCAG AA compliant (4.5:1+ contrast ratio) */
-  --zen-text: #f8fafc;
-  --zen-text-muted: #94a3b8;  /* Changed from #64748b for better contrast */
-  --zen-text-subtle: #71717a; /* Changed from #475569 - zinc-500, 5.0:1 ratio */
+  --zen-text: #FAF7F2; /* Frost White */
+  --zen-text-muted: #94a3b8;
+  --zen-text-subtle: #71717a;
   
-  /* Accent - Blue from LandingPage */
-  --zen-accent: #3b82f6;
-  --zen-accent-hover: #60a5fa;
-  --zen-accent-muted: rgba(59, 130, 246, 0.15);
+  /* Primary Palette - MANDATORY per Design Paradigm */
+  --zen-primary: #6366F1; /* Indigo Primary */
+  --zen-primary-hover: #818CF8;
+  --zen-primary-muted: rgba(99, 102, 241, 0.15);
+  --zen-secondary: #22D3EE; /* Cyan Secondary */
+  --zen-secondary-hover: #67E8F9;
+  --zen-tertiary: #A855F7; /* Purple Tertiary */
+  --zen-tertiary-hover: #C084FC;
+  
+  /* Accent - Legacy support, maps to primary */
+  --zen-accent: #6366F1;
+  --zen-accent-hover: #818CF8;
+  --zen-accent-muted: rgba(99, 102, 241, 0.15);
+  
+  /* Sphere-specific - Warm Gold for achievements */
+  --zen-gold: #D4A853;
+  --zen-gold-hover: #E5C07B;
   
   /* Borders */
   --zen-border: rgba(255, 255, 255, 0.08);
   --zen-border-hover: rgba(255, 255, 255, 0.15);
   
-  /* Status colors */
-  --zen-success: #22c55e;
-  --zen-error: #ef4444;
-  --zen-warning: #f59e0b;
+  /* Status colors - Semantic */
+  --zen-success: #22C55E;
+  --zen-error: #EF4444;
+  --zen-warning: #F59E0B;
+  --zen-info: #3B82F6;
   
   font-synthesis: none;
   text-rendering: optimizeLegibility;

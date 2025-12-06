@@ -6,17 +6,30 @@ export default {
     extend: {
       colors: {
         zenotika: {
-          primary: '#10b981',
-          primaryDark: '#059669',
-          secondary: '#0f172a',
+          /* Primary Palette - MANDATORY per Design Paradigm */
+          primary: '#6366F1', /* Indigo Primary */
+          primaryDark: '#4F46E5',
+          primaryLight: '#818CF8',
+          secondary: '#22D3EE', /* Cyan Secondary */
+          secondaryDark: '#06B6D4',
+          tertiary: '#A855F7', /* Purple Tertiary */
+          tertiaryDark: '#9333EA',
+          /* Contextual Colors */
+          deepSpace: '#0A0A0F',
+          nightIndigo: '#1a1a2e',
+          gold: '#D4A853', /* Warm Gold for Sphere */
+          frostWhite: '#FAF7F2',
+          /* Legacy support */
           secondaryAccent: '#1e293b',
-          accent: '#f59e0b',
+          accent: '#D4A853',
         },
       },
       fontFamily: {
         brand: ['Inter', 'system-ui', 'sans-serif'],
-        headline: ['Oswald', 'system-ui', 'sans-serif'],
+        headline: ['Cormorant Garamond', 'Georgia', 'serif'], /* Elegant serif per Design Paradigm */
+        display: ['Cormorant Garamond', 'Georgia', 'serif'], /* Alias for immersive contexts */
         ui: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Menlo', 'monospace'], /* Data values, timestamps */
       },
       boxShadow: {
         card: '0 20px 45px -20px rgba(15, 23, 42, 0.65)',

@@ -133,7 +133,7 @@ const ConnectionLine = memo(function ConnectionLine({
       y1={start.y}
       x2={end.x}
       y2={end.y}
-      stroke="rgba(139, 92, 246, 0.5)"
+      stroke="rgba(168, 85, 247, 0.5)"
       strokeWidth="0.3"
       style={{ opacity }}
     />
@@ -311,7 +311,7 @@ export const SphereScene = memo(function SphereScene({
         className="absolute inset-0"
         style={{
           background: `
-            radial-gradient(ellipse 50% 40% at 40% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 60%)
+            radial-gradient(ellipse 50% 40% at 40% 50%, rgba(168, 85, 247, 0.06) 0%, transparent 60%)
           `,
         }}
       />

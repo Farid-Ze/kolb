@@ -180,7 +180,7 @@ const HeaderContent = memo(function HeaderContent({
       {/* Headline */}
       <h2 className="font-headline text-4xl sm:text-5xl lg:text-6xl text-white leading-tight">
         Choose your{' '}
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-emerald-400">
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400">
           path
         </span>
       </h2>
@@ -242,9 +242,9 @@ export const BeginScene = memo(function BeginScene({
         className="absolute inset-0"
         style={{
           background: `
-            radial-gradient(ellipse 80% 80% at 50% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 60% at 30% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
-            radial-gradient(ellipse 60% 60% at 70% 30%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)
+            radial-gradient(ellipse 80% 80% at 50% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 60% at 30% 70%, rgba(168, 85, 247, 0.05) 0%, transparent 50%),
+            radial-gradient(ellipse 60% 60% at 70% 30%, rgba(34, 211, 238, 0.05) 0%, transparent 50%)
           `,
         }}
       />

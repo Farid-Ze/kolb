@@ -17,7 +17,7 @@ export function NotFoundPage() {
     <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-[8.33%] overflow-hidden">
       {/* Ambient glow */}
       <div 
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none"
         aria-hidden="true"
       />
       
@@ -32,9 +32,9 @@ export function NotFoundPage() {
             className="font-headline font-bold text-white uppercase tracking-[-0.04em] leading-none select-none"
             style={{ fontSize: 'clamp(8rem, 25vw, 16rem)' }}
           >
-            <span className="inline-block hover:text-blue-400 gpu-transition cursor-default">4</span>
-            <span className="inline-block text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-400 to-gray-600 hover:from-blue-400 hover:via-blue-500 hover:to-blue-600 gpu-transition cursor-default">0</span>
-            <span className="inline-block hover:text-blue-400 gpu-transition cursor-default">4</span>
+            <span className="inline-block hover:text-indigo-400 gpu-transition cursor-default">4</span>
+            <span className="inline-block text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-400 to-gray-600 hover:from-indigo-400 hover:via-indigo-500 hover:to-indigo-600 gpu-transition cursor-default">0</span>
+            <span className="inline-block hover:text-indigo-400 gpu-transition cursor-default">4</span>
           </h1>
         </div>
         
@@ -74,7 +74,7 @@ export function NotFoundPage() {
               <Icon 
                 name="arrow-right" 
                 size={16} 
-                className="text-white group-hover:text-blue-400 gpu-transition group-hover:-translate-x-1 transition-transform duration-300" 
+                className="text-white group-hover:text-indigo-400 gpu-transition group-hover:-translate-x-1 transition-transform duration-300" 
               />
             </div>
             
@@ -88,7 +88,7 @@ export function NotFoundPage() {
               />
             </div>
             
-            <span className="font-ui text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.2em] text-white group-hover:text-blue-400 gpu-transition">
+            <span className="font-ui text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.2em] text-white group-hover:text-indigo-400 gpu-transition">
               Return Home
             </span>
           </Link>

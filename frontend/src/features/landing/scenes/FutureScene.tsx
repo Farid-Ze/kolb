@@ -87,8 +87,8 @@ const KiteVisualization = memo(function KiteVisualization({
         {/* Data points (example learning profile) */}
         <m.path
           d="M 200 80 L 300 200 L 200 280 L 120 200 Z"
-          fill="rgba(59, 130, 246, 0.1)"
-          stroke="rgba(59, 130, 246, 0.5)"
+          fill="rgba(99, 102, 241, 0.1)"
+          stroke="rgba(99, 102, 241, 0.5)"
           strokeWidth="2"
           style={{
             pathLength: drawProgress,
@@ -126,7 +126,7 @@ const AxisLabels = memo(function AxisLabels({
         className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-8 text-center"
         style={{ opacity: labelOpacity }}
       >
-        <span className="text-[9px] uppercase tracking-[0.4em] text-blue-400 font-ui">
+        <span className="text-[9px] uppercase tracking-[0.4em] text-indigo-400 font-ui">
           Experiencing
         </span>
       </m.div>
@@ -136,7 +136,7 @@ const AxisLabels = memo(function AxisLabels({
         className="absolute right-0 top-1/2 translate-x-4 -translate-y-1/2"
         style={{ opacity: labelOpacity }}
       >
-        <span className="text-[9px] uppercase tracking-[0.4em] text-purple-400 font-ui writing-mode-vertical">
+        <span className="text-[9px] uppercase tracking-[0.4em] text-cyan-400 font-ui writing-mode-vertical">
           Reflecting
         </span>
       </m.div>
@@ -146,7 +146,7 @@ const AxisLabels = memo(function AxisLabels({
         className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-8 text-center"
         style={{ opacity: labelOpacity }}
       >
-        <span className="text-[9px] uppercase tracking-[0.4em] text-emerald-400 font-ui">
+        <span className="text-[9px] uppercase tracking-[0.4em] text-amber-500 font-ui">
           Thinking
         </span>
       </m.div>
@@ -182,7 +182,7 @@ const Content = memo(function Content({
       style={{ opacity, y }}
     >
       {/* Eyebrow */}
-      <span className="block text-[10px] uppercase tracking-[0.5em] text-blue-400/60 font-ui mb-4">
+      <span className="block text-[10px] uppercase tracking-[0.5em] text-indigo-400/60 font-ui mb-4">
         Future
       </span>
       
@@ -190,7 +190,7 @@ const Content = memo(function Content({
       <h2 className="font-headline text-3xl sm:text-4xl lg:text-5xl text-white mb-4 leading-tight">
         Map your
         <br />
-        <span className="text-blue-400">learning DNA</span>
+        <span className="text-indigo-400">learning DNA</span>
       </h2>
       
       {/* Fact */}
@@ -201,7 +201,7 @@ const Content = memo(function Content({
       {/* CTA */}
       <Link 
         to="/auth"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 font-ui text-sm uppercase tracking-[0.15em] hover:bg-blue-500/20 transition-colors group"
+        className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 font-ui text-sm uppercase tracking-[0.15em] hover:bg-indigo-500/20 transition-colors group"
       >
         Take Assessment
         <span className="group-hover:translate-x-1 transition-transform">→</span>
@@ -240,7 +240,7 @@ const DataOverlay = memo(function DataOverlay({
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           {DIMENSIONS.slice(0, 4).map((dim) => (
             <div key={dim} className="flex items-center gap-2">
-              <span className="w-1 h-1 rounded-full bg-blue-400/50" />
+              <span className="w-1 h-1 rounded-full bg-indigo-400/50" />
               <span>{dim}</span>
             </div>
           ))}
@@ -270,7 +270,7 @@ export const FutureScene = memo(function FutureScene({
         className="absolute inset-0"
         style={{
           background: `
-            radial-gradient(ellipse 50% 40% at 60% 50%, rgba(59, 130, 246, 0.06) 0%, transparent 60%)
+            radial-gradient(ellipse 50% 40% at 60% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 60%)
           `,
         }}
       />

@@ -14,18 +14,18 @@ export function StrengthsBlindspots({ results }: StrengthsBlindspotsProps) {
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 p-5">
-        <h3 className="mb-3 flex items-center gap-2 font-semibold text-emerald-400">
+      <div className="rounded-xl border border-cyan-900/30 bg-cyan-950/10 p-5">
+        <h3 className="mb-3 flex items-center gap-2 font-semibold text-cyan-400">
           <span className="text-lg">✨</span> Strengths
         </h3>
         <ul className="space-y-2">
           {strengths.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-2 text-sm text-emerald-100/80">
-              <span className="mt-1.5 block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+            <li key={idx} className="flex items-start gap-2 text-sm text-cyan-100/80">
+              <span className="mt-1.5 block h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
               {item}
             </li>
           ))}
-          {!strengths.length && <li className="text-sm italic text-emerald-100/40">No specific strengths identified yet.</li>}
+          {!strengths.length && <li className="text-sm italic text-cyan-100/40">No specific strengths identified yet.</li>}
         </ul>
       </div>
 

@@ -63,16 +63,16 @@ const ProgressCelebration = memo(function ProgressCelebration({
   percent: number 
 }) {
   const [showCelebration, setShowCelebration] = useState(false)
-  const [milestone, setMilestone] = useState(0)
-  const milestoneRef = useRef(0)
+  const [currentMilestone, setCurrentMilestone] = useState(0)
+  const lastMilestoneRef = useRef(0)
 
   useEffect(() => {
     const milestones = [25, 50, 75, 100]
-    const hitMilestone = milestones.find(m => percent >= m && m > milestoneRef.current)
+    const hitMilestone = milestones.find(m => percent >= m && m > lastMilestoneRef.current)
     
     if (hitMilestone) {
-      milestoneRef.current = hitMilestone
-      setMilestone(hitMilestone)
+      lastMilestoneRef.current = hitMilestone
+      setCurrentMilestone(hitMilestone)
       setShowCelebration(true)
       const timer = setTimeout(() => setShowCelebration(false), 2000)
       return () => clearTimeout(timer)
@@ -96,7 +96,7 @@ const ProgressCelebration = memo(function ProgressCelebration({
               transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }}
               className="text-6xl mb-4"
             >
-              {milestone === 100 ? '🎉' : milestone >= 75 ? '🔥' : milestone >= 50 ? '⚡' : '✨'}
+              {currentMilestone === 100 ? '🎉' : currentMilestone >= 75 ? '🔥' : currentMilestone >= 50 ? '⚡' : '✨'}
             </motion.div>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -104,7 +104,7 @@ const ProgressCelebration = memo(function ProgressCelebration({
               transition={{ delay: 0.2 }}
               className="font-headline text-2xl font-bold text-white"
             >
-              {milestone === 100 ? 'Complete!' : `${milestone}% Done!`}
+              {currentMilestone === 100 ? 'Complete!' : `${currentMilestone}% Done!`}
             </motion.p>
           </div>
         </motion.div>
@@ -236,7 +236,7 @@ export function FutureTunnelExperience() {
             <span className="text-xs text-gray-500">
               {isAutosaving ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
                   Saving...
                 </span>
               ) : lastAutosaveAt ? (
@@ -289,14 +289,14 @@ export function FutureTunnelExperience() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100 overflow-hidden"
+              className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-100 overflow-hidden"
             >
               <div>
-                <p className="font-semibold text-emerald-300">✓ Progress Restored</p>
-                <p className="text-emerald-200/80 mt-1">Your previous work was recovered. Continue where you left off.</p>
+                <p className="font-semibold text-cyan-300">✓ Progress Restored</p>
+                <p className="text-cyan-200/80 mt-1">Your previous work was recovered. Continue where you left off.</p>
               </div>
               <button
-                className="rounded-full border border-emerald-400/40 px-4 py-1.5 text-xs uppercase tracking-wide text-emerald-200 hover:bg-emerald-400/10 transition-colors"
+                className="rounded-full border border-cyan-400/40 px-4 py-1.5 text-xs uppercase tracking-wide text-cyan-200 hover:bg-cyan-400/10 transition-colors"
                 onClick={acknowledgeRestoredDraft}
                 type="button"
               >
@@ -327,7 +327,7 @@ export function FutureTunnelExperience() {
                   </span>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
                     <motion.div
-                      className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+                      className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full"
                       initial={{ width: 0 }}
                       animate={{ width: `${itemsProgressPercent}%` }}
                       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -339,7 +339,7 @@ export function FutureTunnelExperience() {
               </header>
               {isFetchingItems && (
                 <div className="flex items-center gap-3 text-gray-400 py-8">
-                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
                   <span>Loading assessment items...</span>
                 </div>
               )}
@@ -423,7 +423,7 @@ export function FutureTunnelExperience() {
               <div className="flex flex-wrap gap-6 text-sm text-gray-400">
                 <span className="flex items-center gap-2">
                   {rankedItemsCount === totalItems ? (
-                    <span className="text-emerald-400">✓</span>
+                    <span className="text-cyan-400">✓</span>
                   ) : (
                     <span className="text-gray-600">○</span>
                   )}
@@ -431,7 +431,7 @@ export function FutureTunnelExperience() {
                 </span>
                 <span className="flex items-center gap-2">
                   {contextsCompleteCount === totalContexts ? (
-                    <span className="text-emerald-400">✓</span>
+                    <span className="text-cyan-400">✓</span>
                   ) : (
                     <span className="text-gray-600">○</span>
                   )}
@@ -465,10 +465,10 @@ export function FutureTunnelExperience() {
                   initial={{ opacity: 0, scale: 0.95, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                  className="space-y-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-sm p-6"
+                  className="space-y-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 backdrop-blur-sm p-6"
                 >
                   <header>
-                    <p className="font-ui text-xs uppercase tracking-[0.2em] text-emerald-400">🎉 Assessment Complete</p>
+                    <p className="font-ui text-xs uppercase tracking-[0.2em] text-cyan-400">🎉 Assessment Complete</p>
                     <h3 className="font-headline text-2xl font-bold text-white mt-2">Your Results</h3>
                   </header>
                   <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -485,18 +485,18 @@ export function FutureTunnelExperience() {
                         transition={{ delay: 0.1 + i * 0.1 }}
                         className="rounded-xl bg-white/[0.05] p-4"
                       >
-                        <dt className="font-ui text-xs uppercase tracking-[0.15em] text-emerald-400">{stat.label}</dt>
+                        <dt className="font-ui text-xs uppercase tracking-[0.15em] text-cyan-400">{stat.label}</dt>
                         <dd className="font-display text-2xl font-bold text-white mt-1">{stat.value ?? '—'}</dd>
                       </motion.div>
                     ))}
                   </dl>
                   {validationIssues.length > 0 && (
-                    <p className="text-sm text-emerald-300/70">
+                    <p className="text-sm text-cyan-300/70">
                       Notes: {validationIssues.map((issue) => issue.code || 'issue').join(', ')}
                     </p>
                   )}
                   <Link 
-                    className="inline-flex items-center gap-2 text-emerald-300 hover:text-emerald-200 transition-colors font-semibold"
+                    className="inline-flex items-center gap-2 text-cyan-300 hover:text-cyan-200 transition-colors font-semibold"
                     to="/future/dashboard"
                   >
                     View Full Dashboard Insights →

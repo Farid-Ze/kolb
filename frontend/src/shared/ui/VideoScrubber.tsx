@@ -201,10 +201,7 @@ export function useVideoScrubber(options: VideoScrubberOptions) {
       onFrame?.(targetTime, video.duration, videoProgress)
     }
 
-    const unsubscribe = ScrollOrchestrator.subscribe('video-scrubber', {
-      onScroll: handleScroll,
-      priority: 10, // High priority
-    })
+    const unsubscribe = ScrollOrchestrator.subscribe(handleScroll)
 
     return unsubscribe
   }, [state.isReady, scrollRange, onFrame])

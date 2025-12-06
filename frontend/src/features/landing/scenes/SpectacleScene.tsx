@@ -184,7 +184,7 @@ const LayeredText = memo(function LayeredText({
         className="absolute top-[30%] left-1/2 -translate-x-1/2 text-center"
         style={{ opacity: eyebrowOpacity }}
       >
-        <span className="text-[10px] uppercase tracking-[0.5em] text-blue-400/60 font-ui">
+        <span className="text-[10px] uppercase tracking-[0.5em] text-[#6366F1]/80 font-ui">
           Learning Science × Technology
         </span>
       </m.div>
@@ -227,9 +227,9 @@ const GeometricBackground = memo(function GeometricBackground({
         style={{
           scale,
           background: `
-            radial-gradient(ellipse 50% 40% at 50% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 70%),
-            radial-gradient(ellipse 40% 50% at 40% 60%, rgba(139, 92, 246, 0.05) 0%, transparent 60%),
-            radial-gradient(ellipse 30% 30% at 60% 40%, rgba(34, 211, 238, 0.04) 0%, transparent 50%)
+            radial-gradient(ellipse 50% 40% at 50% 50%, rgba(99, 102, 241, 0.12) 0%, transparent 70%),
+            radial-gradient(ellipse 40% 50% at 40% 60%, rgba(168, 85, 247, 0.08) 0%, transparent 60%),
+            radial-gradient(ellipse 30% 30% at 60% 40%, rgba(34, 211, 238, 0.06) 0%, transparent 50%)
           `,
         }}
       />
@@ -262,7 +262,7 @@ export const SpectacleScene = memo(function SpectacleScene({
   
   return (
     <m.div 
-      className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden"
+      className="absolute inset-0 flex items-center justify-center bg-[#0A0A0F] overflow-hidden"
       style={{ opacity: sceneOpacity }}
     >
       {/* Layer 1: Geometric Background */}

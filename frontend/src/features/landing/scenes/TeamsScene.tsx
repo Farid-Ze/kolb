@@ -35,14 +35,14 @@ interface TeamsSceneProps {
 // ═══════════════════════════════════════════════════════════════════
 
 const TEAM_MEMBERS = [
-  { id: 'a', x: 25, y: 30, style: 'Diverging', color: '#3B82F6' },
-  { id: 'b', x: 45, y: 20, style: 'Assimilating', color: '#8B5CF6' },
-  { id: 'c', x: 70, y: 35, style: 'Converging', color: '#10B981' },
-  { id: 'd', x: 35, y: 60, style: 'Accommodating', color: '#F59E0B' },
-  { id: 'e', x: 60, y: 55, style: 'Diverging', color: '#3B82F6' },
-  { id: 'f', x: 55, y: 75, style: 'Converging', color: '#10B981' },
-  { id: 'g', x: 20, y: 70, style: 'Assimilating', color: '#8B5CF6' },
-  { id: 'h', x: 80, y: 65, style: 'Accommodating', color: '#F59E0B' },
+  { id: 'a', x: 25, y: 30, style: 'Diverging', color: '#6366F1' },
+  { id: 'b', x: 45, y: 20, style: 'Assimilating', color: '#A855F7' },
+  { id: 'c', x: 70, y: 35, style: 'Converging', color: '#22D3EE' },
+  { id: 'd', x: 35, y: 60, style: 'Accommodating', color: '#D4A853' },
+  { id: 'e', x: 60, y: 55, style: 'Diverging', color: '#6366F1' },
+  { id: 'f', x: 55, y: 75, style: 'Converging', color: '#22D3EE' },
+  { id: 'g', x: 20, y: 70, style: 'Assimilating', color: '#A855F7' },
+  { id: 'h', x: 80, y: 65, style: 'Accommodating', color: '#D4A853' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -197,9 +197,9 @@ const QuadrantLabels = memo(function QuadrantLabels({
   const opacity = useTransform(progress, [0.74, 0.78, 0.80, 0.82], [0, 0.4, 0.4, 0])
   
   const quadrants = [
-    { label: 'Diverging', x: 25, y: 25, color: 'text-blue-400/40' },
+    { label: 'Diverging', x: 25, y: 25, color: 'text-indigo-400/40' },
     { label: 'Assimilating', x: 75, y: 25, color: 'text-purple-400/40' },
-    { label: 'Converging', x: 75, y: 75, color: 'text-emerald-400/40' },
+    { label: 'Converging', x: 75, y: 75, color: 'text-cyan-400/40' },
     { label: 'Accommodating', x: 25, y: 75, color: 'text-amber-400/40' },
   ]
   
@@ -248,7 +248,7 @@ const Content = memo(function Content({
       </div>
       
       {/* Eyebrow */}
-      <span className="block text-[10px] uppercase tracking-[0.5em] text-emerald-400/60 font-ui mb-4">
+      <span className="block text-[10px] uppercase tracking-[0.5em] text-cyan-400/60 font-ui mb-4">
         Teams
       </span>
       
@@ -256,7 +256,7 @@ const Content = memo(function Content({
       <h2 className="font-headline text-3xl sm:text-4xl lg:text-5xl text-white mb-4 leading-tight">
         Collective
         <br />
-        <span className="text-emerald-400">intelligence</span>
+        <span className="text-cyan-400">intelligence</span>
       </h2>
       
       {/* Fact */}
@@ -267,7 +267,7 @@ const Content = memo(function Content({
       {/* CTA */}
       <Link 
         to="/auth"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-ui text-sm uppercase tracking-[0.15em] hover:bg-emerald-500/20 transition-colors group"
+        className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-ui text-sm uppercase tracking-[0.15em] hover:bg-cyan-500/20 transition-colors group"
       >
         Explore Teams
         <span className="group-hover:translate-x-1 transition-transform">→</span>
@@ -304,7 +304,7 @@ const MetricsOverlay = memo(function MetricsOverlay({
           {metrics.map((metric) => (
             <div key={metric.label} className="flex items-center justify-between gap-6">
               <span>{metric.label}</span>
-              <span className="text-emerald-400/60">{metric.value}</span>
+              <span className="text-cyan-400/60">{metric.value}</span>
             </div>
           ))}
         </div>
@@ -333,7 +333,7 @@ export const TeamsScene = memo(function TeamsScene({
         className="absolute inset-0"
         style={{
           background: `
-            radial-gradient(ellipse 50% 40% at 60% 50%, rgba(16, 185, 129, 0.06) 0%, transparent 60%)
+            radial-gradient(ellipse 50% 40% at 60% 50%, rgba(34, 211, 238, 0.06) 0%, transparent 60%)
           `,
         }}
       />

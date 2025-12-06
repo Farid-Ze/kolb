@@ -170,7 +170,7 @@ const ProgressDot = memo(function ProgressDot({
   return (
     <m.button
       onClick={handleClick}
-      className="w-2 h-2 rounded-full bg-white cursor-pointer transition-colors hover:bg-blue-400"
+      className="w-2 h-2 rounded-full bg-white cursor-pointer transition-colors hover:bg-indigo-400"
       style={{ 
         scale,
         opacity: bgOpacity,

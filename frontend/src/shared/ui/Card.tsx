@@ -27,7 +27,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       interactive: [
         'bg-[#0c0c14]/80 border-white/[0.06]',
         'hover:border-blue-500/30 hover:bg-[#0e0e18]/90',
-        'hover:shadow-lg hover:shadow-blue-500/10',
+        'hover:shadow-lg hover:shadow-indigo-500/10',
         'hover:scale-[1.02]',
         'cursor-pointer',
       ].join(' '),
@@ -38,7 +38,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         {/* Optional glow effect */}
         {glow && (
           <div 
-            className="absolute -inset-4 bg-blue-500/5 blur-[40px] rounded-3xl pointer-events-none"
+            className="absolute -inset-4 bg-indigo-500/5 blur-[40px] rounded-3xl pointer-events-none"
             aria-hidden="true"
           />
         )}
@@ -183,7 +183,7 @@ export function StatsCard({
   className 
 }: StatsCardProps) {
   const changeColors = {
-    positive: 'text-emerald-400',
+    positive: 'text-cyan-400',
     negative: 'text-red-400',
     neutral: 'text-gray-400',
   }

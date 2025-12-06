@@ -97,7 +97,7 @@ export const Preloader = memo(function Preloader({
               >
                 <span className="text-white">ZENOTIKA</span>
                 <motion.span 
-                  className="text-blue-400"
+                  className="text-indigo-400"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3, delay: 0.5 }}
@@ -126,7 +126,7 @@ export const Preloader = memo(function Preloader({
             >
               <div className="h-[2px] w-full bg-white/10 rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-blue-500 to-blue-400"
+                  className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400"
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.1 }}

@@ -46,7 +46,7 @@ const SphereNodeItem = memo(function SphereNodeItem({
         fill="transparent"
         stroke="transparent"
         strokeWidth={2}
-        className="focus-within:stroke-blue-400"
+        className="focus-within:stroke-indigo-400"
       />
       <circle
         cx={cx}

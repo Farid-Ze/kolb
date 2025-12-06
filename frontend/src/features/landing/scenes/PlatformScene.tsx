@@ -39,7 +39,7 @@ const PRODUCTS = [
     label: 'FUTURE', 
     description: 'Discover',
     icon: '◈',
-    color: 'from-blue-500 to-blue-600',
+    color: 'from-indigo-500 to-indigo-600',
     angle: -60, // Position on orbit circle (degrees)
   },
   { 
@@ -55,7 +55,7 @@ const PRODUCTS = [
     label: 'TEAMS', 
     description: 'Collaborate',
     icon: '◇',
-    color: 'from-emerald-500 to-emerald-600',
+    color: 'from-cyan-500 to-cyan-600',
     angle: 180,
   },
 ]
@@ -196,7 +196,7 @@ const Headline = memo(function Headline({
       <h2 className="font-headline text-4xl sm:text-5xl lg:text-6xl text-white tracking-tight">
         QUANTIFYING
         <br />
-        <span className="text-blue-400">POTENTIAL</span>
+        <span className="text-indigo-400">POTENTIAL</span>
       </h2>
     </m.div>
   )
@@ -246,7 +246,7 @@ const Background = memo(function Background({
         className="absolute inset-0"
         style={{
           background: `
-            radial-gradient(ellipse 60% 50% at 50% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 60%)
+            radial-gradient(ellipse 60% 50% at 50% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 60%)
           `,
         }}
       />
