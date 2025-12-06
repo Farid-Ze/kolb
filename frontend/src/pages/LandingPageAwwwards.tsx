@@ -181,7 +181,7 @@ export function LandingPage() {
         </LazyScene>
 
         {/* ═══════════════════════════════════════════════════════════
-            SCENE 6: BEGIN (82% - 100%)
+            SCENE 7: BEGIN (85% - 100%)
             Triple-path CTA: Future / Sphere / Teams.
         ═══════════════════════════════════════════════════════════ */}
         <LazyScene rootMargin="200px" minHeight="200vh" className="cv-auto">
