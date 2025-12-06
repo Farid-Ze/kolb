@@ -36,6 +36,8 @@ const SPRING_CONFIG = {
   restDelta: 0.001,
 }
 
+const toRange = (range: readonly [number, number]): [number, number] => [range[0], range[1]]
+
 export interface GlobalTimeline {
   /** Raw scroll progress 0-1 */
   scrollProgress: MotionValue<number>
@@ -70,14 +72,31 @@ export function useGlobalTimeline(): GlobalTimeline {
   // Velocity for dynamic effects (stretch, motion blur intensity)
   const velocity = useVelocity(scrollYProgress)
   const absVelocity = useTransform(velocity, (v) => Math.abs(v))
+
+  // Precompute section-local progress transforms to avoid hooks in callbacks
+  const heroProgress = useTransform(smoothProgress, toRange(SCENE_RANGES.hero), [0, 1])
+  const sphereProgress = useTransform(smoothProgress, toRange(SCENE_RANGES.sphere), [0, 1])
+  const discoverProgress = useTransform(smoothProgress, toRange(SCENE_RANGES.discover), [0, 1])
+  const visualizeProgress = useTransform(smoothProgress, toRange(SCENE_RANGES.visualize), [0, 1])
+  const understandProgress = useTransform(smoothProgress, toRange(SCENE_RANGES.understand), [0, 1])
+  const growProgress = useTransform(smoothProgress, toRange(SCENE_RANGES.grow), [0, 1])
+  const ctaProgress = useTransform(smoothProgress, toRange(SCENE_RANGES.cta), [0, 1])
+
+  const sectionProgress = useMemo(() => ({
+    hero: heroProgress,
+    sphere: sphereProgress,
+    discover: discoverProgress,
+    visualize: visualizeProgress,
+    understand: understandProgress,
+    grow: growProgress,
+    cta: ctaProgress,
+  }), [heroProgress, sphereProgress, discoverProgress, visualizeProgress, understandProgress, growProgress, ctaProgress])
   
   // Memoized section progress calculator
   // This creates a new MotionValue that maps global progress to section-local progress
-  const getSectionProgress = useCallback((scene: keyof typeof SCENE_RANGES): MotionValue<number> => {
-    const [start, end] = SCENE_RANGES[scene]
-    // Transform global 0-1 to section-local 0-1
-    return useTransform(smoothProgress, [start, end], [0, 1])
-  }, [smoothProgress])
+  const getSectionProgress = useCallback((scene: keyof typeof SCENE_RANGES): MotionValue<number> => (
+    sectionProgress[scene]
+  ), [sectionProgress])
   
   return useMemo(() => ({
     scrollProgress: scrollYProgress,

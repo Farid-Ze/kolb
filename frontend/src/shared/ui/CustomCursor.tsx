@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, useCallback } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 
 /**
  * AWWWARDS-LEVEL CUSTOM CURSOR
@@ -37,50 +37,40 @@ export const CustomCursor = memo(function CustomCursor() {
   })
 
   // Check if device has touch capability
-  const [isTouchDevice, setIsTouchDevice] = useState(true)
-
-  useEffect(() => {
-    // Detect touch device on mount
+  const isTouchDevice = useMemo(() => {
+    if (typeof window === 'undefined') return true
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
     const hasFinePointer = window.matchMedia('(pointer: fine)').matches
-    
-    // Only show cursor on devices with fine pointer (mouse)
-    setIsTouchDevice(hasTouch && !hasFinePointer)
+    return hasTouch && !hasFinePointer
   }, [])
-
-  // Animation loop with lerp
-  const animate = useCallback(() => {
-    const cursor = cursorRef.current
-    const dot = cursorDotRef.current
-
-    if (cursor && dot) {
-      // Lerp for smooth following (outer ring)
-      const lerpFactor = state.isHovering ? 0.15 : 0.12
-      cursorPos.current.x += (mousePos.current.x - cursorPos.current.x) * lerpFactor
-      cursorPos.current.y += (mousePos.current.y - cursorPos.current.y) * lerpFactor
-
-      // Faster lerp for inner dot
-      const dotLerpFactor = 0.25
-      dotPos.current.x += (mousePos.current.x - dotPos.current.x) * dotLerpFactor
-      dotPos.current.y += (mousePos.current.y - dotPos.current.y) * dotLerpFactor
-
-      // Scale based on pressed state
-      const scale = state.isPressed ? 0.75 : 1
-
-      // Apply transforms (GPU-accelerated)
-      cursor.style.transform = `translate3d(${cursorPos.current.x}px, ${cursorPos.current.y}px, 0) scale(${scale})`
-      dot.style.transform = `translate3d(${dotPos.current.x}px, ${dotPos.current.y}px, 0)`
-    }
-
-    requestRef.current = requestAnimationFrame(animate)
-  }, [state.isHovering, state.isPressed])
 
   useEffect(() => {
     if (isTouchDevice) return
 
-    requestRef.current = requestAnimationFrame(animate)
+    const tick = () => {
+      const cursor = cursorRef.current
+      const dot = cursorDotRef.current
+
+      if (cursor && dot) {
+        const lerpFactor = state.isHovering ? 0.15 : 0.12
+        cursorPos.current.x += (mousePos.current.x - cursorPos.current.x) * lerpFactor
+        cursorPos.current.y += (mousePos.current.y - cursorPos.current.y) * lerpFactor
+
+        const dotLerpFactor = 0.25
+        dotPos.current.x += (mousePos.current.x - dotPos.current.x) * dotLerpFactor
+        dotPos.current.y += (mousePos.current.y - dotPos.current.y) * dotLerpFactor
+
+        const scale = state.isPressed ? 0.75 : 1
+        cursor.style.transform = `translate3d(${cursorPos.current.x}px, ${cursorPos.current.y}px, 0) scale(${scale})`
+        dot.style.transform = `translate3d(${dotPos.current.x}px, ${dotPos.current.y}px, 0)`
+      }
+
+      requestRef.current = requestAnimationFrame(tick)
+    }
+
+    requestRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(requestRef.current)
-  }, [animate, isTouchDevice])
+  }, [isTouchDevice, state.isHovering, state.isPressed])
 
   // Mouse event handlers
   useEffect(() => {

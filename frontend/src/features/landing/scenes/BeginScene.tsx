@@ -40,10 +40,6 @@ const PATHS = [
     description: 'Discover your learning DNA',
     stat: '12 items · 9 dimensions',
     to: '/auth?mode=register&flow=future',
-    color: 'blue',
-    gradient: 'from-blue-500 to-blue-600',
-    border: 'border-blue-500/30',
-    hover: 'hover:border-blue-400 hover:bg-blue-500/10',
   },
   { 
     id: 'sphere', 
@@ -51,10 +47,6 @@ const PATHS = [
     description: 'Build your milestone gallery',
     stat: 'Capture · Reflect · Grow',
     to: '/auth?mode=register&flow=sphere',
-    color: 'purple',
-    gradient: 'from-purple-500 to-purple-600',
-    border: 'border-purple-500/30',
-    hover: 'hover:border-purple-400 hover:bg-purple-500/10',
   },
   { 
     id: 'teams', 
@@ -62,12 +54,32 @@ const PATHS = [
     description: 'Unlock collective intelligence',
     stat: 'Analyze · Optimize · Collaborate',
     to: '/auth?mode=register&flow=teams',
-    color: 'emerald',
-    gradient: 'from-emerald-500 to-emerald-600',
-    border: 'border-emerald-500/30',
-    hover: 'hover:border-emerald-400 hover:bg-emerald-500/10',
   },
 ]
+
+const CTA_STYLES: Record<string, { border: string; hover: string; text: string; arrow: string; gradient: string }> = {
+  future: {
+    border: 'border-blue-500/30',
+    hover: 'hover:border-blue-400 hover:bg-blue-500/10',
+    text: 'text-blue-400/60',
+    arrow: 'text-blue-400',
+    gradient: 'from-blue-500 to-blue-600',
+  },
+  sphere: {
+    border: 'border-purple-500/30',
+    hover: 'hover:border-purple-400 hover:bg-purple-500/10',
+    text: 'text-purple-400/60',
+    arrow: 'text-purple-400',
+    gradient: 'from-purple-500 to-purple-600',
+  },
+  teams: {
+    border: 'border-emerald-500/30',
+    hover: 'hover:border-emerald-400 hover:bg-emerald-500/10',
+    text: 'text-emerald-400/60',
+    arrow: 'text-emerald-400',
+    gradient: 'from-emerald-500 to-emerald-600',
+  },
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // PATH BUTTON
@@ -100,7 +112,7 @@ const PathButton = memo(function PathButton({
         to={path.to}
         className={`
           group relative block p-8 lg:p-10 rounded-2xl border 
-          ${path.border} ${path.hover}
+          ${CTA_STYLES[path.id].border} ${CTA_STYLES[path.id].hover}
           bg-white/[0.02] backdrop-blur-sm
           transition-all duration-300
         `}
@@ -121,20 +133,20 @@ const PathButton = memo(function PathButton({
         {/* Stat */}
         <div className={`
           text-[10px] uppercase tracking-[0.3em] font-ui
-          text-${path.color}-400/60
+          ${CTA_STYLES[path.id].text}
         `}>
           {path.stat}
         </div>
         
         {/* Arrow indicator */}
         <div className="absolute top-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className={`text-${path.color}-400 text-xl`}>→</span>
+          <span className={`${CTA_STYLES[path.id].arrow} text-xl`}>→</span>
         </div>
         
         {/* Gradient hover effect */}
         <div className={`
           absolute inset-0 rounded-2xl 
-          bg-gradient-to-br ${path.gradient}
+          bg-gradient-to-br ${CTA_STYLES[path.id].gradient}
           opacity-0 group-hover:opacity-5 
           transition-opacity pointer-events-none
         `} />

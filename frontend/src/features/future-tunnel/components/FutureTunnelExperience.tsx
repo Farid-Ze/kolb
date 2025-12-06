@@ -63,6 +63,7 @@ const ProgressCelebration = memo(function ProgressCelebration({
   percent: number 
 }) {
   const [showCelebration, setShowCelebration] = useState(false)
+  const [milestone, setMilestone] = useState(0)
   const milestoneRef = useRef(0)
 
   useEffect(() => {
@@ -71,13 +72,12 @@ const ProgressCelebration = memo(function ProgressCelebration({
     
     if (hitMilestone) {
       milestoneRef.current = hitMilestone
+      setMilestone(hitMilestone)
       setShowCelebration(true)
       const timer = setTimeout(() => setShowCelebration(false), 2000)
       return () => clearTimeout(timer)
     }
   }, [percent])
-
-  const milestone = milestoneRef.current
 
   return (
     <AnimatePresence>

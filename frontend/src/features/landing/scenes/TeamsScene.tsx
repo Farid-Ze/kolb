@@ -242,6 +242,11 @@ const Content = memo(function Content({
       className="text-center lg:text-left max-w-md"
       style={{ opacity, y }}
     >
+      {/* Badge for gated experience */}
+      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-emerald-200/70 font-ui mb-3">
+        Illustrative · Requires Login
+      </div>
+      
       {/* Eyebrow */}
       <span className="block text-[10px] uppercase tracking-[0.5em] text-emerald-400/60 font-ui mb-4">
         Teams

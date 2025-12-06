@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * VIDEO SCRUBBER
  * 
@@ -225,7 +226,6 @@ export function useVideoScrubber(options: VideoScrubberOptions) {
 
   return {
     videoRef,
-    videoElement: videoRef.current,
     state,
     seekTo,
     seekToProgress,
@@ -290,7 +290,7 @@ export function VideoScrubber({
         container.removeChild(video)
       }
     }
-  }, [videoRef.current, visible, objectFit, opacity])
+  }, [visible, objectFit, opacity, videoRef])
 
   return (
     <div 

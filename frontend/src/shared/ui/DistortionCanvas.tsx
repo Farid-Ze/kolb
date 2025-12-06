@@ -104,6 +104,12 @@ function DistortionPlane({ texture, videoElement }: DistortionPlaneProps) {
     }
     return null
   }, [videoElement])
+
+  const videoTextureRef = useRef<THREE.VideoTexture | null>(null)
+
+  useEffect(() => {
+    videoTextureRef.current = videoTexture ?? null
+  }, [videoTexture])
   
   // Use provided texture or video texture or create placeholder
   const activeTexture = useMemo(() => {
@@ -174,8 +180,9 @@ function DistortionPlane({ texture, videoElement }: DistortionPlaneProps) {
       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
       
       // Update video texture if using video
-      if (videoTexture) {
-        videoTexture.needsUpdate = true
+      const activeVideoTexture = videoTextureRef.current
+      if (activeVideoTexture) {
+        activeVideoTexture.needsUpdate = true
       }
     }
   })

@@ -154,6 +154,11 @@ a {
   isolation: isolate;
 }
 
+/* Vertical writing utility for axis labels */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+}
+
 /* Force new stacking context without layout thrash */
 .new-context {
   transform: translateZ(0);

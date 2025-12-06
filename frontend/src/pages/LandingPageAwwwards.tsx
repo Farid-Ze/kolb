@@ -63,12 +63,14 @@ export function LandingPage() {
   
   // Initialize ScrollOrchestrator on mount
   useEffect(() => {
-    ScrollOrchestrator.init()
+    if (!prefersReducedMotion) {
+      ScrollOrchestrator.init()
+    }
     
     return () => {
       ScrollOrchestrator.destroy()
     }
-  }, [])
+  }, [prefersReducedMotion])
   
   // Framer Motion scroll hook (fallback/compatibility)
   const { scrollYProgress } = useScroll({

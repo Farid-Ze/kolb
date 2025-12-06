@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState, useRef, useCallback } from 'react'
 import type { RefObject } from 'react'
 
@@ -58,8 +59,11 @@ export function useIntersectionObserver<T extends HTMLElement = HTMLDivElement>(
   } = options
 
   const ref = useRef<T | null>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  const [hasBeenVisible, setHasBeenVisible] = useState(false)
+  const supportsIO = typeof window !== 'undefined' && 'IntersectionObserver' in window
+
+  // If IntersectionObserver is unavailable, default to visible to avoid render loops
+  const [isVisible, setIsVisible] = useState(() => !supportsIO)
+  const [hasBeenVisible, setHasBeenVisible] = useState(() => !supportsIO)
   const [entry, setEntry] = useState<IntersectionObserverEntry | null>(null)
   const [ratio, setRatio] = useState(0)
 
@@ -85,19 +89,16 @@ export function useIntersectionObserver<T extends HTMLElement = HTMLDivElement>(
   )
 
   useEffect(() => {
+    if (!supportsIO) {
+      onChange?.(true)
+      return
+    }
+
     const element = ref.current
     if (!element) return
 
     // Skip if already visible and frozen
     if (freezeOnceVisible && hasBeenVisible) return
-
-    // Check for native support
-    if (!('IntersectionObserver' in window)) {
-      // Fallback: immediately set as visible
-      setIsVisible(true)
-      setHasBeenVisible(true)
-      return
-    }
 
     const observer = new IntersectionObserver(handleIntersect, {
       threshold,
@@ -110,7 +111,7 @@ export function useIntersectionObserver<T extends HTMLElement = HTMLDivElement>(
     return () => {
       observer.disconnect()
     }
-  }, [threshold, rootMargin, root, freezeOnceVisible, hasBeenVisible, handleIntersect])
+  }, [supportsIO, threshold, rootMargin, root, freezeOnceVisible, hasBeenVisible, handleIntersect, onChange])
 
   return { ref, isVisible, hasBeenVisible, entry, ratio }
 }

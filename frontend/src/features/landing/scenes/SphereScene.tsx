@@ -219,6 +219,11 @@ const Content = memo(function Content({
       className="text-center lg:text-left max-w-md"
       style={{ opacity, y }}
     >
+      {/* Badge for privacy / illustrative state */}
+      <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/5 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-purple-200/70 font-ui mb-3">
+        Illustrative · Requires Login
+      </div>
+      
       {/* Eyebrow */}
       <span className="block text-[10px] uppercase tracking-[0.5em] text-purple-400/60 font-ui mb-4">
         Sphere

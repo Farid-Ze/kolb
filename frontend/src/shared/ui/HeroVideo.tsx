@@ -154,6 +154,9 @@ const VideoPlaceholder = memo(function VideoPlaceholder({
   
   const accentOrbScale = useTransform(smoothProgress, [0, 0.5], [1, 1.8])
   const accentOrbX = useTransform(smoothProgress, [0, 0.5], [0, 80])
+
+  const accentParticlesOpacity = useTransform(smoothProgress, [0, 0.3], [0.6, 0.2])
+  const accentParticlesScale = useTransform(smoothProgress, [0, 0.5], [1, 1.6])
   
   // Focal point transforms
   const focalScale = useTransform(smoothProgress, [0, 0.2, 0.5], [1, 1.3, 0.6])
@@ -261,8 +264,8 @@ const VideoPlaceholder = memo(function VideoPlaceholder({
               top: `${20 + i * 12}%`,
               background: `radial-gradient(circle, rgba(255, 255, 255, ${0.05 - i * 0.008}) 0%, transparent 60%)`,
               filter: 'blur(20px)',
-              opacity: useTransform(smoothProgress, [0, 0.3], [0.6, 0.2]),
-              scale: useTransform(smoothProgress, [0, 0.5], [1, 1 + i * 0.2]),
+              opacity: accentParticlesOpacity,
+              scale: accentParticlesScale,
             }}
           />
         ))}

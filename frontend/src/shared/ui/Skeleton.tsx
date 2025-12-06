@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { cn } from '../lib/utils'
 
 /**
@@ -117,6 +117,8 @@ export const SkeletonStats = memo(function SkeletonStats({ className }: Skeleton
 
 // Chart placeholder skeleton
 export const SkeletonChart = memo(function SkeletonChart({ className }: SkeletonProps) {
+  const barHeights = useMemo(() => [30, 48, 62, 55, 70, 52, 60], [])
+
   return (
     <div 
       className={cn(
@@ -133,7 +135,7 @@ export const SkeletonChart = memo(function SkeletonChart({ className }: Skeleton
           <Skeleton 
             key={i} 
             className="flex-1 rounded-t-sm"
-            style={{ height: `${30 + Math.random() * 70}%` }}
+            style={{ height: `${barHeights[i % barHeights.length]}%` }}
           />
         ))}
       </div>

@@ -72,43 +72,57 @@ const generateClipPath = (type: TransitionType, progress: number): string => {
     
     case 'diagonal-tl':
       // Diagonal wipe to top-left
-      const d1 = p * 200
-      return `polygon(0 0, ${d1}% 0, 0 ${d1}%)`
+      {
+        const d1 = p * 200
+        return `polygon(0 0, ${d1}% 0, 0 ${d1}%)`
+      }
     
     case 'diagonal-br':
       // Diagonal wipe to bottom-right
-      const d2 = (1 - p) * 100
-      return `polygon(${d2}% 100%, 100% ${d2}%, 100% 100%)`
+      {
+        const d2 = (1 - p) * 100
+        return `polygon(${d2}% 100%, 100% ${d2}%, 100% 100%)`
+      }
     
     case 'radial-in':
       // Circular reveal from edges
-      const r1 = (1 - p) * 150 // Start beyond viewport
-      return `circle(${r1}% at 50% 50%)`
+      {
+        const r1 = (1 - p) * 150 // Start beyond viewport
+        return `circle(${r1}% at 50% 50%)`
+      }
     
     case 'radial-out':
       // Circular reveal from center
-      const r2 = p * 150
-      return `circle(${r2}% at 50% 50%)`
+      {
+        const r2 = p * 150
+        return `circle(${r2}% at 50% 50%)`
+      }
     
     case 'split-h':
       // Split from center horizontally
-      const h = (1 - p) * 50
-      return `inset(0 ${h}% 0 ${h}%)`
+      {
+        const h = (1 - p) * 50
+        return `inset(0 ${h}% 0 ${h}%)`
+      }
     
     case 'split-v':
       // Split from center vertically
-      const v = (1 - p) * 50
-      return `inset(${v}% 0 ${v}% 0)`
+      {
+        const v = (1 - p) * 50
+        return `inset(${v}% 0 ${v}% 0)`
+      }
     
     case 'blinds':
       // Venetian blinds (5 bars)
-      const bars = 5
-      const barHeight = 100 / bars
-      const barProgress = p * barHeight
-      return Array.from({ length: bars }, (_, i) => {
-        const y = i * barHeight
-        return `rect(${y}%, 0, ${y + barProgress}%, 100%)`
-      }).join(', ')
+      {
+        const bars = 5
+        const barHeight = 100 / bars
+        const barProgress = p * barHeight
+        return Array.from({ length: bars }, (_, i) => {
+          const y = i * barHeight
+          return `rect(${y}%, 0, ${y + barProgress}%, 100%)`
+        }).join(', ')
+      }
     
     default:
       return 'inset(0)'
@@ -209,13 +223,17 @@ export const MatteOverlay = memo(function MatteOverlay({
     }
   })
   
-  const translateX = direction === 'left' || direction === 'right' 
-    ? useTransform(translateValue, (v) => `${direction === 'left' ? -v : v}%`)
-    : '0%'
-    
-  const translateY = direction === 'up' || direction === 'down'
-    ? useTransform(translateValue, (v) => `${direction === 'up' ? -v : v}%`)
-    : '0%'
+  const translateX = useTransform(translateValue, (v) => {
+    if (direction === 'left') return `${-v}%`
+    if (direction === 'right') return `${v}%`
+    return '0%'
+  })
+
+  const translateY = useTransform(translateValue, (v) => {
+    if (direction === 'up') return `${-v}%`
+    if (direction === 'down') return `${v}%`
+    return '0%'
+  })
   
   return (
     <m.div

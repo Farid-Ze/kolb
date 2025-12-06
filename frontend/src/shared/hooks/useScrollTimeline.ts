@@ -45,6 +45,8 @@ export function useScrollTimeline(options: UseScrollTimelineOptions = {}): Scrol
     onScroll,
   } = options
 
+  const targetElement = target?.current ?? null
+
   const [state, setState] = useState<ScrollTimelineState>({
     progress: 0,
     direction: 0,
@@ -53,21 +55,22 @@ export function useScrollTimeline(options: UseScrollTimelineOptions = {}): Scrol
   })
 
   const lastScrollY = useRef(0)
-  const lastTime = useRef(Date.now())
+  const lastTime = useRef(0)
   const smoothProgress = useRef(0)
   const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rafId = useRef<number | null>(null)
   const lastThrottle = useRef(0)
 
   const updateState = useCallback(() => {
-    const element = target?.current
+    const element = targetElement
     const scrollY = element ? element.scrollTop : window.scrollY
     const maxScroll = element 
       ? element.scrollHeight - element.clientHeight
       : document.documentElement.scrollHeight - window.innerHeight
 
-    const now = Date.now()
-    const deltaTime = now - lastTime.current
+    const now = performance.now()
+    const previousTime = lastTime.current || now
+    const deltaTime = now - previousTime
     const deltaScroll = scrollY - lastScrollY.current
 
     // Calculate raw progress
@@ -103,10 +106,10 @@ export function useScrollTimeline(options: UseScrollTimelineOptions = {}): Scrol
     scrollTimeout.current = setTimeout(() => {
       setState(prev => ({ ...prev, isScrolling: false, direction: 0 }))
     }, 150)
-  }, [target, smoothing, onScroll])
+  }, [targetElement, smoothing, onScroll])
 
   const handleScroll = useCallback(() => {
-    const now = Date.now()
+    const now = performance.now()
     if (now - lastThrottle.current < throttle) {
       // Request next frame for smooth updates
       if (rafId.current) cancelAnimationFrame(rafId.current)
@@ -118,7 +121,9 @@ export function useScrollTimeline(options: UseScrollTimelineOptions = {}): Scrol
   }, [updateState, throttle])
 
   useEffect(() => {
-    const element = target?.current ?? window
+    const element = targetElement ?? window
+
+    lastTime.current = performance.now()
 
     element.addEventListener('scroll', handleScroll, { passive: true })
 
@@ -130,7 +135,7 @@ export function useScrollTimeline(options: UseScrollTimelineOptions = {}): Scrol
       if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
       if (rafId.current) cancelAnimationFrame(rafId.current)
     }
-  }, [target, handleScroll])
+  }, [targetElement, handleScroll])
 
   return state
 }
