@@ -12,7 +12,7 @@
  * - Supports both video files and image sequences
  */
 
-import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo, useId } from 'react'
 import { ScrollOrchestrator, type ScrollState } from '../lib/ScrollOrchestrator'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -79,6 +79,8 @@ export function useVideoScrubber(options: VideoScrubberOptions) {
     onReady,
     onFrame,
   } = options
+
+  const subscriberId = useId()
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const triggersRef = useRef<VideoTrigger[]>(triggers)
@@ -201,10 +203,13 @@ export function useVideoScrubber(options: VideoScrubberOptions) {
       onFrame?.(targetTime, video.duration, videoProgress)
     }
 
-    const unsubscribe = ScrollOrchestrator.subscribe(handleScroll)
+    const unsubscribe = ScrollOrchestrator.subscribe(subscriberId, {
+      onScroll: handleScroll,
+      priority: 0,
+    })
 
     return unsubscribe
-  }, [state.isReady, scrollRange, onFrame])
+  }, [state.isReady, scrollRange, onFrame, subscriberId])
 
   // Manual seek function
   const seekTo = useCallback((time: number) => {
