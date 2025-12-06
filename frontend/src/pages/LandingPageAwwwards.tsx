@@ -1,13 +1,14 @@
 /**
  * AWWWARDS-LEVEL LANDING PAGE (OPSI B)
  * 
- * 6-Scene Storytelling Structure:
- * 1. SpectacleScene (0-18%): Brand reveal with particles
- * 2. PlatformScene (18-32%): Ecosystem overview
- * 3. FutureScene (32-48%): Assessment product + Kite
- * 4. SphereScene (48-65%): Milestone Gallery + Constellation
- * 5. TeamsScene (65-82%): Team analytics + Scatter plot
- * 6. BeginScene (82-100%): Triple-path CTA
+ * 7-Scene Storytelling Structure:
+ * 1. SpectacleScene (0-16%): Brand reveal with particles
+ * 2. PlatformScene (16-28%): Ecosystem overview
+ * 3. FutureScene (28-42%): Assessment product + Kite
+ * 4. SphereScene (42-56%): Milestone Gallery + Constellation
+ * 5. PhotoGalleryScene (56-70%): Journey photos with 3D frames
+ * 6. TeamsScene (70-85%): Team analytics + Scatter plot
+ * 7. BeginScene (85-100%): Triple-path CTA
  * 
  * Architecture inspired by Citrix Red Bull Racing / Igloo.inc:
  * - Single scroll listener (ScrollOrchestrator)
@@ -42,7 +43,8 @@ import {
   SpectacleScene,
   PlatformScene,
   FutureScene, 
-  SphereScene, 
+  SphereScene,
+  PhotoGalleryScene,
   TeamsScene, 
   BeginScene,
 } from '@/features/landing/scenes'
