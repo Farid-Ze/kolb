@@ -117,21 +117,10 @@ export const MagneticButton = memo(function MagneticButton({
         // Disabled states
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none',
         // GPU optimization
-        'will-change-transform transform-gpu',
+        'transform-gpu',
         className
       )}
-      style={{ willChange: 'transform' }}
     >
-      {/* Glow effect on hover */}
-      <motion.span
-        className="absolute inset-0 rounded-full bg-blue-500/0 blur-xl -z-10"
-        animate={{
-          backgroundColor: isHovering ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0)',
-        }}
-        transition={{ duration: 0.3 }}
-        aria-hidden="true"
-      />
-      
       {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       {children}
     </motion.button>

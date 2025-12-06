@@ -365,3 +365,24 @@ html {
 .animate-shimmer {
   animation: shimmer 1.5s ease-in-out infinite;
 }
+
+/* ========================================
+   SCROLL LINE ANIMATION
+   Lightweight CSS-only arrow animation
+   ======================================== */
+
+@keyframes scrollLine {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-scroll-line {
+  animation: scrollLine 2s ease-in-out infinite;
+}

@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { SpeedTunnel } from '../../shared/ui/SpeedTunnel'
 
 /**
  * AWWWARDS-LEVEL PUBLIC LAYOUT
@@ -87,7 +88,10 @@ export function PublicLayout() {
         Skip to main content
       </a>
       
-      {/* Background */}
+      {/* Animated Background - SpeedTunnel */}
+      <SpeedTunnel />
+      
+      {/* Static Background Layer */}
       <OptimizedBackground />
       
       {/* HEADER - Citrix Pattern */}
@@ -168,7 +172,6 @@ export function PublicLayout() {
             animate="enter"
             exit="exit"
             variants={pageVariants}
-            style={{ willChange: 'opacity, transform' }}
           >
             <Outlet />
           </motion.div>

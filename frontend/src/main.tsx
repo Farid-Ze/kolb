@@ -19,7 +19,8 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m
 const AuthPage = lazy(() => import('./pages/AuthPage').then(m => ({ default: m.AuthPage })))
 const FutureDashboardPage = lazy(() => import('./pages/FutureDashboardPage').then(m => ({ default: m.FutureDashboardPage })))
 const FutureTunnelPage = lazy(() => import('./pages/FutureTunnelPage').then(m => ({ default: m.FutureTunnelPage })))
-const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })))
+// Use Awwwards-level landing page with WebGL distortion, scroll orchestration, ecosystem narrative
+const LandingPage = lazy(() => import('./pages/LandingPageAwwwards').then(m => ({ default: m.LandingPage })))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const SpherePage = lazy(() => import('./pages/SpherePage').then(m => ({ default: m.SpherePage })))
@@ -29,7 +30,7 @@ OpenAPI.BASE = env.API_URL
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
-      {/* Public Layout - Landing & Auth (with SpeedTunnel background) */}
+      {/* Public Layout - Landing & Auth */}
       <Route element={<PublicLayout />}>
         <Route index element={<Suspense fallback={<PageLoader />}><LandingPage /></Suspense>} />
         <Route path="/auth" element={<Suspense fallback={<PageLoader />}><AuthPage /></Suspense>} />

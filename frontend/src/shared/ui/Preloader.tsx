@@ -67,9 +67,10 @@ export const Preloader = memo(function Preloader({
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          {/* Background glow */}
+          {/* Background glow - lightweight radial gradient instead of blur */}
           <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-blue-500/10 blur-[100px] rounded-full"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)' }}
             aria-hidden="true"
           />
 

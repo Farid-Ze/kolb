@@ -51,6 +51,8 @@ export default {
         'scroll-line': 'scrollLine 2s ease-in-out infinite',
         // Subtle glow pulse
         'glow': 'glowPulse 4s ease-in-out infinite',
+        // Ambient particle float (for unified background)
+        'float': 'floatDrift 8s ease-in-out infinite',
       },
       keyframes: {
         // Transform + Opacity only = GPU composited
@@ -77,6 +79,21 @@ export default {
         glowPulse: {
           '0%, 100%': { opacity: '0.5' },
           '50%': { opacity: '0.8' },
+        },
+        // Subtle floating motion for ambient particles
+        floatDrift: {
+          '0%, 100%': { 
+            transform: 'translate3d(0, 0, 0)' 
+          },
+          '25%': { 
+            transform: 'translate3d(5px, -10px, 0)' 
+          },
+          '50%': { 
+            transform: 'translate3d(-3px, 5px, 0)' 
+          },
+          '75%': { 
+            transform: 'translate3d(-8px, -5px, 0)' 
+          },
         },
       },
     },

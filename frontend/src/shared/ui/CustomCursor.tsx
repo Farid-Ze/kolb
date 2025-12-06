@@ -64,13 +64,16 @@ export const CustomCursor = memo(function CustomCursor() {
       dotPos.current.x += (mousePos.current.x - dotPos.current.x) * dotLerpFactor
       dotPos.current.y += (mousePos.current.y - dotPos.current.y) * dotLerpFactor
 
+      // Scale based on pressed state
+      const scale = state.isPressed ? 0.75 : 1
+
       // Apply transforms (GPU-accelerated)
-      cursor.style.transform = `translate3d(${cursorPos.current.x}px, ${cursorPos.current.y}px, 0)`
+      cursor.style.transform = `translate3d(${cursorPos.current.x}px, ${cursorPos.current.y}px, 0) scale(${scale})`
       dot.style.transform = `translate3d(${dotPos.current.x}px, ${dotPos.current.y}px, 0)`
     }
 
     requestRef.current = requestAnimationFrame(animate)
-  }, [state.isHovering])
+  }, [state.isHovering, state.isPressed])
 
   useEffect(() => {
     if (isTouchDevice) return
@@ -160,10 +163,6 @@ export const CustomCursor = memo(function CustomCursor() {
           ${state.isHovering 
             ? 'w-16 h-16 border-white/80' 
             : 'w-10 h-10 border-white/40'
-          }
-          ${state.isPressed 
-            ? 'scale-90' 
-            : 'scale-100'
           }
           ${state.isHidden 
             ? 'opacity-0' 
