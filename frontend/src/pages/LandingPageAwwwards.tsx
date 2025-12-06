@@ -33,8 +33,11 @@ import {
   useScroll, 
   useSpring, 
   useReducedMotion,
+  useVelocity,
+  useTransform,
   LazyMotion,
   domAnimation,
+  m,
 } from 'framer-motion'
 import { ScrollOrchestrator } from '@/shared/lib/ScrollOrchestrator'
 import { LazyScene } from '@/shared/hooks/useIntersectionObserver'
@@ -56,6 +59,48 @@ import {
 const SPRING_CONFIG = { stiffness: 50, damping: 20, restDelta: 0.001 }
 
 // ═══════════════════════════════════════════════════════════════════
+// CHROMATIC ABERRATION OVERLAY
+// Per Design Paradigm: "Chromatic aberration on fast scroll"
+// ═══════════════════════════════════════════════════════════════════
+
+function ChromaticAberrationOverlay({ 
+  scrollVelocity 
+}: { 
+  scrollVelocity: ReturnType<typeof useVelocity> 
+}) {
+  // Map velocity to offset (0-8px max)
+  const offset = useTransform(scrollVelocity, [-2000, 0, 2000], [8, 0, 8])
+  const opacity = useTransform(scrollVelocity, [-2000, -500, 0, 500, 2000], [0.6, 0.3, 0, 0.3, 0.6])
+  
+  return (
+    <>
+      {/* Red channel offset */}
+      <m.div 
+        className="fixed inset-0 pointer-events-none z-[100]"
+        style={{
+          mixBlendMode: 'screen',
+          backgroundColor: 'transparent',
+          boxShadow: 'inset 0 0 100px rgba(255,0,0,0.1)',
+          x: offset,
+          opacity,
+        }}
+      />
+      {/* Cyan channel offset (opposite direction) */}
+      <m.div 
+        className="fixed inset-0 pointer-events-none z-[100]"
+        style={{
+          mixBlendMode: 'screen',
+          backgroundColor: 'transparent',
+          boxShadow: 'inset 0 0 100px rgba(0,255,255,0.1)',
+          x: useTransform(offset, v => -v),
+          opacity,
+        }}
+      />
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════
 
@@ -75,10 +120,13 @@ export function LandingPage() {
   }, [prefersReducedMotion])
   
   // Framer Motion scroll hook (fallback/compatibility)
-  const { scrollYProgress } = useScroll({
+  const { scrollYProgress, scrollY } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
   })
+  
+  // Scroll velocity for chromatic aberration
+  const scrollVelocity = useVelocity(scrollY)
   
   // Always call useSpring - spring is applied only when reduced motion is not preferred
   const springProgress = useSpring(scrollYProgress, SPRING_CONFIG)
@@ -89,6 +137,11 @@ export function LandingPage() {
   return (
     <LazyMotion features={domAnimation} strict>
       <div ref={containerRef} className="relative bg-black">
+        {/* Chromatic Aberration Overlay - Triggered on fast scroll */}
+        {!prefersReducedMotion && (
+          <ChromaticAberrationOverlay scrollVelocity={scrollVelocity} />
+        )}
+        
         {/* Scene Navigation (fixed position) */}
         <SceneNav progress={smoothProgress} />
 

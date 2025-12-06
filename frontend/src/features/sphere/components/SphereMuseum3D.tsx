@@ -21,7 +21,7 @@
  * Entry Portal → Main Hall → Individual Room → Inspection Mode
  */
 
-import { Suspense, useRef, useState, useCallback, useMemo } from 'react'
+import { Suspense, useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { 
   OrbitControls,
@@ -68,6 +68,68 @@ interface DisplayObject {
 interface SphereMuseumProps {
   nodes: Array<{ id: number; posX: number; posY: number; posZ: number; unlockDate: string }>
   reflections: Array<{ id: number; content: string; reflectionType: string; createdAt: string }>
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FADE GROUP - Smooth Portal Transitions
+// Per Design Paradigm: "Portal/door transitions between rooms"
+// ═══════════════════════════════════════════════════════════════════
+
+function FadeGroup({ 
+  isVisible, 
+  children,
+  position = [0, 0, 0],
+  fadeSpeed = 0.05,
+}: { 
+  isVisible: boolean
+  children: React.ReactNode
+  position?: [number, number, number]
+  fadeSpeed?: number
+}) {
+  const groupRef = useRef<THREE.Group>(null)
+  const targetOpacity = isVisible ? 1 : 0
+  const [shouldRender, setShouldRender] = useState(isVisible)
+  
+  useEffect(() => {
+    if (isVisible) {
+      setShouldRender(true)
+    }
+  }, [isVisible])
+  
+  useFrame(() => {
+    if (groupRef.current) {
+      // Traverse all materials and animate opacity
+      groupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material) {
+          const material = child.material as THREE.MeshStandardMaterial
+          if (material.opacity !== undefined) {
+            material.opacity += (targetOpacity - material.opacity) * fadeSpeed
+            material.transparent = true
+            
+            // Only mark for removal when fully faded
+            if (!isVisible && material.opacity < 0.01) {
+              setShouldRender(false)
+            }
+          }
+        }
+      })
+      
+      // Scale-based fade for overall group
+      const currentScale = groupRef.current.scale.x
+      const targetScale = isVisible ? 1 : 0.95
+      groupRef.current.scale.setScalar(
+        currentScale + (targetScale - currentScale) * fadeSpeed
+      )
+    }
+  })
+  
+  if (!shouldRender) return null
+  
+  return (
+    <group ref={groupRef} position={position}>
+      {children}
+    </group>
+  )
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -182,16 +244,15 @@ function EntryPortal({
   const [hovered, setHovered] = useState(false)
   
   useFrame((state) => {
-    if (portalRef.current && isVisible) {
+    if (portalRef.current) {
       // Subtle floating animation
       portalRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.05
     }
   })
   
-  if (!isVisible) return null
-  
   return (
-    <group ref={portalRef} position={[0, 0, 0]}>
+    <FadeGroup isVisible={isVisible}>
+      <group ref={portalRef} position={[0, 0, 0]}>
       {/* Door Frame - Dark Wood */}
       <mesh position={[0, 2.5, 0]}>
         <boxGeometry args={[3.5, 5.5, 0.3]} />
@@ -272,7 +333,8 @@ function EntryPortal({
         castShadow
         target-position={[0, 2.5, 0]}
       />
-    </group>
+      </group>
+    </FadeGroup>
   )
 }
 
@@ -289,10 +351,8 @@ function MainHall({
   onSelectRoom: (roomId: string) => void
   isVisible: boolean 
 }) {
-  if (!isVisible) return null
-  
   return (
-    <group position={[0, 0, -15]}>
+    <FadeGroup isVisible={isVisible} position={[0, 0, -15]}>
       {/* Floor - White Marble */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <circleGeometry args={[12, 8]} />
@@ -379,7 +439,7 @@ function MainHall({
       
       {/* Ambient Light */}
       <ambientLight intensity={0.2} color="#FFF8E7" />
-    </group>
+    </FadeGroup>
   )
 }
 
@@ -491,10 +551,10 @@ function IndividualRoom({
   onInspect: (objectId: string) => void
   isVisible: boolean 
 }) {
-  if (!isVisible || !room) return null
+  if (!room) return null
   
   return (
-    <group position={[0, 0, -30]}>
+    <FadeGroup isVisible={isVisible} position={[0, 0, -30]}>
       {/* Floor - Marble */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[16, 16]} />
@@ -568,7 +628,7 @@ function IndividualRoom({
       
       {/* Dust Particles */}
       <DustParticles />
-    </group>
+    </FadeGroup>
   )
 }
 
@@ -677,7 +737,8 @@ function ObjectPedestal({
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// INSPECTION MODE
+// INSPECTION MODE (3D Rotation/Zoom per Design Paradigm)
+// "Object centered, enlarged. Drag to rotate. Hotspots for additional info."
 // ═══════════════════════════════════════════════════════════════════
 
 function InspectionMode({ 
@@ -689,23 +750,108 @@ function InspectionMode({
   onClose: () => void
   isVisible: boolean 
 }) {
+  const meshRef = useRef<THREE.Group>(null)
+  
+  // Auto-rotate object
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += 0.008
+    }
+  })
+  
   if (!isVisible || !object) return null
+  
+  const objectMeshes: Record<string, React.ReactNode> = {
+    photo: (
+      <group>
+        {/* Ornate Gold Frame */}
+        <mesh>
+          <boxGeometry args={[2.4, 3, 0.2]} />
+          <meshStandardMaterial {...MATERIALS.brushedGold} />
+        </mesh>
+        {/* Photo Area */}
+        <mesh position={[0, 0, 0.12]}>
+          <planeGeometry args={[2, 2.6]} />
+          <meshStandardMaterial color="#333333" />
+        </mesh>
+        {/* Inner Frame */}
+        <mesh position={[0, 0, 0.11]}>
+          <boxGeometry args={[2.1, 2.7, 0.02]} />
+          <meshStandardMaterial color="#1a1a2e" />
+        </mesh>
+      </group>
+    ),
+    badge: (
+      <group>
+        <mesh>
+          <cylinderGeometry args={[0.8, 0.8, 0.15, 64]} />
+          <meshStandardMaterial {...MATERIALS.brushedGold} />
+        </mesh>
+        {/* Star embossing */}
+        <mesh position={[0, 0.08, 0]}>
+          <cylinderGeometry args={[0.5, 0.5, 0.02, 5]} />
+          <meshStandardMaterial color="#FFF8E7" metalness={0.9} roughness={0.1} />
+        </mesh>
+      </group>
+    ),
+    journal: (
+      <group>
+        <mesh>
+          <boxGeometry args={[1.6, 2, 0.3]} />
+          <meshStandardMaterial color="#8B4513" roughness={0.9} />
+        </mesh>
+        {/* Spine */}
+        <mesh position={[-0.85, 0, 0]}>
+          <boxGeometry args={[0.1, 2, 0.35]} />
+          <meshStandardMaterial color="#5D3A1A" roughness={0.95} />
+        </mesh>
+        {/* Gold clasp */}
+        <mesh position={[0.8, 0, 0.16]}>
+          <boxGeometry args={[0.1, 0.3, 0.05]} />
+          <meshStandardMaterial {...MATERIALS.brushedGold} />
+        </mesh>
+      </group>
+    ),
+    trophy: (
+      <group>
+        {/* Cup */}
+        <mesh position={[0, 0.6, 0]}>
+          <cylinderGeometry args={[0.4, 0.3, 1.2, 32]} />
+          <meshStandardMaterial {...MATERIALS.brushedGold} />
+        </mesh>
+        {/* Handles */}
+        <mesh position={[0.5, 0.7, 0]} rotation={[0, 0, Math.PI / 4]}>
+          <torusGeometry args={[0.2, 0.05, 8, 16, Math.PI]} />
+          <meshStandardMaterial {...MATERIALS.brushedGold} />
+        </mesh>
+        <mesh position={[-0.5, 0.7, 0]} rotation={[0, Math.PI, Math.PI / 4]}>
+          <torusGeometry args={[0.2, 0.05, 8, 16, Math.PI]} />
+          <meshStandardMaterial {...MATERIALS.brushedGold} />
+        </mesh>
+        {/* Base */}
+        <mesh position={[0, -0.2, 0]}>
+          <cylinderGeometry args={[0.5, 0.4, 0.4, 32]} />
+          <meshStandardMaterial {...MATERIALS.marble} />
+        </mesh>
+      </group>
+    ),
+  }
   
   return (
     <group position={[0, 2, -5]}>
       {/* Darkened Background */}
       <mesh position={[0, 0, -3]}>
-        <planeGeometry args={[30, 20]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.8} />
+        <planeGeometry args={[50, 40]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.9} />
       </mesh>
       
-      {/* Centered Object with Rotation */}
-      <Float speed={0.5} rotationIntensity={0.5} floatIntensity={0.2}>
-        <mesh scale={3}>
-          <dodecahedronGeometry args={[0.5, 0]} />
-          <meshStandardMaterial {...MATERIALS.brushedGold} />
-        </mesh>
-      </Float>
+      {/* Centered Object with AUTO ROTATION */}
+      <group 
+        ref={meshRef}
+        scale={2.5}
+      >
+        {objectMeshes[object.type] || objectMeshes.badge}
+      </group>
       
       {/* Info Panel */}
       <Html position={[3, 0, 0]}>
@@ -908,12 +1054,21 @@ export function SphereMuseum3D({
             <Noise opacity={0.02} />
           </EffectComposer>
           
-          {/* Controls for Development */}
+          {/* Controls - FREE EXPLORATION per Design Paradigm */}
+          {/* "Full 3D explorable space. User feels 'inside' the experience" */}
           <OrbitControls 
-            enablePan={false} 
-            enableZoom={false}
-            minPolarAngle={Math.PI / 4}
-            maxPolarAngle={Math.PI / 2}
+            enablePan={true}
+            enableZoom={true}
+            enableRotate={true}
+            minDistance={2}
+            maxDistance={30}
+            minPolarAngle={0.1}
+            maxPolarAngle={Math.PI - 0.1}
+            dampingFactor={0.05}
+            rotateSpeed={0.5}
+            zoomSpeed={0.8}
+            panSpeed={0.5}
+            enabled={museumState !== 'inspect'}
           />
         </Suspense>
       </Canvas>
