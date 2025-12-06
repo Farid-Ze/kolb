@@ -136,7 +136,7 @@ export function LandingPage() {
         </LazyScene>
 
         {/* ═══════════════════════════════════════════════════════════
-            SCENE 4: SPHERE (48% - 65%)
+            SCENE 4: SPHERE (48% - 58%)
             Milestone Gallery with constellation visualization.
         ═══════════════════════════════════════════════════════════ */}
         <LazyScene rootMargin="300px" minHeight="200vh" className="cv-auto">
@@ -151,7 +151,22 @@ export function LandingPage() {
         </LazyScene>
 
         {/* ═══════════════════════════════════════════════════════════
-            SCENE 5: TEAMS (65% - 82%)
+            SCENE 5: PHOTO GALLERY (58% - 70%)
+            Journey photos with 3D frames.
+        ═══════════════════════════════════════════════════════════ */}
+        <LazyScene rootMargin="300px" minHeight="180vh" className="cv-auto">
+          <section className="relative h-[180vh]">
+            <div className="sticky top-0 h-screen overflow-hidden">
+              <PhotoGalleryScene 
+                progress={smoothProgress} 
+                reduced={prefersReducedMotion} 
+              />
+            </div>
+          </section>
+        </LazyScene>
+
+        {/* ═══════════════════════════════════════════════════════════
+            SCENE 6: TEAMS (70% - 85%)
             Organizational analytics with scatter plot.
         ═══════════════════════════════════════════════════════════ */}
         <LazyScene rootMargin="300px" minHeight="200vh" className="cv-auto">
