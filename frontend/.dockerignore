@@ -1,9 +1,0 @@
-node_modules
-dist
-coverage
-.git
-.vscode
-.idea
-*.log
-test-results/
-playwright-report/
