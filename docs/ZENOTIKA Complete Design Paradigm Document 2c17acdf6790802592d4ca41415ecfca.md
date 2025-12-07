@@ -1369,7 +1369,7 @@
 │  │                                                                      │  │
 │  │  • Babylon. js instead of Three.js                                   │  │
 │  │  • Motion One instead of GSAP                                       │  │
-│  │  • Svelte/SvelteKit instead of React/Next                          │  │
+│  │  • Svelte (Vite) instead of React/Next                             │  │
 │  │  • CSS-only animations untuk simple cases                          │  │
 │  │  • Web Audio API instead of Howler                                  │  │
 │  │  • Native CSS untuk Dashboard styling                               │  │

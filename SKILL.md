@@ -1,3 +1,4 @@
+---
 name: zenotika-kolb-immersive
 description: |
   Full-stack immersive 3D landing page development for KOLB Assessment Platform. 
@@ -21,6 +22,7 @@ triggers:
   - "Lenis"
   - "smooth scroll"
   - "Svelte"
+  - "Vite"
   - "runes"
   - "$state"
   - "$derived"
@@ -129,16 +131,11 @@ src/
 │   ├── canvas/
 │   │   ├── WebGLCanvas.svelte    # Main 3D canvas
 │   │   └── LoadingScreen.svelte
-│   ├── views/                    # Page Views (Router Targets)
-│   │   ├── HomeView.svelte       # Landing Page (The Scroll Flow)
-│   │   ├── FuturesView.svelte    # Assessment Interface
-│   │   ├── SphereView.svelte     # Interactive Exploration
-│   │   └── InsightsView.svelte   # Results Dashboard
-│   ├── sections/                 # Landing Page Sections
+│   ├── sections/
 │   │   ├── HeroSection.svelte
-│   │   ├── AssessmentIntro.svelte # Kolb grid explanation (Teaser)
+│   │   ├── AssessmentSection.svelte
 │   │   ├── StylesSection.svelte
-│   │   ├── ResultsDemo.svelte     # Radar chart demo
+│   │   ├── ResultsSection.svelte
 │   │   └── CTASection.svelte
 │   └── ui/
 │       ├── HUD.svelte            # Citrix-style data overlay
@@ -838,8 +835,8 @@ function dispose() {
 
 ## 📁 Additional Skill Files
 
-Sesuai dengan best practices Anthropic, file pendukung berada di `../.claude/skills/`:
+Sesuai dengan best practices Anthropic, file pendukung berada di `.claude/skills/`:
 
-- [.claude/skills/webgl-shaders.md](../.claude/skills/webgl-shaders.md) — Shader development
-- [.claude/skills/kolb-api.md](../.claude/skills/kolb-api.md) — KOLB API integration
-- [.claude/skills/svelte-patterns.md](../.claude/skills/svelte-patterns.md) — Svelte 5 patterns
+- [.claude/skills/webgl-shaders.md](.claude/skills/webgl-shaders.md) — Shader development
+- [.claude/skills/kolb-api.md](.claude/skills/kolb-api.md) — KOLB API integration
+- [.claude/skills/svelte-patterns.md](.claude/skills/svelte-patterns.md) — Svelte 5 patterns
