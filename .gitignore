@@ -64,3 +64,5 @@ frontend/dist
 frontend/dist/
 
 python-3.14
+
+.svelte-kit

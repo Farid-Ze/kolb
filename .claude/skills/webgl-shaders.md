@@ -12,8 +12,8 @@ description: |
 
 ```
 src/lib/three/shaders/
-├── brain.vert.glsl      # Brain mesh vertex
-├── brain.frag.glsl      # Brain mesh fragment
+├── logo.vert.glsl       # Logo vertex shader
+├── logo.frag.glsl       # Logo fragment shader
 ├── particle.vert.glsl   # Particle vertex
 ├── particle.frag.glsl   # Particle fragment
 ├── grid.vert.glsl       # Kolb grid vertex
@@ -56,7 +56,7 @@ vec4 permute(vec4 x) { return mod289(((x * 34.0) + 1.0) * x); }
 vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
 
 float snoise(vec3 v) {
-  // Full implementation in brain.vert.glsl
+  // Full implementation in logo.vert.glsl
 }
 ```
 

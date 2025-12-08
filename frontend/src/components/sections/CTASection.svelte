@@ -17,9 +17,9 @@
 
 <section class="cta-section h-[50vh] flex items-center justify-center relative z-10">
     <div class="cta-content text-center opacity-0 scale-90">
-        <h2 class="typo-headline text-white mb-8">Discover Your Learning Style</h2>
+        <h2 class="typo-headline text-white mb-8">BEGIN THE VOYAGE</h2>
         <a href="/assessment" class="btn-primary inline-block">
-            Start Assessment
+            INITIALIZE
             <span class="ml-2">→</span>
         </a>
     </div>

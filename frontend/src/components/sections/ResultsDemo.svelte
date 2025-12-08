@@ -48,27 +48,58 @@
 
 <section class="results-demo" bind:this={container}>
     <div class="content">
-        <h2 class="typo-headline">Interactive Results</h2>
-        <p class="typo-body">Explore how different learning styles manifest in the 3D radar visualization.</p>
+        <span class="typo-label text-neon-cyan mb-4 block">PHASE V // ARCHETYPE</span>
+        <h2 class="typo-headline mb-6">THE FOUR GUARDIANS</h2>
+        <p class="typo-body mb-8">
+            At the eye of the storm, the archetypes manifest. 
+            Who are you among them?
+        </p>
         
-        <div class="controls">
+        <div class="guardians-list grid grid-cols-2 gap-4 mb-8">
+            <div class="guardian-item">
+                <span class="typo-label text-neon-magenta block">THE DIVERGER</span>
+                <span class="typo-mono text-xs text-white/50">Feeling & Watching</span>
+            </div>
+            <div class="guardian-item">
+                <span class="typo-label text-neon-cyan block">THE ASSIMILATOR</span>
+                <span class="typo-mono text-xs text-white/50">Thinking & Watching</span>
+            </div>
+            <div class="guardian-item">
+                <span class="typo-label text-neon-gold block">THE CONVERGER</span>
+                <span class="typo-mono text-xs text-white/50">Thinking & Doing</span>
+            </div>
+            <div class="guardian-item">
+                <span class="typo-label text-ice-highlight block">THE ACCOMMODATOR</span>
+                <span class="typo-mono text-xs text-white/50">Feeling & Doing</span>
+            </div>
+        </div>
+
+        <div class="controls mb-8 opacity-50 hover:opacity-100 transition-opacity">
+            <p class="typo-mono text-xs mb-2">SIMULATION PARAMETERS</p>
             {#each Object.entries(scores) as [key, value]}
-                <div class="control-group">
-                    <label for={key} class="typo-label">{key}</label>
+                <div class="control-group flex items-center gap-4 mb-2">
+                    <label for={key} class="typo-label w-8">{key}</label>
                     <input 
                         type="range" 
                         id={key} 
                         min="12" 
                         max="48" 
                         value={value} 
+                        class="flex-1 accent-neon-cyan"
                         oninput={(e) => updateScore(key as any, parseInt(e.currentTarget.value))}
                     />
-                    <span class="typo-data">{value}</span>
                 </div>
             {/each}
         </div>
 
-        <button class="btn-primary" onclick={randomize}>Randomize Profile</button>
+        <div class="actions flex gap-4">
+            <button class="btn-secondary px-6 py-3 border border-white/20 hover:bg-white/10 text-white typo-mono text-sm" onclick={randomize}>
+                SIMULATE
+            </button>
+            <a href="/assessment" class="btn-primary px-8 py-3 bg-neon-cyan text-black hover:bg-white transition-colors typo-mono text-sm font-bold">
+                [ START ASSESSMENT ]
+            </a>
+        </div>
     </div>
 </section>
 
@@ -125,12 +156,6 @@
             input {
                 flex: 1;
                 accent-color: var(--color-neon-cyan);
-            }
-
-            span {
-                width: 30px;
-                text-align: right;
-                color: var(--color-ice-surface);
             }
         }
 

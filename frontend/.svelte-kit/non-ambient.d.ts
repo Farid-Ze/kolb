@@ -39,6 +39,6 @@ declare module "$app/types" {
 		};
 		Pathname(): "/" | "/assessment" | "/assessment/" | "/insights" | "/insights/" | "/sphere" | "/sphere/";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
-		Asset(): "/assets/models/brain.glb" | "/assets/sphere/node-1.jpg" | "/assets/sphere/node-2.jpg" | "/assets/sphere/node-3.jpg" | "/assets/sphere/node-4.jpg" | "/assets/sphere/node-5.jpg" | "/assets/sphere/node-6.jpg" | "/assets/textures/frost-disturb.jpg" | "/assets/textures/noise.png" | string & {};
+		Asset(): "/assets/models/brain.glb" | "/assets/models/mneme-shards.glb" | "/assets/sphere/node-1.jpg" | "/assets/sphere/node-2.jpg" | "/assets/sphere/node-3.jpg" | "/assets/sphere/node-4.jpg" | "/assets/sphere/node-5.jpg" | "/assets/sphere/node-6.jpg" | "/assets/textures/frost-disturb.jpg" | "/assets/textures/noise.png" | "/assets/textures/zenotika-logo.png" | string & {};
 	}
 }

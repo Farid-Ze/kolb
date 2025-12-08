@@ -7,10 +7,10 @@ function __memo(fn) {
 return {
 	appDir: "_app",
 	appPath: "_app",
-	assets: new Set(["assets/models/brain.glb","assets/sphere/node-1.jpg","assets/sphere/node-2.jpg","assets/sphere/node-3.jpg","assets/sphere/node-4.jpg","assets/sphere/node-5.jpg","assets/sphere/node-6.jpg","assets/textures/frost-disturb.jpg","assets/textures/noise.png"]),
+	assets: new Set(["assets/models/brain.glb","assets/models/mneme-shards.glb","assets/sphere/node-1.jpg","assets/sphere/node-2.jpg","assets/sphere/node-3.jpg","assets/sphere/node-4.jpg","assets/sphere/node-5.jpg","assets/sphere/node-6.jpg","assets/textures/frost-disturb.jpg","assets/textures/noise.png","assets/textures/zenotika-logo.png"]),
 	mimeTypes: {".glb":"model/gltf-binary",".jpg":"image/jpeg",".png":"image/png"},
 	_: {
-		client: {start:"_app/immutable/entry/start.Bf51dM_P.js",app:"_app/immutable/entry/app.WjqDigRR.js",imports:["_app/immutable/entry/start.Bf51dM_P.js","_app/immutable/chunks/C3-VUfyO.js","_app/immutable/chunks/CHt3NiFk.js","_app/immutable/chunks/-UJgOPpP.js","_app/immutable/chunks/CSM8zt1W.js","_app/immutable/entry/app.WjqDigRR.js","_app/immutable/chunks/CHt3NiFk.js","_app/immutable/chunks/F98jMKih.js","_app/immutable/chunks/CjCqAvwF.js","_app/immutable/chunks/CSM8zt1W.js","_app/immutable/chunks/yyq-9x4j.js","_app/immutable/chunks/DeOSRyly.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.CrUvw2MK.js",app:"_app/immutable/entry/app.DUbxjTwc.js",imports:["_app/immutable/entry/start.CrUvw2MK.js","_app/immutable/chunks/CmdDrUbu.js","_app/immutable/chunks/CkpG1Ui7.js","_app/immutable/chunks/D0Urrntl.js","_app/immutable/chunks/E0fAqY1C.js","_app/immutable/entry/app.DUbxjTwc.js","_app/immutable/chunks/CkpG1Ui7.js","_app/immutable/chunks/33f3phWG.js","_app/immutable/chunks/BeueiIU2.js","_app/immutable/chunks/E0fAqY1C.js","_app/immutable/chunks/Cg40V8I9.js","_app/immutable/chunks/DEOOh210.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),

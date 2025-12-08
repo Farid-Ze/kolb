@@ -14,7 +14,7 @@
         // Or strictly follow narrative: Title appears later.
         // Let's keep Title visible but subtle, or maybe it IS the "Identity" phase content.
         
-        masterTimeline.createTextReveal('.hero-title', { delay: 0.2 });
+        masterTimeline.createDecodingText('.hero-title', 'ZENOTIKA × UNIKOM', { delay: 0.2 });
         masterTimeline.createTextReveal('.hero-subtitle', { delay: 0.4 });
     });
 </script>
@@ -26,9 +26,9 @@
             We began with a fragment of a dream.
         </p>
 
-        <!-- Phase 2 Content (Identity) - Initially visible for standard web UX, but could be faded -->
+        <!-- Phase 2 Content (Identity) -->
         <div class="identity-group">
-            <h1 class="hero-title typo-display text-white mb-2">ZENOTIKA</h1>
+            <h1 class="hero-title typo-display text-white mb-2 opacity-0">ZENOTIKA</h1>
             <p class="hero-subtitle typo-mono text-neon-cyan tracking-widest uppercase text-sm">
                 Kolb Assessment Platform
             </p>

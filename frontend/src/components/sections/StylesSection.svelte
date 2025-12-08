@@ -28,23 +28,22 @@
     });
 </script>
 
-<section class="styles-section min-h-screen py-20 px-[10%] relative z-10">
-    <div class="header mb-16">
-        <span class="typo-label text-neon-cyan mb-4 block opacity-0 styles-title">02 // The 9 Styles</span>
-        <h2 class="typo-headline text-white opacity-0 translate-y-10 styles-title">Learning Archetypes</h2>
+<section class="styles-section h-screen flex flex-col items-center justify-center px-[10%] relative z-10 pointer-events-none text-center">
+    <div class="header mb-12">
+        <span class="typo-label text-neon-cyan mb-4 block opacity-0 styles-title">PHASE IV // KOSMOS</span>
+        <h2 class="typo-headline text-white opacity-0 translate-y-10 styles-title text-6xl mb-6">THE RING</h2>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {#each styles as style}
-            <div class="style-card p-6 border border-white/10 bg-black/20 backdrop-blur-sm rounded hover:border-neon-cyan/50 transition-colors opacity-0 translate-y-10">
-                <div class="flex justify-between items-start mb-4">
-                    <h3 class="typo-label text-white text-lg">{style.name}</h3>
-                    <span class="typo-mono text-neon-cyan text-xs border border-neon-cyan/30 px-2 py-1 rounded">{style.code}</span>
-                </div>
-                <p class="typo-body text-sm text-ice-highlight/70">{style.desc}</p>
-            </div>
-        {/each}
+    <div class="philosophy-group flex flex-col gap-4 opacity-0 translate-y-10 styles-title">
+        <p class="typo-display text-white/80 text-2xl tracking-widest">ZEN</p>
+        <p class="typo-display text-white/80 text-2xl tracking-widest">NOVA</p>
+        <p class="typo-display text-white/80 text-2xl tracking-widest">INFORMATIKA</p>
     </div>
+
+    <p class="typo-mono text-xs text-white/40 mt-12 max-w-md opacity-0 translate-y-10 styles-title">
+        From the dust of entropy, a new gravity emerges. 
+        The Monoliths of learning stand as guide stones in the current.
+    </p>
 </section>
 
 <style lang="scss">

@@ -96,19 +96,14 @@ src/
 │   │   ├── CameraController.ts   # Scroll-driven camera system
 │   │   ├── SceneManager.ts       # Scene state management
 │   │   ├── objects/              # 3D Objects
-│   │   │   ├── BrainMesh.ts      # Hero brain visualization
+│   │   │   ├── ZenotikaStrands.ts # Hero particle strands
 │   │   │   ├── KolbGrid.ts       # 3×3 learning styles grid
-│   │   │   ├── NeuronParticles.ts # Hybrid particle system
 │   │   │   └── RadarChart3D.ts   # Results visualization
 │   │   ├── materials/            # Custom Materials
-│   │   │   ├── BrainMaterial.ts  # SSS + frost shader
-│   │   │   ├── GridMaterial.ts   # Neon wireframe
-│   │   │   └── ParticleMaterial.ts
+│   │   │   └── GridMaterial.ts   # Neon wireframe
 │   │   ├── shaders/              # GLSL Shaders
-│   │   │   ├── brain.vert.glsl
-│   │   │   ├── brain.frag.glsl
-│   │   │   ├── particle.vert.glsl
-│   │   │   ├── particle.frag.glsl
+│   │   │   ├── strands.vert.glsl
+│   │   │   ├── strands.frag.glsl
 │   │   │   └── postprocess/
 │   │   │       ├── frost.glsl
 │   │   │       └── chromatic.glsl
@@ -210,23 +205,16 @@ interface CameraKeyframe {
 }
 ```
 
-### 3. Brain Material (igloo.inc Style)
+### 3. Logo Material (igloo.inc Style)
 
 ```typescript
-import { BrainMaterial } from '$lib/three/materials/BrainMaterial';
+import { ZenotikaStrands } from '$lib/three/objects/ZenotikaStrands';
 
-const material = new BrainMaterial({
-  colorDeep: new THREE.Color(0x1A2332),
-  colorSurface: new THREE.Color(0xA8CADF),
-  colorNeon: new THREE.Color(0x00D4FF),
-});
+const strands = new ZenotikaStrands();
+scene.add(strands.points);
 
 // Update in render loop
-material.update(delta, elapsed);
-
-// React to scroll
-material.setScrollProgress(progress);
-material.setScrollVelocity(velocity);
+strands.update(elapsed, scrollProgress, scrollVelocity);
 ```
 
 **Shader Features**:
@@ -702,18 +690,12 @@ const isDebug = import.meta.env.DEV;
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { BrainMaterial } from '$lib/three/materials/BrainMaterial';
+import { ZenotikaStrands } from '$lib/three/objects/ZenotikaStrands';
 
-describe('BrainMaterial', () => {
-  it('should initialize with default colors', () => {
-    const material = new BrainMaterial();
-    expect(material.uniforms.uColorDeep.value).toBeDefined();
-  });
-  
-  it('should update time uniform', () => {
-    const material = new BrainMaterial();
-    material.update(0.016, 1.5);
-    expect(material.uniforms.uTime.value).toBe(1.5);
+describe('ZenotikaStrands', () => {
+  it('should initialize points', () => {
+    const strands = new ZenotikaStrands();
+    expect(strands.points).toBeDefined();
   });
 });
 ```
