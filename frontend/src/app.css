@@ -1,7 +1,0 @@
-@import "tailwindcss";
-@config "../tailwind.config.js";
-
-/* Global styles that might rely on Tailwind */
-body {
-    @apply bg-bg-void text-white;
-}
